@@ -4,9 +4,9 @@ dataset: CD2021
 # 训练参数
 
 batch_size: 16
-warmup_ratio: 0.18
+warmup_ratio: 0.1
 learning_rate: 5e-4
-weight_decay: 1e-5
+weight_decay: 1e-3
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -17,7 +17,7 @@ scheduler_type: hf_cosine
 d_model: 64
 d_rnn: 64
 d_inner: 64
-n_layers: 2
+n_layers: 1
 n_head: 8
 d_k: 16
 d_v: 16
@@ -35,10 +35,10 @@ save_dir: null
 cuda_id: "1"
 
 # 数据与控制参数
-Mc: 5.5
-Mf: 6.0
+Mc: 5.0
+Mf: 6.5
 Twindow: 200
-Tfore: 20
+Tfore: 40
 dt: 10
 context_len: 1
 split_by_time: true
