@@ -254,7 +254,7 @@ def cal2jd(date):
     jd = JDN + (hour - 12) / 24 + minute / 1440 + second / 86400
     return jd
 
-def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=30, dt=30, dMag=0.1, Mag_elaps=[6, 6.5], t_arrary=None):
+def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=30, dt=30, dMag=0.1, Mag_elaps=[6, 6.5], t_arrary=None,L_max=60,context_len=2):
     """
     计算地震特征，包括 b值拟合、最大/平均震级、地震能量、发生时间等统计特征。
 
@@ -336,7 +336,7 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
     for mag_threshold in Mag_elaps:
         features[f"T_elaps{mag_threshold}"] = np.zeros(Nloop)
 
-    num_mag = np.zeros((Nloop, 40))
+    num_mag = np.zeros((Nloop, L_max))
 
     # 遍历每个时间节点
     for i in range(Nloop):
@@ -345,7 +345,7 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
     
         shock_len = len(np.where((jd >= t_now) & (jd < t_now + Tfore) & (mag >= Mf))[0])
         sub_jd, sub_mag= jd[index], mag[index]
-        index_n = np.where((jd >= t_now - 3 * Tfore) & (jd < t_now + 3 * Tfore))[0]
+        index_n = np.where((jd >= t_now - context_len * Tfore) & (jd < t_now + context_len * Tfore))[0]
         Negative = True if (len(index_n) == 0 or np.max(mag[index_n]) < Mf) else False
         # print(i,jd[index_n],mag[index_n],Negative)
         features["shock_len"][i] = shock_len

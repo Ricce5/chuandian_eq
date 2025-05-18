@@ -33,57 +33,80 @@ def step_scheduler(scheduler, event='epoch', val_loss=None):
 
 
 
+def save_checkpoint(path, model, optimizer, scheduler, epoch, best_val_loss):
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
+        'best_val_loss': best_val_loss,
+    }, path)
+    print(f"Checkpoint saved at {path}")
+
+def load_checkpoint(path, model, optimizer, scheduler, device):
+    checkpoint = torch.load(path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    return checkpoint.get('epoch', 0), checkpoint.get('best_val_loss', float('inf'))
 
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
-    
+
     if args.model == "Classifier":
         from .classifier_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")
+
     print(args.model)
-    best_val_loss = float('inf')  
-    best_model_wts = None  
-    os.makedirs(save_dir, exist_ok=True) 
+    os.makedirs(save_dir, exist_ok=True)
 
-    for epoch in range(args.epochs):
-        print(f"Epoch {epoch + 1}\n-------------------------------")
+    checkpoint_path = os.path.join(args.save_dir, f'checkpoint_interrupted_{index}.pth')
+    best_val_loss = float('inf')
+    best_model_wts = None
+    start_epoch = 0
 
-        # 训练模型
-        train_loss, train_metrics = train(train_loader, model, criterion, optimizer,scheduler, device)
+    if os.path.exists(checkpoint_path):
+        print(f"Resuming training from checkpoint: {checkpoint_path}")
+        start_epoch, best_val_loss = load_checkpoint(checkpoint_path, model, optimizer, scheduler, device)
 
-        # 验证模型
-        val_loss, val_metrics = validate(val_loader, model, criterion, device)
+    try:
+        for epoch in range(start_epoch, args.epochs):
+            print(f"Epoch {epoch + 1}\n-------------------------------")
 
-        # 更新学习率调度器
-        step_scheduler(scheduler, event='epoch', val_loss=val_loss)
+            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device)
+            val_loss, val_metrics = validate(val_loader, model, criterion, device)
 
-        if writer:
-            writer.add_scalar("Loss/train", train_loss, epoch)
-            writer.add_scalar("Loss/val", val_loss, epoch)
-            for k, v in train_metrics.items():
-                writer.add_scalar(f"Metric/train/{k}", v, epoch)
-            for k, v in val_metrics.items():
-                writer.add_scalar(f"Metric/val/{k}", v, epoch)
-        # 计算最佳验证损失
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_model_wts = model.state_dict()  # 保存最佳模型的权重
+            step_scheduler(scheduler, event='epoch', val_loss=val_loss)
 
-            # 保存模型参数和超参数
-            save_data = {
-                'model_state_dict': best_model_wts,
-                'val_loss': best_val_loss,
-                'train_metrics': train_metrics,  # 保存训练阶段的指标
-                'val_metrics': val_metrics,      # 保存验证阶段的指标
-                'hyperparameters': vars(args),   # 保存超参数到文件
-            }
+            if writer:
+                writer.add_scalar("Loss/train", train_loss, epoch)
+                writer.add_scalar("Loss/val", val_loss, epoch)
+                for k, v in train_metrics.items():
+                    writer.add_scalar(f"Metric/train/{k}", v, epoch)
+                for k, v in val_metrics.items():
+                    writer.add_scalar(f"Metric/val/{k}", v, epoch)
 
-            file_path = os.path.join(save_dir, f'best_model_{index}.pth') # {model}_{dataset}_ep{epoch}_val{val_loss:.4f}.pth
-            torch.save(save_data, file_path)
-            print(f"New best validation loss: {best_val_loss:.4f}, saving model weights and hyperparameters to {file_path}.")
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_wts = model.state_dict()
 
-    # 返回最佳验证损失和验证阶段的指标
+                save_data = {
+                    'model_state_dict': best_model_wts,
+                    'val_loss': best_val_loss,
+                    'train_metrics': train_metrics,
+                    'val_metrics': val_metrics,
+                    'hyperparameters': vars(args),
+                }
+
+                best_model_path = os.path.join(save_dir, f'best_model_{index}.pth')
+                torch.save(save_data, best_model_path)
+                print(f"New best validation loss: {best_val_loss:.4f}, saved to {best_model_path}")
+
+    except KeyboardInterrupt:
+        print("Training interrupted. Saving current state...")
+        save_checkpoint(checkpoint_path, model, optimizer, scheduler, epoch, best_val_loss)
+
     return best_val_loss, {
         'train_metrics': train_metrics,
         'val_metrics': val_metrics

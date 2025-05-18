@@ -14,7 +14,7 @@ plt.rcParams['axes.unicode_minus'] = False
 from scipy.spatial.distance import cdist
 from torch.utils.data import WeightedRandomSampler,Subset
 from src.data.data_utils import get_split_indices
-
+from torch.utils.data import WeightedRandomSampler
 
 
 def normalize_df(df):
@@ -181,18 +181,33 @@ def count_pos_neg(subset):
     return pos, neg
 
 
-def get_dataloader(dataset, batch_size,shuffle=True):
-    ds = dataset
-    pos_count, neg_count = count_pos_neg(ds)
+
+
+
+def get_balanced_sampler(dataset):
+    labels = [label for _, label in dataset]  # 假设 dataset[i] = (data, label)
+    class_counts = torch.bincount(torch.tensor(labels))
+    class_weights = 1.0 / class_counts.float()
+    sample_weights = [class_weights[label] for label in labels]
+    sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
+    return sampler
+
+def get_dataloader(dataset, batch_size, shuffle=True, sampler=None):
+    pos_count, neg_count = count_pos_neg(dataset)
     print(f"Positive samples: {pos_count}, Negative samples: {neg_count}")
-    print(f"Total samples: {len(ds)}, Positive ratio: {pos_count / len(ds):.2f}, Negative ratio: {neg_count / len(ds):.2f}")
+    print(f"Total samples: {len(dataset)}, Positive ratio: {pos_count / len(dataset):.2f}, Negative ratio: {neg_count / len(dataset):.2f}")
+
+    if sampler is not None:
+        shuffle = False  # 避免与 sampler 冲突
+
     dl = torch.utils.data.DataLoader(
-        ds,
+        dataset,
         num_workers=8,
-         pin_memory=True,
+        pin_memory=True,
         batch_size=batch_size,
         collate_fn=collate_fn,
-        shuffle=shuffle
+        shuffle=shuffle,
+        sampler=sampler
     )
     return dl
 
