@@ -103,6 +103,18 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                 torch.save(save_data, best_model_path)
                 print(f"New best validation loss: {best_val_loss:.4f}, saved to {best_model_path}")
 
+            last_model_path = os.path.join(save_dir, f'last_model_{index}.pth')
+            save_data_last = {
+                'model_state_dict': model.state_dict(),
+                'val_loss': val_loss,
+                'train_metrics': train_metrics,
+                'val_metrics': val_metrics,
+                'hyperparameters': vars(args),
+            }
+
+            torch.save(save_data_last, last_model_path)
+            print(f"Last model at epoch {epoch+1} saved to {last_model_path}")
+
     except KeyboardInterrupt:
         print("Training interrupted. Saving current state...")
         save_checkpoint(checkpoint_path, model, optimizer, scheduler, epoch, best_val_loss)

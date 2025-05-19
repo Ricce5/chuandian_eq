@@ -213,7 +213,9 @@ def get_non_pad_mask(seq):
 
 def remove_all_zero_rows(b_x, non_pad_mask, lengths):
     original_shape = b_x.shape
-    rows_mask = torch.nonzero(lengths).squeeze()
+    rows_mask = torch.nonzero(lengths).squeeze(-1)
+    if rows_mask.numel() == 0:
+        raise ValueError("All rows are zero-length, nothing to process.")  # 检查是否有有效行
     valid_lengths = lengths[rows_mask]
     valid_rows = b_x[rows_mask]  # 仅保留有效的行
     valid_non_pad_mask = non_pad_mask[rows_mask]  # 仅保留有效行的 non_pad_mask
@@ -233,7 +235,6 @@ class RNN_layers(nn.Module):
 
     def forward(self, data, non_pad_mask, pad_seq_len=True):
         lengths = non_pad_mask.squeeze(2).long().sum(1).cpu()
-
         # 移除全0行
         valid_data, valid_non_pad_mask, valid_lengths, rows_mask, original_shape = remove_all_zero_rows(
             data, non_pad_mask, lengths
@@ -248,7 +249,6 @@ class RNN_layers(nn.Module):
         ).to(data.device)
         restored_out[rows_mask] = out
 
-        
         return restored_out
 
     def rnn_layer_forward(self, data, non_pad_mask, lengths, original_shape, pad_seq_len=True):
