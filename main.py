@@ -131,7 +131,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, base_path, device)
