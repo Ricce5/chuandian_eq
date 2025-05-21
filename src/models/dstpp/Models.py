@@ -256,7 +256,14 @@ class RNN_layers(nn.Module):
 
         # 打包有效序列
         packed = nn.utils.rnn.pack_padded_sequence(data, lengths, batch_first=True, enforce_sorted=False)
-        packed_out = self.rnn(packed)[0]
+        ##
+        batch_size = data.size(0)
+        device = data.device
+        h0 = torch.zeros(1, batch_size, self.rnn.hidden_size, device=device)
+        c0 = torch.zeros(1, batch_size, self.rnn.hidden_size, device=device)
+        #
+        packed_out, _ = self.rnn(packed, (h0, c0))
+ 
 
         # 解包序列，是否 pad 到原始长度
         if pad_seq_len:
