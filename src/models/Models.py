@@ -41,7 +41,7 @@ class Classifier(nn.Module):
         enc_last, _ = self._process_transformer_out(non_pad_mask, enc_out, x)
 
         out = self.mlp(enc_last)
-        out = torch.sigmoid(out)
+        # out = torch.sigmoid(out) # 使用bce with logits
         return out.squeeze(1)
     
     @staticmethod

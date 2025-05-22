@@ -49,21 +49,24 @@ class MLP(nn.Module):
         self.output_size = output_size
         self.input_size = input_size
         self.hidden_layers_width = hidden_layers_width
-        self.dropout_rate = dropout_rate  # Dropout 率，默认 0.5
+        self.dropout_rate = dropout_rate
 
         layers: List[nn.Module] = []
         self.layers_width = [self.input_size] + self.hidden_layers_width
 
         for i in range(len(self.layers_width) - 1):
-            layers += [nn.Linear(self.layers_width[i], self.layers_width[i + 1]), nn.ReLU()]
-            layers += [nn.Dropout(self.dropout_rate)]
+            layers += [
+                nn.Linear(self.layers_width[i], self.layers_width[i + 1]),
+                nn.LayerNorm(self.layers_width[i + 1]),
+                nn.GELU(),
+                nn.Dropout(self.dropout_rate)
+            ]
 
         layers += [nn.Linear(self.layers_width[-1], self.output_size)]
         self.fc = nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.fc(x)
-        return x
+        return self.fc(x)
 
 class GCN(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels=1, num_layers=4, jk_mode='cat', dropout=0.6):
