@@ -1,5 +1,5 @@
 # 模型设置
-model: Classifier
+model: Classifier_STM
 dataset: CD2021
 # 训练参数
 
@@ -17,7 +17,7 @@ scheduler_type: hf_cosine
 d_model: 64
 d_rnn: 64
 d_inner: 64
-n_layers: 2
+n_layers: 4
 n_head: 8
 d_k: 16
 d_v: 16
@@ -29,7 +29,7 @@ mlp_dropout: 0.3
 mlp_hdw: [256, 128, 64]
 
 # 其他参数
-dim: 3
+loc_dim: 2
 epochs: 300
 save_dir: null
 cuda_id: "1"

@@ -26,6 +26,12 @@ def get_model_and_data(args, base_path, device):
             "model_class": "Classifier",
             "data_func": "prepare_data_classifier",
         },
+        "Classifier_STM": {
+            "train_step_module": "src.train.classifier_train_step",
+            "model_class": "Classifier_STM",
+            "data_func": "prepare_data_classifier",
+        },
+
     }
     if model_type not in supported_models:
         raise ValueError(f"Unsupported model type: {model_type}. Supported models are: {', '.join(supported_models.keys())}.")
@@ -79,7 +85,7 @@ def objective(trial,args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, choices=['train', 'test','optuna'], default='train', help='Run mode: train or test')
-    parser.add_argument('--model', type=str, choices=['Classifier'], required=True, help='Model name')
+    parser.add_argument('--model', type=str, choices=['Classifier','Classifier_STM'], required=True, help='Model name')
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')

@@ -4,13 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import src.models.dstpp.Constants as Constants
-from .Modules import ScaledDotProductAttention
-
+from .Modules import ScaledDotProductAttention, FullAttention
+from math import sqrt
 
 class MultiHeadAttention(nn.Module):
-    """ Multi-Head Attention module """
+    """ Multi-Head Attention module supporting scaled_dot, full, and prob attention """
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, normalize_before=True):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, normalize_before=True, attn_type='prob'):
         super().__init__()
 
         self.normalize_before = normalize_before
@@ -21,48 +21,64 @@ class MultiHeadAttention(nn.Module):
         self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
         self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
         self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
-        nn.init.xavier_uniform_(self.w_qs.weight)
-        nn.init.xavier_uniform_(self.w_ks.weight)
-        nn.init.xavier_uniform_(self.w_vs.weight)
-
-        self.fc = nn.Linear(d_v * n_head, d_model)
-        nn.init.xavier_uniform_(self.fc.weight)
-
-        self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5, attn_dropout=dropout)
+        self.fc = nn.Linear(n_head * d_v, d_model)
 
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
 
+        if attn_type == 'full':
+            from .Modules import FullAttention  
+            self.attention = FullAttention(
+                scale=1.0 / sqrt(d_k),
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'scaled_dot':
+            from .Modules import ScaledDotProductMultiHeadAttention 
+            self.attention = ScaledDotProductMultiHeadAttention(
+                scale=d_k ** 0.5,
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'prob':
+            from .Modules import ProbAttention
+            self.attention = ProbAttention(
+                scale=d_k ** 0.5,
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        else:
+            raise ValueError(f"Unsupported attn_type: {attn_type}")
+
     def forward(self, q, k, v, mask=None):
-        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
-        sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
+        B, L_q, _ = q.size()
+        L_k, L_v = k.size(1), v.size(1)
+        n_head, d_k, d_v = self.n_head, self.d_k, self.d_v
 
         residual = q
         if self.normalize_before:
             q = self.layer_norm(q)
 
-        # Pass through the pre-attention projection: b x lq x (n*dv)
-        # Separate different heads: b x lq x n x dv
-        q = self.w_qs(q).view(sz_b, len_q, n_head, d_k)
-        k = self.w_ks(k).view(sz_b, len_k, n_head, d_k)
-        v = self.w_vs(v).view(sz_b, len_v, n_head, d_v)
+        # Linear projection + reshape: [B, L, n_head, D]
+        q = self.w_qs(q).view(B, L_q, n_head, d_k)
+        k = self.w_ks(k).view(B, L_k, n_head, d_k)
+        v = self.w_vs(v).view(B, L_v, n_head, d_v)
 
-        # Transpose for attention dot product: b x n x lq x dv
-        q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
+        # Prepare attn_mask: [B, H, L, S]
+        if mask is not None and mask.dim() == 3:
+            mask = mask.unsqueeze(1)  # [B, 1, L, L]
 
-        if mask is not None:
-            mask = mask.unsqueeze(1)  # For head axis broadcasting.
+        # Apply attention (compatible with both full and scaled_dot)
+        output, attn = self.attention(q, k, v, attn_mask=mask)
 
-        output, attn = self.attention(q, k, v, mask=mask)
-
-        # Transpose to move the head dimension back: b x lq x n x dv
-        # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
-        output = output.transpose(1, 2).contiguous().view(sz_b, len_q, -1)
+        # Combine heads: [B, L, n_head * D]
+        output = output.contiguous().view(B, L_q, -1)
         output = self.dropout(self.fc(output))
         output += residual
 
         if not self.normalize_before:
             output = self.layer_norm(output)
+
         return output, attn
 
 
@@ -94,3 +110,5 @@ class PositionwiseFeedForward(nn.Module):
         if not self.normalize_before:
             x = self.layer_norm(x)
         return x
+
+

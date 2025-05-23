@@ -205,6 +205,115 @@ class Encoder_ST(nn.Module):
         
         return enc_output, enc_output_temporal, enc_output_loc
     
+
+
+
+
+class Encoder_STM(nn.Module):
+
+    def __init__(self, d_model, d_inner, n_layers, n_head, d_k, d_v, dropout, device, loc_dim):
+        super().__init__()
+
+        self.d_model = d_model
+        self.loc_dim = loc_dim
+
+        # 时间编码的位置向量
+        self.position_vec = torch.tensor(
+            [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],
+            device=device)
+
+        # 时间嵌入
+        self.event_emb_temporal = nn.Sequential(
+            nn.Linear(1, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+        )
+
+        # 空间嵌入
+        self.event_emb_loc = nn.Sequential(
+            nn.Linear(loc_dim, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+        )
+
+        # 震级嵌入
+        self.event_emb_magnitude = nn.Sequential(
+            nn.Linear(1, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+        )
+
+        # 编码层
+        self.layer_stack = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            for _ in range(n_layers)])
+        self.layer_stack_loc = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            for _ in range(n_layers)])
+        self.layer_stack_temporal = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            for _ in range(n_layers)])
+        self.layer_stack_mag = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            for _ in range(n_layers)])
+
+    def temporal_enc(self, time, non_pad_mask):
+        self.position_vec = self.position_vec.to(time)
+        result = time.unsqueeze(-1) / self.position_vec
+        result[:, :, 0::2] = torch.sin(result[:, :, 0::2])
+        result[:, :, 1::2] = torch.cos(result[:, :, 1::2])
+        return result * non_pad_mask
+
+    def forward(self, event_loc, event_time, event_magnitude, non_pad_mask):
+        # 注意力掩码
+        slf_attn_mask_subseq = get_subsequent_mask(event_loc, dim=self.loc_dim)
+        slf_attn_mask_keypad = get_attn_key_pad_mask(seq_k=event_loc, seq_q=event_loc)
+        slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
+        slf_attn_mask = slf_attn_mask[:, :, :, 0]
+
+        # 特征嵌入
+        enc_output_temporal = self.temporal_enc(event_time, non_pad_mask)
+        enc_output_loc = self.event_emb_loc(event_loc)
+        enc_output_mag = self.event_emb_magnitude(event_magnitude.unsqueeze(-1))
+
+        # 融合后嵌入
+        enc_output = enc_output_temporal + enc_output_loc + enc_output_mag
+
+        # 编码器层处理
+        for index in range(len(self.layer_stack)):
+            enc_output_loc, _ = self.layer_stack_loc[index](
+                enc_output_loc, non_pad_mask=non_pad_mask, slf_attn_mask=slf_attn_mask)
+
+            enc_output_temporal, _ = self.layer_stack_temporal[index](
+                enc_output_temporal, non_pad_mask=non_pad_mask, slf_attn_mask=slf_attn_mask)
+
+            enc_output_mag, _ = self.layer_stack_mag[index](
+                enc_output_mag, non_pad_mask=non_pad_mask, slf_attn_mask=slf_attn_mask)
+
+            enc_output, _ = self.layer_stack[index](
+                enc_output, non_pad_mask=non_pad_mask, slf_attn_mask=slf_attn_mask)
+
+        return enc_output, enc_output_temporal, enc_output_loc, enc_output_mag
+
+
+
+
+
+
+
+
 def get_non_pad_mask(seq):
     """ Get the non-padding positions. """
     assert seq.dim() == 2  # 确保 seq 是二维张量
@@ -374,4 +483,74 @@ class Transformer_ST(nn.Module):
 
         enc_output_all = torch.cat((enc_output_temporal, enc_output_loc, enc_output),dim=-1)
         # 输出的特征维数为d_mole*3
+        return enc_output_all, non_pad_mask
+
+
+class Transformer_STM(nn.Module):
+    """一个融合空间、时间和震级信息的序列到序列模型，带有注意力机制"""
+
+    def __init__(
+            self, d_model=256, d_rnn=128, d_inner=1024,
+            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,
+            device=None, loc_dim=2):
+        super().__init__()
+
+        # 使用增强后的编码器
+        self.encoder = Encoder_STM(
+            d_model=d_model,
+            d_inner=d_inner,
+            n_layers=n_layers,
+            n_head=n_head,
+            d_k=d_k,
+            d_v=d_v,
+            dropout=dropout,
+            device=device,
+            loc_dim=loc_dim
+        )
+
+        # 可学习参数
+        self.alpha = nn.Parameter(torch.tensor(-0.1))
+        self.beta = nn.Parameter(torch.tensor(1.0))
+
+        # RNN层分别处理三种特征编码
+        self.rnn = RNN_layers(d_model, d_rnn)
+        self.rnn_temporal = RNN_layers(d_model, d_rnn)
+        self.rnn_spatial = RNN_layers(d_model, d_rnn)
+        self.rnn_magnitude = RNN_layers(d_model, d_rnn)
+
+    def forward(self, event_loc, event_time, event_magnitude):
+        """
+        输入:
+            event_loc:       (batch, seq_len, loc_dim)
+            event_time:      (batch, seq_len)
+            event_magnitude: (batch, seq_len)
+        输出:
+            enc_output_all:  (batch, seq_len, d_rnn * 4)
+            non_pad_mask:    (batch, seq_len, 1)
+        """
+
+        non_pad_mask = get_non_pad_mask(event_time)
+
+        # 编码器返回四个向量：融合的编码 + 各自的子编码
+        enc_output, enc_output_temporal, enc_output_loc, enc_output_mag = self.encoder(
+            event_loc, event_time, event_magnitude, non_pad_mask
+        )
+
+        # 三类特征应有差异
+        assert (enc_output != enc_output_temporal).any() & \
+               (enc_output != enc_output_loc).any() & \
+               (enc_output != enc_output_mag).any()
+
+        # RNN 层处理
+        enc_output = self.rnn(enc_output, non_pad_mask)
+        enc_output_temporal = self.rnn_temporal(enc_output_temporal, non_pad_mask)
+        enc_output_loc = self.rnn_spatial(enc_output_loc, non_pad_mask)
+        enc_output_mag = self.rnn_magnitude(enc_output_mag, non_pad_mask)
+
+        # 拼接最终特征输出
+        enc_output_all = torch.cat(
+            (enc_output_temporal, enc_output_loc, enc_output_mag, enc_output),
+            dim=-1
+        )  # 输出维度: batch * seq_len * (d_rnn * 4)
+
         return enc_output_all, non_pad_mask
