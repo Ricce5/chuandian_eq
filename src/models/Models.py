@@ -21,7 +21,8 @@ class Classifier(nn.Module):
             dropout=args.t_dropout,
             device=device,
             loc_dim=args.dim,
-            CosSin=True
+            CosSin=True,
+            attn_type=args.attn_type,
         ).to(self.device)
 
         self.mlp = MLP(
@@ -86,7 +87,8 @@ class Classifier_STM(nn.Module):
             d_v=args.d_v,
             dropout=args.t_dropout,
             device=device,
-            loc_dim=args.loc_dim
+            loc_dim=args.loc_dim,
+            attn_type=args.attn_type,
         ).to(self.device)
 
         # MLP 输出分类结果

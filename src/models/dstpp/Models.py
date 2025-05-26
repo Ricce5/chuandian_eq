@@ -41,7 +41,7 @@ class Encoder(nn.Module):
 
     def __init__(
             self, d_model, d_inner,
-            n_layers, n_head, d_k, d_v, dropout,device, loc_dim):
+            n_layers, n_head, d_k, d_v, dropout,device,attn_type, loc_dim):
         super().__init__()
 
         self.d_model = d_model
@@ -64,11 +64,11 @@ class Encoder(nn.Module):
         )
 
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,attn_type=attn_type, normalize_before=False)
             for _ in range(n_layers)])
 
         self.layer_stack_temporal = nn.ModuleList([   # list改为List
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,attn_type=attn_type, normalize_before=False)
             for _ in range(n_layers)])
 
     def temporal_enc(self, time, non_pad_mask):
@@ -113,7 +113,7 @@ class Encoder_ST(nn.Module):
 
     def __init__(
             self, d_model, d_inner,
-            n_layers, n_head, d_k, d_v, dropout,device, loc_dim,CosSin = False):
+            n_layers, n_head, d_k, d_v, dropout,device, loc_dim,attn_type,CosSin = False):
         super().__init__()
 
         self.d_model = d_model
@@ -146,15 +146,15 @@ class Encoder_ST(nn.Module):
         )
 
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type=attn_type,normalize_before=False)
             for _ in range(n_layers)])
 
         self.layer_stack_loc = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type=attn_type, normalize_before=False)
             for _ in range(n_layers)])
 
         self.layer_stack_temporal = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type=attn_type, normalize_before=False)
             for _ in range(n_layers)])
 
     def temporal_enc(self, time, non_pad_mask):
@@ -211,7 +211,7 @@ class Encoder_ST(nn.Module):
 
 class Encoder_STM(nn.Module):
 
-    def __init__(self, d_model, d_inner, n_layers, n_head, d_k, d_v, dropout, device, loc_dim):
+    def __init__(self, d_model, d_inner, n_layers, n_head, d_k, d_v, dropout, device, loc_dim, attn_type):
         super().__init__()
 
         self.d_model = d_model
@@ -257,16 +257,16 @@ class Encoder_STM(nn.Module):
 
         # 编码层
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,attn_type=attn_type, normalize_before=False)
             for _ in range(n_layers)])
         self.layer_stack_loc = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type= attn_type, normalize_before=False)
             for _ in range(n_layers)])
         self.layer_stack_temporal = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type= attn_type, normalize_before=False)
             for _ in range(n_layers)])
         self.layer_stack_mag = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, normalize_before=False)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type= attn_type, normalize_before=False)
             for _ in range(n_layers)])
 
     def temporal_enc(self, time, non_pad_mask):
@@ -390,7 +390,7 @@ class Transformer(nn.Module):
 
     def __init__(
             self, d_model=256, d_rnn=128, d_inner=1024,
-            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,device=None,loc_dim=2):
+            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,device=None,loc_dim=2, attn_type= 'full'):
         super().__init__()
 
         self.encoder = Encoder(
@@ -402,7 +402,8 @@ class Transformer(nn.Module):
             d_v=d_v,
             dropout=dropout,
             device=device,
-            loc_dim = loc_dim
+            loc_dim = loc_dim,
+            attn_type=attn_type
         )
 
         # parameter for the weight of time difference
@@ -435,7 +436,7 @@ class Transformer_ST(nn.Module):
 
     def __init__(
             self, d_model=256, d_rnn=128, d_inner=1024,
-            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,device=None,loc_dim=2,CosSin=False):
+            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,device=None,loc_dim=2,CosSin=False,attn_type='full'):
         super().__init__()
 
         self.encoder = Encoder_ST(
@@ -448,7 +449,8 @@ class Transformer_ST(nn.Module):
             dropout=dropout,
             device=device,
             loc_dim = loc_dim,
-            CosSin = CosSin
+            CosSin = CosSin,
+            attn_type=attn_type
         )
 
         # parameter for the weight of time difference
@@ -492,7 +494,7 @@ class Transformer_STM(nn.Module):
     def __init__(
             self, d_model=256, d_rnn=128, d_inner=1024,
             n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,
-            device=None, loc_dim=2):
+            device=None, loc_dim=2,attn_type='full'):
         super().__init__()
 
         # 使用增强后的编码器
@@ -505,7 +507,8 @@ class Transformer_STM(nn.Module):
             d_v=d_v,
             dropout=dropout,
             device=device,
-            loc_dim=loc_dim
+            loc_dim=loc_dim,
+            attn_type=attn_type
         )
 
         # 可学习参数

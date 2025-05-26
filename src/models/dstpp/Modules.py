@@ -76,11 +76,21 @@ class FullAttention(nn.Module):
             if attn_mask is None:
                 attn_mask = TriangularCausalMask(B, L, device=queries.device).mask
 
-            scores.masked_fill_(attn_mask, -np.inf)
+            scores.masked_fill_(attn_mask, -1e-9)
 
         A = self.dropout(torch.softmax(scale * scores, dim=-1))
         V = torch.einsum("bhls,bshd->blhd", A, values)
         
+
+        if torch.isnan(scores).any():
+            print("NaN in scores!")
+
+        if torch.isnan(A).any():
+            print("NaN in attention weights!")
+
+        if torch.isnan(V).any():
+            print("NaN in output!")
+
         if self.output_attention:
             return (V.contiguous(), A)
         else:
@@ -151,7 +161,7 @@ class ProbAttention(nn.Module):
             else:
                 attn_mask = prob_mask
 
-            scores.masked_fill_(attn_mask, -np.inf)
+            scores.masked_fill_(attn_mask, -1e-9)
 
         attn = torch.softmax(scores, dim=-1)
 
@@ -199,3 +209,7 @@ class ProbAttention(nn.Module):
         context, attn = self._update_context(context, values, scores_top, index, L_Q, attn_mask)
         
         return context.transpose(2,1).contiguous(), attn
+    
+
+
+

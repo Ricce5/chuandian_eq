@@ -6,10 +6,10 @@ from .SubLayers import MultiHeadAttention, PositionwiseFeedForward
 class EncoderLayer(nn.Module):
     """ Compose with two layers """
     # non_pad_mask 是一个掩码张量，用于确保填充位置不会影响计算
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, normalize_before=True):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v,attn_type, dropout=0.1, normalize_before=True):
         super(EncoderLayer, self).__init__()
         self.slf_attn = MultiHeadAttention(
-            n_head, d_model, d_k, d_v, dropout=dropout, normalize_before=normalize_before)
+            n_head, d_model, d_k, d_v, dropout=dropout, normalize_before=normalize_before, attn_type=attn_type)
         self.pos_ffn = PositionwiseFeedForward(
             d_model, d_inner, dropout=dropout, normalize_before=normalize_before)
 

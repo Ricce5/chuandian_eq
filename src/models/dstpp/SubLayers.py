@@ -10,7 +10,7 @@ from math import sqrt
 class MultiHeadAttention(nn.Module):
     """ Multi-Head Attention module supporting scaled_dot, full, and prob attention """
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, normalize_before=True, attn_type='prob'):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, normalize_before=True, attn_type='full'):
         super().__init__()
 
         self.normalize_before = normalize_before
