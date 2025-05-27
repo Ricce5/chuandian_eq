@@ -151,3 +151,6 @@ model.transformer.rnn_spatial.rnn.register_forward_hook(print_rnn_input("rnn_spa
 with torch.no_grad():
     output = model(x)
 # %%
+from flash_attn.modules.mha import FlashSelfAttention
+
+# %%
