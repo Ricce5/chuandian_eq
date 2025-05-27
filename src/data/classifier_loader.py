@@ -120,7 +120,7 @@ class EventDataset(torch.utils.data.Dataset):
 
         self.samples = []
         self.targets = []
-   
+        self.lengths = []
 
         future = array_dict["future"]
         context = array_dict["context"]
@@ -134,8 +134,14 @@ class EventDataset(torch.utils.data.Dataset):
 
                 self.samples.append(history_data)
                 self.targets.append(target_val)
+                self.lengths.append(len(history_data[0]))
 
-               
+        if self.lengths:
+            min_len = min(self.lengths)
+            max_len = max(self.lengths)
+            avg_len = sum(self.lengths) / len(self.lengths)
+            print(f"历史序列长度范围 - 最小: {min_len}, 最大: {max_len}, 平均: {avg_len:.2f}")
+                
 
     def __len__(self):
         return len(self.samples)
@@ -261,3 +267,14 @@ def split_data(samples_list, array_dict, test_size=0.1, val_size=0.1, random_sta
     test_samples, test_dict = extract_subset(test_idx)
 
     return (train_samples, train_dict), (val_samples, val_dict), (test_samples, test_dict)
+
+def get_sequence_length_stats(array_dict):
+    history_times = array_dict["history"]["t"]
+    lengths = [len(seq) for seq in history_times]
+
+    if not lengths:
+        print("没有可用的序列")
+        return
+
+    print(f"序列长度 - 最小值: {min(lengths)}, 最大值: {max(lengths)}, 平均值: {sum(lengths)/len(lengths):.2f}")
+    return lengths

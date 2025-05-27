@@ -3,6 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .masking import TriangularCausalMask, ProbMask
+from flash_attn.flash_attn_interface import flash_attn_func
+from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
+from flash_attn.bert_padding import unpad_input, pad_input
 from  math import sqrt
 
 
@@ -212,4 +215,59 @@ class ProbAttention(nn.Module):
     
 
 
+class FlashAttentionWrapper(nn.Module):
+    def __init__(self, attn_dropout=0.1, causal=True, output_attention=False):
+        super().__init__()
+        self.dropout = attn_dropout
+        self.causal = causal
+        self.output_attention = output_attention
 
+    def forward(self, q, k, v, padding_mask=None, attn_mask=None):
+        # 没有使用 attn_mask，因为 FlashAttention 不支持
+        """
+        Args:
+            q, k, v: [B, L, H, D]
+            padding_mask: [B, L] where 1=True means valid, 0=False means padding
+        Returns:
+            out: [B, L, H, D]
+        """
+        B, L, H, D = q.shape
+        device = q.device
+
+        if padding_mask is None:
+            # padding_mask = torch.ones((B, L), dtype=torch.bool, device=device)
+            padding_mask = (k.abs().sum(dim=(-1, -2)) != 0)  # [B, L], bool
+
+        # Ensure float16 for FlashAttention
+        q = q.to(torch.float16)
+        k = k.to(torch.float16)
+        v = v.to(torch.float16)
+
+        # Use custom unpad_input: returns 5 values
+        q_unpad, indices, cu_seqlens, max_seqlen, _ = unpad_input(q, padding_mask)
+        k_unpad, _, _, _, _ = unpad_input(k, padding_mask)
+        v_unpad, _, _, _, _ = unpad_input(v, padding_mask)
+
+        # Stack QKV into shape [total, 3, H, D]
+        qkv = torch.stack([q_unpad, k_unpad, v_unpad], dim=1)  # [total, 3, H, D]
+
+        # Call varlen FlashAttention
+        out_unpad = flash_attn_varlen_qkvpacked_func(
+            qkv,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=max_seqlen,
+            dropout_p=self.dropout,
+            softmax_scale=None,
+            causal=self.causal,
+            window_size=(-1, -1),
+            softcap=0.0,
+            alibi_slopes=None,
+            deterministic=False,
+            return_attn_probs=False
+        )
+
+        # Recover [B, L, H, D]
+        out = pad_input(out_unpad, indices, B, L)
+        out = out.to(torch.float32)
+
+        return (out, None) 

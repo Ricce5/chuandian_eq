@@ -47,6 +47,12 @@ class MultiHeadAttention(nn.Module):
                 attn_dropout=dropout,
                 output_attention=True
             )
+        elif attn_type == 'flash':
+            from .Modules import FlashAttentionWrapper
+            self.attention = FlashAttentionWrapper(
+                attn_dropout=dropout,
+                output_attention=True
+            )
         else:
             raise ValueError(f"Unsupported attn_type: {attn_type}")
 

@@ -5,25 +5,52 @@ from scipy.stats import binom
 from tqdm import tqdm
 import os
 
-def compute_metrics(targets, preds, threshold=0.5):
+def compute_metrics(targets, preds, threshold=None, optimize_metric="f1"):
     preds = np.array(preds)
     targets = np.array(targets)
 
-    # 二值化预测结果
-    preds_bin = (preds > threshold).astype(int)
+    # 自动选阈值（默认基于 F1）
+    if threshold is None:
+        fpr, tpr, thresholds = roc_curve(targets, preds)
+        best_thresh = 0.5
+        best_score = -1
 
-    # 基础指标
-    precision = precision_score(targets, preds_bin)
-    recall = recall_score(targets, preds_bin)
-    f1 = f1_score(targets, preds_bin)
+        for th in thresholds:
+            preds_bin = (preds > th).astype(int)
+            if optimize_metric == "f1":
+                score = f1_score(targets, preds_bin, zero_division=0)
+            elif optimize_metric == "precision":
+                score = precision_score(targets, preds_bin, zero_division=0)
+            elif optimize_metric == "recall":
+                score = recall_score(targets, preds_bin, zero_division=0)
+            elif optimize_metric == "youden":
+                TP = np.sum((preds_bin == 1) & (targets == 1))
+                FP = np.sum((preds_bin == 1) & (targets == 0))
+                FN = np.sum((preds_bin == 0) & (targets == 1))
+                TN = np.sum((preds_bin == 0) & (targets == 0))
+                TPR = TP / (TP + FN) if (TP + FN) > 0 else 0
+                FPR = FP / (FP + TN) if (FP + TN) > 0 else 0
+                score = TPR - FPR
+            else:
+                raise ValueError(f"Unknown optimize_metric: {optimize_metric}")
+
+            if score > best_score:
+                best_score = score
+                best_thresh = th
+
+        threshold = best_thresh
+
+    # 应用最终 threshold 进行评估
+    preds_bin = (preds > threshold).astype(int)
+    precision = precision_score(targets, preds_bin, zero_division=0)
+    recall = recall_score(targets, preds_bin, zero_division=0)
+    f1 = f1_score(targets, preds_bin, zero_division=0)
     auc = roc_auc_score(targets, preds)
 
-    # 混淆矩阵派生指标
     TP = np.sum((preds_bin == 1) & (targets == 1))
     FP = np.sum((preds_bin == 1) & (targets == 0))
     FN = np.sum((preds_bin == 0) & (targets == 1))
     TN = np.sum((preds_bin == 0) & (targets == 0))
-
     FPR = FP / (FP + TN) if (FP + TN) > 0 else 0
     TPR = TP / (TP + FN) if (TP + FN) > 0 else 0
     R = TPR - FPR
@@ -32,16 +59,25 @@ def compute_metrics(targets, preds, threshold=0.5):
     correct = np.sum(preds_bin == targets)
     conf = compute_confidence(total, correct, FPR)
 
-    return {
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "auc": auc,
-        "fpr": FPR,
-        "tpr": TPR,
-        "R": R,
-        "conf": conf
+    # 转换所有值为原生 Python 类型，防止 json.dump 报错
+    metrics_dict = {
+        k: (float(v) if isinstance(v, (np.floating, np.float32, np.float64))
+        else int(v) if isinstance(v, (np.integer,))
+        else v)
+        for k, v in {
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "auc": auc,
+            "fpr": FPR,
+            "tpr": TPR,
+            "R": R,
+            "conf": conf,
+            "threshold": threshold
+        }.items()
     }
+
+    return metrics_dict
 
 
 def log_metrics(metrics, prefix=""):
