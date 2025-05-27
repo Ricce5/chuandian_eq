@@ -4,17 +4,39 @@ from datetime import datetime
 import pickle
 import glob
 import yaml
+import json
+import hashlib
+
 def mkdirs(fn): 
     if not os.path.isdir(fn):
         os.makedirs(fn)
     return fn
 
 
-def create_save_dir(base_dir="checkpoints", model_name="TGCN"):
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    save_dir = os.path.join(base_dir, f"{model_name.lower()}_{timestamp}")
+
+
+def create_save_dir(base_path, model_name='rf', args_dict=None):
+    """
+    根据配置参数内容创建唯一目录。
+    相同配置 => 生成相同目录
+    """
+    if args_dict is not None:
+        # 将参数字典排序并转为字符串
+        config_str = json.dumps(args_dict, sort_keys=True)
+        # 使用哈希生成唯一标识
+        config_hash = hashlib.md5(config_str.encode('utf-8')).hexdigest()[:8]
+        dir_name = f"{model_name}_{config_hash}"
+    else:
+        from datetime import datetime
+        import uuid
+        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        unique_id = uuid.uuid4().hex[:6]
+        dir_name = f"{model_name}_{time_str}_{unique_id}"
+
+    save_dir = os.path.join(base_path, dir_name)
     os.makedirs(save_dir, exist_ok=True)
     return save_dir
+
 
 def build_filename(prefix="processed", ext="pkl", **kwargs):
     def format_value(val):
@@ -133,3 +155,20 @@ def find_config_with_conditions(conditions, root_dir):
 
     # 返回符合条件的所有文件夹路径
     return matching_dirs
+
+
+
+def save_args_to_json(args_dict, save_dir, filename="config.json"):
+    os.makedirs(save_dir, exist_ok=True)
+
+    # 将 numpy 类型转为原生类型，避免 json 报错
+    def convert(o):
+        if isinstance(o, (float, int, str, bool)) or o is None:
+            return o
+        elif hasattr(o, 'tolist'):
+            return o.tolist()
+        else:
+            return str(o)
+
+    with open(os.path.join(save_dir, filename), "w") as f:
+        json.dump({k: convert(v) for k, v in args_dict.items()}, f, indent=2)

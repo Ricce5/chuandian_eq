@@ -4,11 +4,14 @@ import matplotlib.pyplot as plt
 from scipy.stats import binom
 from tqdm import tqdm
 import os
+from scipy.special import expit 
 
-def compute_metrics(targets, preds, threshold=None, optimize_metric="f1"):
+def compute_metrics(targets, preds, threshold=None, optimize_metric="f1",apply_sigmoid=True):
     preds = np.array(preds)
     targets = np.array(targets)
 
+    if apply_sigmoid:
+        preds = expit(preds)  # sigmoid 函数
     # 自动选阈值（默认基于 F1）
     if threshold is None:
         fpr, tpr, thresholds = roc_curve(targets, preds)
@@ -23,7 +26,7 @@ def compute_metrics(targets, preds, threshold=None, optimize_metric="f1"):
                 score = precision_score(targets, preds_bin, zero_division=0)
             elif optimize_metric == "recall":
                 score = recall_score(targets, preds_bin, zero_division=0)
-            elif optimize_metric == "youden":
+            elif optimize_metric == "youden": # Youden's J statistic
                 TP = np.sum((preds_bin == 1) & (targets == 1))
                 FP = np.sum((preds_bin == 1) & (targets == 0))
                 FN = np.sum((preds_bin == 0) & (targets == 1))
