@@ -53,7 +53,7 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
 
-    if args.model in ["Classifier", "Classifier_STM"]:
+    if args.model in ["Classifier", "Classifier_STM","ClfAttnPl"]:
         from .classifier_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")

@@ -53,6 +53,7 @@ class MultiHeadAttention(nn.Module):
                 attn_dropout=dropout,
                 output_attention=True
             )
+
         else:
             raise ValueError(f"Unsupported attn_type: {attn_type}")
 
@@ -69,13 +70,13 @@ class MultiHeadAttention(nn.Module):
         q = self.w_qs(q).view(B, L_q, n_head, d_k)
         k = self.w_ks(k).view(B, L_k, n_head, d_k)
         v = self.w_vs(v).view(B, L_v, n_head, d_v)
-
+        padding_mask = (residual.abs().sum(dim=-1) != 0)  # [B, L]
+        
         # Prepare attn_mask: [B, H, L, S]
         if mask is not None and mask.dim() == 3:
             mask = mask.unsqueeze(1)  # [B, 1, L, L]
-
         # Apply attention (compatible with both full and scaled_dot)
-        output, attn = self.attention(q, k, v, attn_mask=mask)
+        output, attn = self.attention(q, k, v, attn_mask=mask, padding_mask=padding_mask)
 
         # Combine heads: [B, L, n_head * D]
         output = output.contiguous().view(B, L_q, -1)

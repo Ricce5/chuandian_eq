@@ -13,9 +13,7 @@ def mkdirs(fn):
     return fn
 
 
-
-
-def create_save_dir(base_path, model_name='rf', args_dict=None):
+def create_save_dir(base_dir, model_name='rf', args_dict=None):
     """
     根据配置参数内容创建唯一目录。
     相同配置 => 生成相同目录
@@ -25,15 +23,13 @@ def create_save_dir(base_path, model_name='rf', args_dict=None):
         config_str = json.dumps(args_dict, sort_keys=True)
         # 使用哈希生成唯一标识
         config_hash = hashlib.md5(config_str.encode('utf-8')).hexdigest()[:8]
-        dir_name = f"{model_name}_{config_hash}"
+        dir_name = f"{model_name}_{config_hash}".lower()
     else:
         from datetime import datetime
-        import uuid
         time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        unique_id = uuid.uuid4().hex[:6]
-        dir_name = f"{model_name}_{time_str}_{unique_id}"
+        dir_name = f"{model_name}_{time_str}".lower()
 
-    save_dir = os.path.join(base_path, dir_name)
+    save_dir = os.path.join(base_dir, dir_name)
     os.makedirs(save_dir, exist_ok=True)
     return save_dir
 

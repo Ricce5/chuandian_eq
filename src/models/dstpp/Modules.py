@@ -6,6 +6,8 @@ from .masking import TriangularCausalMask, ProbMask
 from flash_attn.flash_attn_interface import flash_attn_func
 from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
 from flash_attn.bert_padding import unpad_input, pad_input
+from xformers.components.attention import build_attention
+from xformers.components.attention.utils import maybe_merge_masks
 from  math import sqrt
 
 
@@ -234,10 +236,6 @@ class FlashAttentionWrapper(nn.Module):
         B, L, H, D = q.shape
         device = q.device
 
-        if padding_mask is None:
-            # padding_mask = torch.ones((B, L), dtype=torch.bool, device=device)
-            padding_mask = (k.abs().sum(dim=(-1, -2)) != 0)  # [B, L], bool
-
         # Ensure float16 for FlashAttention
         q = q.to(torch.float16)
         k = k.to(torch.float16)
@@ -271,3 +269,34 @@ class FlashAttentionWrapper(nn.Module):
         out = out.to(torch.float32)
 
         return (out, None) 
+
+
+
+
+
+def recover_padding_mask(attn_mask: torch.Tensor) -> torch.Tensor:
+    """
+    从 [B, 1, L, S] 的 combined attention mask 中恢复原始 padding mask（[B, S]）。
+
+    参数:
+        attn_mask (torch.Tensor): 结合了 padding 和 causal 的 mask，形状为 [B, 1, L, S]。
+                                值为 True 表示该位置被屏蔽。
+
+    返回:
+        padding_mask (torch.Tensor): [B, S]，bool 类型，True 表示该 key 是 padding。
+    """
+    B, _, L, S = attn_mask.shape
+
+    # 构造 causal mask: [1, 1, L, S]
+    causal_mask = torch.triu(
+        torch.ones((L, S), dtype=torch.bool, device=attn_mask.device),
+        diagonal=1
+    ).unsqueeze(0).unsqueeze(0)  # → [1, 1, L, S]
+
+    # padding mask = (combined mask) & (非 causal 部分)
+    padding_only = attn_mask & ~causal_mask  # → [B, 1, L, S]
+
+    # 对 query 维度取最大，判断哪些 key 总是被屏蔽
+    padding_mask = padding_only.any(dim=2).squeeze(1)  # → [B, S]
+
+    return padding_mask

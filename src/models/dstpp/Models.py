@@ -96,7 +96,7 @@ class Encoder(nn.Module):
         tem_enc = self.temporal_enc(event_time, non_pad_mask)
         enc_output = self.event_emb(event_loc)
         
-        slf_attn_mask = slf_attn_mask[:,:,:,0]
+        slf_attn_mask = slf_attn_mask[:,:,:,0] # shape: (batch, seq_len, seq_len)
 
         for enc_layer in self.layer_stack:
             enc_output += tem_enc
