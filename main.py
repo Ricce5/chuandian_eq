@@ -36,6 +36,11 @@ def get_model_and_data(args, base_path, device):
             "model_class": "ClfAttnPl",
             "data_func": "prepare_data_classifier",
         },
+        "ClfAttnPl_T": {
+            "train_step_module": "src.train.classifier_train_step",
+            "model_class": "ClfAttnPl_T",
+            "data_func": "prepare_data_classifier",
+        },
 
     }
     if model_type not in supported_models:
@@ -90,7 +95,7 @@ def objective(trial,args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, choices=['train', 'test','optuna'], default='train', help='Run mode: train or test')
-    parser.add_argument('--model', type=str, choices=['Classifier','Classifier_STM','ClfAttnPl'], required=True, help='Model name')
+    parser.add_argument('--model', type=str, choices=['Classifier','Classifier_STM','ClfAttnPl','ClfAttnPl_T'], required=True, help='Model name')
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')
@@ -142,7 +147,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, base_path, device)

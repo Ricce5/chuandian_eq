@@ -138,7 +138,7 @@ class AttentionPooling(nn.Module):
         super(AttentionPooling, self).__init__()
         self.attn_fc = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.Tanh(),
+            nn.Tanh(),                             # Gelu
             nn.Linear(hidden_dim, 1)
         )
 
@@ -155,7 +155,7 @@ class AttentionPooling(nn.Module):
             scores = scores.masked_fill(mask == 0, -1e9)
 
         # Normalize scores with softmax
-        attn_weights = F.softmax(scores, dim=-1)  # [batch_size, seq_len]
+        attn_weights = F.softmax(scores, dim=-1)  # [batch_size, seq_len] 确保权重的和为1
 
         # Compute weighted sum
         output = torch.sum(x * attn_weights.unsqueeze(-1), dim=1)  # [batch_size, input_dim]

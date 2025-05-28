@@ -26,7 +26,7 @@ def create_save_dir(base_dir, model_name='rf', args_dict=None):
         dir_name = f"{model_name}_{config_hash}".lower()
     else:
         from datetime import datetime
-        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        time_str = datetime.now().strftime("%Y%m%d-%H%M%S")
         dir_name = f"{model_name}_{time_str}".lower()
 
     save_dir = os.path.join(base_dir, dir_name)
