@@ -6,8 +6,6 @@ from .masking import TriangularCausalMask, ProbMask
 from flash_attn.flash_attn_interface import flash_attn_func
 from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
 from flash_attn.bert_padding import unpad_input, pad_input
-from xformers.components.attention import build_attention
-from xformers.components.attention.utils import maybe_merge_masks
 from  math import sqrt
 
 

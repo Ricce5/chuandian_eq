@@ -41,7 +41,8 @@ def setup_config(args, device, model_class, train_dataloader=None, checkpoint=No
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=args.learning_rate,
-        weight_decay=args.weight_decay
+        weight_decay=args.weight_decay,
+        betas = (0.9, 0.99)
     )
 
     scheduler = get_scheduler(args.scheduler_type, optimizer, args, train_dataloader=train_dataloader)

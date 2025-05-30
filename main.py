@@ -67,7 +67,7 @@ def objective(trial,args):
     shutil.copy(args_cli.config, f"{args.save_dir}/config.yaml")
     writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard", f"trial_{trial.number}"))
 
-    train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, base_path, device)
+    train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
     model, criterion, optimizer, scheduler, args = config_setup.setup_config(args, device, model_class,train_loader)
 
     print(f'Trial {trial.number}')
@@ -109,7 +109,6 @@ if __name__ == "__main__":
     set_seed(0)
 
     args = config_loader.load_args_from_yaml(args_cli.config)
-    base_path = f"data/{args.dataset}"
 
     # Save directory: create or load based on mode
     if args_cli.mode in ["train", "optuna"]:
@@ -130,7 +129,7 @@ if __name__ == "__main__":
         shutil.copy(args_cli.config, f"{args.save_dir}/config.yaml")
         writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard"))
 
-        train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, base_path, device)
+        train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(args, device, model_class,train_loader)
 
         val_loss, metrics = trainer.train_and_save(
@@ -147,10 +146,10 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
-        train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, base_path, device)
+        train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(
             args, device, model_class,train_loader,
             checkpoint=checkpoint, restore_weights=True

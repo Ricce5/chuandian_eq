@@ -3,7 +3,7 @@ model: Classifier
 dataset: CD2021
 # 训练参数
 
-batch_size: 128
+batch_size: 64
 warmup_ratio: 0.18
 learning_rate: 5e-4
 weight_decay: 1e-5
@@ -15,9 +15,9 @@ scheduler_type: hf_cosine
 
 # transfomer结构参数
 d_model: 64
-d_rnn: 64
+d_rnn: 128
 d_inner: 64
-n_layers: 2
+n_layers: 4
 n_head: 8
 d_k: 16
 d_v: 16
@@ -36,7 +36,7 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-Mc: 4.5
+Mc: 3.5
 Mf: 6
 Twindow: 200
 Tfore: 20
