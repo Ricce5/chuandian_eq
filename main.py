@@ -99,6 +99,9 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')
+    parser.add_argument('--resume_path', type=str, default=None,
+                    help='Path to model checkpoint (e.g., best_model.pth or last_model.pth)')
+
 
     
     args_cli = parser.parse_args()
@@ -113,6 +116,7 @@ if __name__ == "__main__":
     # Save directory: create or load based on mode
     if args_cli.mode in ["train", "optuna"]:
         args.save_dir = args_cli.checkpoint_dir or create_save_dir(base_dir="checkpoints", model_name=args.model)
+        args.resume_path = args_cli.resume_path or None
     else:
         args.save_dir =args_cli.checkpoint_dir or find_latest_model_path(args_cli.model)
 
@@ -146,7 +150,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
@@ -156,7 +160,7 @@ if __name__ == "__main__":
         )
 
    
-        val_loss, metrics = train_step.test(
+        test_loss, metrics = train_step.test(
             model=model,
             criterion=criterion,
             data_loader= test_loader,  # Test data loader
@@ -167,7 +171,7 @@ if __name__ == "__main__":
         with open(os.path.join(args.save_dir, "metrics.json"), "w") as f:
             json.dump(metrics, f, indent=2)
 
-        print("Test loss:", val_loss)
+        print("Test loss:", test_loss)
         print("Metrics:", metrics)
         torch.cuda.empty_cache()
 

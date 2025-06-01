@@ -23,7 +23,8 @@ def step_scheduler(scheduler, event='epoch', val_loss=None):
             torch.optim.lr_scheduler.OneCycleLR,
             torch.optim.lr_scheduler.MultiplicativeLR,
             torch.optim.lr_scheduler.LinearLR,
-            torch.optim.lr_scheduler.ConstantLR)):
+            torch.optim.lr_scheduler.ConstantLR,
+            torch.optim.lr_scheduler.SequentialLR)):
             scheduler.step()
         elif not isinstance(scheduler, LRScheduler) and hasattr(scheduler, 'step'):
             # 对非 _LRScheduler 的调度器，如 Hugging Face 的 schedulers
@@ -66,7 +67,14 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     best_model_wts = None
     start_epoch = 0
 
-    if os.path.exists(checkpoint_path):
+    if args.resume_path is not None and os.path.exists(args.resume_path):
+        print(f"Resuming training from completed model: {args.resume_path}")
+        checkpoint = torch.load(args.resume_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        best_val_loss = checkpoint.get('val_loss', float('inf'))
+        start_epoch = checkpoint.get('epoch', 0)
+
+    elif os.path.exists(checkpoint_path):
         print(f"Resuming training from checkpoint: {checkpoint_path}")
         start_epoch, best_val_loss = load_checkpoint(checkpoint_path, model, optimizer, scheduler, device)
 

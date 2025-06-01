@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, StepLR, LinearLR, SequentialLR
 from transformers import get_cosine_schedule_with_warmup,get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
+from .scheduler import WarmupLinearDecay
 from torch import nn
 
 
@@ -94,5 +95,31 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
             optimizer,
             num_warmup_steps=warmup_steps
         )
+    elif scheduler_type == "step_warmup":
+        total_steps = len(train_dataloader) * args.epochs
+        warmup_steps = int(args.warmup_ratio * total_steps)
+        step_size = int(args.step_lr_step_size_ratio*total_steps)  # e.g., every N steps to decay
+        gamma = args.step_lr_gamma               # decay factor
+
+        step_scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
+        warmup_scheduler = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)
+
+        return SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, step_scheduler],
+            milestones=[warmup_steps]
+        )
+    
+    elif scheduler_type == "warmup_linear_decay":
+        total_steps = len(train_dataloader) * args.epochs
+        warmup_steps = int(args.warmup_ratio * total_steps)
+        return WarmupLinearDecay(
+            optimizer,
+            base_lr=args.learning_rate,
+            min_lr=args.scheduler_min_lr,
+            warmup_steps=warmup_steps,
+            total_steps=total_steps
+        )   
+
     else:
         raise ValueError("Invalid scheduler type. Choose from 'plateau', 'cosine', 'hf_cosine', 'hf_linear', 'hf_constant'.")
