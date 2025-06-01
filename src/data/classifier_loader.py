@@ -219,7 +219,7 @@ def get_dataloader(dataset, batch_size, shuffle=True, sampler=None):
 
 
 
-def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True):
+def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True, time_order=('train', 'val', 'test')):
     total = len(dataset)
     print(f"Number of positive samples: {dataset.pos_count}")
     print(f"Number of negative samples: {dataset.neg_count}")
@@ -228,7 +228,8 @@ def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True)
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         seed=seed,
-        by_time=by_time
+        by_time=by_time,
+        time_order= time_order
     )
 
     train_set = Subset(dataset, train_idx)

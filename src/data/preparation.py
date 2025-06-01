@@ -38,7 +38,8 @@ def prepare_data_classifier(args, base_dir="data/CD2021"):
         dataset,
         by_time=args.split_by_time,
         train_ratio=0.8,
-        val_ratio=0.1
+        val_ratio=0.1,
+        time_order=getattr(args, 'time_order', ('train', 'val', 'test')),
     )
     if args.use_sampler:
         sampler = loader.get_balanced_sampler(train_set)

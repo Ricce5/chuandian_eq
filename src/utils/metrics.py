@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve
 import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy.stats import binom
 from tqdm import tqdm
 import os
@@ -126,3 +127,25 @@ def plot_and_save_roc_curve(targets, preds, auc_value, save_dir, filename="roc_c
         plt.show()
     except Exception as e:
         print("Failed to plot ROC curve:", e)
+
+def plot_prediction_distribution(preds, labels, title="Prediction Distribution (Training Set)", save_path=None):
+    preds = np.array(preds)
+    labels = np.array(labels)
+
+    pos_preds = preds[labels == 1]
+    neg_preds = preds[labels == 0]
+
+    plt.figure(figsize=(8, 5))
+    sns.histplot(pos_preds, bins=30, color='blue', label='Positive', stat='density', kde=True, alpha=0.6)
+    sns.histplot(neg_preds, bins=30, color='yellow', label='Negative', stat='density', kde=True, alpha=0.6)
+
+    plt.title(title)
+    plt.xlabel("Predicted Probability (after Sigmoid)")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()

@@ -11,7 +11,7 @@ scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
 scheduler_min_lr: 1e-6
-scheduler_type: step_warmup
+scheduler_type: warmup_linear_decay
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
 
@@ -45,5 +45,4 @@ Tfore: 20
 dt: 10
 context_len: 1
 split_by_time: true
-use_sampler: true # true
-time_order: [test, val, train]
+use_sampler: true

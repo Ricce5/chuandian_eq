@@ -153,6 +153,7 @@ if __name__ == "__main__":
         checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
+        args.use_sampler = False
         train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(
             args, device, model_class,train_loader,
@@ -163,10 +164,13 @@ if __name__ == "__main__":
         test_loss, metrics = train_step.test(
             model=model,
             criterion=criterion,
-            data_loader= test_loader,  # Test data loader
+            data_loader=test_loader,  # Test data loader
             device=device,
             save_dir=args.save_dir,
         )
+
+        train_step.visualize_predictions(model, train_loader, device, args.save_dir, title="Train Set Prediction Distribution", filename="train_pred_distribution.png")
+        train_step.visualize_predictions(model, test_loader, device, args.save_dir, title="Test Set Prediction Distribution", filename="test_pred_distribution.png")
 
         with open(os.path.join(args.save_dir, "metrics.json"), "w") as f:
             json.dump(metrics, f, indent=2)

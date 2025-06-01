@@ -11,9 +11,24 @@ def load_args_from_yaml(path='config/config.yaml'):
     cfg_dict['scheduler_min_lr'] = float(cfg_dict['scheduler_min_lr'])
     cfg_dict['batch_size'] = int(cfg_dict['batch_size'])
     cfg_dict['cuda_id'] = int(cfg_dict['cuda_id'])
-    # 如果attn_type字段不存在，改为full
+
     if 'attn_type' not in cfg_dict:
         cfg_dict['attn_type'] = 'scaled_dot'
+    if 'time_order' in cfg_dict:
+        if isinstance(cfg_dict['time_order'], list):
+            cfg_dict['time_order'] = tuple(cfg_dict['time_order'])
+
+        if not isinstance(cfg_dict['time_order'], tuple):
+            raise ValueError(f"time_order must be a list or tuple, got {type(cfg_dict['time_order'])}")
+
+        expected = {'train', 'val', 'test'}
+        actual = set(cfg_dict['time_order'])
+        if actual != expected or len(cfg_dict['time_order']) != 3:
+            raise ValueError(f"time_order must be a permutation of ('train', 'val', 'test'), got {cfg_dict['time_order']}")
+
+    else:
+        # 设置默认值
+        cfg_dict['time_order'] = ('train', 'val', 'test')
     args = SimpleNamespace(**cfg_dict)
     return args
 
