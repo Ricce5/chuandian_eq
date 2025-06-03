@@ -1,11 +1,10 @@
 import os
 import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau, LRScheduler
 
 
 
 def step_scheduler(scheduler, event='epoch', val_loss=None):
-    from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+    from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 
     # 只在每个 epoch 时，传入 val_loss
     if event == 'epoch':
@@ -54,7 +53,7 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
 
-    if args.model in ["Classifier", "Classifier_STM","ClfAttnPl","ClfAttnPl_T"]:
+    if args.model in ["Classifier", "Classifier_STM",'Classifier_SE',"ClfAttnPl","ClfAttnPl_T"]:
         from .classifier_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")
