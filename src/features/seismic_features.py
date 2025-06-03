@@ -349,7 +349,10 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
         Negative = True if (len(index_n) == 0 or np.max(mag[index_n]) < Mf) else False
         # print(i,jd[index_n],mag[index_n],Negative)
         features["shock_len"][i] = shock_len
-        features["Negative"][i] = Negative
+        if context_len ==0:
+            features["Negative"][i] = bool(shock_len==0)
+        else:
+            features["Negative"][i] = Negative
 
         if len(index) == 0:
             print(f"Warning: No data in window for index {i}, skipping.")

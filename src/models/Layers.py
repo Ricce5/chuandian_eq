@@ -64,6 +64,17 @@ class MLP(nn.Module):
 
         layers += [nn.Linear(self.layers_width[-1], self.output_size)]
         self.fc = nn.Sequential(*layers)
+        # self._init_weights()
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def forward(self, x):
         return self.fc(x)

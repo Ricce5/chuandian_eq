@@ -123,17 +123,7 @@ class Encoder_ST(nn.Module):
         self.position_vec = torch.tensor(
             [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],
             device=device)
-
-        # event loc embedding
-        self.event_emb_temporal = nn.Sequential(
-          nn.Linear(1, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-        )
+    
 
         self.event_emb_loc = nn.Sequential(
           nn.Linear(self.loc_dim, d_model),
@@ -156,6 +146,18 @@ class Encoder_ST(nn.Module):
         self.layer_stack_temporal = nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, attn_type=attn_type, normalize_before=False)
             for _ in range(n_layers)])
+        # self._init_weights()
+
+
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
 
     def temporal_enc(self, time, non_pad_mask):
         """
@@ -222,24 +224,9 @@ class Encoder_STM(nn.Module):
             [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],
             device=device)
 
-        # 时间嵌入
-        self.event_emb_temporal = nn.Sequential(
-            nn.Linear(1, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
-        )
-
         # 空间嵌入
         self.event_emb_loc = nn.Sequential(
             nn.Linear(loc_dim, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model),
         )
@@ -247,10 +234,6 @@ class Encoder_STM(nn.Module):
         # 震级嵌入
         self.event_emb_magnitude = nn.Sequential(
             nn.Linear(1, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model),
         )
@@ -329,21 +312,13 @@ class Encoder_SE(nn.Module):
         # event loc embedding
         self.event_emb_loc = nn.Sequential(
           nn.Linear(self.loc_dim, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-                nn.ReLU(),
+                nn.GELU(),
                 nn.Linear(d_model, d_model),
         )
 
-        self.event_mag_loc = nn.Sequential(
+        self.event_emb_mag = nn.Sequential(
           nn.Linear(1, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-                nn.ReLU(),
-                nn.Linear(d_model, d_model),
-                nn.ReLU(),
+                nn.GELU(),
                 nn.Linear(d_model, d_model),
         )
 
@@ -367,7 +342,7 @@ class Encoder_SE(nn.Module):
         result = time.unsqueeze(-1) / self.position_vec
         result[:, :, 0::2] = torch.sin(result[:, :, 0::2])
         result[:, :, 1::2] = torch.cos(result[:, :, 1::2])
-        return result * non_pad_mask
+        return result * non_pad_mask.float().expand_as(result)
 
     def forward(self, event_loc,event_mag, event_time, non_pad_mask):
         """ Encode event sequences via masked self-attention. """
@@ -383,7 +358,7 @@ class Encoder_SE(nn.Module):
         enc_output_temporal = self.temporal_enc(event_time, non_pad_mask)
 
         enc_output_loc = self.event_emb_loc(event_loc)
-        enc_output_mag = self.event_mag_loc(event_mag)
+        enc_output_mag = self.event_emb_mag(event_mag)
         enc_output_mark = enc_output_mag+ enc_output_loc
         enc_output = enc_output_temporal+ enc_output_mark
         slf_attn_mask = slf_attn_mask[:,:,:,0]
@@ -699,7 +674,6 @@ class Transformer_SE(nn.Module):
         non_pad_mask = get_non_pad_mask(event_time)
         enc_output, enc_output_temporal, enc_output_mark = self.encoder(event_loc,event_mag, event_time, non_pad_mask)
 
-        assert (enc_output != enc_output_temporal).any() & (enc_output != enc_output_mark).any() & (enc_output_mark != enc_output_temporal).any()
         
         enc_output = self.rnn(enc_output, non_pad_mask)
         enc_output_temporal = self.rnn_temporal(enc_output_temporal, non_pad_mask)

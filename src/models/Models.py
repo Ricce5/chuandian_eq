@@ -27,7 +27,7 @@ class Classifier(nn.Module):
 
         self.mlp = MLP(
             hidden_layers_width=args.mlp_hdw,
-            input_size=3*args.d_model,
+            input_size=3*args.d_model,  
             output_size=args.mlp_out,
             dropout_rate=args.mlp_dropout).to(self.device)
     
@@ -94,7 +94,7 @@ class Classifier_SE(nn.Module):
 
         self.mlp = MLP(
             hidden_layers_width=args.mlp_hdw,
-            input_size=3*args.d_model,
+            input_size=3*args.d_rnn,
             output_size=args.mlp_out,
             dropout_rate=args.mlp_dropout).to(self.device)
     
