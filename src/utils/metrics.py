@@ -7,7 +7,7 @@ from tqdm import tqdm
 import os
 from scipy.special import expit 
 
-def compute_metrics(targets, preds, threshold=None, optimize_metric="f1",apply_sigmoid=True):
+def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",apply_sigmoid=True):
     preds = np.array(preds)
     targets = np.array(targets)
 
@@ -128,7 +128,7 @@ def plot_and_save_roc_curve(targets, preds, auc_value, save_dir, filename="roc_c
     except Exception as e:
         print("Failed to plot ROC curve:", e)
 
-def plot_prediction_distribution(preds, labels, title="Prediction Distribution (Training Set)", save_path=None):
+def plot_classification_distribution(preds, labels, title="Prediction Distribution (Training Set)", save_path=None):
     preds = np.array(preds)
     labels = np.array(labels)
 
@@ -149,3 +149,32 @@ def plot_prediction_distribution(preds, labels, title="Prediction Distribution (
     if save_path:
         plt.savefig(save_path)
     plt.show()
+
+def regression_metrics(y_true, y_pred):
+    import numpy as np
+
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+
+    RMSE = np.sqrt(np.mean(np.square(y_true - y_pred)))
+    MAE = np.mean(np.abs(y_true - y_pred))
+    MSE = np.mean(np.square(y_true - y_pred))
+
+    # 避免除以0的问题
+    nonzero_real = y_true != 0
+    if np.any(nonzero_real):
+        MAPE = np.mean(np.abs((y_true[nonzero_real] - y_pred[nonzero_real]) / y_true[nonzero_real])) * 100
+    else:
+        MAPE = np.nan
+
+    SS_res = np.sum((y_true - y_pred) ** 2)
+    SS_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    R2 = 1 - SS_res / SS_tot if SS_tot != 0 else np.nan
+
+    return {
+        "RMSE": RMSE,
+        "MAE": MAE,
+        "MSE": MSE,
+        "MAPE": MAPE,
+        "R2": R2
+    }

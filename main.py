@@ -48,6 +48,7 @@ def get_model_and_data(args, base_path, device):
             "data_func": "prepare_data",
         },
 
+
     }
     if model_type not in supported_models:
         raise ValueError(f"Unsupported model type: {model_type}. Supported models are: {', '.join(supported_models.keys())}.")
@@ -55,7 +56,7 @@ def get_model_and_data(args, base_path, device):
     train_step = __import__(model_info["train_step_module"], fromlist=[''])
     model_class = getattr(src.models.Models, model_info["model_class"])
     data_func = globals()[model_info["data_func"]]
-    df, train_loader, val_loader, test_loader = data_func(args, base_path)
+    df, train_loader, val_loader, test_loader,dataset,scalars = data_func(args, base_path)
     return train_step, model_class, df, train_loader, val_loader, test_loader
 
 
@@ -151,7 +152,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.use_sampler = False
@@ -170,8 +171,7 @@ if __name__ == "__main__":
             save_dir=args.save_dir,
         )
 
-        train_step.visualize_predictions(model, train_loader, device, args.save_dir, title="Train Set Prediction Distribution", filename="train_pred_distribution.png")
-        train_step.visualize_predictions(model, test_loader, device, args.save_dir, title="Test Set Prediction Distribution", filename="test_pred_distribution.png")
+        train_step.visualize_results(model,train_loader, val_loader, test_loader, device,args.save_dir)
 
         with open(os.path.join(args.save_dir, "metrics.json"), "w") as f:
             json.dump(metrics, f, indent=2)

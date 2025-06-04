@@ -17,21 +17,26 @@ from src.data.data_utils import get_split_indices
 from torch.utils.data import WeightedRandomSampler
 
 
-def normalize_df(df):
-    scaler = MinMaxScaler()
 
+
+def normalize_df(df):
+    # 按特征类型分列
     magnitude_cols = [col for col in df.columns if 'Mag' in col]
     lat_cols = [col for col in df.columns if 'Lat' in col]
     lon_cols = [col for col in df.columns if 'Lon' in col]
     dep_cols = [col for col in df.columns if 'Dep' in col]
 
     df_nl = df.copy()
+    scalers = {}
 
     for col_list in [lat_cols, lon_cols, dep_cols, magnitude_cols]:
         for col in col_list:
+            scaler = MinMaxScaler()
             df_nl[col] = scaler.fit_transform(df[[col]])
+            scalers[col] = scaler  # 保存每个特征的scaler
 
-    return df_nl
+    return df_nl, scalers
+
 
 
 def dict_to_array(dict_list, field):
@@ -39,7 +44,7 @@ def dict_to_array(dict_list, field):
     return np.array(values) if values else np.array([])
 
 
-def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=2):
+def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=0):
     if Mf is None:
         Mf = Mc  
     df = df[df['Magnitude'] >= Mc].copy()
@@ -73,7 +78,7 @@ def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, c
         }
 
         for _, quake in future_shocks.iterrows():
-            future_sample = {col: df_nl.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
+            future_sample = {col: df.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
             sample_structure["future_dict"].append(future_sample)
 
         for _, quake in history.iterrows():
@@ -107,11 +112,13 @@ def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, c
 
 
 class EventDataset(torch.utils.data.Dataset):
-    def __init__(self, array_dict, Mf=None,task_type ='classification'):
+    def __init__(self, array_dict, Mf=None,task_type ='classification',mag_min=3, mag_max=9.0):
         assert task_type in ["classification", "regression", "count"], "不支持的任务类型"
         self.task_type = task_type
         self.array_dict = array_dict
         self.Mf = Mf
+        self.mag_min = mag_min
+        self.mag_max = mag_max
         self.data_fields = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth"]
 
         self.samples = []
@@ -158,8 +165,13 @@ class EventDataset(torch.utils.data.Dataset):
 
     def compute_max_magnitude_label(self, arr_f_mag):
         if len(arr_f_mag) > 0:
-            return np.max(arr_f_mag)
+            max_mag = np.max(arr_f_mag)
+            return (max_mag - self.mag_min) / (self.mag_max - self.mag_min)
         return np.nan
+    
+    def inverse_normalize_label(self, norm_value):
+        return norm_value * (self.mag_max - self.mag_min) + self.mag_min
+
     
     @property
     def pos_count(self):
@@ -210,13 +222,14 @@ def get_balanced_sampler(dataset):
     sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
     return sampler
 
-def get_dataloader(dataset, batch_size, shuffle=True, sampler=None):
-    pos_count, neg_count = count_pos_neg(dataset)
-    print(f"Positive samples: {pos_count}, Negative samples: {neg_count}")
-    print(f"Total samples: {len(dataset)}, Positive ratio: {pos_count / len(dataset):.2f}, Negative ratio: {neg_count / len(dataset):.2f}")
+def get_dataloader(dataset, batch_size, shuffle=True, sampler=None,task_type='classification'):
+    if task_type == 'classification':
+        pos_count, neg_count = count_pos_neg(dataset)
+        print(f"Positive samples: {pos_count}, Negative samples: {neg_count}")
+        print(f"Total samples: {len(dataset)}, Positive ratio: {pos_count / len(dataset):.2f}, Negative ratio: {neg_count / len(dataset):.2f}")
 
     if sampler is not None:
-        shuffle = False  # 避免与 sampler 冲突
+        shuffle = False  
 
     dl = torch.utils.data.DataLoader(
         dataset,
@@ -231,10 +244,11 @@ def get_dataloader(dataset, batch_size, shuffle=True, sampler=None):
 
 
 
-def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True, time_order=('train', 'val', 'test')):
+def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True, time_order=('train', 'val', 'test'),task_type='classification'):
     total = len(dataset)
-    print(f"Number of positive samples: {dataset.pos_count}")
-    print(f"Number of negative samples: {dataset.neg_count}")
+    if task_type == 'classification':
+        print(f"Number of positive samples: {dataset.pos_count}")
+        print(f"Number of negative samples: {dataset.neg_count}")
     train_idx, val_idx, test_idx = get_split_indices(
         total_length=total,
         train_ratio=train_ratio,

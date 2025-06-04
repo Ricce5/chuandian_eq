@@ -3,7 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from src.utils.metrics import classification_metrics, log_metrics, plot_and_save_roc_curve, plot_classification_distribution
+from src.utils.metrics import regression_metrics, log_metrics
 from .trainer import step_scheduler
 
 def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=0.5):
@@ -37,7 +37,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=
     all_node_targets = np.concatenate(all_node_targets, axis=0)
 
 
-    metrics = classification_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds)
     log_metrics(metrics, prefix="Training")
     avg_train_loss = total_loss / len(data_loader)
     
@@ -65,7 +65,7 @@ def validate(data_loader, model, criterion, device, threshold=0.5):
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
-    metrics = classification_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds)
     log_metrics(metrics, prefix="Validation")
 
     avg_val_loss = val_loss / len(data_loader)
@@ -97,64 +97,10 @@ def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
 
 
     # Calculate evaluation metrics
-    metrics = classification_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds)
     log_metrics(metrics, prefix="Test")
-    # ==== 🔽 绘制 ROC 曲线 ====
-    plot_and_save_roc_curve(all_node_targets, all_node_preds,metrics['auc'], save_dir, filename="roc_curve.png")
-    # ===========================
     avg_test_loss = test_loss / len(data_loader)
 
     return avg_test_loss, metrics
 
 
-def visualize_results(model,train_loader, val_loader, test_loader, device, save_dir):
-    """
-    可视化训练、验证和测试集的预测分布
-    :param model: 已加载的模型
-    :param train_loader: 训练集 DataLoader
-    :param val_loader: 验证集 DataLoader
-    :param test_loader: 测试集 DataLoader
-    :param device: 当前设备
-    :param save_dir: 保存图像的目录
-    """
-
-    visualize_predictions(model, train_loader, device, save_dir, title="Train Set Prediction Distribution", filename="train_pred_distribution.png")
-    visualize_predictions(model, val_loader, device, save_dir, title="Validation Set Prediction Distribution", filename="val_pred_distribution.png")
-    visualize_predictions(model, test_loader, device, save_dir, title="Test Set Prediction Distribution", filename="test_pred_distribution.png")
-
-
-
-def visualize_predictions(model, data_loader, device, save_dir, title="Prediction Probability Distribution", filename="pred_distribution.png"):
-    """
-    收集任意数据集预测结果并可视化分布图
-    :param model: 已加载的模型
-    :param data_loader: DataLoader（可以是train_loader、val_loader、test_loader等）
-    :param device: 当前设备
-    :param save_dir: 保存图像的目录
-    :param title: 图像标题
-    :param filename: 保存图像的文件名
-    """
-    model.eval()
-    all_preds, all_labels = [], []
-
-    with torch.no_grad():
-        for batch in data_loader:
-            inputs, labels = batch[0].to(device), batch[1].to(device)
-            logits = model(inputs)
-            probs = torch.sigmoid(logits).squeeze()
-            all_preds.extend(probs.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
-    # 确保保存目录存在
-    os.makedirs(save_dir, exist_ok=True)
-    
-    # 画图
-    save_path = os.path.join(save_dir, filename)
-    plot_classification_distribution(
-        preds=all_preds,
-        labels=all_labels,
-        title=title,
-        save_path=save_path
-    )
-
-    print(f"[✔] 预测分布图已保存至: {save_path}")

@@ -38,7 +38,10 @@ def setup_config(args, device, model_class, train_dataloader=None, checkpoint=No
         model = model_class(args, device=device)
         
     # criterion = nn.BCELoss()
-    criterion = nn.BCEWithLogitsLoss()
+    if args.task_type == "classification":
+        criterion = nn.BCEWithLogitsLoss()
+    elif args.task_type == "regression":
+        criterion = nn.MSELoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=args.learning_rate,

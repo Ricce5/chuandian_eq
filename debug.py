@@ -54,7 +54,7 @@ df_nl = loader.normalize_df(df)
 # test_loader = loader.get_dataloader(test_set, batch_size=args.batch_size, shuffle=False)
 # %%
 import src.data.preparation as preparation
-df,train_loader, val_loader, test_loader = preparation.prepare_data_classifier(args, base_dir)
+df,train_loader, val_loader, test_loader = preparation.prepare_data(args, base_dir)
 # %%
 for i, (x, y) in enumerate(test_loader):
     print(x)
@@ -152,5 +152,22 @@ with torch.no_grad():
     output = model(x)
 # %%
 from flash_attn.modules.mha import FlashSelfAttention
+
+# %%
+base_dir = "data/CD2021"
+args = load_args_from_yaml("config/Regressor.yaml")
+df = load_and_filter_catalog(base_dir,Mc=args.Mc)
+df_nl = loader.normalize_df(df)
+# %%
+import src.data.preparation as preparation
+df,train_loader, val_loader, test_loader,dataset,scal/ars = preparation.prepare_data(args, base_dir)
+# %%
+for i, (x, y) in enumerate(train_loader):
+    print(y)
+    break
+# %%
+import matplotlib.pyplot as plt
+mag = [dataset.inverse_normalize_label(dataset[i][1]) for i in range(len(dataset))]
+plt.plot(mag)
 
 # %%
