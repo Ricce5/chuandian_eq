@@ -108,16 +108,6 @@ def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
 
 
 def visualize_results(model,train_loader, val_loader, test_loader, device, save_dir):
-    """
-    可视化训练、验证和测试集的预测分布
-    :param model: 已加载的模型
-    :param train_loader: 训练集 DataLoader
-    :param val_loader: 验证集 DataLoader
-    :param test_loader: 测试集 DataLoader
-    :param device: 当前设备
-    :param save_dir: 保存图像的目录
-    """
-
     visualize_predictions(model, train_loader, device, save_dir, title="Train Set Prediction Distribution", filename="train_pred_distribution.png")
     visualize_predictions(model, val_loader, device, save_dir, title="Validation Set Prediction Distribution", filename="val_pred_distribution.png")
     visualize_predictions(model, test_loader, device, save_dir, title="Test Set Prediction Distribution", filename="test_pred_distribution.png")

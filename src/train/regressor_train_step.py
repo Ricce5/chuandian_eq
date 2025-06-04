@@ -3,7 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from src.utils.metrics import regression_metrics, log_metrics
+from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
 def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=0.5):
@@ -103,4 +103,53 @@ def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
 
     return avg_test_loss, metrics
 
+
+def visualize_results(model, train_loader, val_loader, test_loader, device, save_dir):
+    """
+    Visualize regression model predictions across train, validation, and test sets.
+    Applies inverse normalization if dataset provides it.
+    """
+    model.eval()
+    os.makedirs(save_dir, exist_ok=True)
+
+    def get_root_dataset(loader):
+        dataset = loader.dataset
+        while isinstance(dataset, torch.utils.data.Subset):
+            dataset = dataset.dataset
+        return dataset
+
+    def collect_predictions(loader):
+        y_true, y_pred = [], []
+        dataset = get_root_dataset(loader)
+
+        with torch.no_grad():
+            for x, y in loader:
+                x = x.to(device)
+                preds = model(x).cpu().numpy()
+                labels = y.cpu().numpy()
+
+                # 如果 Dataset 有 inverse_normalize_label 方法
+                if hasattr(dataset, "inverse_normalize_label"):
+                    preds = dataset.inverse_normalize_label(preds)
+                    labels = dataset.inverse_normalize_label(labels)
+
+                y_true.extend(labels)
+                y_pred.extend(preds)
+
+        return np.array(y_true), np.array(y_pred)
+
+    # 收集（已反归一化的）数据
+    train_true, train_pred = collect_predictions(train_loader)
+    val_true, val_pred = collect_predictions(val_loader)
+    test_true, test_pred = collect_predictions(test_loader)
+
+    data_dict = {
+        "Train": (train_true, train_pred),
+        "Validation": (val_true, val_pred),
+        "Test": (test_true, test_pred),
+    }
+
+    # 可视化
+    plot_regression_scatter(data_dict, save_path=os.path.join(save_dir, "regression_scatter.png"))
+    plot_regression_series(data_dict, save_path=os.path.join(save_dir, "regression_series.png"))
 

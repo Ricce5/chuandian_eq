@@ -171,10 +171,84 @@ def regression_metrics(y_true, y_pred):
     SS_tot = np.sum((y_true - np.mean(y_true)) ** 2)
     R2 = 1 - SS_res / SS_tot if SS_tot != 0 else np.nan
 
-    return {
+
+    metrics_dict = {
+        k: (float(v) if isinstance(v, (np.floating, np.float32, np.float64))
+        else int(v) if isinstance(v, (np.integer,))
+        else v)
+        for k, v in {
         "RMSE": RMSE,
         "MAE": MAE,
         "MSE": MSE,
         "MAPE": MAPE,
-        "R2": R2
+        "R2": R2    
+      }.items()
     }
+
+    return metrics_dict
+
+def plot_regression_scatter(data_dict, save_path=None):
+    """
+    Scatter plot of predicted vs true values for regression.
+    data_dict: {
+        "Train": (true_values, pred_values),
+        "Validation": (true_values, pred_values),
+        "Test": (true_values, pred_values)
+    }
+    """
+    colors = {"Train": "blue", "Validation": "green", "Test": "black"}
+    markers = {"Train": "x", "Validation": "^", "Test": "o"}
+
+    plt.figure(figsize=(10, 8))
+
+    for label, (true_vals, pred_vals) in data_dict.items():
+        plt.scatter(true_vals, pred_vals, 
+                    color=colors.get(label, "gray"), 
+                    marker=markers.get(label, "o"), 
+                    s=15, label=f"{label} Set")
+
+    # 参考线
+    x = np.linspace(4, 8.5, 100)
+    plt.plot(x, x, 'r-', label='Ideal: y = x')
+    plt.plot(x, x + 0.5, 'gray', linestyle='--', label='y = x + 0.5')
+    plt.plot(x, x - 0.5, 'gray', linestyle='--', label='y = x - 0.5')
+
+    plt.xlim(4, 8.5)
+    plt.ylim(4, 8.5)
+    plt.xlabel("True Magnitude", fontsize=14)
+    plt.ylabel("Predicted Magnitude", fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(True)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"[✔] Saved scatter plot to {save_path}")
+    plt.show()
+
+
+def plot_regression_series(data_dict, save_path=None):
+    """
+    Line plot of true vs predicted values across time/index.
+    """
+    plt.figure(figsize=(16, 8))
+    idx_start = 0
+
+    for label, (true_vals, pred_vals) in data_dict.items():
+        n = len(true_vals)
+        idx_range = np.arange(idx_start, idx_start + n)
+
+        plt.plot(idx_range, true_vals, label=f'{label} - True')
+        plt.plot(idx_range, pred_vals, label=f'{label} - Predicted', linestyle='--')
+        idx_start += n
+
+    plt.xlabel("Sample Index", fontsize=14)
+    plt.ylabel("Magnitude", fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(True)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"[✔] Saved series plot to {save_path}")
+    plt.show()

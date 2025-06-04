@@ -55,6 +55,8 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
 
     if args.model in ["Classifier", "Classifier_STM",'Classifier_SE',"ClfAttnPl","ClfAttnPl_T"]:
         from .classifier_train_step import train, validate
+    elif args.model in ["Regressor"]:
+        from .regressor_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")
 

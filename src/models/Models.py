@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from .Layers import MLP, CNN, AttentionPooling
 from .dstpp.Models import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
 
@@ -354,7 +355,7 @@ class Regressor(nn.Module):
         enc_last, _ = self._process_transformer_out(non_pad_mask, enc_out, x)
 
         out = self.mlp(enc_last)
-        out =torch.softplus(out)  
+        out = F.softplus(out)  
         return out.squeeze(1)
     
     @staticmethod

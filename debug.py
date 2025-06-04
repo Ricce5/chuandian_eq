@@ -160,7 +160,7 @@ df = load_and_filter_catalog(base_dir,Mc=args.Mc)
 df_nl = loader.normalize_df(df)
 # %%
 import src.data.preparation as preparation
-df,train_loader, val_loader, test_loader,dataset,scal/ars = preparation.prepare_data(args, base_dir)
+df,train_loader, val_loader, test_loader,dataset,scalars = preparation.prepare_data(args, base_dir)
 # %%
 for i, (x, y) in enumerate(train_loader):
     print(y)
