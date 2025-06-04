@@ -23,7 +23,7 @@ torch.backends.cudnn.allow_tf32 = False
 
 # %%
 from src.data.preprocessing import load_and_filter_catalog
-import src.data.classifier_loader as loader 
+import src.data.event_loader as loader 
 from config.config_loader import load_args_from_yaml 
 import pandas as pd
 import numpy as np  

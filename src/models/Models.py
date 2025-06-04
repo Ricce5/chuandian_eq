@@ -19,6 +19,7 @@ class Classifier(nn.Module):
             d_k=args.d_k,
             d_v=args.d_v,
             dropout=args.t_dropout,
+            dropout_post_rnn = getattr(args, 'rnn_dropout', 0), 
             device=device,
             loc_dim=args.dim,
             CosSin=True,

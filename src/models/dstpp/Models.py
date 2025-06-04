@@ -123,7 +123,16 @@ class Encoder_ST(nn.Module):
         self.position_vec = torch.tensor(
             [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],
             device=device)
-    
+
+        self.event_emb_temporal = nn.Sequential(
+          nn.Linear(1, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+        )
 
         self.event_emb_loc = nn.Sequential(
           nn.Linear(self.loc_dim, d_model),
@@ -507,7 +516,8 @@ class Transformer_ST(nn.Module):
 
     def __init__(
             self, d_model=256, d_rnn=128, d_inner=1024,
-            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,device=None,loc_dim=2,CosSin=False,attn_type='full'):
+            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,dropout_post_rnn=0.3,
+            device=None,loc_dim=2,CosSin=False,attn_type='full'):
         super().__init__()
 
         self.encoder = Encoder_ST(
@@ -534,6 +544,7 @@ class Transformer_ST(nn.Module):
         self.rnn = RNN_layers(d_model, d_rnn)
         self.rnn_temporal = RNN_layers(d_model, d_rnn)
         self.rnn_spatial = RNN_layers(d_model, d_rnn)
+        self.dropout = nn.Dropout(dropout_post_rnn)
 
     def forward(self, event_loc, event_time):
         """
@@ -545,17 +556,14 @@ class Transformer_ST(nn.Module):
         """
 
         non_pad_mask = get_non_pad_mask(event_time)
-        # pdb.set_trace()  # 设置断点
         enc_output, enc_output_temporal, enc_output_loc = self.encoder(event_loc, event_time, non_pad_mask)
-
-        assert (enc_output != enc_output_temporal).any() & (enc_output != enc_output_loc).any() & (enc_output_loc != enc_output_temporal).any()
         
         enc_output = self.rnn(enc_output, non_pad_mask)
         enc_output_temporal = self.rnn_temporal(enc_output_temporal, non_pad_mask)
         enc_output_loc = self.rnn_spatial(enc_output_loc, non_pad_mask)
 
         enc_output_all = torch.cat((enc_output_temporal, enc_output_loc, enc_output),dim=-1)
-        # 输出的特征维数为d_mole*3
+        enc_output_all = self.dropout(enc_output_all)  
         return enc_output_all, non_pad_mask
 
 
@@ -634,7 +642,8 @@ class Transformer_SE(nn.Module):
 
     def __init__(
             self, d_model=256, d_rnn=128, d_inner=1024,
-            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,device=None,loc_dim=2,CosSin=False,attn_type='full'):
+            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,
+            device=None,loc_dim=2,CosSin=False,attn_type='full'):
         super().__init__()
 
         self.encoder = Encoder_SE(

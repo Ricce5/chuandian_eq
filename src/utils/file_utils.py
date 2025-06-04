@@ -102,7 +102,7 @@ def find_latest_model_path(model_name, checkpoint_root="checkpoints"):
 
     # 查找第一个包含模型文件的目录
     for subdir in matched_subdirs:
-        candidate = os.path.join(subdir, "best_model_1.pth")
+        candidate = os.path.join(subdir, "last_model_1.pth")
         if os.path.isfile(candidate):
             print(f"Found folder: {subdir}")
             return os.path.abspath(subdir)

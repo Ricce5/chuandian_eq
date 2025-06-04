@@ -7,13 +7,14 @@ import numpy as np
 from config import config_loader
 from src.utils.utils import set_seed
 from src.utils.file_utils import create_save_dir,find_latest_model_path
-from src.data.preparation import prepare_data_classifier
+from src.data.preparation import prepare_data
 import src.train.config_setup as config_setup 
 import src.train.trainer as trainer
 import src.models.Models
 import shutil
 import os
 import json
+import yaml
 import optuna
 
 
@@ -24,27 +25,27 @@ def get_model_and_data(args, base_path, device):
         "Classifier": {
             "train_step_module": "src.train.classifier_train_step",
             "model_class": "Classifier",
-            "data_func": "prepare_data_classifier",
+            "data_func": "prepare_data",
         },
         "Classifier_STM": {
             "train_step_module": "src.train.classifier_train_step",
             "model_class": "Classifier_STM",
-            "data_func": "prepare_data_classifier",
+            "data_func": "prepare_data",
         },
          "Classifier_SE": {
             "train_step_module": "src.train.classifier_train_step",
             "model_class": "Classifier_SE",
-            "data_func": "prepare_data_classifier",
+            "data_func": "prepare_data",
         },
         "ClfAttnPl": {
             "train_step_module": "src.train.classifier_train_step",
             "model_class": "ClfAttnPl",
-            "data_func": "prepare_data_classifier",
+            "data_func": "prepare_data",
         },
         "ClfAttnPl_T": {
             "train_step_module": "src.train.classifier_train_step",
             "model_class": "ClfAttnPl_T",
-            "data_func": "prepare_data_classifier",
+            "data_func": "prepare_data",
         },
 
     }
@@ -104,8 +105,6 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')
-    parser.add_argument('--resume_path', type=str, default=None,
-                    help='Path to model checkpoint (e.g., best_model.pth or last_model.pth)')
 
 
     
@@ -121,26 +120,23 @@ if __name__ == "__main__":
     # Save directory: create or load based on mode
     if args_cli.mode in ["train", "optuna"]:
         args.save_dir = args_cli.checkpoint_dir or create_save_dir(base_dir="checkpoints", model_name=args.model)
-        args.resume_path = args_cli.resume_path or None
     else:
         args.save_dir =args_cli.checkpoint_dir or find_latest_model_path(args_cli.model)
 
     args.cuda = torch.cuda.is_available()
     device = torch.device(f"cuda:{args.cuda_id}" if args.cuda else "cpu")
-    # 生成图结构
 
 
 
 
-
-    # 模式选择
     if args_cli.mode == "train":
-        shutil.copy(args_cli.config, f"{args.save_dir}/config.yaml")
+        config_path =  f"{args.save_dir}/config.yaml"
+        shutil.copy(args_cli.config, config_path)
         writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard"))
 
         train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(args, device, model_class,train_loader)
-
+        
         val_loss, metrics = trainer.train_and_save(
             args=args,
             model=model,

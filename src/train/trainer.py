@@ -70,7 +70,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
         print(f"Resuming training from completed model: {args.resume_path}")
         checkpoint = torch.load(args.resume_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
-        best_val_loss = checkpoint.get('val_loss', float('inf'))
+        # best_val_loss = checkpoint.get('val_loss', float('inf'))
         start_epoch = checkpoint.get('epoch', 0)
 
     elif os.path.exists(checkpoint_path):

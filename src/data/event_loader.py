@@ -39,7 +39,9 @@ def dict_to_array(dict_list, field):
     return np.array(values) if values else np.array([])
 
 
-def get_list(df, df_nl, Mc, Mf, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=2):
+def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=2):
+    if Mf is None:
+        Mf = Mc  
     df = df[df['Magnitude'] >= Mc].copy()
     samples_list = []
     t = df["t"].values
@@ -60,7 +62,7 @@ def get_list(df, df_nl, Mc, Mf, Twindow=20, Tfore=2, dt=10, t_array=None, contex
 
     for t_now in t_array_final:
         history = df[(df["t"] < t_now) & (df["t"] >= t_now - Twindow)]
-        future_shocks = df[(df["t"] >= t_now) & (df["t"] < t_now + Tfore) & (df["Magnitude"] >= Mf)]
+        future_shocks = df[(df["t"] >= t_now) & (df["t"] < t_now + Tfore) & (df["Magnitude"] >= Mf)]   # Mf=Mc 下消除限制
         context = df[(df["t"] >= t_now - context_len * Tfore) & (df["t"] < t_now + context_len * Tfore)]
 
         sample_structure = {
@@ -103,23 +105,17 @@ def get_list(df, df_nl, Mc, Mf, Twindow=20, Tfore=2, dt=10, t_array=None, contex
     return samples_list, array_dict
 
 
-def to_flag(arr_f, arr_c_mag, Mf):
-    flag_f = np.count_nonzero(arr_f)
-    flag = np.nan
-    if flag_f > 0:
-        flag = 1
-    elif len(arr_c_mag) == 0 or np.max(arr_c_mag) < Mf:
-        flag = 0
-    return flag
-
 
 class EventDataset(torch.utils.data.Dataset):
-    def __init__(self, array_dict, Mf):
+    def __init__(self, array_dict, Mf=None,task_type ='classification'):
+        assert task_type in ["classification", "regression", "count"], "不支持的任务类型"
+        self.task_type = task_type
         self.array_dict = array_dict
+        self.Mf = Mf
         self.data_fields = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth"]
 
         self.samples = []
-        self.targets = []
+        self.labels = []
         self.lengths = []
 
         future = array_dict["future"]
@@ -127,34 +123,50 @@ class EventDataset(torch.utils.data.Dataset):
         num_samples = len(future["t"])
 
         for idx in range(num_samples):
-            target_flag = to_flag(future["t"][idx], context["Magnitude"][idx], Mf)
-            if not np.isnan(target_flag):
+            if self.task_type == "classification":
+                label = self.compute_flag_label(future["t"][idx], context["Magnitude"][idx])
+            elif self.task_type == "regression":
+                label = self.compute_max_magnitude_label(future["Magnitude"][idx])
+            elif self.task_type == "count":
+                label = self.compute_count_label(future["t"][idx])
+            else:
+                raise ValueError("unsupported task type. Supported types are: 'classification', 'regression', 'count'.")
+            if not np.isnan(label):
                 history_data = [np.array(array_dict["history"][field][idx]) for field in self.data_fields]
-                target_val = target_flag
-
                 self.samples.append(history_data)
-                self.targets.append(target_val)
+                self.labels.append(label)
                 self.lengths.append(len(history_data[0]))
 
         if self.lengths:
-            min_len = min(self.lengths)
-            max_len = max(self.lengths)
-            avg_len = sum(self.lengths) / len(self.lengths)
-            print(f"历史序列长度范围 - 最小: {min_len}, 最大: {max_len}, 平均: {avg_len:.2f}")
+            print(f"lengths of samples: min={min(self.lengths)}, max={max(self.lengths)}, avg={sum(self.lengths)/len(self.lengths):.2f}")
                 
-
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        return self.samples[idx], self.targets[idx]
+        return self.samples[idx], self.labels[idx]
+    
+    def compute_flag_label(self, arr_f_t, arr_c_mag):
+        if np.count_nonzero(arr_f_t) > 0:
+            return 1
+        elif len(arr_c_mag) == 0 or np.max(arr_c_mag) < self.Mf:
+            return 0
+        return np.nan
+    
+    def compute_count_label(self, arr_f_t):
+        return np.count_nonzero(arr_f_t)
+
+    def compute_max_magnitude_label(self, arr_f_mag):
+        if len(arr_f_mag) > 0:
+            return np.max(arr_f_mag)
+        return np.nan
     
     @property
     def pos_count(self):
-        return sum(1 for t in self.targets if t == 1)
+        return sum(1 for t in self.labels if t == 1)
     @property
     def neg_count(self):
-        return sum(1 for t in self.targets if t == 0)
+        return sum(1 for t in self.labels if t == 0)
 
 
 
