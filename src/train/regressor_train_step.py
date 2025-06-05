@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=0.5):
+def train(data_loader, model, criterion, optimizer,scheduler, device):
     model.train()
     total_loss = 0
     all_node_preds = []  # 存储所有预测值
@@ -43,7 +43,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=
     
     return avg_train_loss, metrics
 
-def validate(data_loader, model, criterion, device, threshold=0.5):
+def validate(data_loader, model, criterion, device):
     model.eval()
     val_loss = 0
 
@@ -72,7 +72,7 @@ def validate(data_loader, model, criterion, device, threshold=0.5):
   
     return avg_val_loss, metrics
 
-def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
+def test(data_loader, model, criterion, device, save_dir=None):
     
     model.eval()
     test_loss = 0

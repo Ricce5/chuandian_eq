@@ -160,7 +160,7 @@ df = load_and_filter_catalog(base_dir,Mc=args.Mc)
 df_nl = loader.normalize_df(df)
 # %%
 import src.data.preparation as preparation
-df,train_loader, val_loader, test_loader,dataset,scalars = preparation.prepare_data(args, base_dir)
+df,train_loader, val_loader, test_loader,scalars = preparation.prepare_data(args, base_dir)
 # %%
 mag_list = []
 for i, (x, y) in enumerate(train_loader):
@@ -190,4 +190,9 @@ plt.plot(mag_combined, label='Combined Magnitude')
 # %%
 for i, (x, y) in enumerate(val_loader):
     print(x[:,:,0].shape)
+# %%import src.data.preparation as preparation
+args.dMag = 0.1
+import src.data.preparation as preparation
+df,train_loader, val_loader, test_loader,dataset,scalars = preparation.prepare_data_lstm(args, base_dir)
+
 # %%

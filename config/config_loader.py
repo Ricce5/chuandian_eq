@@ -16,9 +16,10 @@ def load_args_from_yaml(path='config/config.yaml'):
     cfg_dict['batch_size'] = int(cfg_dict['batch_size'])
     cfg_dict['cuda_id'] = int(cfg_dict['cuda_id'])
 
-
+    
     if 'attn_type' not in cfg_dict:
         cfg_dict['attn_type'] = 'scaled_dot'
+
     if 'time_order' in cfg_dict:
         if isinstance(cfg_dict['time_order'], list):
             cfg_dict['time_order'] = tuple(cfg_dict['time_order'])
@@ -32,9 +33,16 @@ def load_args_from_yaml(path='config/config.yaml'):
             raise ValueError(f"time_order must be a permutation of ('train', 'val', 'test'), got {cfg_dict['time_order']}")
 
     else:
-        # 设置默认值
         cfg_dict['time_order'] = ('train', 'val', 'test')
     args = SimpleNamespace(**cfg_dict)
+    
+    if args.model in ["LSTM"]:
+        for Mag in args.Mag_elaps:
+            telaps_key = f"T_elaps{Mag}"
+            if any(telaps_key in feature for feature in args.feature_cols):
+                raise ValueError(f"feature_cols会从Mag_elaps添加特征 {telaps_key}，不能重复添加。")
+    args.feature_cols.extend([f"T_elaps{Mag}" for Mag in args.Mag_elaps])
+    print(f"feature_cols: {args.feature_cols}")
     return args
 
 

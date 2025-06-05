@@ -60,7 +60,7 @@ def prepare_data(args, base_dir="data/CD2021"):
     return df, train_loader, val_loader, test_loader,scalers
 
 
-def prepare_data_for_lstm(args, base_dir="data/CD2021"):
+def prepare_data_lstm(args, base_dir="data/CD2021"):
     def create_lstm_data(features, target, timestep):
         """
         划分数据集，生成特征数据和目标数据
@@ -138,6 +138,7 @@ def prepare_data_for_lstm(args, base_dir="data/CD2021"):
         train_ratio=0.8,
         val_ratio=0.1,
         time_order=getattr(args, 'time_order', ('train', 'val', 'test')),
+        scalars=scalars
     )
 
     return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], scalars

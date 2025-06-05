@@ -7,7 +7,7 @@ import numpy as np
 from config import config_loader
 from src.utils.utils import set_seed
 from src.utils.file_utils import create_save_dir,find_latest_model_path
-from src.data.preparation import prepare_data
+from src.data.preparation import prepare_data,prepare_data_lstm
 import src.train.config_setup as config_setup 
 import src.train.trainer as trainer
 import src.models.Models
@@ -52,6 +52,12 @@ def get_model_and_data(args, base_path, device):
             "model_class": "Regressor",
             "data_func": "prepare_data",
         },
+         "LSTM": {
+            "train_step_module": "src.train.regressor_train_step",
+            "model_class": "LSTM",
+            "data_func": "prepare_data_lstm",
+        },
+
 
 
     }
@@ -107,7 +113,7 @@ def objective(trial,args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, choices=['train', 'test','optuna'], default='train', help='Run mode: train or test')
-    parser.add_argument('--model', type=str, choices=['Classifier','Classifier_STM','Classifier_SE','ClfAttnPl','ClfAttnPl_T','Regressor'], required=True, help='Model name')
+    parser.add_argument('--model', type=str, choices=['Classifier','Classifier_STM','Classifier_SE','ClfAttnPl','ClfAttnPl_T','Regressor','LSTM'], required=True, help='Model name')
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')
