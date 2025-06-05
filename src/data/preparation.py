@@ -57,7 +57,91 @@ def prepare_data(args, base_dir="data/CD2021"):
     train_loader = loader.get_dataloader(train_set, batch_size=args.batch_size, shuffle=False, sampler=sampler,task_type=args.task_type)
     val_loader = loader.get_dataloader(val_set, batch_size=args.batch_size, shuffle=False, task_type=args.task_type)
     test_loader = loader.get_dataloader(test_set, batch_size=args.batch_size, shuffle=False,task_type=args.task_type)
-    return df, train_loader, val_loader, test_loader,dataset,scalers
+    return df, train_loader, val_loader, test_loader,scalers
+
+
+def prepare_data_for_lstm(args, base_dir="data/CD2021"):
+    def create_lstm_data(features, target, timestep):
+        """
+        划分数据集，生成特征数据和目标数据
+        :param features: 特征数据（二维数组），数据集的所有特征列（去除目标列）
+        :param target: 目标数据（数组），数据集的目标列
+        :param timestep: 时间步长，用于生成每个样本的特征序列长度
+        :return: 特征数据X和目标数据Y
+        """
+        X, y = [], []
+        
+        for index in range(len(features) - timestep):
+            X.append(features[index: index + timestep])
+            y.append(target[index + timestep])
+
+        # 转换为NumPy数组
+        X, y = np.array(X), np.array(y)
+        return X, y
+
+    import src.data.lstm_loader as loader
+    import src.features.seismic_features as sf
+    from src.data.preprocessing import load_and_filter_catalog
+    from src.data.data_utils import get_split_indices
+    from src.utils.file_utils import save_or_load_data
+    from sklearn.preprocessing import MinMaxScaler
+    import numpy as np
+
+    df = load_and_filter_catalog(base_dir, Mc=args.Mc)
+    def generate_seismic_data():
+        features_df, num_mag = sf.calculate_seismic_features(
+            df.to_numpy(),
+            Mc=args.Mc,
+            Mf=args.Mf,
+            Twindow=args.Twindow,
+            Tfore=args.Tfore,
+            dt=args.dt,
+            dMag=args.dMag,
+            Mag_elaps=args.Mag_elaps,
+            L_max=60,
+            context_len=args.context_len,
+        )
+        return {
+            "features_df": features_df,
+            "num_mag": num_mag
+        }
+
+    # 加载或生成处理过的数据
+    cached_data = save_or_load_data(
+        base_path=base_dir,
+        generate_fn=generate_seismic_data,
+        sub_dir="processed/rf_classifier",
+        prefix="rf",
+        Mc=args.Mc,
+        Mf=args.Mf,
+        Twindow=args.Twindow,
+        Tfore=args.Tfore,
+        dt=args.dt,
+        dMag=args.dMag,
+        Mag_elaps=args.Mag_elaps,
+        context_len=args.context_len
+    )
+
+    features_df = cached_data["features_df"]
+    features_df_nl,scalars = loader.normalize_df(features_df)
+    num_mag = cached_data["num_mag"]
+
+    features = features_df_nl[args.feature_cols].values
+    target = features_df_nl['Mag_max_obs'].values.copy()
+
+    # 调用内部函数生成LSTM数据
+    X, y = create_lstm_data(features, target, timestep=args.time_step) 
+    data_loaders = loader.split_dataset(
+        X, y,
+        by_time=args.split_by_time,
+        batch_size=args.batch_size,
+        train_ratio=0.8,
+        val_ratio=0.1,
+        time_order=getattr(args, 'time_order', ('train', 'val', 'test')),
+    )
+
+    return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], scalars
+
 
 
 

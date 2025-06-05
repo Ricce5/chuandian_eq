@@ -9,8 +9,13 @@ def load_args_from_yaml(path='config/config.yaml'):
     cfg_dict['learning_rate'] = float(cfg_dict['learning_rate'])
     cfg_dict['weight_decay'] = float(cfg_dict['weight_decay'])
     cfg_dict['scheduler_min_lr'] = float(cfg_dict['scheduler_min_lr'])
+    if 'scheduler_type' in ['plateau']:
+        cfg_dict['scheduler_factor'] = float(cfg_dict['scheduler_factor'])
+        cfg_dict['scheduler_patience'] = int(cfg_dict['scheduler_patience'])
+        cfg_dict['scheduler_threshold'] = float(cfg_dict['scheduler_threshold'])
     cfg_dict['batch_size'] = int(cfg_dict['batch_size'])
     cfg_dict['cuda_id'] = int(cfg_dict['cuda_id'])
+
 
     if 'attn_type' not in cfg_dict:
         cfg_dict['attn_type'] = 'scaled_dot'

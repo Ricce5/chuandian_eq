@@ -61,7 +61,7 @@ def get_model_and_data(args, base_path, device):
     train_step = __import__(model_info["train_step_module"], fromlist=[''])
     model_class = getattr(src.models.Models, model_info["model_class"])
     data_func = globals()[model_info["data_func"]]
-    df, train_loader, val_loader, test_loader,dataset,scalars = data_func(args, base_path)
+    df, train_loader, val_loader, test_loader,scalars = data_func(args, base_path)
     return train_step, model_class, df, train_loader, val_loader, test_loader
 
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.use_sampler = False

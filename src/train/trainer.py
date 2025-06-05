@@ -64,7 +64,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     os.makedirs(save_dir, exist_ok=True)
 
     checkpoint_path = os.path.join(args.save_dir, f'checkpoint_interrupted_{index}.pth')
-    best_val_loss = float('inf')
+    best_val_loss = float(1e5)
     best_model_wts = None
     start_epoch = 0
 
