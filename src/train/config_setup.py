@@ -4,11 +4,12 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, StepL
 from transformers import get_cosine_schedule_with_warmup,get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
 from .scheduler import WarmupLinearDecay
 from torch import nn
+import os
 
 
 def load_args_from_checkpoint(args, checkpoint):
     """
-    从 checkpoint 中恢复超参数并更新 args。
+    从 checkpoint 中恢复超参数并更新 args。(处理 checkpoint 中参数与 config 中参数不一致的情况)
     """
     if 'hyperparameters' not in checkpoint:
         raise KeyError("Checkpoint does not contain 'hyperparameters'.")
@@ -19,34 +20,69 @@ def load_args_from_checkpoint(args, checkpoint):
     
     return args
 
-def setup_config(args, device, model_class, train_dataloader=None, checkpoint=None, restore_weights=False):
-    """
-    根据 args 配置初始化模型、损失函数、优化器、调度器等训练组件
-    """
+def freeze_model_parts(model, freeze_keywords=None):
+    if freeze_keywords is None:
+        freeze_keywords = []
 
-    if restore_weights:
-        if checkpoint is None:
-            raise ValueError("Checkpoint must be provided if restore_weights is True.")
-        args = load_args_from_checkpoint(args, checkpoint)
-        model = model_class(args, device=device)
-        load_result = model.load_state_dict(checkpoint['model_state_dict'])
+    for name, param in model.named_parameters():
+        if any(keyword in name for keyword in freeze_keywords):
+            param.requires_grad = False
+            print(f"Froze parameter: {name}")
+
+
+def load_model_from_checkpoint(model, checkpoint, freeze_parts=None):
+    """
+    从 checkpoint 中加载模型权重和参数，返回加载后的模型及辅助信息
+    """
+    load_result = model.load_state_dict(checkpoint['model_state_dict'])
+    print("Checkpoint loaded:", load_result)
+
+    if 'hyperparameters' in checkpoint:
         print("hyperparameters:", checkpoint['hyperparameters'])
+    if 'train_metrics' in checkpoint:
         print("train_metrics:", checkpoint['train_metrics'])
+    if 'val_metrics' in checkpoint:
         print("val_metrics:", checkpoint['val_metrics'])
-        print("Checkpoint loaded:", load_result)
-    else:
-        model = model_class(args, device=device)
-        
-    # criterion = nn.BCELoss()
+
+    # 可选：冻结参数
+    if freeze_parts:
+        freeze_model_parts(model, freeze_keywords=freeze_parts)
+
+    start_epoch = checkpoint.get('epoch', 0)
+    best_val_loss = checkpoint.get('val_loss', float('inf'))
+
+    return model, start_epoch, best_val_loss
+
+
+def setup_config(args, device, model_class, train_dataloader=None, checkpoint=None, restore_weights=True):
+    """
+    初始化模型、优化器、调度器（支持从 checkpoint 加载训练或测试模型）
+    """
+    model = model_class(args, device=device)
+
+    # 默认值
+    args.start_epoch = 0
+    args.best_val_loss = float('inf')
+
+    if restore_weights and checkpoint is not None:
+        model, args.start_epoch, args.best_val_loss = load_model_from_checkpoint(
+            model, checkpoint, freeze_parts=getattr(args, 'freeze_parts', None)
+        )
+
+    # 损失函数
     if args.task_type == "classification":
         criterion = nn.BCEWithLogitsLoss()
     elif args.task_type == "regression":
         criterion = nn.MSELoss()
+    else:
+        raise ValueError(f"Unsupported task_type: {args.task_type}")
+
+
     optimizer = torch.optim.AdamW(
-        model.parameters(),
+        filter(lambda p: p.requires_grad, model.parameters()),
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
-        betas = (0.9, 0.99)
+        betas=(0.9, 0.99)
     )
 
     scheduler = get_scheduler(args.scheduler_type, optimizer, args, train_dataloader=train_dataloader)

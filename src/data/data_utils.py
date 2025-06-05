@@ -46,7 +46,6 @@ def get_split_indices(
         for group in time_order:
             end = start + lengths[group]
             idx_block = np.arange(start, end)
-            np.random.shuffle(idx_block)
             idx_map[group] = idx_block
             start = end
         train_idx = idx_map['train']

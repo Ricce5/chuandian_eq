@@ -162,12 +162,32 @@ df_nl = loader.normalize_df(df)
 import src.data.preparation as preparation
 df,train_loader, val_loader, test_loader,dataset,scalars = preparation.prepare_data(args, base_dir)
 # %%
+mag_list = []
 for i, (x, y) in enumerate(train_loader):
-    print(y)
-    break
+    mag_list.append(dataset.inverse_normalize_label(y))
+for i, (x, y) in enumerate(val_loader):
+    mag_list.append(dataset.inverse_normalize_label(y))
+for i, (x, y) in enumerate(test_loader):    
+    mag_list.append(dataset.inverse_normalize_label(y))
+mag = torch.cat(mag_list, dim=0)
+plt.plot(mag.cpu().numpy(), label='Magnitude')
+
 # %%
 import matplotlib.pyplot as plt
 mag = [dataset.inverse_normalize_label(dataset[i][1]) for i in range(len(dataset))]
 plt.plot(mag)
 
+# %%
+combined_indices = (
+    list(train_loader.dataset.indices) +
+    list(val_loader.dataset.indices) +
+    list(test_loader.dataset.indices)
+)
+
+mag_combined = [dataset.inverse_normalize_label(dataset[i][1]) for i in combined_indices]
+plt.plot(mag_combined, label='Combined Magnitude')
+# %%
+# %%
+for i, (x, y) in enumerate(val_loader):
+    print(x[:,:,0].shape)
 # %%

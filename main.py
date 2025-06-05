@@ -141,7 +141,23 @@ if __name__ == "__main__":
         writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard"))
 
         train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
-        model, criterion, optimizer, scheduler, args = config_setup.setup_config(args, device, model_class,train_loader)
+
+        resume_path = getattr(args, 'resume_path', None)
+        if resume_path is None:
+            print("[INFO] No resume path provided. Training will start from scratch.")
+            checkpoint = None
+        elif not os.path.exists(resume_path):
+            print(f"[WARNING] Resume path '{resume_path}' not found. Training will start from scratch.")
+            checkpoint = None
+        else:
+            print(f"[INFO] Loading checkpoint from: {resume_path}")
+            checkpoint = torch.load(resume_path, map_location=device)
+
+        model, criterion, optimizer, scheduler, args = config_setup.setup_config(
+            args, device, model_class, train_dataloader=train_loader,
+            checkpoint=checkpoint, restore_weights=(checkpoint is not None)
+)
+
         
         val_loss, metrics = trainer.train_and_save(
             args=args,

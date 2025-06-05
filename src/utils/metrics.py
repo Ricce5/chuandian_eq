@@ -187,7 +187,7 @@ def regression_metrics(y_true, y_pred):
 
     return metrics_dict
 
-def plot_regression_scatter(data_dict, save_path=None):
+def plot_regression_scatter(data_dict, save_path=None,verbose=False):
     """
     Scatter plot of predicted vs true values for regression.
     data_dict: {
@@ -223,11 +223,12 @@ def plot_regression_scatter(data_dict, save_path=None):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
-        print(f"[✔] Saved scatter plot to {save_path}")
+        if verbose:
+            print(f"[✔] Saved scatter plot to {save_path}")
     plt.show()
 
 
-def plot_regression_series(data_dict, save_path=None):
+def plot_regression_series(data_dict, save_path=None, verbose=False):
     """
     Line plot of true vs predicted values across time/index.
     """
@@ -250,5 +251,6 @@ def plot_regression_series(data_dict, save_path=None):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
-        print(f"[✔] Saved series plot to {save_path}")
+        if verbose:
+            print(f"[✔] Saved series plot to {save_path}")
     plt.show()
