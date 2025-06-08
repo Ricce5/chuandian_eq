@@ -34,7 +34,7 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None):
     """
     从 checkpoint 中加载模型权重和参数，返回加载后的模型及辅助信息
     """
-    load_result = model.load_state_dict(checkpoint['model_state_dict'])
+    load_result = model.load_state_dict(checkpoint['model_state_dict'],strict=False)
     print("Checkpoint loaded:", load_result)
 
     if 'hyperparameters' in checkpoint:
@@ -74,6 +74,8 @@ def setup_config(args, device, model_class, train_dataloader=None, checkpoint=No
         criterion = nn.BCEWithLogitsLoss()
     elif args.task_type == "regression":
         criterion = nn.MSELoss()
+    elif args.task_type == "counting":
+        criterion = nn.PoissonNLLLoss(log_input=False, full=False)
     else:
         raise ValueError(f"Unsupported task_type: {args.task_type}")
 

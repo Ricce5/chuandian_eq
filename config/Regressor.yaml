@@ -1,4 +1,5 @@
 resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250603-142623/last_model_1.pth
+freeze_parts: [transformer, mlp] # [transformer, mlp]
 # 模型设置
 model: Regressor
 task_type: regression
@@ -41,10 +42,10 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-Mc: 5
-Mf: 5
-Twindow: 730
-Tfore: 365
+Mc: 3
+Mf: 3
+Twindow: 200
+Tfore: 20
 dt: 30
 context_len: 0
 split_by_time: true

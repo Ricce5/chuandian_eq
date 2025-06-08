@@ -41,8 +41,8 @@ def load_args_from_yaml(path='config/config.yaml'):
             telaps_key = f"T_elaps{Mag}"
             if any(telaps_key in feature for feature in args.feature_cols):
                 raise ValueError(f"feature_cols会从Mag_elaps添加特征 {telaps_key}，不能重复添加。")
-    args.feature_cols.extend([f"T_elaps{Mag}" for Mag in args.Mag_elaps])
-    print(f"feature_cols: {args.feature_cols}")
+        args.feature_cols.extend([f"T_elaps{Mag}" for Mag in args.Mag_elaps])
+        print(f"feature_cols: {args.feature_cols}")
     return args
 
 

@@ -41,7 +41,8 @@ class LSTMDataset(Dataset):
         # 检查是否包含标签的归一化器（scalars 字典中是否有标签列）
         if 'Mag_max_obs' in self.scalars:
             scalar = self.scalars['Mag_max_obs']
-            return scalar.inverse_transform(norm_value.reshape(-1, 1)).squeeze(1)
+            value = scalar.inverse_transform(norm_value.reshape(-1, 1)).squeeze(1)
+            return torch.tensor(value, dtype=torch.float32)
         else:
             raise ValueError("未找到标签列的归一化缩放器。")
 
@@ -55,6 +56,42 @@ def normalize_df(df):
             df_nl[col] = scalar.fit_transform(df_nl[col].values.reshape(-1, 1))
             scalars[col] = scalar
     return df_nl, scalars
+
+
+
+def clean_data(X, y, nan_value_for_x=0.0, verbose=True):
+    """
+    清洗输入特征 X 和标签 y：
+    - 删除 y 为 NaN 的样本（以及对应的 X）
+    - 将 X 中的 NaN 替换为指定值（默认是 0.0）
+    
+    参数：
+        X (np.ndarray): 输入特征，二维数组 (n_samples, n_features)
+        y (np.ndarray): 目标变量，一维或二维数组
+        nan_value_for_x (float): 用于替换 X 中 NaN 的值，默认 0.0
+        verbose (bool): 是否打印处理日志
+
+    返回：
+        X_clean (np.ndarray): 清洗后的 X
+        y_clean (np.ndarray): 清洗后的 y
+    """
+    # 转为 numpy 数组（如果不是的话）
+    X = np.array(X)
+    y = np.array(y)
+
+    # 1. 去除 y 为 NaN 的样本
+    valid_mask = ~np.isnan(y).flatten()
+    X_clean = X[valid_mask]
+    y_clean = y[valid_mask]
+
+    # 2. 替换 X 中的 NaN 为指定值
+    X_clean = np.nan_to_num(X_clean, nan=nan_value_for_x)
+
+    if verbose:
+        print(f"   原始样本数: {len(y)}, 清洗后样本数: {len(y_clean)}")
+        print(f"   替换了 X 中的 NaN 为 {nan_value_for_x}")
+
+    return X_clean, y_clean
 
 
 def split_dataset(X, y, by_time=False, batch_size=64, seed=0, train_ratio=0.7, val_ratio=0.15, time_order=('train','val', 'test'),scalars=None):
@@ -84,8 +121,11 @@ def split_dataset(X, y, by_time=False, batch_size=64, seed=0, train_ratio=0.7, v
     print(f"Validation set: {len(val_ds)} samples")
     print(f"Test set: {len(test_ds)} samples")
 
-    return {
+
+    data_loaders = {
         'train': DataLoader(train_ds, batch_size=batch_size, shuffle=False),
         'val': DataLoader(val_ds, batch_size=batch_size, shuffle=False),
         'test': DataLoader(test_ds, batch_size=batch_size, shuffle=False),
     }
+
+    return dataset, data_loaders

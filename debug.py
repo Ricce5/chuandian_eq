@@ -154,13 +154,16 @@ with torch.no_grad():
 from flash_attn.modules.mha import FlashSelfAttention
 
 # %%
-base_dir = "data/CD2021"
+base_dir = "data/ChuanDian"
 args = load_args_from_yaml("config/Regressor.yaml")
 df = load_and_filter_catalog(base_dir,Mc=args.Mc)
 df_nl = loader.normalize_df(df)
 # %%
 import src.data.preparation as preparation
-df,train_loader, val_loader, test_loader,scalars = preparation.prepare_data(args, base_dir)
+df,train_loader, val_loader, test_loader,scalars,dataset = preparation.prepare_data(args, base_dir)
+# %%
+args= load_args_from_yaml("config/LSTM.yaml")
+df,train_loader, val_loader, test_loader,scalars,dataset = preparation.prepare_data_lstm(args, base_dir)
 # %%
 mag_list = []
 for i, (x, y) in enumerate(train_loader):
@@ -170,6 +173,11 @@ for i, (x, y) in enumerate(val_loader):
 for i, (x, y) in enumerate(test_loader):    
     mag_list.append(dataset.inverse_normalize_label(y))
 mag = torch.cat(mag_list, dim=0)
+if torch.isnan(mag).any():
+    print("⚠️ 拼接后的 mag 中存在 NaN 值")
+    print(f"NaN 索引位置: {torch.where(torch.isnan(mag))[0]}")
+else:
+    print("✅ mag 中不含 NaN")
 plt.plot(mag.cpu().numpy(), label='Magnitude')
 
 # %%

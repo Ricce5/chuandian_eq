@@ -67,7 +67,7 @@ def get_model_and_data(args, base_path, device):
     train_step = __import__(model_info["train_step_module"], fromlist=[''])
     model_class = getattr(src.models.Models, model_info["model_class"])
     data_func = globals()[model_info["data_func"]]
-    df, train_loader, val_loader, test_loader,scalars = data_func(args, base_path)
+    df, train_loader, val_loader, test_loader,scalars,dataset = data_func(args, base_path)
     return train_step, model_class, df, train_loader, val_loader, test_loader
 
 

@@ -57,7 +57,7 @@ def prepare_data(args, base_dir="data/CD2021"):
     train_loader = loader.get_dataloader(train_set, batch_size=args.batch_size, shuffle=False, sampler=sampler,task_type=args.task_type)
     val_loader = loader.get_dataloader(val_set, batch_size=args.batch_size, shuffle=False, task_type=args.task_type)
     test_loader = loader.get_dataloader(test_set, batch_size=args.batch_size, shuffle=False,task_type=args.task_type)
-    return df, train_loader, val_loader, test_loader,scalers
+    return df, train_loader, val_loader, test_loader,scalers,dataset
 
 
 def prepare_data_lstm(args, base_dir="data/CD2021"):
@@ -128,10 +128,9 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
 
     features = features_df_nl[args.feature_cols].values
     target = features_df_nl['Mag_max_obs'].values.copy()
-
-    # 调用内部函数生成LSTM数据
     X, y = create_lstm_data(features, target, timestep=args.time_step) 
-    data_loaders = loader.split_dataset(
+    X,y = loader.clean_data(X,y)
+    dataset,data_loaders = loader.split_dataset(
         X, y,
         by_time=args.split_by_time,
         batch_size=args.batch_size,
@@ -141,7 +140,7 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
         scalars=scalars
     )
 
-    return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], scalars
+    return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], scalars, dataset
 
 
 
