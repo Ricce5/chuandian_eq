@@ -147,8 +147,6 @@ class CDSlidingWindow(CDBase):
         window_start = t_start
         while window_start + window_size_days <= t_end:
             window_end = window_start + window_size_days
-            mask = (arrival_times >= window_start) & (arrival_times < window_end)
-            indices = mask.nonzero().squeeze(-1).tolist()
             seq = self.full_sequence.get_subsequence(
                 start=window_start,
                 end=window_end,

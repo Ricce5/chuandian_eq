@@ -55,6 +55,6 @@ class TppDataset(torch.utils.data.Dataset):
             self,
             batch_size=batch_size,
             shuffle=shuffle,
-            collate_fn=Batch.from_list,
+            collate_fn=Batch.from_list,   # collate_fn 输入为 List[Sequence]
             **kwargs,
         )
