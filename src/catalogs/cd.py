@@ -15,10 +15,14 @@ def trim(x_min, x_max, p=0.05):
     return x_min + length * p, x_min + length * (1 - p)
 
 class CDBase(Catalog):
-    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 3.0):
+    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 3.0, normalize: bool = True):
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
-
+        if isinstance(catalog_file, (str, Path)):
+            self.catalog_file = Path(catalog_file)
+        else:
+            raise TypeError("catalog_file must be a str or Path")
+        self.normalize = normalize
         self.metadata = {
             "name": "CD",
             "freq": "1D",
@@ -28,11 +32,6 @@ class CDBase(Catalog):
             "end_ts": pd.Timestamp("2023-08-14"),
         }
 
-        if not (self.root_dir / "metadata.pt").exists():
-            assert catalog_file is not None, "Must provide catalog_file to generate dataset"
-            self.generate_catalog(catalog_file)
-            torch.save(self.metadata, self.root_dir / "metadata.pt")
-
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
 
@@ -40,10 +39,10 @@ class CDBase(Catalog):
     def required_files(self):
         return ["full_sequence.pt", "metadata.pt"]
 
-    def generate_catalog(self, catalog_file: Union[str, Path]):
+    def generate_catalog(self):
         column_names = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second',
                         'Latitude', 'Longitude', 'Depth', 'Magnitude']
-        df = pd.read_csv(catalog_file, header=None, names=column_names, sep=r"\s+")
+        df = pd.read_csv(self.catalog_file, header=None, names=column_names, sep=r"\s+")
         df['time'] = pd.to_datetime(df[['Year', 'Month', 'Day', 'Hour', 'Minute']], errors='coerce') + pd.to_timedelta(df['Second'], unit='s')
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
@@ -58,14 +57,28 @@ class CDBase(Catalog):
 
         arrival_times = ((df["time"] - start_ts) / pd.Timedelta("1D")).values
         inter_times = np.diff(arrival_times, prepend=[t_start], append=[t_end])
+        
+
+        fields = {
+            "magnitude": df["Magnitude"].values,
+            "latitude": df["Latitude"].values,
+            "longitude": df["Longitude"].values,
+            "depth": df["Depth"].values,
+        }
+        if self.normalize:
+            fields = self.normalize_fields(fields) 
+
+        torch.save(self.norm_stats, self.root_dir / "norm_stats.pt")  # 可选
+
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
             t_start=t_start,
-            mag=torch.tensor(df["Magnitude"].values, dtype=torch.float32),
-            latitude=torch.tensor(df["Latitude"].values, dtype=torch.float32),
-            longitude=torch.tensor(df["Longitude"].values, dtype=torch.float32),
-            depth=torch.tensor(df["Depth"].values, dtype=torch.float32),
+            mag=fields["magnitude"],
+            latitude=fields["latitude"],
+            longitude=fields["longitude"],
+            depth=fields["depth"],
         )
+
         TppDataset([seq]).save_to_disk(self.root_dir / "full_sequence.pt")
 
 
@@ -136,9 +149,6 @@ class CDSlidingWindow(CDBase):
             window_end = window_start + window_size_days
             mask = (arrival_times >= window_start) & (arrival_times < window_end)
             indices = mask.nonzero().squeeze(-1).tolist()
-            if len(indices) < 2:
-                window_start += step_size_days
-                continue  # 跳过事件太少的窗口
             seq = self.full_sequence.get_subsequence(
                 start=window_start,
                 end=window_end,
