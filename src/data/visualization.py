@@ -69,3 +69,5 @@ def plot_earthquake_3d(df, title="3D Earthquake Visualization", color_by="Time")
     ax.view_init(elev=20, azim=120)
     plt.tight_layout()
     plt.show()
+
+    

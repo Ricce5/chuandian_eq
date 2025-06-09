@@ -147,7 +147,7 @@ def plot_classification_distribution(preds, labels, title="Prediction Distributi
     plt.tight_layout()
     
     if save_path:
-        plt.savefig(save_path)
+        plt.savefig(save_path,dpi=100)
     plt.show()
 
 def regression_metrics(y_true, y_pred):
@@ -187,6 +187,16 @@ def regression_metrics(y_true, y_pred):
 
     return metrics_dict
 
+def count_metrics(y_true, y_pred):
+    y_pred = np.round(np.exp(y_pred))  # 从 log(λ) 转换为 λ，并四舍五入
+    y_true = np.round(y_true)
+
+    mae = np.mean(np.abs(y_true - y_pred))
+    acc = np.mean(y_true == y_pred)
+    return {'MAE': mae, 'ExactMatchAcc': acc}
+
+
+
 def plot_regression_scatter(data_dict, save_path=None,verbose=False):
     """
     Scatter plot of predicted vs true values for regression.
@@ -222,7 +232,7 @@ def plot_regression_scatter(data_dict, save_path=None,verbose=False):
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=300)
+        plt.savefig(save_path, dpi=100)
         if verbose:
             print(f"[✔] Saved scatter plot to {save_path}")
     plt.show()
@@ -250,7 +260,75 @@ def plot_regression_series(data_dict, save_path=None, verbose=False):
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=300)
+        plt.savefig(save_path, dpi=100)
+        if verbose:
+            print(f"[✔] Saved series plot to {save_path}")
+    plt.show()
+
+def plot_count_scatter(data_dict, save_path=None, verbose=False):
+    """
+    Scatter plot of predicted vs true values for count data.
+    data_dict: {
+        "Train": (true_values, pred_values),
+        "Validation": (true_values, pred_values),
+        "Test": (true_values, pred_values)    
+    }   
+    """
+    colors = {"Train": "blue", "Validation": "green", "Test": "black"}
+    markers = {"Train": "x", "Validation": "^", "Test": "o"}
+
+    plt.figure(figsize=(10, 8))
+
+    for label, (true_vals, pred_vals) in data_dict.items():
+        plt.scatter(true_vals, pred_vals, 
+                    color=colors.get(label, "gray"), 
+                    marker=markers.get(label, "o"), 
+                    s=15, label=f"{label} Set")
+
+    # 参考线
+    x = np.linspace(0, 20, 100)
+    plt.plot(x, x, 'r-', label='Ideal: y = x')
+    plt.plot(x, x + 1, 'gray', linestyle='--', label='y = x + 1')
+    plt.plot(x, x - 1, 'gray', linestyle='--', label='y = x - 1')
+
+    plt.xlim(0, 20)
+    plt.ylim(0, 20)
+    plt.xlabel("True Count", fontsize=14)
+    plt.ylabel("Predicted Count", fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(True)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=100)
+        if verbose:
+            print(f"[✔] Saved scatter plot to {save_path}")
+    plt.show()
+
+
+def plot_count_series(data_dict, save_path=None, verbose=False):
+    """
+    Line plot of true vs predicted values across time/index for count data.
+    """
+    plt.figure(figsize=(16, 8))
+    idx_start = 0
+
+    for label, (true_vals, pred_vals) in data_dict.items():
+        n = len(true_vals)
+        idx_range = np.arange(idx_start, idx_start + n)
+
+        plt.plot(idx_range, true_vals, label=f'{label} - True')
+        plt.plot(idx_range, pred_vals, label=f'{label} - Predicted', linestyle='--')
+        idx_start += n
+
+    plt.xlabel("Sample Index", fontsize=14)
+    plt.ylabel("Count", fontsize=14)
+    plt.legend(fontsize=12)
+    plt.grid(True)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=100)
         if verbose:
             print(f"[✔] Saved series plot to {save_path}")
     plt.show()
