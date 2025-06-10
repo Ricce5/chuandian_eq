@@ -1,7 +1,6 @@
 from src.utils.file_utils import save_or_load_data
 from src.data.preprocessing import load_and_filter_catalog
 
-
 def prepare_data(args, base_dir="data/CD2021"):
     import src.data.event_loader as loader
     df = load_and_filter_catalog(base_dir, Mc=args.Mc)
@@ -57,7 +56,7 @@ def prepare_data(args, base_dir="data/CD2021"):
     train_loader = loader.get_dataloader(train_set, batch_size=args.batch_size, shuffle=False, sampler=sampler,task_type=args.task_type)
     val_loader = loader.get_dataloader(val_set, batch_size=args.batch_size, shuffle=False, task_type=args.task_type)
     test_loader = loader.get_dataloader(test_set, batch_size=args.batch_size, shuffle=False,task_type=args.task_type)
-    return df, train_loader, val_loader, test_loader,scalers,dataset
+    return df, train_loader, val_loader, test_loader,dataset
 
 
 def prepare_data_lstm(args, base_dir="data/CD2021"):
@@ -140,8 +139,41 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
         scalars=scalars
     )
 
-    return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], scalars, dataset
+    return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], dataset
 
 
+def prepare_data_tpp(args, base_dir="data/CD2021"):
+    import src.data.catalog as catalog
+    import src.catalogs.cd as cd
+    import src.catalogs.chuandian as chuandian
+    import src.catalogs.s2 as s2
+    import os
+    
+    root_dir = os.path.join(base_dir, 'raw')
+    dat_files = [f for f in os.listdir(root_dir) if f.endswith('.dat')]
 
-
+    if len(dat_files) != 1:
+        raise ValueError(f"Expected exactly one dat file, but found {len(dat_files)}: {dat_files}")
+    file_path = os.path.join(root_dir, dat_files[0])
+    
+    catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-SlidingWindow")
+    catalog_ds = catalog_ds_class(
+                root_dir=root_dir,
+                catalog_file=file_path,
+                mag_completeness=args.Mc,
+                window_size_days=args.Twindow,
+                step_size_days=args.dt,         
+            )
+    train_loader = catalog_ds.train.get_dataloader(
+        batch_size=args.batch_size,
+        shuffle=True,
+    )
+    val_loader = catalog_ds.val.get_dataloader(
+        batch_size=args.batch_size,
+        shuffle=False,
+    )
+    test_loader = catalog_ds.test.get_dataloader(
+        batch_size=args.batch_size,
+        shuffle=False,
+    )
+    return catalog_ds.full_sequence, train_loader, val_loader, test_loader, catalog_ds

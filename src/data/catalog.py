@@ -4,6 +4,7 @@ from src.utils.registrable import Registrable
 import numpy as np
 import torch
 
+
 default_catalogs_dir = Path(__file__).parents[2] / "data"
 
 
