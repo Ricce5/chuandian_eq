@@ -41,21 +41,26 @@ class THP(nn.Module):
         self.layer_intensity_hidden = nn.Linear(3*args.d_model, getattr(args, 'num_event_types', 1), bias=True)
         self.softplus = ScaledSoftplus(self.num_event_types)   # learnable mark-spe
     
+    @staticmethod
+    def _batch_to_model_input(bx):
+        t_seq = bx.arrival_times
+        t_delta_seqs = bx.inter_times
+        mag_seq = bx.mag
+        loc_seq = torch.concat((bx.latitude.unsqueeze(2), bx.longitude.unsqueeze(2)), dim=-1) 
+        f_seq = torch.concat((loc_seq, mag_seq.unsqueeze(2)), dim=-1)
+        return f_seq, t_seq
 
     def forward(self, x):
         f_seq, t_n_seq = self._batch_to_model_input(x)
         enc_out, seq_mask  = self.transformer(f_seq[:,:-1,:], t_n_seq[:,:-1])
         return enc_out, seq_mask .squeeze(-1)
     
-    def _build_type_seq(self, seq_mask):
-        type_seq = torch.full_like(seq_mask, fill_value=self.pad_token_id, dtype=torch.long)
-        type_seq[seq_mask.bool()] = 0
-        return type_seq
     
     def log_likelihood(self, x):
         time_delta_seqs = x.inter_times
+        type_seq = x.type_seq
         enc_out, seq_mask = self.forward(x)
-        type_seq = self._build_type_seq(seq_mask)
+       
 
         factor_intensity_decay = self.factor_intensity_decay[None, ...]
         factor_intensity_base = self.factor_intensity_base[None, ...]
@@ -165,12 +170,98 @@ class THP(nn.Module):
         num_events = torch.masked_select(event_ll, event_ll.ne(0.0)).size()[0]
         return event_ll, non_event_ll, num_events
     
-    @staticmethod
-    def _batch_to_model_input(bx):
-        t_seq = bx.arrival_times
-        t_delta_seqs = bx.inter_times
-        mag_seq = bx.mag
-        loc_seq = torch.concat((bx.latitude.unsqueeze(2), bx.longitude.unsqueeze(2)), dim=-1) 
-        dep_seq = bx.depth
-        f_seq = torch.concat((loc_seq, mag_seq.unsqueeze(2)), dim=-1)
-        return f_seq, t_seq
+    
+    def compute_intensities_at_sample_times(self,
+                                            time_seqs,
+                                            time_delta_seqs,
+                                            type_seqs,
+                                            sample_dtimes,
+                                            **kwargs):
+        """Compute hidden states at sampled times.
+
+        Args:
+            time_seqs (tensor): [batch_size, seq_len], times seqs.
+            time_delta_seqs (tensor): [batch_size, seq_len], time delta seqs.
+            type_seqs (tensor): [batch_size, seq_len], event type seqs.
+            sample_dtimes (tensor): [batch_size, seq_len, num_samples], sampled inter-event timestamps.
+
+        Returns:
+            tensor: [batch_size, seq_len, num_samples, num_event_types], intensity at all sampled times.
+        """
+
+        attention_mask = kwargs.get('attention_mask', None)
+        compute_last_step_only = kwargs.get('compute_last_step_only', False)
+
+        if attention_mask is None:
+            batch_size, seq_len = time_seqs.size()
+            attention_mask = torch.triu(torch.ones(seq_len, seq_len, device=self.device), diagonal=1).unsqueeze(0)
+            attention_mask = attention_mask.expand(batch_size, -1, -1).to(torch.bool)
+
+        # [batch_size, seq_len, num_samples]
+        enc_out = self.forward(time_seqs, type_seqs, attention_mask)
+
+        # [batch_size, seq_len, num_samples, hidden_size]
+        encoder_output = self.compute_states_at_sample_times(enc_out, sample_dtimes)
+
+        if compute_last_step_only:
+            lambdas = self.softplus(encoder_output[:, -1:, :, :])
+        else:
+            # [batch_size, seq_len, num_samples, num_event_types]
+            lambdas = self.softplus(encoder_output)
+        return lambdas
+    
+    def predict_one_step_at_every_event(self, batch):
+        """One-step prediction for every event in the sequence.
+
+        Args:
+            time_seqs (tensor): [batch_size, seq_len].
+            time_delta_seqs (tensor): [batch_size, seq_len].
+            type_seqs (tensor): [batch_size, seq_len].
+
+        Returns:
+            tuple: tensors of dtime and type prediction, [batch_size, seq_len].
+        """
+        time_seq = batch.arrival_times
+        time_delta_seq = batch.inter_times
+        event_seq = batch.type_seq
+
+        # remove the last event, as the prediction based on the last event has no label
+        # note: the first dts is 0
+        # [batch_size, seq_len]
+        time_seq, time_delta_seq, event_seq = time_seq[:, :-1], time_delta_seq[:, :-1], event_seq[:, :-1]
+
+        # [batch_size, seq_len]
+        dtime_boundary = torch.max(time_delta_seq * self.event_sampler.dtime_max,
+                                    time_delta_seq + self.event_sampler.dtime_max)
+
+        # [batch_size, seq_len, num_sample]
+        accepted_dtimes, weights = self.event_sampler.draw_next_time_one_step(time_seq,
+                                                                                time_delta_seq,
+                                                                                event_seq,
+                                                                                dtime_boundary,
+                                                                                self.compute_intensities_at_sample_times,
+                                                                                compute_last_step_only=False)  # make it explicit
+
+        # We should condition on each accepted time to sample event mark, but not conditioned on the expected event time.
+        # 1. Use all accepted_dtimes to get intensity.
+        # [batch_size, seq_len, num_sample, num_marks]
+        intensities_at_times = self.compute_intensities_at_sample_times(time_seq,
+                                                                        time_delta_seq,
+                                                                        event_seq,
+                                                                        accepted_dtimes)
+
+        # 2. Normalize the intensity over last dim and then compute the weighted sum over the `num_sample` dimension.
+        # Each of the last dimension is a categorical distribution over all marks.
+        # [batch_size, seq_len, num_sample, num_marks]
+        intensities_normalized = intensities_at_times / intensities_at_times.sum(dim=-1, keepdim=True)
+
+        # 3. Compute weighted sum of distributions and then take argmax.
+        # [batch_size, seq_len, num_marks]
+        intensities_weighted = torch.einsum('...s,...sm->...m', weights, intensities_normalized)
+
+        # [batch_size, seq_len]
+        types_pred = torch.argmax(intensities_weighted, dim=-1)
+
+        # [batch_size, seq_len]
+        dtimes_pred = torch.sum(accepted_dtimes * weights, dim=-1)  # compute the expected next event time
+        return dtimes_pred, types_pred

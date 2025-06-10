@@ -76,7 +76,7 @@ class Batch(DotDict):
         # Get index of the first event that happened after t_nll_start
         arrival_times = torch.cumsum(inter_times, dim=-1) + t_start[:, None] # none用于增加维度
         start_idx = get_start_idx(arrival_times, t_nll_start)
-        mask = get_mask(inter_times, start_idx, end_idx)
+        nll_mask = get_nll_mask(inter_times, start_idx, end_idx)
 
         # Handle other attributes (e.g., marks, locations)
         other_attr_names = [
@@ -92,15 +92,20 @@ class Batch(DotDict):
                 values, padding_value=0, max_len=padded_seq_len
             )
 
-        return Batch(                           # Python 允许在类的静态方法或类方法中创建并返回该类的实例
+        non_pad_mask = (inter_times != 0).float()
+        type_seq = build_type_seq(non_pad_mask, pad_token_id=-100)
+
+        return Batch(                         
             inter_times=inter_times,
             arrival_times=arrival_times,
             t_start=t_start,
             t_end=t_end,
             t_nll_start=t_nll_start,
-            mask=mask,
+            nll_mask=nll_mask,
             start_idx=start_idx,
             end_idx=end_idx,
+            non_pad_mask=non_pad_mask,
+            type_seq=type_seq,
             **other_attr,
         )
 
@@ -144,7 +149,7 @@ def get_start_idx(
     return x.argmin(-1)
 
 
-def get_mask(
+def get_nll_mask(
     inter_times: torch.Tensor,
     start_idx: torch.Tensor,
     end_idx: torch.Tensor,
@@ -176,4 +181,9 @@ def pad_sequence(
         out_tensor[i, :length, ...] = tensor
 
     return out_tensor
+
+def build_type_seq(non_pad_mask: torch.Tensor, pad_token_id: int = -100) -> torch.Tensor:
+        type_seq = torch.full_like(non_pad_mask, fill_value=pad_token_id, dtype=torch.long)
+        type_seq[non_pad_mask.bool()] = 0
+        return type_seq
 
