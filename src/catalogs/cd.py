@@ -159,7 +159,6 @@ class CDSlidingWindow(CDBase):
         if len(sequences) < 3:
             raise ValueError("Too few sequences to split into train/val/test.")
 
-        # 划分索引
         train_idx, val_idx, test_idx = get_split_indices(
             total_length=len(sequences),
             train_ratio=self.metadata['train_ratio'],
