@@ -42,3 +42,44 @@ def train_val_test_split_sequence(
     seq_test = seq.get_subsequence(seq.t_start, seq.t_end)
     seq_test.t_nll_start = t_test_start
     return seq_train, seq_val, seq_test
+
+
+def train_val_test_split_sequence_float(
+    seq: Sequence,
+    start_ts: float,
+    train_start_ts: float,
+    val_start_ts: float,
+    test_start_ts: float,
+):
+    """
+    使用 float 时间戳对序列进行训练 / 验证 / 测试划分。
+
+    参数说明：
+    - seq: 输入的 Sequence 对象
+    - start_ts: 整体起始时间（float）
+    - train_start_ts: 训练 NLL 起始时间（相对于 start_ts 的 float 时间）
+    - val_start_ts: 验证 NLL 起始时间（相对于 start_ts 的 float 时间）
+    - test_start_ts: 测试 NLL 起始时间（相对于 start_ts 的 float 时间）
+
+    返回：
+    - seq_train: 训练集（NLL 开始于 train_start_ts）
+    - seq_val: 验证集（NLL 开始于 val_start_ts）
+    - seq_test: 测试集（NLL 开始于 test_start_ts）
+    """
+
+    # 计算相对时间点（NLL loss 只计算在该点之后的事件）
+    t_train_start = train_start_ts if train_start_ts is not None else seq.t_start
+    t_val_start = val_start_ts
+    t_test_start = test_start_ts
+
+    # 切分时间段
+    seq_train = seq.get_subsequence(seq.t_start, val_start_ts)
+    seq_train.t_nll_start = t_train_start
+
+    seq_val = seq.get_subsequence(seq.t_start, test_start_ts)
+    seq_val.t_nll_start = t_val_start
+
+    seq_test = seq.get_subsequence(seq.t_start, seq.t_end)
+    seq_test.t_nll_start = t_test_start
+
+    return seq_train, seq_val, seq_test

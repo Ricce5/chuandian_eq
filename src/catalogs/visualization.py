@@ -91,7 +91,7 @@ def visualize_sequence(
     if ax is None:
         plt.figure(figsize=figsize, dpi=dpi)
         ax = plt.gca()
-    ax.scatter(t, mag, s=0.01*np.exp(2 * mag - 6), c=event_color, label="Events")
+    ax.scatter(t, mag, s=2*np.exp(2 * mag - 2), c=event_color, label="Events")
     _, y_max = ax.get_ylim()
     if show_nll:
         ax.add_patch(

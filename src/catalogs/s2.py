@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
-from src.catalogs.catalog_utils import train_val_test_split_sequence
+from src.catalogs.catalog_utils import train_val_test_split_sequence_float
 from src.data.data_utils import get_split_indices
 
 
@@ -15,9 +15,9 @@ def trim(x_min, x_max, p=0.05):
     return x_min + length * p, x_min + length * (1 - p)
 
 
-@Catalog.register(name="CD-Base")
-class CDBase(Catalog):
-    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 3.0, normalize: bool = True):
+@Catalog.register(name="S2-Base")
+class S2Base(Catalog):
+    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 4.5, normalize: bool = True):
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
         if isinstance(catalog_file, (str, Path)):
@@ -26,12 +26,12 @@ class CDBase(Catalog):
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
         self.metadata = {
-            "name": "CD",
-            "freq": "1D",
+            "name": "S2",
+            "freq": "1Y",
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
-            "start_ts": pd.Timestamp("1970-01-01"),
-            "end_ts": pd.Timestamp("2023-08-14"),
+            "start_ts": 115,
+            "end_ts": 20001,
         }
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
@@ -42,22 +42,20 @@ class CDBase(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def generate_catalog(self):
-        column_names = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second',
-                        'Latitude', 'Longitude', 'Depth', 'Magnitude']
+        column_names =["ID1", "ID2", "time", "Magnitude", "Depth", "Longitude", "Latitude"]
         df = pd.read_csv(self.catalog_file, header=None, names=column_names, sep=r"\s+")
-        df['time'] = pd.to_datetime(df[['Year', 'Month', 'Day', 'Hour', 'Minute']], errors='coerce') + pd.to_timedelta(df['Second'], unit='s')
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
         df.sort_values("time", inplace=True)
-        df["time_diff"] = df["time"].diff().dt.total_seconds()
+        df["time_diff"] = df["time"].diff()
         df = df[df["time_diff"] > 0].copy()
 
         start_ts = self.metadata["start_ts"]
         end_ts = self.metadata["end_ts"]
         t_start = 0.0
-        t_end = (end_ts - start_ts) / pd.Timedelta("1D")
+        t_end = end_ts - start_ts
 
-        arrival_times = ((df["time"] - start_ts) / pd.Timedelta("1D")).values
+        arrival_times = (df["time"] - start_ts) 
         inter_times = np.diff(arrival_times, prepend=[t_start], append=[t_end])
         
 
@@ -83,16 +81,16 @@ class CDBase(Catalog):
 
         TppDataset([seq]).save_to_disk(self.root_dir / "full_sequence.pt")
 
-@Catalog.register(name="CD-Standard")
-class CDStandard(CDBase):
+@Catalog.register(name="S2-Standard")
+class S2Standard(S2Base):
     def __init__(
         self,
         root_dir: Union[str, Path],
         catalog_file: Union[str, Path] = None,
         mag_completeness: float = 3.0,
-        train_start_ts: pd.Timestamp = pd.Timestamp("1975-01-01"),
-        val_start_ts: pd.Timestamp = pd.Timestamp("1995-01-01"),
-        test_start_ts: pd.Timestamp = pd.Timestamp("2007-01-01"),
+        train_start_ts: float = 2000,
+        val_start_ts:   float = 10000,
+        test_start_ts: float = 15000,
     ):
         super().__init__(root_dir, catalog_file, mag_completeness)  # 传给父类的初始化参数
 
@@ -100,21 +98,20 @@ class CDStandard(CDBase):
         self.metadata["val_start_ts"] = val_start_ts
         self.metadata["test_start_ts"] = test_start_ts
 
-        seq_train, seq_val, seq_test = train_val_test_split_sequence(
+        seq_train, seq_val, seq_test = train_val_test_split_sequence_float(
             seq=self.full_sequence,
             start_ts=self.metadata["start_ts"],
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
         )
-
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
 
 
-@Catalog.register(name="CD-SlidingWindow")
-class CDSlidingWindow(CDBase):
+@Catalog.register(name="S2-SlidingWindow")
+class S2SlidingWindow(S2Base):
     def __init__(
         self,
         root_dir: Union[str, Path],
