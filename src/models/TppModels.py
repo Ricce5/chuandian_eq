@@ -42,24 +42,24 @@ class THP(nn.Module):
         self.softplus = ScaledSoftplus(self.num_event_types)   # learnable mark-spe
     
     @staticmethod
-    def _batch_to_model_input(bx):
-        t_seq = bx.arrival_times
-        t_delta_seqs = bx.inter_times
-        mag_seq = bx.mag
-        loc_seq = torch.concat((bx.latitude.unsqueeze(2), bx.longitude.unsqueeze(2)), dim=-1) 
+    def _batch_to_model_input(batch):
+        t_seq = batch.arrival_times
+        t_delta_seqs = batch.inter_times
+        mag_seq = batch.mag
+        loc_seq = torch.concat((batch.latitude.unsqueeze(2), batch.longitude.unsqueeze(2)), dim=-1) 
         f_seq = torch.concat((loc_seq, mag_seq.unsqueeze(2)), dim=-1)
         return f_seq, t_seq
 
-    def forward(self, x):
-        f_seq, t_n_seq = self._batch_to_model_input(x)
-        enc_out, seq_mask  = self.transformer(f_seq[:,:-1,:], t_n_seq[:,:-1])
+    def forward(self, batch):
+        f_seq, t_seq = self._batch_to_model_input(batch)
+        enc_out, seq_mask  = self.transformer(f_seq[:,:-1,:], t_seq[:,:-1])
         return enc_out, seq_mask .squeeze(-1)
     
     
-    def log_likelihood(self, x):
-        time_delta_seqs = x.inter_times
-        type_seq = x.type_seq
-        enc_out, seq_mask = self.forward(x)
+    def log_likelihood(self, batch):
+        time_delta_seqs = batch.inter_times
+        type_seq = batch.type_seq
+        enc_out, seq_mask = self.forward(batch)
        
 
         factor_intensity_decay = self.factor_intensity_decay[None, ...]
