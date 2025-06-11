@@ -48,19 +48,12 @@ class THP(nn.Module):
                                               num_samples_boundary=getattr(args, 'num_samples_boundary', 5),
                                               dtime_max=getattr(args, 'dtime_max', 5),
                                               device=self.device)
-    
-    @staticmethod
-    def _batch_to_model_input(batch):
-        t_seq = batch.arrival_times
-        t_delta_seqs = batch.inter_times
-        mag_seq = batch.mag
-        loc_seq = torch.concat((batch.latitude.unsqueeze(2), batch.longitude.unsqueeze(2)), dim=-1) 
-        f_seq = torch.concat((loc_seq, mag_seq.unsqueeze(2)), dim=-1)
-        return f_seq, t_seq
 
     def forward(self, batch):
-        f_seq, t_seq = self._batch_to_model_input(batch)
-        enc_out, _ = self.transformer(f_seq[:,:-1,:], t_seq[:,:-1])
+        batch = batch[:, :-1]  
+        fea_seq = torch.cat([batch.loc,batch.mag[...,None]],dim=-1)
+        t_seq = batch.arrival_times
+        enc_out, _ = self.transformer(fea_seq,t_seq)
         return enc_out
     
     def log_likelihood(self, batch):
