@@ -52,9 +52,8 @@ class THP(nn.Module):
 
     def forward(self, batch):
         f_seq, t_seq = self._batch_to_model_input(batch)
-        enc_out, seq_mask  = self.transformer(f_seq[:,:-1,:], t_seq[:,:-1])
-        return enc_out, seq_mask .squeeze(-1)
-    
+        enc_out, _ = self.transformer(f_seq[:,:-1,:], t_seq[:,:-1])
+        return enc_out
     
     def log_likelihood(self, batch):
         time_delta_seqs = batch.inter_times

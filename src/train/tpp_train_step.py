@@ -3,152 +3,65 @@ import os
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device):
+def train(model, data_loader, optimizer, scheduler, device):
+    """Epoch operation in training phase."""
+    import numpy as np
+    from tqdm import tqdm
+
     model.train()
-    total_loss = 0
-    all_node_preds = []  # 存储所有预测值
-    all_node_targets = []  # 存储所有目标值
 
-    for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
-        x, y = x.to(device), y.to(device)
+    total_event_ll = 0  # cumulative event log-likelihood
+    total_time_se = 0   # cumulative time prediction squared-error
+    total_event_rate = 0  # cumulative number of correct type predictions
+    total_num_event = 0  # number of total non-pad events
+    total_num_pred = 0   # total number of predictions for time RMSE
+
+    for batch in tqdm(data_loader, mininterval=2, desc='Training'):
+        # Move data to device
+        event_time = batch.arrival_time.to(device)
+        label_dtime = batch.inter_times.to(device)
+        label_type = batch.type_seq.to(device)
+        pad_mask = label_type != model.pad_token_id  # assume model has pad_token_id
+
+        # Forward
         optimizer.zero_grad()
-        pred = model(x)
-        loss = criterion(pred, y)
+        pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
+        loss, num_event = model.log_likelihood(batch)
         loss.backward()
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
-        
         optimizer.step()
         step_scheduler(scheduler, event='batch')
-        total_loss += loss.item()
 
-        # 收集所有预测和目标值
-        all_node_preds.append(pred.cpu().detach().numpy())
-        all_node_targets.append(y.cpu().detach().numpy())
+        # Logging
+        total_event_ll += -loss.item()
+        total_num_event += num_event
 
-        if batch % 100 == 0:
-            tqdm.write(f"Batch {batch:>5d}/{len(data_loader):>5d} | Loss: {loss.item():.6f}")
+        # === Type prediction accuracy ===
+        if pred_type is not None:
+            # pred_type: [B, L, num_marks], label_type: [B, L]
+            pred_type_label = pred_type.argmax(-1)  # [B, L]
+            correct = (pred_type_label == label_type) & pad_mask
+            total_event_rate += correct.sum().item()
 
-  
-    all_node_preds = np.concatenate(all_node_preds, axis=0)
-    all_node_targets = np.concatenate(all_node_targets, axis=0)
+        # === Time prediction RMSE ===
+        if pred_dtime is not None:
+            # Ensure pred_dtime shape matches label_dtime
+            time_se = ((pred_dtime - label_dtime) ** 2)[pad_mask]
+            total_time_se += time_se.sum().item()
+            total_num_pred += pad_mask.sum().item()
 
-
-    metrics = regression_metrics(all_node_targets, all_node_preds)
-    log_metrics(metrics, prefix="Training")
-    avg_train_loss = total_loss / len(data_loader)
-    
-    return avg_train_loss, metrics
-
-def validate(data_loader, model, criterion, device):
-    model.eval()
-    val_loss = 0
-
-    all_node_preds = []  # 存储所有区域的预测值
-    all_node_targets = []  # 存储所有区域的真实值
-
-    with torch.no_grad():
-        for batch, (x, y) in enumerate(tqdm(data_loader, desc="Validating")):
-            x, y = x.to(device), y.to(device)
-            pred = model(x)
-            loss = criterion(pred, y)
-            val_loss += loss.item()
-
-            # 将所有预测值和真实值添加到相应的列表中
-            all_node_preds.extend(pred.cpu().detach().numpy())
-            all_node_targets.extend(y.cpu().detach().numpy())
-
-    # 将所有预测值和真实值合并为一个大的数组
-    all_node_preds = np.array(all_node_preds)
-    all_node_targets = np.array(all_node_targets)
-
-    metrics = regression_metrics(all_node_targets, all_node_preds)
-    log_metrics(metrics, prefix="Validation")
-
-    avg_val_loss = val_loss / len(data_loader)
-  
-    return avg_val_loss, metrics
-
-def test(data_loader, model, criterion, device, save_dir=None):
-    
-    model.eval()
-    test_loss = 0
-
-    all_node_preds = []  # Store all predicted values
-    all_node_targets = []  # Store all target values
-
-    with torch.no_grad():
-        for batch, (x, y) in enumerate(tqdm(data_loader, desc="Testing")):
-            x, y = x.to(device), y.to(device)
-            pred = model(x)
-            loss = criterion(pred, y)
-            test_loss += loss.item()
-
-            # Collect all predictions and targets
-            all_node_preds.extend(pred.cpu().detach().numpy())
-            all_node_targets.extend(y.cpu().detach().numpy())
-
-    # Convert predictions and targets to numpy arrays
-    all_node_preds = np.array(all_node_preds)
-    all_node_targets = np.array(all_node_targets)
-
-
-    # Calculate evaluation metrics
-    metrics = regression_metrics(all_node_targets, all_node_preds)
-    log_metrics(metrics, prefix="Test")
-    avg_test_loss = test_loss / len(data_loader)
-
-    return avg_test_loss, metrics
-
-
-def visualize_results(model, train_loader, val_loader, test_loader, device, save_dir):
-    """
-    Visualize regression model predictions across train, validation, and test sets.
-    Applies inverse normalization if dataset provides it.
-    """
-    model.eval()
-    os.makedirs(save_dir, exist_ok=True)
-
-    def get_root_dataset(loader):
-        dataset = loader.dataset
-        while isinstance(dataset, torch.utils.data.Subset):
-            dataset = dataset.dataset
-        return dataset
-
-    def collect_predictions(loader):
-        y_true, y_pred = [], []
-        dataset = get_root_dataset(loader)
-
-        with torch.no_grad():
-            for x, y in loader:
-                x = x.to(device)
-                preds = model(x).cpu().numpy()
-                labels = y.cpu().numpy()
-
-                # 如果 Dataset 有 inverse_normalize_label 方法
-                if hasattr(dataset, "inverse_normalize_label"):
-                    preds = dataset.inverse_normalize_label(preds)
-                    labels = dataset.inverse_normalize_label(labels)
-
-                y_true.extend(labels)
-                y_pred.extend(preds)
-
-        return np.array(y_true), np.array(y_pred)
-
-    # 收集（已反归一化的）数据
-    train_true, train_pred = collect_predictions(train_loader)
-    val_true, val_pred = collect_predictions(val_loader)
-    test_true, test_pred = collect_predictions(test_loader)
-
-    data_dict = {
-        "Train": (train_true, train_pred),
-        "Validation": (val_true, val_pred),
-        "Test": (test_true, test_pred),
+    avg_event_ll = total_event_ll / total_num_event if total_num_event > 0 else 0
+    type_acc = total_event_rate / total_num_event if total_num_event > 0 else 0
+    rmse = np.sqrt(total_time_se / total_num_pred) if total_num_pred > 0 else 0
+    metrics = {
+        'avg_event_ll': avg_event_ll,
+        'type_acc': type_acc,
+        'rmse': rmse
     }
+    log_metrics(metrics, prefix="Training")
 
-    # 可视化
-    plot_regression_scatter(data_dict, save_path=os.path.join(save_dir, "regression_scatter.png"))
-    plot_regression_series(data_dict, save_path=os.path.join(save_dir, "regression_series.png"))
+    return -avg_event_ll, metrics
+
 
