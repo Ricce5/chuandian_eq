@@ -70,11 +70,12 @@ class CDBase(Catalog):
         if self.normalize:
             fields = self.normalize_fields(fields) 
 
+        torch.save(self.norm_stats, self.root_dir / "norm_stats.pt")  
+
         fields["loc"] = np.stack(
             [fields["latitude"], fields["longitude"]], axis=-1
         )
 
-        torch.save(self.norm_stats, self.root_dir / "norm_stats.pt")  # 可选
 
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),

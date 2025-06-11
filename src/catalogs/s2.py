@@ -70,12 +70,15 @@ class S2Base(Catalog):
 
         torch.save(self.norm_stats, self.root_dir / "norm_stats.pt")  # 可选
 
+        fields["loc"] = np.stack(
+            [fields["latitude"], fields["longitude"]], axis=-1
+        )
+
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
             t_start=t_start,
             mag=fields["magnitude"],
-            latitude=fields["latitude"],
-            longitude=fields["longitude"],
+            loc =fields["loc"],
             depth=fields["depth"],
         )
 
