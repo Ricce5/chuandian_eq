@@ -33,13 +33,13 @@ class THP(nn.Module):
         ).to(self.device)
         
        
-        self.factor_intensity_base = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device))
-        self.factor_intensity_decay = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device))
+        self.factor_intensity_base = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device)).to(self.device)
+        self.factor_intensity_decay = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device)).to(self.device)
         nn.init.xavier_normal_(self.factor_intensity_base)
         nn.init.xavier_normal_(self.factor_intensity_decay)
 
-        self.layer_intensity_hidden = nn.Linear(3*args.d_model, getattr(args, 'num_event_types', 1), bias=True)
-        self.softplus = ScaledSoftplus(self.num_event_types)   # learnable mark-spe
+        self.layer_intensity_hidden = nn.Linear(3*args.d_model, getattr(args, 'num_event_types', 1), bias=True).to(self.device)  
+        self.softplus = ScaledSoftplus(self.num_event_types).to(self.device)
     
     @staticmethod
     def _batch_to_model_input(batch):
@@ -58,7 +58,8 @@ class THP(nn.Module):
     def log_likelihood(self, batch):
         time_delta_seqs = batch.inter_times
         type_seq = batch.type_seq
-        enc_out, seq_mask = self.forward(batch)
+        seq_mask = batch.non_pad_mask
+        enc_out = self.forward(batch)
        
 
         factor_intensity_decay = self.factor_intensity_decay[None, ...]
@@ -74,8 +75,8 @@ class THP(nn.Module):
         event_ll, non_event_ll, num_events = self.compute_loglikelihood(lambda_at_event=lambda_at_event,
                                                                         lambdas_loss_samples=lambda_t_sample,
                                                                         time_delta_seq=time_delta_seqs[:, 1:],
-                                                                        seq_mask=seq_mask.long(),
-                                                                        type_seq=type_seq.long())
+                                                                        seq_mask=seq_mask[:, 1:],
+                                                                        type_seq=type_seq[:, 1:])
 
         loss = - (event_ll - non_event_ll).sum()
         return loss, num_events

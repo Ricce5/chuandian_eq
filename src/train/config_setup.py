@@ -76,6 +76,8 @@ def setup_config(args, device, model_class, train_dataloader=None, checkpoint=No
         criterion = nn.MSELoss()
     elif args.task_type == "count":
         criterion = nn.PoissonNLLLoss(log_input=False, full=False)
+    elif args.task_type == "tpp":
+        criterion = None
     else:
         raise ValueError(f"Unsupported task_type: {args.task_type}")
 
