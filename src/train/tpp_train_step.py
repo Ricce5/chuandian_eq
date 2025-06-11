@@ -30,8 +30,10 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
         # Forward
         optimizer.zero_grad()
         # pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
-        pred_dtime= None
+        pred_dtime = None
         pred_type = None
+
+
         loss, num_event = model.log_likelihood(batch)
         loss.backward()
         optimizer.step()

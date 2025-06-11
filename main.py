@@ -25,7 +25,7 @@ def get_model_and_data(args, base_path, device):
         "Classifier": {
             "train_step_module": "src.train.classifier_train_step",
             "model_class": "Classifier",
-            "data_func": "src.data.preparation.prepare_data",
+            "data_func": "prepare_data",
         },
         "Classifier_STM": {
             "train_step_module": "src.train.classifier_train_step",

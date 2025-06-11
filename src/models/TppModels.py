@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from src.models.SubLayers import ScaledSoftplus
 from src.models.Layers import MLP, CNN, AttentionPooling
 from src.models.dstpp.Models import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
-
+from src.models.thinning import EventSampler
 
 class THP(nn.Module):
     def __init__(self, args, device):
@@ -40,6 +40,14 @@ class THP(nn.Module):
 
         self.layer_intensity_hidden = nn.Linear(3*args.d_model, getattr(args, 'num_event_types', 1), bias=True).to(self.device)  
         self.softplus = ScaledSoftplus(self.num_event_types).to(self.device)
+
+        self.event_sampler = EventSampler(num_sample= getattr(args, 'num_sample', 1),
+                                              num_exp=getattr(args, 'num_exp', 1),
+                                              over_sample_rate=getattr(args, 'over_sample_rate', 5.0),
+                                              patience_counter=getattr(args, 'patience_counter', 5),
+                                              num_samples_boundary=getattr(args, 'num_samples_boundary', 5),
+                                              dtime_max=getattr(args, 'dtime_max', 5),
+                                              device=self.device)
     
     @staticmethod
     def _batch_to_model_input(batch):
