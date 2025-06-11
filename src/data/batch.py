@@ -139,6 +139,30 @@ class Batch(DotDict):
     def to_list(self) -> List[Sequence]:
         """Convert a batch into a list of variable-length sequences."""
         return [self.get_sequence(idx) for idx in range(self.batch_size)]
+    
+    def __getitem__(self, key):
+        # 支持 batch[:, slice] 形式
+        if isinstance(key, tuple) and len(key) == 2 and key[0] == slice(None):
+            return self._slice_sequences(key[1])
+        # 否则按普通 dict 行为
+        return super().__getitem__(key)
+    
+    def _slice_sequences(self, seq_slice: slice) -> "Batch":
+        sliced_data = {}
+        for k in self.__dict__['_data']:  # 直接访问底层字典，避免递归 __getitem__
+            v = self.__dict__['_data'][k]
+            if (
+                isinstance(v, torch.Tensor)
+                and v.ndim >= 2
+                and v.shape[1] == self.seq_len
+            ):
+                sliced_data[k] = v[:, seq_slice, ...]
+            else:
+                sliced_data[k] = v
+        return Batch(**sliced_data)
+
+
+    
 
 
 def get_start_idx(
