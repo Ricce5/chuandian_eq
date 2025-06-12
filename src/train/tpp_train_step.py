@@ -13,7 +13,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
 
     model.train()
 
-    total_event_ll = 0  # cumulative event log-likelihood
+    total_loss = 0  # cumulative event log-likelihood
     total_time_se = 0   # cumulative time prediction squared-error
     total_event_rate = 0  # cumulative number of correct type predictions
     total_num_event = 0  # number of total non-pad events
@@ -38,7 +38,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
         step_scheduler(scheduler, event='batch')
 
         # Logging
-        total_event_ll += -loss.item()
+        total_loss += loss.item()
         total_num_event += num_event
 
         # === Type prediction accuracy ===
@@ -53,23 +53,23 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
             total_time_se += time_se.sum().item()
             total_num_pred += pad_mask.sum().item()
 
-    avg_event_ll = total_event_ll / total_num_event if total_num_event > 0 else 0
+    avg_loss = total_loss / total_num_event if total_num_event > 0 else 0
     type_acc = total_event_rate / total_num_event if total_num_event > 0 else 0
     rmse = np.sqrt(total_time_se / total_num_pred) if total_num_pred > 0 else 0
     metrics = {
-        'avg_event_ll': avg_event_ll,
+        'avg_event_ll': -avg_loss,
         'type_acc': type_acc,
         'rmse': rmse
     }
     log_metrics(metrics, prefix="Training")
 
-    return -avg_event_ll, metrics
+    return avg_loss, metrics
 
 
 def validate(data_loader, model, criterion, device):
     model.eval()
 
-    total_event_ll = 0
+    total_loss = 0
     total_time_se = 0
     total_event_rate = 0
     total_num_event = 0
@@ -86,7 +86,7 @@ def validate(data_loader, model, criterion, device):
             pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
             loss, num_event = model.log_likelihood(batch)
 
-            total_event_ll += -loss.item()
+            total_loss += loss.item()
             total_num_event += num_event
 
             if pred_type is not None:
@@ -98,16 +98,17 @@ def validate(data_loader, model, criterion, device):
                 total_time_se += time_se.sum().item()
                 total_num_pred += pad_mask.sum().item()
 
-    avg_event_ll = total_event_ll / total_num_event if total_num_event > 0 else 0
+
+    avg_loss = total_loss / total_num_event if total_num_event > 0 else 0
     type_acc = total_event_rate / total_num_event if total_num_event > 0 else 0
     rmse = np.sqrt(total_time_se / total_num_pred) if total_num_pred > 0 else 0
     metrics = {
-        'avg_event_ll': avg_event_ll,
+        'avg_event_ll': -avg_loss,
         'type_acc': type_acc,
         'rmse': rmse
     }
     log_metrics(metrics, prefix="Validation")
-    return -avg_event_ll, metrics
+    return avg_loss, metrics
 
 
 
@@ -119,7 +120,7 @@ def test(data_loader, model, criterion, device):
 
     model.eval()
 
-    total_event_ll = 0
+    total_loss = 0
     total_time_se = 0
     total_event_rate = 0
     total_num_event = 0
@@ -138,7 +139,7 @@ def test(data_loader, model, criterion, device):
             pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
             loss, num_event = model.log_likelihood(batch)
 
-            total_event_ll += -loss.item()
+            total_loss += loss.item()
             total_num_event += num_event
 
             # 类型预测准确率
@@ -152,15 +153,15 @@ def test(data_loader, model, criterion, device):
                 total_time_se += time_se.sum().item()
                 total_num_pred += pad_mask.sum().item()
 
-    avg_event_ll = total_event_ll / total_num_event if total_num_event > 0 else 0
+    avg_loss = total_loss / total_num_event if total_num_event > 0 else 0
     type_acc = total_event_rate / total_num_event if total_num_event > 0 else 0
     rmse = np.sqrt(total_time_se / total_num_pred) if total_num_pred > 0 else 0
 
     metrics = {
-        'avg_event_ll': avg_event_ll,
+        'avg_event_ll': -avg_loss,
         'type_acc': type_acc,
         'rmse': rmse
     }
     log_metrics(metrics, prefix="Testing")
 
-    return -avg_event_ll, metrics
+    return avg_loss, metrics

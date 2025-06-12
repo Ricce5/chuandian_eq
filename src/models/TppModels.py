@@ -250,4 +250,5 @@ class THP(nn.Module):
 
         # [batch_size, seq_len]
         dtimes_pred = torch.sum(accepted_dtimes * weights, dim=-1)  # compute the expected next event time
+        print(f"dtimes_pred: {dtimes_pred}")
         return dtimes_pred, types_pred

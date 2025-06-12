@@ -190,7 +190,6 @@ class EventSampler(nn.Module):
                                                                    batch,
                                                                    intensity_fn,
                                                                    compute_last_step_only)
-
         # 2. draw exp distribution with intensity = intensity_upper_bound
         # we apply fast approximation, i.e., re-use exp sample times for computation
         # [batch_size, seq_len, num_exp]
