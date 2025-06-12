@@ -66,6 +66,7 @@ class THP(nn.Module):
         intensity_states = factor_intensity_decay * time_delta_seqs[:, 1:, None] + self.layer_intensity_hidden(
             enc_out) + factor_intensity_base
         lambda_at_event = self.softplus(intensity_states)
+        print("lambda_at_event stats:", lambda_at_event.mean().item(), lambda_at_event.max().item())
         sample_dtimes = self.make_dtime_loss_samples(time_delta_seqs[:, 1:])
 
         state_t_sample = self.compute_states_at_sample_times(event_states=enc_out,

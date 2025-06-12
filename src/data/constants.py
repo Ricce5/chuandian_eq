@@ -1,0 +1,2 @@
+PAD_TOKEN_ID=-100
+PAD =0

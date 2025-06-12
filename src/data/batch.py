@@ -5,7 +5,7 @@ import torch
 
 from .dot_dict import DotDict
 from .sequence import Sequence
-
+from .constants import PAD_TOKEN_ID
 
 class Batch(DotDict):
     """Batch of padded variable-length sequences.
@@ -93,7 +93,15 @@ class Batch(DotDict):
             )
 
         non_pad_mask = (inter_times != 0).float()
-        type_seq = build_type_seq(non_pad_mask, pad_token_id=-100)
+
+        if "type_event" in other_attr:
+            type_event = other_attr["type_event"]  # shape: [batch_size, padded_seq_len]
+
+            type_seq = torch.full_like(type_event, fill_value=PAD_TOKEN_ID)
+            type_seq[non_pad_mask.bool()] = type_event[non_pad_mask.bool()].long()
+        else:
+            type_seq = build_type_seq(non_pad_mask, pad_token_id=PAD_TOKEN_ID)
+
 
         return Batch(                         
             inter_times=inter_times,
@@ -206,7 +214,9 @@ def pad_sequence(
 
     return out_tensor
 
-def build_type_seq(non_pad_mask: torch.Tensor, pad_token_id: int = -100) -> torch.Tensor:
+def build_type_seq(non_pad_mask: torch.Tensor, 
+                   pad_token_id: int = -100
+) -> torch.Tensor:
         type_seq = torch.full_like(non_pad_mask, fill_value=pad_token_id, dtype=torch.long)
         type_seq[non_pad_mask.bool()] = 0
         return type_seq
