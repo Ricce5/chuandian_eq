@@ -149,17 +149,17 @@ class EventSampler(nn.Module):
         masked_crit_less_than_1 = torch.where(criterion<1,1,0)
         
         # [batch_size, max_len, num_sample]
-        non_accepted_filter = (1-masked_crit_less_than_1).all(dim=3)
+        non_accepted_filter = (1-masked_crit_less_than_1).all(dim=3) # 一个num_exp全部为0，sample被拒绝
         
         # [batch_size, max_len, num_sample]
-        first_accepted_indexer = masked_crit_less_than_1.argmax(dim=3)
+        first_accepted_indexer = masked_crit_less_than_1.argmax(dim=3) # 第一个被接受的index
         
         # [batch_size, max_len, num_sample,1]
         # indexer must be unsqueezed to 4D to match the number of dimensions of exp_numbers
-        result_non_accepted_unfiltered = torch.gather(exp_numbers, 3, first_accepted_indexer.unsqueeze(3))
+        result_non_accepted_unfiltered = torch.gather(exp_numbers, 3, first_accepted_indexer.unsqueeze(3)) # 在第3维上取indexer
         
         # [batch_size, max_len, num_sample,1]
-        result = torch.where(non_accepted_filter.unsqueeze(3), torch.tensor(self.dtime_max), result_non_accepted_unfiltered)
+        result = torch.where(non_accepted_filter.unsqueeze(3), torch.tensor(self.dtime_max), result_non_accepted_unfiltered) # 没有sample接受，用dtime_max填充
         
         # [batch_size, max_len, num_sample]
         result = result.squeeze(dim=-1)
@@ -190,6 +190,7 @@ class EventSampler(nn.Module):
                                                                    batch,
                                                                    intensity_fn,
                                                                    compute_last_step_only)
+
         # 2. draw exp distribution with intensity = intensity_upper_bound
         # we apply fast approximation, i.e., re-use exp sample times for computation
         # [batch_size, seq_len, num_exp]
@@ -197,14 +198,14 @@ class EventSampler(nn.Module):
         exp_numbers = torch.cumsum(exp_numbers, dim=-1)
         
         # 3. compute intensity at sampled times from exp distribution
-        # [batch_size, seq_len, num_exp, event_num]
+        # [batch_size, seq_len, num_exp, event_num] event_num is the number of event types
         intensities_at_sampled_times = intensity_fn(batch,
                                                     exp_numbers,
                                                     max_steps=time_seq.size(1),
                                                     compute_last_step_only=compute_last_step_only)
                                                    
 
-        # [batch_size, seq_len, num_exp]
+        # [batch_size, seq_len, num_exp]  sum intensities over all event types
         total_intensities = intensities_at_sampled_times.sum(dim=-1)
 
         # add one dim of num_sample: re-use the intensity for samples for prediction
@@ -222,7 +223,7 @@ class EventSampler(nn.Module):
         # [batch_size, seq_len, num_sample]
         res = self.sample_accept(unif_numbers, intensity_upper_bound, total_intensities, exp_numbers)
 
-        # [batch_size, seq_len, num_sample]
+        # [batch_size, seq_len, num_sample] sample 权重
         weights = torch.ones_like(res)/res.shape[2]
         
         # add a upper bound here in case it explodes, e.g., in ODE models

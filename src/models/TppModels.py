@@ -42,7 +42,7 @@ class THP(nn.Module):
         self.softplus = ScaledSoftplus(self.num_event_types).to(self.device)
 
         self.event_sampler = EventSampler(num_sample= getattr(args, 'num_sample', 1),
-                                              num_exp=getattr(args, 'num_exp', 1),
+                                              num_exp=getattr(args, 'num_exp', 500),
                                               over_sample_rate=getattr(args, 'over_sample_rate', 5.0),
                                               patience_counter=getattr(args, 'patience_counter', 5),
                                               num_samples_boundary=getattr(args, 'num_samples_boundary', 5),
@@ -250,5 +250,4 @@ class THP(nn.Module):
 
         # [batch_size, seq_len]
         dtimes_pred = torch.sum(accepted_dtimes * weights, dim=-1)  # compute the expected next event time
-        print(f"dtimes_pred: {dtimes_pred}")
         return dtimes_pred, types_pred
