@@ -29,6 +29,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
 
         # Forward
         optimizer.zero_grad()
+        pred_dtime, pred_type = None, None
         pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
 
         loss, num_event = model.log_likelihood(batch)
@@ -80,7 +81,8 @@ def validate(data_loader, model, criterion, device):
             label_dtime = batch[:, 1:].inter_times.to(device)
             label_type = batch[:, 1:].type_seq.to(device)
             pad_mask = label_type != model.pad_token_id
-
+            
+            pred_dtime, pred_type = None, None
             pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
             loss, num_event = model.log_likelihood(batch)
 
