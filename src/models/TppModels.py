@@ -50,18 +50,16 @@ class THP(nn.Module):
                                               device=self.device)
 
     def forward(self, batch):
-        batch = batch[:, :-1]  
         fea_seq = torch.cat([batch.loc,batch.mag[...,None]],dim=-1)
         t_seq = batch.arrival_times
         enc_out, _ = self.transformer(fea_seq,t_seq)
         return enc_out
     
-    def log_likelihood(self, batch):
+    def log_likelihood(self, batch): 
         time_delta_seqs = batch.inter_times
         type_seq = batch.type_seq
         seq_mask = batch.non_pad_mask
-        enc_out = self.forward(batch)
-       
+        enc_out = self.forward(batch[:, :-1]) 
 
         factor_intensity_decay = self.factor_intensity_decay[None, ...]
         factor_intensity_base = self.factor_intensity_base[None, ...]
@@ -173,9 +171,7 @@ class THP(nn.Module):
     
     
     def compute_intensities_at_sample_times(self,
-                                            time_seqs,
-                                            time_delta_seqs,
-                                            type_seqs,
+                                            batch,
                                             sample_dtimes,
                                             **kwargs):
         """Compute hidden states at sampled times.
@@ -190,16 +186,10 @@ class THP(nn.Module):
             tensor: [batch_size, seq_len, num_samples, num_event_types], intensity at all sampled times.
         """
 
-        attention_mask = kwargs.get('attention_mask', None)
         compute_last_step_only = kwargs.get('compute_last_step_only', False)
 
-        if attention_mask is None:
-            batch_size, seq_len = time_seqs.size()
-            attention_mask = torch.triu(torch.ones(seq_len, seq_len, device=self.device), diagonal=1).unsqueeze(0)
-            attention_mask = attention_mask.expand(batch_size, -1, -1).to(torch.bool)
-
         # [batch_size, seq_len, num_samples]
-        enc_out = self.forward(time_seqs, type_seqs, attention_mask)
+        enc_out = self.forward(batch)
 
         # [batch_size, seq_len, num_samples, hidden_size]
         encoder_output = self.compute_states_at_sample_times(enc_out, sample_dtimes)
@@ -222,23 +212,21 @@ class THP(nn.Module):
         Returns:
             tuple: tensors of dtime and type prediction, [batch_size, seq_len].
         """
-        time_seq = batch.arrival_times
-        time_delta_seq = batch.inter_times
-        event_seq = batch.type_seq
+        batch = batch[:, :-1] 
 
         # remove the last event, as the prediction based on the last event has no label
         # note: the first dts is 0
         # [batch_size, seq_len]
-        time_seq, time_delta_seq, event_seq = time_seq[:, :-1], time_delta_seq[:, :-1], event_seq[:, :-1]
-
+        time_seq, time_delta_seq, event_seq = batch.arrival_times, batch.inter_times, batch.type_seq
         # [batch_size, seq_len]
         dtime_boundary = torch.max(time_delta_seq * self.event_sampler.dtime_max,
-                                    time_delta_seq + self.event_sampler.dtime_max)
+                                    time_delta_seq + self.event_sampler.dtime_max) 
 
         # [batch_size, seq_len, num_sample]
         accepted_dtimes, weights = self.event_sampler.draw_next_time_one_step(time_seq,
                                                                                 time_delta_seq,
                                                                                 event_seq,
+                                                                                batch,
                                                                                 dtime_boundary,
                                                                                 self.compute_intensities_at_sample_times,
                                                                                 compute_last_step_only=False)  # make it explicit
@@ -246,10 +234,7 @@ class THP(nn.Module):
         # We should condition on each accepted time to sample event mark, but not conditioned on the expected event time.
         # 1. Use all accepted_dtimes to get intensity.
         # [batch_size, seq_len, num_sample, num_marks]
-        intensities_at_times = self.compute_intensities_at_sample_times(time_seq,
-                                                                        time_delta_seq,
-                                                                        event_seq,
-                                                                        accepted_dtimes)
+        intensities_at_times = self.compute_intensities_at_sample_times(batch,accepted_dtimes)
 
         # 2. Normalize the intensity over last dim and then compute the weighted sum over the `num_sample` dimension.
         # Each of the last dimension is a categorical distribution over all marks.

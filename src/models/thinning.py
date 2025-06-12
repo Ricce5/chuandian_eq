@@ -32,7 +32,7 @@ class EventSampler(nn.Module):
         self.patience_counter = patience_counter
         self.device = device
 
-    def compute_intensity_upper_bound(self, time_seq, time_delta_seq, event_seq, intensity_fn,
+    def compute_intensity_upper_bound(self, time_seq, time_delta_seq, event_seq,batch, intensity_fn,
                                       compute_last_step_only):
         # logger.critical(f'time_seq: {time_seq}')
         # logger.critical(f'time_delta_seq: {time_delta_seq}')
@@ -62,14 +62,14 @@ class EventSampler(nn.Module):
         # [batch_size, seq_len, num_samples_boundary]
         dtime_for_bound_sampled = time_delta_seq[:, :, None] * time_for_bound_sampled
 
+
         # [batch_size, seq_len, num_samples_boundary, event_num]
-        intensities_for_bound = intensity_fn(time_seq,
-                                             time_delta_seq,
-                                             event_seq,
+        intensities_for_bound = intensity_fn(batch,
                                              dtime_for_bound_sampled,
                                              max_steps=seq_len,
                                              compute_last_step_only=compute_last_step_only)
 
+                                             
         # [batch_size, seq_len]
         bounds = intensities_for_bound.sum(dim=-1).max(dim=-1)[0] * self.over_sample_rate
 
@@ -166,7 +166,7 @@ class EventSampler(nn.Module):
         
         return result
 
-    def draw_next_time_one_step(self, time_seq, time_delta_seq, event_seq, dtime_boundary,
+    def draw_next_time_one_step(self, time_seq, time_delta_seq, event_seq,batch, dtime_boundary,
                                 intensity_fn, compute_last_step_only=False):
         """Compute next event time based on Thinning algorithm.
 
@@ -187,6 +187,7 @@ class EventSampler(nn.Module):
         intensity_upper_bound = self.compute_intensity_upper_bound(time_seq,
                                                                    time_delta_seq,
                                                                    event_seq,
+                                                                   batch,
                                                                    intensity_fn,
                                                                    compute_last_step_only)
 
@@ -198,12 +199,11 @@ class EventSampler(nn.Module):
         
         # 3. compute intensity at sampled times from exp distribution
         # [batch_size, seq_len, num_exp, event_num]
-        intensities_at_sampled_times = intensity_fn(time_seq,
-                                                    time_delta_seq,
-                                                    event_seq,
+        intensities_at_sampled_times = intensity_fn(batch,
                                                     exp_numbers,
                                                     max_steps=time_seq.size(1),
                                                     compute_last_step_only=compute_last_step_only)
+                                                   
 
         # [batch_size, seq_len, num_exp]
         total_intensities = intensities_at_sampled_times.sum(dim=-1)
