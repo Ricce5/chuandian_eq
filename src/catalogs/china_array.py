@@ -15,8 +15,8 @@ def trim(x_min, x_max, p=0.05):
     return x_min + length * p, x_min + length * (1 - p)
 
 
-@Catalog.register(name="CD-Base")
-class CDBase(Catalog):
+@Catalog.register(name="ChinaArray-Base")
+class ChinaArrayBase(Catalog):
     def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 3.0, normalize: bool = True):
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ class CDBase(Catalog):
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
         self.metadata = {
-            "name": "CD",
+            "name": "ChinaArray",
             "freq": "1D",
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
@@ -87,8 +87,8 @@ class CDBase(Catalog):
 
         TppDataset([seq]).save_to_disk(self.root_dir / "full_sequence.pt")
 
-@Catalog.register(name="CD-Standard")
-class CDStandard(CDBase):
+@Catalog.register(name="ChinaArray-Standard")
+class ChinaArrayStandard(ChinaArrayBase):
     def __init__(
         self,
         root_dir: Union[str, Path],
@@ -117,8 +117,8 @@ class CDStandard(CDBase):
         self.test = TppDataset([seq_test])
 
 
-@Catalog.register(name="CD-SlidingWindow")
-class CDSlidingWindow(CDBase):
+@Catalog.register(name="ChinaArray-SlidingWindow")
+class ChinaArraySlidingWindow(ChinaArrayBase):
     def __init__(
         self,
         root_dir: Union[str, Path],

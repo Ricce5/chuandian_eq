@@ -15,8 +15,8 @@ def trim(x_min, x_max, p=0.05):
     return x_min + length * p, x_min + length * (1 - p)
 
 
-@Catalog.register(name="S2-Base")
-class S2Base(Catalog):
+@Catalog.register(name="AZDX-Base")
+class AZDXBase(Catalog):
     def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 4.5, normalize: bool = True):
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ class S2Base(Catalog):
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
         self.metadata = {
-            "name": "S2",
+            "name": "AZDX",
             "freq": "1Y",
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
@@ -84,8 +84,8 @@ class S2Base(Catalog):
 
         TppDataset([seq]).save_to_disk(self.root_dir / "full_sequence.pt")
 
-@Catalog.register(name="S2-Standard")
-class S2Standard(S2Base):
+@Catalog.register(name="AZDX-Standard")
+class AZDXStandard(AZDXBase):
     def __init__(
         self,
         root_dir: Union[str, Path],
@@ -113,8 +113,8 @@ class S2Standard(S2Base):
         self.test = TppDataset([seq_test])
 
 
-@Catalog.register(name="S2-SlidingWindow")
-class S2SlidingWindow(S2Base):
+@Catalog.register(name="AZDX-SlidingWindow")
+class AZDXSlidingWindow(AZDXBase):
     def __init__(
         self,
         root_dir: Union[str, Path],

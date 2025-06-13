@@ -146,7 +146,7 @@ def prepare_data_tpp(args, base_dir="data/CD2021"):
     import src.data.catalog as catalog
     import src.catalogs.cd as cd
     import src.catalogs.chuandian as chuandian
-    import src.catalogs.s2 as s2
+    import src.catalogs.azdx as azdx
     import os
     
     root_dir = os.path.join(base_dir, 'raw')
