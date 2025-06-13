@@ -8,8 +8,8 @@ from .dot_dict import DotDict
 
 class EventSequence:
     def __init__(self, arrival_times, inter_times, **attributes):
-        self.arrival_times = torch.as_tensor(arrival_times, dtype=torch.float32)
-        self.inter_times = torch.as_tensor(inter_times, dtype=torch.float32)
+        self.arrival_times = torch.as_tensor(arrival_times)
+        self.inter_times = torch.as_tensor(inter_times)
 
         if self.arrival_times.shape != self.inter_times.shape:
             raise ValueError("arrival_times and inter_times must be the same shape.")
