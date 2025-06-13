@@ -120,6 +120,7 @@ class Batch(DotDict):
             type_seq=type_seq,
             **other_attr,
         )
+    
 
     @property
     def batch_size(self):
@@ -224,4 +225,5 @@ def build_type_seq(non_pad_mask: torch.Tensor,
         type_seq = torch.full_like(non_pad_mask, fill_value=pad_token_id, dtype=torch.long)
         type_seq[non_pad_mask.bool()] = 0
         return type_seq
+
 
