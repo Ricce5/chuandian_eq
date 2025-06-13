@@ -4,16 +4,16 @@ from typing import List, Union
 import torch
 import torch.utils.data
 
-from .batch import Batch
-from .sequence import Sequence
+from .batch import Batch,EventBatch
+from .sequence import Sequence,EventSequence
 
 
 class TppDataset(torch.utils.data.Dataset):
     """Dataset represented by a list of event sequences stored in memory."""
 
-    def __init__(self, sequences: List[Sequence]):
-        if any(not isinstance(seq, Sequence) for seq in sequences):
-            raise ValueError("sequences must be a list of eq.data.Sequence")
+    def __init__(self, sequences: List[Union[Sequence, EventSequence]]):
+        if any(not isinstance(seq, (Sequence, EventSequence)) for seq in sequences):
+            raise ValueError("sequences must be a list of Sequence or EventSequence")
         self.sequences = sequences
 
     def __getitem__(self, key: int) -> Sequence:
@@ -51,10 +51,18 @@ class TppDataset(torch.utils.data.Dataset):
         return self.apply_(to_device)
 
     def get_dataloader(self, batch_size=1, shuffle=False, **kwargs):
+        first_seq = self.sequences[0]
+        if isinstance(first_seq, EventSequence):
+            collate_fn = EventBatch.from_list
+        elif isinstance(first_seq, Sequence):
+            collate_fn = Batch.from_list
+        else:
+            raise TypeError("Unsupported sequence type in dataset.")
+
         return torch.utils.data.DataLoader(
             self,
             batch_size=batch_size,
             shuffle=shuffle,
-            collate_fn=Batch.from_list,   # collate_fn 输入为 List[Sequence]
+            collate_fn= collate_fn
             **kwargs,
         )

@@ -32,9 +32,6 @@ class EventSequence:
         }
 
 
-
-
-
 class Sequence(DotDict):
     """Sequence of events (potentially with marks).
 

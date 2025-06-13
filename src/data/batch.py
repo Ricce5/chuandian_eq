@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from .dot_dict import DotDict
-from .sequence import Sequence
+from .sequence import Sequence,EventSequence
 from .constants import PAD_TOKEN_ID
 
 class Batch(DotDict):
@@ -227,3 +227,76 @@ def build_type_seq(non_pad_mask: torch.Tensor,
         return type_seq
 
 
+class EventBatch(DotDict):
+    """
+    Batch of padded EventSequence instances.
+
+    Attributes:
+        arrival_times: Padded arrival times [batch_size, seq_len]
+        inter_times: Padded inter-event times [batch_size, seq_len]
+        non_pad_mask: Mask indicating real (non-padded) entries [batch_size, seq_len]
+        type_seq: Token IDs with padding handled [batch_size, seq_len]
+        Other attributes (e.g., mag, loc) are padded similarly.
+    """
+
+    @staticmethod
+    def from_list(sequences: List["EventSequence"], pad_token_id: int = PAD_TOKEN_ID) -> "EventBatch":
+        batch_size = len(sequences)
+        max_len = max(len(seq) for seq in sequences)
+
+        def collect_and_pad(attr_name, dtype=torch.float32):
+            values = [getattr(seq, attr_name) for seq in sequences]
+            return pad_sequence(values, padding_value=0, max_len=max_len).to(dtype)
+
+        arrival_times = collect_and_pad("arrival_times")
+        inter_times = collect_and_pad("inter_times")
+
+        # Build non-pad mask
+        non_pad_mask = (inter_times != 0).float()
+        non_pad_mask[:, 0] = 1.0  # First inter-time is always valid
+
+        # Handle type_seq
+        type_seq = None
+        if any("type_event" in seq.attributes for seq in sequences):
+            types = [seq.attributes["type_event"] for seq in sequences]
+            padded_types = pad_sequence(types, padding_value=pad_token_id, max_len=max_len).long()
+            type_seq = torch.full_like(padded_types, pad_token_id)
+            type_seq[non_pad_mask.bool()] = padded_types[non_pad_mask.bool()]
+        else:
+            type_seq = build_type_seq(non_pad_mask, pad_token_id=pad_token_id)
+
+        # Handle other attributes like mag, loc (excluding type_event)
+        other_attr = {}
+        for key in sequences[0].attributes:
+            if key == "type_event":
+                continue
+            values = [seq.attributes[key] for seq in sequences]
+            other_attr[key] = pad_sequence(values, padding_value=0, max_len=max_len)
+
+        return EventBatch(
+            arrival_times=arrival_times,
+            inter_times=inter_times,
+            non_pad_mask=non_pad_mask,
+            type_seq=type_seq,
+            **other_attr
+        )
+    
+    def __getitem__(self, key):
+        # 支持 batch[:, slice] 形式
+        if isinstance(key, tuple) and len(key) == 2 and key[0] == slice(None):
+            return self._slice_sequences(key[1])
+        return super().__getitem__(key)
+    
+    def _slice_sequences(self, seq_slice: slice) -> "EventBatch":
+        sliced_data = {}
+        for k in self.__dict__['_data']:  # 直接访问底层字典，避免递归 __getitem__
+            v = self.__dict__['_data'][k]
+            if (
+                isinstance(v, torch.Tensor)
+                and v.ndim >= 2
+                and v.shape[1] == self.seq_len
+            ):
+                sliced_data[k] = v[:, seq_slice, ...]
+            else:
+                sliced_data[k] = v
+        return EventBatch(**sliced_data)
