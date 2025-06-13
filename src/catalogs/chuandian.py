@@ -30,7 +30,7 @@ class ChuanDianBase(Catalog):
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
             "start_ts": pd.Timestamp("1970-01-01"),
-            "end_ts": pd.Timestamp("2023-08-14"),
+            "end_ts": pd.Timestamp("2021-05-24"),
         }
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)

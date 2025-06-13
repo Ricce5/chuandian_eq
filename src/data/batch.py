@@ -54,7 +54,7 @@ class Batch(DotDict):
         batch_size = len(sequences)
         dtype = sequences[0].arrival_times.dtype
         device = sequences[0].arrival_times.device
-        padded_seq_len = max(len(seq.inter_times) for seq in sequences) # 最长序列长度 inter_times: 相邻事件间隔时间构成的seq
+        padded_seq_len = max(len(seq.inter_times) for seq in sequences) 
 
         inter_times = pad_sequence(
             [seq.inter_times for seq in sequences],
@@ -74,7 +74,8 @@ class Batch(DotDict):
             end_idx[i] = len(seq.arrival_times)
 
         # Get index of the first event that happened after t_nll_start
-        arrival_times = torch.cumsum(inter_times, dim=-1) + t_start[:, None] # none用于增加维度
+        
+        arrival_times = torch.cumsum(inter_times, dim=-1) + t_start[:, None] #  arrival_times的pad位为t_end
         start_idx = get_start_idx(arrival_times, t_nll_start)
         nll_mask = get_nll_mask(inter_times, start_idx, end_idx)
 
@@ -93,7 +94,7 @@ class Batch(DotDict):
             )
 
         non_pad_mask = (inter_times != 0).float()
-        non_pad_mask[:, 0] = 1.  # 确保第一个事件不是 padding
+        non_pad_mask[:, 0] = 1.  # 第一个时间为0的情况
 
 
         if "type_event" in other_attr:

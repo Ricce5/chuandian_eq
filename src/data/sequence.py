@@ -161,3 +161,31 @@ class Sequence(DotDict):
                 raise ValueError(
                     f"Attribute {key} must have shape [{len(self)}, ...] (got {list(value.shape)})"
                 )
+
+    def to_event_sequence(self) -> "Sequence":
+        """
+        Convert to event-only Sequence:
+        - Sets the first inter_time to 0 (no delay before first event)
+        - Removes the last inter_time (survival time)
+
+        Useful for feeding into models that only need actual observed events.
+        """
+        if len(self.inter_times) <= 1:
+            raise ValueError("Sequence too short to remove survival time.")
+
+        # Clone inter_times without survival and set first to 0
+        inter_times = self.inter_times[:-1].clone()
+        inter_times[0] = 0.0
+
+        # Copy non-default attributes (e.g., mag, loc)
+        other_attr = {
+            k: v.clone() for k, v in self.items()
+            if k not in self.default_sequence_attrs
+        }
+
+        return Sequence(
+            inter_times=inter_times,
+            t_start=self.t_start,
+            t_nll_start=self.t_nll_start,
+            **other_attr,
+        )
