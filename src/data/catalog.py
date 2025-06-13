@@ -20,7 +20,7 @@ class Catalog(Registrable):
         self.norm_stats = {}
         norm_path = self.root_dir / "norm_stats.pt"
         if norm_path.exists():
-            self.norm_stats = torch.load(norm_path)
+            self.norm_stats = torch.load(norm_path,weights_only=False)
 
         self.root_dir = Path(root_dir).expanduser().resolve() # expanduser波浪号 (~) 扩展为当前用户的主目录路径 resolve：返回绝对路径
         self.metadata = metadata

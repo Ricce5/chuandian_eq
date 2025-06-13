@@ -10,7 +10,7 @@ def get_split_indices(
     train_ratio=0.7,
     val_ratio=0.15,
     seed=0,
-    by_time=False,
+    by_time=True,
     time_order=('train', 'val', 'test')
 ):
     assert set(time_order) == {'train', 'val', 'test'}, "time_order must be a permutation of ('train', 'val', 'test')"

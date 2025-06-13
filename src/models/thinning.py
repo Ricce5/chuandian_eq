@@ -195,7 +195,10 @@ class EventSampler(nn.Module):
         # we apply fast approximation, i.e., re-use exp sample times for computation
         # [batch_size, seq_len, num_exp]
         exp_numbers = self.sample_exp_distribution(intensity_upper_bound)
+        # print(f"exp_numbers: {exp_numbers.shape}")
         exp_numbers = torch.cumsum(exp_numbers, dim=-1)
+        # print(intensity_upper_bound[0,0])
+        # print(exp_numbers[0,0,:])
         
         # 3. compute intensity at sampled times from exp distribution
         # [batch_size, seq_len, num_exp, event_num] event_num is the number of event types
@@ -222,7 +225,7 @@ class EventSampler(nn.Module):
         # 5. find out accepted intensities
         # [batch_size, seq_len, num_sample]
         res = self.sample_accept(unif_numbers, intensity_upper_bound, total_intensities, exp_numbers)
-
+        # print(f"res: {res[0,0,:]}")
         # [batch_size, seq_len, num_sample] sample 权重
         weights = torch.ones_like(res)/res.shape[2]
         

@@ -113,10 +113,13 @@ def validate(data_loader, model, criterion, device):
 
 
 
-def test(data_loader, model, criterion, device):   
-    """Epoch operation in testing phase."""
+import matplotlib.pyplot as plt
+import os
+
+def test(data_loader, model, criterion, device, save_dir=None):   
     import numpy as np
     from tqdm import tqdm
+    import torch
 
     model.eval()
 
@@ -126,32 +129,43 @@ def test(data_loader, model, criterion, device):
     total_num_event = 0
     total_num_pred = 0
 
+    all_label_dtime = []
+    all_pred_dtime = []
+
     with torch.no_grad():
         for batch in tqdm(data_loader, desc='Testing'):
             batch = batch.to(device)
 
-            # 标签截断，避免对最后一个 event 预测下一个（不存在）
             label_dtime = batch[:, 1:].inter_times.to(device)
+            print(batch[:, 1:].arrival_times[0])
+            print(f"label_dtime: {label_dtime[0]},")
             label_type = batch[:, 1:].type_seq.to(device)
             pad_mask = label_type != model.pad_token_id
 
-            # 预测下一事件时间和类型
             pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
             loss, num_event = model.log_likelihood(batch)
 
             total_loss += loss.item()
             total_num_event += num_event
 
-            # 类型预测准确率
             if pred_type is not None:
                 correct = (pred_type == label_type) & pad_mask
                 total_event_rate += correct.sum().item()
 
-            # 时间预测 RMSE
             if pred_dtime is not None:
                 time_se = ((pred_dtime - label_dtime) ** 2)[pad_mask]
                 total_time_se += time_se.sum().item()
                 total_num_pred += pad_mask.sum().item()
+
+                # 收集用于绘图的数据
+                all_label_dtime.append(label_dtime[pad_mask].cpu())
+                all_pred_dtime.append(pred_dtime[pad_mask].cpu())
+
+    # 汇总结果
+    all_label_dtime = torch.cat(all_label_dtime).numpy()
+    print(all_label_dtime)
+    print("all_label_dtime", max(all_label_dtime), min(all_label_dtime),sum(all_label_dtime)/len(all_label_dtime))
+    all_pred_dtime = torch.cat(all_pred_dtime).numpy()
 
     avg_loss = total_loss / total_num_event if total_num_event > 0 else 0
     type_acc = total_event_rate / total_num_event if total_num_event > 0 else 0
@@ -163,5 +177,35 @@ def test(data_loader, model, criterion, device):
         'rmse': rmse
     }
     log_metrics(metrics, prefix="Testing")
+
+    # 保存图像
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+
+        # 1. 实际 vs 预测散点图
+        plt.figure()
+        plt.scatter(all_label_dtime, all_pred_dtime, alpha=0.5, s=10)
+        plt.xlabel("True Delta Time")
+        plt.ylabel("Predicted Delta Time")
+        plt.title("Predicted vs True Delta Time")
+        plt.plot([min(all_label_dtime), max(all_label_dtime)],
+                 [min(all_label_dtime), max(all_label_dtime)], 'r--')
+        plt.savefig(os.path.join(save_dir, "scatter_pred_vs_true.png"))
+        plt.close()
+
+        # 2. 误差直方图
+        error = all_pred_dtime - all_label_dtime
+        plt.figure()
+        plt.hist(error, bins=50, alpha=0.7)
+        plt.xlabel("Prediction Error")
+        plt.ylabel("Count")
+        plt.title("Prediction Error Distribution")
+        plt.savefig(os.path.join(save_dir, "error_histogram.png"))
+        plt.close()
+
+        # 3. 保存预测与标签为 .npz 文件
+        np.savez(os.path.join(save_dir, "pred_results.npz"),
+                 label_dtime=all_label_dtime,
+                 pred_dtime=all_pred_dtime)
 
     return avg_loss, metrics

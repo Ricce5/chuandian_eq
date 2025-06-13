@@ -157,6 +157,7 @@ def prepare_data_tpp(args, base_dir="data/CD2021"):
     file_path = os.path.join(root_dir, dat_files[0])
     
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-SlidingWindow")
+    print(f"Using catalog dataset class: {catalog_ds_class}")
     catalog_ds = catalog_ds_class(
                 root_dir=root_dir,
                 catalog_file=file_path,
