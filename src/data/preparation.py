@@ -144,7 +144,7 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
 
 def prepare_data_tpp(args, base_dir="data/CD2021"):
     import src.data.catalog as catalog
-    import src.catalogs.cd as cd
+    import src.catalogs.china_array as ca
     import src.catalogs.chuandian as chuandian
     import src.catalogs.azdx as azdx
     import os
@@ -163,7 +163,8 @@ def prepare_data_tpp(args, base_dir="data/CD2021"):
                 catalog_file=file_path,
                 mag_completeness=args.Mc,
                 window_size_days=args.Twindow,
-                step_size_days=args.dt,         
+                step_size_days=args.dt, 
+                use_event_sequence=True,        
             )
     train_loader = catalog_ds.train.get_dataloader(
         batch_size=args.batch_size,

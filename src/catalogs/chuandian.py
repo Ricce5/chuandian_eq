@@ -30,7 +30,7 @@ class ChuanDianBase(Catalog):
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
             "start_ts": pd.Timestamp("1970-01-01"),
-            "end_ts": pd.Timestamp("2021-05-23"),
+            "end_ts": pd.Timestamp("2021-05-24"),  # 需要比 catalog 中的最大时间戳大，否则inter_times会有负值
         }
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
@@ -152,7 +152,7 @@ class ChuanDianSlidingWindow(ChuanDianBase):
         t_end = self.full_sequence.t_end
 
         window_start = t_start
-        while window_start + window_size_days <= t_end:
+        while window_start + window_size_days <= arrival_times[-1]:
             window_end = window_start + window_size_days
             seq = self.full_sequence.get_subsequence(
                 start=window_start,
