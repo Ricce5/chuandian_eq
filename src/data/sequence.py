@@ -28,7 +28,7 @@ class EventSequence:
     def __len__(self):
         return len(self.arrival_times)
 
-    def to_dict(self):
+    def state_dict(self):
          return {
             "arrival_times": self.arrival_times.tolist(),
             "inter_times": self.inter_times.tolist(),

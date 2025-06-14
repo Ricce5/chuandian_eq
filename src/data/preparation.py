@@ -143,39 +143,108 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
 
 
 def prepare_data_tpp(args, base_dir="data/CD2021"):
-    import src.data.catalog as catalog
-    import src.catalogs.china_array as ca
-    import src.catalogs.chuandian as chuandian
-    import src.catalogs.azdx as azdx
     import os
-    
-    root_dir = os.path.join(base_dir, 'raw')
-    dat_files = [f for f in os.listdir(root_dir) if f.endswith('.dat')]
+    import torch
+    import pickle
 
-    if len(dat_files) != 1:
-        raise ValueError(f"Expected exactly one dat file, but found {len(dat_files)}: {dat_files}")
-    file_path = os.path.join(root_dir, dat_files[0])
-    
-    catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-SlidingWindow")
-    print(f"Using catalog dataset class: {catalog_ds_class}")
-    catalog_ds = catalog_ds_class(
-                root_dir=root_dir,
-                catalog_file=file_path,
-                mag_completeness=args.Mc,
-                window_size_days=args.Twindow,
-                step_size_days=args.dt, 
-                use_event_sequence=True,        
+    from src.data.tpp_dataset import TppDataset
+    from src.data.sequence import EventSequence
+    import src.data.catalog as catalog
+
+    if args.dataset != 'taxi':
+        # Earthquake datasets
+        root_dir = os.path.join(base_dir, 'raw')
+        dat_files = [f for f in os.listdir(root_dir) if f.endswith('.dat')]
+
+        if len(dat_files) != 1:
+            raise ValueError(f"Expected exactly one dat file, but found {len(dat_files)}: {dat_files}")
+        file_path = os.path.join(root_dir, dat_files[0])
+
+        catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-SlidingWindow")
+        print(f"Using catalog dataset class: {catalog_ds_class}")
+
+        catalog_ds = catalog_ds_class(
+            root_dir=root_dir,
+            catalog_file=file_path,
+            mag_completeness=args.Mc,
+            window_size_days=args.Twindow,
+            step_size_days=args.dt,
+            use_event_sequence=True,
+        )
+
+        train_loader = catalog_ds.train.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+        )
+        val_loader = catalog_ds.val.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+        )
+        test_loader = catalog_ds.test.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+        )
+
+        return catalog_ds.full_sequence, train_loader, val_loader, test_loader, catalog_ds
+
+    else:
+        # Taxi dataset
+        def list_of_dicts_to_sequence(event_list):
+            inter_times = [event['time_since_last_event'] for event in event_list]
+            arrival_times = [event['time_since_start'] for event in event_list]
+            type_event = [event['type_event'] for event in event_list]
+
+            return EventSequence(
+                arrival_times=arrival_times,
+                inter_times=inter_times,
+                type_event=torch.tensor(type_event, dtype=torch.long)
             )
-    train_loader = catalog_ds.train.get_dataloader(
-        batch_size=args.batch_size,
-        shuffle=False,
-    )
-    val_loader = catalog_ds.val.get_dataloader(
-        batch_size=args.batch_size,
-        shuffle=False,
-    )
-    test_loader = catalog_ds.test.get_dataloader(
-        batch_size=args.batch_size,
-        shuffle=False,
-    )
-    return catalog_ds.full_sequence, train_loader, val_loader, test_loader, catalog_ds
+
+        def load_taxi_split(file_path):
+            with open(file_path, 'rb') as f:
+                data = pickle.load(f)
+            return [list_of_dicts_to_sequence(s) for s in data[next(iter(data))]]
+
+        # Paths for taxi split files
+        taxi_dir = os.path.join(base_dir, "raw")
+        train_file = os.path.join(taxi_dir, "train.pkl")
+        dev_file = os.path.join(taxi_dir, "dev.pkl")
+        test_file = os.path.join(taxi_dir, "test.pkl")
+
+        # Load sequences
+        train_seq = load_taxi_split(train_file)
+        dev_seq = load_taxi_split(dev_file)
+        test_seq = load_taxi_split(test_file)
+
+        # Wrap with Dataset
+        train_ds = TppDataset(train_seq)
+        dev_ds = TppDataset(dev_seq)
+        test_ds = TppDataset(test_seq)
+
+        # Loaders
+        train_loader = train_ds.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=getattr(args, 'num_workers', 8),
+            pin_memory=True,
+        )
+        val_loader = dev_ds.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=getattr(args, 'num_workers', 8),
+            pin_memory=True,
+        )
+        test_loader = test_ds.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=getattr(args, 'num_workers', 8),
+            pin_memory=True,
+        )
+
+        return None, train_loader, val_loader, test_loader, None
+
+
+
+
+
+        

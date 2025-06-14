@@ -16,7 +16,7 @@ class TppDataset(torch.utils.data.Dataset):
             raise ValueError("sequences must be a list of Sequence or EventSequence")
         self.sequences = sequences
 
-    def __getitem__(self, key: int) -> Sequence:
+    def __getitem__(self, key: int) -> Union[Sequence, EventSequence]:
         return self.sequences[key]
 
     def __len__(self):
@@ -30,9 +30,21 @@ class TppDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def load_from_disk(path: Union[str, Path]) -> "TppDataset":
-        data = torch.load(path,weights_only=False)
-        sequences = [Sequence(**seq) for seq in data]
+        data = torch.load(path, weights_only=False)
+
+        sequences = []
+        for seq_data in data:
+            if "arrival_times" in seq_data and "inter_times" in seq_data:
+                # It's an EventSequence
+                sequences.append(EventSequence(**seq_data))
+            elif "inter_times" in seq_data:
+                # It's a Sequence
+                sequences.append(Sequence(**seq_data))
+            else:
+                raise ValueError("Unrecognized sequence format in saved file.")
+        
         return TppDataset(sequences=sequences)
+
 
     def save_to_disk(self, path: Union[str, Path]):
         torch.save([seq.state_dict() for seq in self.sequences], path)
@@ -45,7 +57,7 @@ class TppDataset(torch.utils.data.Dataset):
     def to(self, device):
         """Move all sequences in the dataset to the specified device."""
 
-        def to_device(seq: Sequence) -> Sequence:
+        def to_device(seq: Union[Sequence, EventSequence]) -> Union[Sequence, EventSequence]:
             return seq.to(device=device)
 
         return self.apply_(to_device)
