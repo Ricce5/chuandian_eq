@@ -145,11 +145,11 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
 def prepare_data_tpp(args, base_dir="data/CD2021"):
     import os
     import torch
-    import pickle
 
     from src.data.tpp_dataset import TppDataset
     from src.data.sequence import EventSequence
     import src.data.catalog as catalog
+    import src.catalogs as catalogs
 
     if args.dataset != 'taxi':
         # Earthquake datasets
@@ -200,10 +200,16 @@ def prepare_data_tpp(args, base_dir="data/CD2021"):
                 type_event=torch.tensor(type_event, dtype=torch.long)
             )
 
-        def load_taxi_split(file_path):
+        def load_taxi_split(file_path, key):
+            import pickle
             with open(file_path, 'rb') as f:
                 data = pickle.load(f)
-            return [list_of_dicts_to_sequence(s) for s in data[next(iter(data))]]
+            if not isinstance(data, dict):
+                raise TypeError(f"Expected dict in {file_path}, but got {type(data)}")
+            if key not in data:
+                raise KeyError(f"Key '{key}' not found in {file_path}. Available keys: {list(data.keys())}")
+            sequences = data[key]
+            return [list_of_dicts_to_sequence(s) for s in sequences]
 
         # Paths for taxi split files
         taxi_dir = os.path.join(base_dir, "raw")
@@ -212,9 +218,9 @@ def prepare_data_tpp(args, base_dir="data/CD2021"):
         test_file = os.path.join(taxi_dir, "test.pkl")
 
         # Load sequences
-        train_seq = load_taxi_split(train_file)
-        dev_seq = load_taxi_split(dev_file)
-        test_seq = load_taxi_split(test_file)
+        train_seq = load_taxi_split(train_file,'train')
+        dev_seq = load_taxi_split(dev_file,'dev')
+        test_seq = load_taxi_split(test_file,'test')
 
         # Wrap with Dataset
         train_ds = TppDataset(train_seq)

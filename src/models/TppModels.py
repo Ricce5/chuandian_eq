@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from src.models.SubLayers import ScaledSoftplus
 from src.models.Layers import MLP, CNN, AttentionPooling
-from src.models.dstpp.Models import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
+from src.models.dstpp.Models import Transformer, Transformer_ST, Transformer_STM, Transformer_SE,Transformer_type
 from src.models.thinning import EventSampler
 
 class THP(nn.Module):
@@ -16,7 +16,22 @@ class THP(nn.Module):
         self.num_event_types = getattr(args, 'num_event_types', 1)
         self.loss_integral_num_sample_per_step = getattr(args, 'integral_num_sample', 100)  
 
-        self.transformer = Transformer_ST(
+        # self.transformer = Transformer_ST(
+        #     d_model=args.d_model,
+        #     d_rnn=args.d_rnn,
+        #     d_inner=args.d_inner,
+        #     n_layers=args.n_layers,
+        #     n_head=args.n_head,
+        #     d_k=args.d_k,
+        #     d_v=args.d_v,
+        #     dropout=args.t_dropout,
+        #     dropout_post_rnn = getattr(args, 'rnn_dropout', 0), 
+        #     device=device,
+        #     loc_dim=args.dim,
+        #     CosSin=True,
+        #     attn_type=args.attn_type,
+        # ).to(self.device)
+        self.transformer = Transformer_type(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
             d_inner=args.d_inner,
@@ -27,18 +42,16 @@ class THP(nn.Module):
             dropout=args.t_dropout,
             dropout_post_rnn = getattr(args, 'rnn_dropout', 0), 
             device=device,
-            loc_dim=args.dim,
-            CosSin=True,
             attn_type=args.attn_type,
+            num_event_types_pad=getattr(args, 'num_event_types_pad', None),
         ).to(self.device)
-        
        
         self.factor_intensity_base = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device)).to(self.device)
         self.factor_intensity_decay = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device)).to(self.device)
         nn.init.xavier_normal_(self.factor_intensity_base)
         nn.init.xavier_normal_(self.factor_intensity_decay)
 
-        self.layer_intensity_hidden = nn.Linear(3*args.d_model, getattr(args, 'num_event_types', 1), bias=True).to(self.device)  
+        self.layer_intensity_hidden = nn.Linear(args.d_model, getattr(args, 'num_event_types', 1), bias=True).to(self.device)  # 3*d_model
         self.softplus = ScaledSoftplus(self.num_event_types).to(self.device)
 
         self.event_sampler = EventSampler(num_sample= getattr(args, 'num_sample', 1),
@@ -52,7 +65,9 @@ class THP(nn.Module):
     def forward(self, batch):
         fea_seq = torch.cat([batch.loc,batch.mag[...,None]],dim=-1)
         t_seq = batch.arrival_times
-        enc_out, _ = self.transformer(fea_seq,t_seq)
+        type_seq = batch.type_seq
+        # enc_out, _ = self.transformer(fea_seq,t_seq)
+        enc_out, _ = self.transformer(type_seq,t_seq)
         return enc_out
     
     def log_likelihood(self, batch): 

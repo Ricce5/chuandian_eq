@@ -106,7 +106,71 @@ class Encoder(nn.Module):
                 slf_attn_mask=slf_attn_mask)
         return enc_output
 
+class Encoder_type(nn.Module):
+    """ A encoder model with self attention mechanism. """
 
+    def __init__(
+            self, d_model, d_inner,
+            n_layers, n_head, d_k, d_v, dropout,device,attn_type,
+            num_event_types_pad,pad_token_id):
+        super().__init__()
+
+        self.d_model = d_model
+        self.num_event_types_pad = num_event_types_pad
+        self.pad_token_id = pad_token_id
+
+        # position vector, used for temporal encoding
+        self.position_vec = torch.tensor(
+            [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],
+            device=device)
+
+        # event loc embedding
+        self.event_emb = nn.Embedding(self.num_event_types_pad, 
+                                           self.d_model,
+                                           padding_idx=self.pad_token_id)
+
+        self.layer_stack = nn.ModuleList([
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,attn_type=attn_type, normalize_before=False)
+            for _ in range(n_layers)])
+
+        self.layer_stack_temporal = nn.ModuleList([   # list改为List
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,attn_type=attn_type, normalize_before=False)
+            for _ in range(n_layers)])
+
+    def temporal_enc(self, time, non_pad_mask):
+        """
+        Input: batch*seq_len.
+        Output: batch*seq_len*d_model.
+        """
+        result = time.unsqueeze(-1) / self.position_vec
+        result[:, :, 0::2] = torch.sin(result[:, :, 0::2])
+        result[:, :, 1::2] = torch.cos(result[:, :, 1::2])
+        return result * non_pad_mask
+
+
+    def forward(self, event_type, event_time, non_pad_mask):
+        """ Encode event sequences via masked self-attention. """
+
+        # prepare attention masks
+        # slf_attn_mask is where we cannot look, i.e., the future and the padding
+        slf_attn_mask_subseq = get_subsequent_mask(event_type, dim=1)
+        slf_attn_mask_keypad = get_attn_key_pad_mask(seq_k=event_type.unsqueeze(-1), seq_q=event_type.unsqueeze(-1))
+        slf_attn_mask_keypad = slf_attn_mask_keypad.type_as(slf_attn_mask_subseq)
+
+        slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
+
+        tem_enc = self.temporal_enc(event_time, non_pad_mask)
+        enc_output = self.event_emb(event_type)
+        
+        slf_attn_mask = slf_attn_mask[:,:,:,0] # shape: (batch, seq_len, seq_len)
+
+        for enc_layer in self.layer_stack:
+            enc_output += tem_enc
+            enc_output, _ = enc_layer(
+                enc_output,
+                non_pad_mask=non_pad_mask,
+                slf_attn_mask=slf_attn_mask)
+        return enc_output
 
 class Encoder_ST(nn.Module):
     """ A encoder model with self attention mechanism. """
@@ -392,14 +456,6 @@ class Encoder_SE(nn.Module):
 
 
 
-
-
-def get_non_pad_mask(seq):
-    """ Get the non-padding positions. """
-    assert seq.dim() == 2  # 确保 seq 是二维张量
-    return seq.ne(0).type(torch.float).unsqueeze(-1)  # 返回形状为 (batch_size, seq_len, 1) 的掩码
-
-
 def remove_all_zero_rows(b_x, non_pad_mask, lengths):
     original_shape = b_x.shape
     rows_mask = torch.nonzero(lengths).squeeze(-1)
@@ -509,6 +565,58 @@ class Transformer(nn.Module):
         enc_output = self.encoder(event_loc, event_time, non_pad_mask)
         enc_output = self.rnn(enc_output, non_pad_mask)
 
+        return enc_output, non_pad_mask
+    
+
+
+class Transformer_type(nn.Module):
+    """ A sequence to sequence model with attention mechanism. """
+
+    def __init__(
+            self, d_model=256, d_rnn=128, d_inner=1024,
+            n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,dropout_post_rnn=0.3,
+            device=None, attn_type= 'full',
+            num_event_types_pad=None, pad_token_id=-100):
+        super().__init__()
+
+        self.encoder = Encoder_type(
+            d_model=d_model,
+            d_inner=d_inner,
+            n_layers=n_layers,
+            n_head=n_head,
+            d_k=d_k,
+            d_v=d_v,
+            dropout=dropout,
+            device=device,
+            attn_type=attn_type,
+            num_event_types_pad=num_event_types_pad,
+            pad_token_id=pad_token_id
+        )
+
+        # parameter for the weight of time difference
+        self.alpha = nn.Parameter(torch.tensor(-0.1))
+
+        # parameter for the softplus function
+        self.beta = nn.Parameter(torch.tensor(1.0))
+
+        # OPTIONAL recurrent layer, this sometimes helps
+        self.rnn = RNN_layers(d_model, d_rnn)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, event_type, event_time):
+        """
+        Return the hidden representations and predictions.
+        For a sequence (l_1, l_2, ..., l_N), we predict (l_2, ..., l_N, l_{N+1}).
+        Input: event_loc: batch*seq_len*2;
+               event_time: batch*seq_len.
+        Output: enc_output: batch*seq_len*model_dim
+        """
+
+        non_pad_mask = get_non_pad_mask(event_time)
+        
+        enc_output = self.encoder(event_type, event_time, non_pad_mask)
+        enc_output = self.rnn(enc_output, non_pad_mask)
+        enc_output = self.dropout(enc_output)
         return enc_output, non_pad_mask
 
 class Transformer_ST(nn.Module):
