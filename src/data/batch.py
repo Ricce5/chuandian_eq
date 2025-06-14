@@ -236,8 +236,11 @@ class EventBatch(DotDict):
         inter_times: Padded inter-event times [batch_size, seq_len]
         non_pad_mask: Mask indicating real (non-padded) entries [batch_size, seq_len]
         type_seq: Token IDs with padding handled [batch_size, seq_len]
+        t_start: Start time of each sequence [batch_size]
+        t_end: End time of each sequence [batch_size]
         Other attributes (e.g., mag, loc) are padded similarly.
-    """
+"""
+
 
     @staticmethod
     def from_list(sequences: List["EventSequence"], pad_token_id: int = PAD_TOKEN_ID) -> "EventBatch":
@@ -273,11 +276,15 @@ class EventBatch(DotDict):
             values = [seq.attributes[key] for seq in sequences]
             other_attr[key] = pad_sequence(values, padding_value=0, max_len=max_len)
 
+        t_start = torch.tensor([seq.t_start for seq in sequences], dtype=torch.float32)
+        t_end = torch.tensor([seq.t_end for seq in sequences], dtype=torch.float32)
         return EventBatch(
             arrival_times=arrival_times,
             inter_times=inter_times,
             non_pad_mask=non_pad_mask,
             type_seq=type_seq,
+            t_start=t_start,
+            t_end=t_end,
             **other_attr
         )
     
@@ -300,3 +307,14 @@ class EventBatch(DotDict):
             else:
                 sliced_data[k] = v
         return EventBatch(**sliced_data)
+
+    @property
+    def batch_size(self):
+        return self.arrival_times.shape[0]
+
+    def __len__(self):
+        return self.batch_size
+
+    @property
+    def seq_len(self):
+        return self.arrival_times.shape[1]

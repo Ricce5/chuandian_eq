@@ -168,7 +168,7 @@ def prepare_data_tpp(args, base_dir="data/CD2021"):
             )
     train_loader = catalog_ds.train.get_dataloader(
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=False,
     )
     val_loader = catalog_ds.val.get_dataloader(
         batch_size=args.batch_size,

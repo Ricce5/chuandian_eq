@@ -7,12 +7,16 @@ import torch
 from .dot_dict import DotDict
 
 class EventSequence:
-    def __init__(self, arrival_times, inter_times, **attributes):
+    def __init__(self, arrival_times, inter_times, 
+                 t_start: Optional[float] = None, t_end: Optional[float] = None, **attributes):
         self.arrival_times = torch.as_tensor(arrival_times)
         self.inter_times = torch.as_tensor(inter_times)
 
         if self.arrival_times.shape != self.inter_times.shape:
             raise ValueError("arrival_times and inter_times must be the same shape.")
+
+        self.t_start = float(t_start) if t_start is not None else 0.0
+        self.t_end = float(t_end) if t_end is not None else self.arrival_times[-1].item()
 
         self.attributes = {}
         for k, v in attributes.items():
@@ -206,6 +210,8 @@ class Sequence(DotDict):
         }
 
         return EventSequence(
+            t_start=self.t_start,
+            t_end=self.t_end,
             arrival_times=arrival_times,
             inter_times=inter_times,
             **other_attr
