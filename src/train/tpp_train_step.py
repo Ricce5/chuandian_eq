@@ -113,13 +113,9 @@ def validate(data_loader, model, criterion, device):
 
 
 
-import matplotlib.pyplot as plt
-import os
 
 def test(data_loader, model, criterion, device, save_dir=None):   
-    import numpy as np
-    from tqdm import tqdm
-    import torch
+    from collections import defaultdict
 
     model.eval()
 
@@ -132,13 +128,14 @@ def test(data_loader, model, criterion, device, save_dir=None):
     all_label_dtime = []
     all_pred_dtime = []
 
+    true_type_count = defaultdict(int)
+    pred_type_count = defaultdict(int)
+
     with torch.no_grad():
         for batch in tqdm(data_loader, desc='Testing'):
             batch = batch.to(device)
 
             label_dtime = batch[:, 1:].inter_times.to(device)
-            print(batch[:, 1:].arrival_times[0])
-            print(f"label_dtime: {label_dtime[0]},")
             label_type = batch[:, 1:].type_seq.to(device)
             pad_mask = label_type != model.pad_token_id
 
@@ -152,19 +149,25 @@ def test(data_loader, model, criterion, device, save_dir=None):
                 correct = (pred_type == label_type) & pad_mask
                 total_event_rate += correct.sum().item()
 
+                # 收集类别统计
+                true_type_ids = label_type[pad_mask].view(-1).tolist()
+                pred_type_ids = pred_type[pad_mask].view(-1).tolist()
+
+                for t in true_type_ids:
+                    true_type_count[t] += 1
+                for t in pred_type_ids:
+                    pred_type_count[t] += 1
+
             if pred_dtime is not None:
                 time_se = ((pred_dtime - label_dtime) ** 2)[pad_mask]
                 total_time_se += time_se.sum().item()
                 total_num_pred += pad_mask.sum().item()
 
-                # 收集用于绘图的数据
                 all_label_dtime.append(label_dtime[pad_mask].cpu())
                 all_pred_dtime.append(pred_dtime[pad_mask].cpu())
 
     # 汇总结果
     all_label_dtime = torch.cat(all_label_dtime).numpy()
-    print(all_label_dtime)
-    print("all_label_dtime", max(all_label_dtime), min(all_label_dtime),sum(all_label_dtime)/len(all_label_dtime))
     all_pred_dtime = torch.cat(all_pred_dtime).numpy()
 
     avg_loss = total_loss / total_num_event if total_num_event > 0 else 0
@@ -203,9 +206,30 @@ def test(data_loader, model, criterion, device, save_dir=None):
         plt.savefig(os.path.join(save_dir, "error_histogram.png"))
         plt.close()
 
-        # 3. 保存预测与标签为 .npz 文件
+        # 3. 实际类别与预测类别分布图
+        all_types = sorted(set(true_type_count.keys()) | set(pred_type_count.keys()))
+        true_counts = [true_type_count[t] for t in all_types]
+        pred_counts = [pred_type_count[t] for t in all_types]
+
+        x = np.arange(len(all_types))
+        width = 0.35
+
+        plt.figure(figsize=(10, 6))
+        plt.bar(x - width/2, true_counts, width, label='True')
+        plt.bar(x + width/2, pred_counts, width, label='Predicted')
+        plt.xlabel("Event Type")
+        plt.ylabel("Count")
+        plt.title("True vs Predicted Event Type Distribution")
+        plt.xticks(x, [str(t) for t in all_types])
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_dir, "event_type_distribution.png"))
+        plt.close()
+
+        # 4. 保存预测与标签为 .npz 文件
         np.savez(os.path.join(save_dir, "pred_results.npz"),
                  label_dtime=all_label_dtime,
                  pred_dtime=all_pred_dtime)
 
     return avg_loss, metrics
+
