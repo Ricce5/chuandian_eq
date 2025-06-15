@@ -117,8 +117,9 @@ class Encoder_type(nn.Module):
 
         self.d_model = d_model
         self.num_event_types_pad = num_event_types_pad
+       
         self.pad_token_id = pad_token_id
-
+        print(self.num_event_types_pad,self.pad_token_id)
         # position vector, used for temporal encoding
         self.position_vec = torch.tensor(
             [math.pow(10000.0, 2.0 * (i // 2) / d_model) for i in range(d_model)],

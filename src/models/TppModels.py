@@ -43,7 +43,8 @@ class THP(nn.Module):
             dropout_post_rnn = getattr(args, 'rnn_dropout', 0), 
             device=device,
             attn_type=args.attn_type,
-            num_event_types_pad=getattr(args, 'num_event_types_pad', None),
+            num_event_types_pad=self.num_event_types+1,
+            pad_token_id=args.pad_token_id
         ).to(self.device)
        
         self.factor_intensity_base = nn.Parameter(torch.empty([1, self.num_event_types], device=self.device)).to(self.device)
@@ -63,7 +64,7 @@ class THP(nn.Module):
                                               device=self.device)
 
     def forward(self, batch):
-        fea_seq = torch.cat([batch.loc,batch.mag[...,None]],dim=-1)
+        # fea_seq = torch.cat([batch.loc,batch.mag[...,None]],dim=-1)
         t_seq = batch.arrival_times
         type_seq = batch.type_seq
         # enc_out, _ = self.transformer(fea_seq,t_seq)
