@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .Layers import MLP, CNN, AttentionPooling
-from .dstpp.models import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
+from .dstpp.Models import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
 from .TppModels import THP
 
 
