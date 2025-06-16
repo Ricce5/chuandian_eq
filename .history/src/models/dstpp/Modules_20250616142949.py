@@ -26,16 +26,16 @@ class BaseAttention(nn.Module, ABC,Registrable):
         attention_weights (optional): [B, H, L, S] or None
     """
 
-    def __init__(self,output_attention=False):
+    def __init__(self, output_attention=False):
         super().__init__()
         self.output_attention = output_attention
 
     @abstractmethod
     def forward(
         self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
         attn_mask: torch.Tensor = None,
         padding_mask: torch.Tensor = None
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
@@ -56,8 +56,8 @@ class BaseAttention(nn.Module, ABC,Registrable):
         pass
 
 
-@BaseAttention.register(name="Standard")
-class StandardAttention(BaseAttention):
+
+class StandardAttention(nn.Module):
     """
     Multi-Head Scaled Dot-Product Attention with mask support.
 
@@ -68,9 +68,10 @@ class StandardAttention(BaseAttention):
     """
 
     def __init__(self, scale, attn_dropout=0.1, output_attention=True):
-        super().__init__(output_attention=output_attention)
-        self.scale = scale 
+        super().__init__()
+        self.scale = scale # inverse scale for correct softmax temperature
         self.dropout = nn.Dropout(attn_dropout)
+        self.output_attention = output_attention
 
     def forward(self, q, k, v, attn_mask=None, padding_mask=None):
         """
@@ -88,15 +89,15 @@ class StandardAttention(BaseAttention):
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
 
-        scores = torch.matmul(q * self.scale, k.transpose(2, 3))  # [B, H, L, S]
+        attn = torch.matmul(q * self.scale, k.transpose(2, 3))  # [B, H, L, S]
 
         if attn_mask is not None:
             if attn_mask.dim() == 3:
                 attn_mask = attn_mask.unsqueeze(1)  # [B, 1, L, S]
-            scores = scores.masked_fill(attn_mask, -1e9)
+            attn = attn.masked_fill(attn_mask, -1e9)
         
 
-        attn_weights = F.softmax(scores, dim=-1)
+        attn_weights = F.softmax(attn, dim=-1)
         attn_weights = self.dropout(attn_weights)
 
         output = torch.matmul(attn_weights, v)  # [B, H, L, D]
@@ -107,12 +108,13 @@ class StandardAttention(BaseAttention):
         else:
             return output, None
 
-@BaseAttention.register(name="Full")
-class FullAttention(BaseAttention):
-    def __init__(self, mask_flag=True, scale=None, attn_dropout=0.1, output_attention=False):
-        super().__init__(output_attention=output_attention)
+
+class FullAttention(nn.Module):
+    def __init__(self, mask_flag=True, factor=5, scale=None, attn_dropout=0.1, output_attention=False):
+        super(FullAttention, self).__init__()
         self.scale = scale
         self.mask_flag = mask_flag
+        self.output_attention = output_attention
         self.dropout = nn.Dropout(attn_dropout)
         
     def forward(self, q, k, v, attn_mask,padding_mask=None):
@@ -127,21 +129,22 @@ class FullAttention(BaseAttention):
 
             scores.masked_fill_(attn_mask, -1e-9)
 
-        attn_weights = self.dropout(torch.softmax(scale * scores, dim=-1))
-        output = torch.einsum("bhls,bshd->blhd", attn_weights, v)
+        A = self.dropout(torch.softmax(scale * scores, dim=-1))
+        output = torch.einsum("bhls,bshd->blhd", A, v)
 
         if self.output_attention:
-            return (output.contiguous(), attn_weights)
+            return (output.contiguous(), A)
         else:
             return (output.contiguous(), None)
         
-@BaseAttention.register(name="Prob")
-class ProbAttention(BaseAttention):
+
+class ProbAttention(nn.Module):
     def __init__(self, mask_flag=True, factor=5, scale=None, attn_dropout=0.1, output_attention=False):
-        super().__init__(output_attention=output_attention)
+        super(ProbAttention, self).__init__()
         self.factor = factor
         self.scale = scale
         self.mask_flag = mask_flag
+        self.output_attention = output_attention
         self.dropout = nn.Dropout(attn_dropout)
 
     def _prob_QK(self, Q, K, sample_k, n_top): # n_top: c*ln(L_q)
@@ -249,12 +252,13 @@ class ProbAttention(BaseAttention):
         return context.transpose(2,1).contiguous(), attn
     
 
-@BaseAttention.register(name="Flash")
-class FlashAttentionWrapper(BaseAttention):
+
+class FlashAttentionWrapper(nn.Module):
     def __init__(self, attn_dropout=0.1, causal=True, output_attention=False):
-        super().__init__( output_attention= output_attention)
+        super().__init__()
         self.dropout = attn_dropout
         self.causal = causal
+        self.output_attention = output_attention
 
     def forward(self, q, k, v, padding_mask=None, attn_mask=None):
         # 没有使用 attn_mask，因为 FlashAttention 不支持

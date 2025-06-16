@@ -25,16 +25,31 @@ class MultiHeadAttention(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
 
-        if attn_type in ['full', 'standard','Prob']:
-            Attention = BaseAttention.by_name(attn_type)
-            self.attention = Attention(
+        if attn_type == 'full':
+            from .Modules import FullAttention  
+            self.attention = FullAttention(
+                scale=1.0 / sqrt(d_k),
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'scaled_dot':
+            # from .Modules import StandardAttention 
+            StandardAttention = BaseAttention
+            self.attention = StandardAttention(
+                scale=1.0 / sqrt(d_k),
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'prob':
+            from .Modules import ProbAttention
+            self.attention = ProbAttention(
                 scale=1.0 / sqrt(d_k),
                 attn_dropout=dropout,
                 output_attention=True
             )
         elif attn_type == 'flash':
-            Attention = BaseAttention.by_name('Flash')
-            self.attention = Attention(
+            from .Modules import FlashAttentionWrapper
+            self.attention = FlashAttentionWrapper(
                 attn_dropout=dropout,
                 output_attention=True
             )

@@ -2,8 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .Modules import StandardAttention, FlashAttentionWrapper, ProbAttention,FullAttention,BaseAttention
+
 import src.models.dstpp.Constants as Constants
+from .Modules import ScaledDotProductAttention, FullAttention
 from math import sqrt
 
 class MultiHeadAttention(nn.Module):
@@ -25,16 +26,30 @@ class MultiHeadAttention(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
 
-        if attn_type in ['full', 'standard','Prob']:
-            Attention = BaseAttention.by_name(attn_type)
-            self.attention = Attention(
+        if attn_type == 'full':
+            from .Modules import FullAttention  
+            self.attention = FullAttention(
                 scale=1.0 / sqrt(d_k),
                 attn_dropout=dropout,
                 output_attention=True
             )
+        elif attn_type == 'scaled_dot':
+            from .Modules import ScaledDotProductMultiHeadAttention 
+            self.attention = ScaledDotProductMultiHeadAttention(
+                scale=d_k ** 0.5,
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'prob':
+            from .Modules import ProbAttention
+            self.attention = ProbAttention(
+                scale=d_k ** 0.5,
+                attn_dropout=dropout,
+                output_attention=True
+            )
         elif attn_type == 'flash':
-            Attention = BaseAttention.by_name('Flash')
-            self.attention = Attention(
+            from .Modules import FlashAttentionWrapper
+            self.attention = FlashAttentionWrapper(
                 attn_dropout=dropout,
                 output_attention=True
             )
@@ -60,7 +75,7 @@ class MultiHeadAttention(nn.Module):
         # Prepare attn_mask: [B, H, L, S]
         if mask is not None and mask.dim() == 3:
             mask = mask.unsqueeze(1)  # [B, 1, L, L]
-      
+        # Apply attention (compatible with both full and scaled_dot)
         output, attn = self.attention(q, k, v, attn_mask=mask, padding_mask=padding_mask)
 
         # Combine heads: [B, L, n_head * D]

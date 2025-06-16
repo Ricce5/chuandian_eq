@@ -25,8 +25,22 @@ class MultiHeadAttention(nn.Module):
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
         self.dropout = nn.Dropout(dropout)
 
-        if attn_type in ['full', 'standard','Prob']:
-            Attention = BaseAttention.by_name(attn_type)
+        if attn_type in ['full', 'standard','Prob', 'flash']:
+            Attention = BaseAttention.by_name('Full')
+            self.attention = Attention(
+                scale=1.0 / sqrt(d_k),
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'Standard':
+            Attention = BaseAttention.by_name('Standard')
+            self.attention = Attention(
+                scale=1.0 / sqrt(d_k),
+                attn_dropout=dropout,
+                output_attention=True
+            )
+        elif attn_type == 'prob':
+            Attention = BaseAttention.by_name('Prob')
             self.attention = Attention(
                 scale=1.0 / sqrt(d_k),
                 attn_dropout=dropout,

@@ -249,12 +249,13 @@ class ProbAttention(BaseAttention):
         return context.transpose(2,1).contiguous(), attn
     
 
-@BaseAttention.register(name="Flash")
-class FlashAttentionWrapper(BaseAttention):
+
+class FlashAttentionWrapper(nn.Module):
     def __init__(self, attn_dropout=0.1, causal=True, output_attention=False):
-        super().__init__( output_attention= output_attention)
+        super().__init__()
         self.dropout = attn_dropout
         self.causal = causal
+        self.output_attention = output_attention
 
     def forward(self, q, k, v, padding_mask=None, attn_mask=None):
         # 没有使用 attn_mask，因为 FlashAttention 不支持
