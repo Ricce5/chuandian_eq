@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.models.layers import MLP, CNN, AttentionPooling,ScaledSoftplus
+from src.models.SubLayers import ScaledSoftplus
+from src.models.Layers import MLP, CNN, AttentionPooling
 from src.models.transformer.transformers import Transformer_type ,Transformer, Transformer_ST, Transformer_STM, Transformer_SE
 from src.models.thinning import EventSampler
 

@@ -1,10 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .layers import MLP, AttentionPooling
-from .transformer import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
+from .Layers import MLP, CNN, AttentionPooling
+from .transformer.transformers import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
 from .TppModels import THP
-from src.utils.registrable import Registrable
 
 def get_last_valid_step(enc_out, non_pad_mask):
     length = non_pad_mask.sum(dim=1)
@@ -15,48 +14,74 @@ def get_last_valid_step(enc_out, non_pad_mask):
     last_mask = non_pad_mask[batch_idx, last_step_index]
     return enc_last, last_mask
 
-def default_batch_to_input(bx):
-    t_n_seq = bx[:, :, 1]
-    mag_seq = bx[:, :, 2:3]
-    loc_seq = bx[:, :, 3:5]
-    features = torch.concat((loc_seq, mag_seq), dim=-1)
-    return features, t_n_seq
 
 
-class BaseTransformerModel(nn.Module,Registrable):
-    def __init__(self, transformer, mlp, device):
+
+class Classifier(nn.Module):
+    def __init__(self, args, device):
         super().__init__()
-        self.transformer = transformer.to(device)
-        self.mlp = mlp.to(device)
         self.device = device
+
+        # Transformer 初始化
+        self.transformer = Transformer_ST(
+            d_model=args.d_model,
+            d_rnn=args.d_rnn,
+            d_inner=args.d_inner,
+            n_layers=args.n_layers,
+            n_head=args.n_head,
+            d_k=args.d_k,
+            d_v=args.d_v,
+            dropout=args.t_dropout,
+            dropout_post_rnn = getattr(args, 'rnn_dropout', 0), 
+            device=device,
+            loc_dim=args.dim,
+            attn_type=args.attn_type,
+        ).to(self.device)
+
+        self.mlp = MLP(
+            hidden_layers_width=args.mlp_hdw,
+            input_size=3*args.d_model,  
+            output_size=args.mlp_out,
+            dropout_rate=args.mlp_dropout).to(self.device)
+    
 
     def forward(self, x):
         x = x.float()
-        inputs = self._batch_to_input(x)
-        enc_out, non_pad_mask = self.transformer(*inputs)
-        enc_last, _ = get_last_valid_step(enc_out, non_pad_mask)
+        B, S, F_ = x.shape
+
+        # Transformer部分
+        f_seq, t_n_seq = self._batch_to_model_input(x)
+        enc_out, non_pad_mask = self.transformer(f_seq, t_n_seq)
+        enc_last, _ = self._process_transformer_out(non_pad_mask, enc_out, x)
+
         out = self.mlp(enc_last)
+        # out = torch.sigmoid(out) # 使用bce with logits
         return out.squeeze(1)
+    
+    @staticmethod
+    def _process_transformer_out(non_pad_mask, enc_out, x):
+        length = non_pad_mask.sum(dim=1)  
+        last_step_index = (length.squeeze() - 1).long() 
 
-    def _batch_to_input(self, x):
-        raise NotImplementedError("Child class must implement this method.")
+        batch_idx = torch.arange(non_pad_mask.size(0), device=non_pad_mask.device)  # [B*N]
 
+        # 获取最后一个有效时间步的 mask 和输出
+        last_non_pad_mask = non_pad_mask[batch_idx, last_step_index]       # shape: [B*N, 1]
+        enc_last = enc_out[batch_idx, last_step_index]                     # shape: [B*N, D]
 
+        return enc_last, last_non_pad_mask
 
-class Classifier(BaseTransformerModel):
-    def __init__(self, args, device):
-        transformer = Transformer_ST(
-            d_model=args.d_model, d_rnn=args.d_rnn, d_inner=args.d_inner,
-            n_layers=args.n_layers, n_head=args.n_head, d_k=args.d_k, d_v=args.d_v,
-            dropout=args.t_dropout, dropout_post_rnn=getattr(args, 'rnn_dropout', 0),
-            device=device, loc_dim=args.dim, attn_type=args.attn_type
-        )
-        mlp = MLP(args.mlp_hdw, input_size=3 * args.d_model, output_size=args.mlp_out, dropout_rate=args.mlp_dropout)
-        super().__init__(transformer, mlp, device)
-
-    def _batch_to_input(self, x):
-        return default_batch_to_input(x)
-
+    @staticmethod
+    def _batch_to_model_input(bx):
+        # ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth"]
+        B, S, F_ = bx.shape
+        t_seq = bx[:, :, 0]
+        t_n_seq = bx[:, :, 1]
+        mag_seq = bx[:, :, 2:3]
+        loc_seq = bx[:, :, 3:5]
+        dep_seq = bx[:, :, 5]
+        f_seq = torch.concat((loc_seq, mag_seq), dim=-1)
+        return f_seq, t_n_seq
 
 
 class Classifier_SE(nn.Module):
@@ -326,6 +351,7 @@ class Regressor(nn.Module):
             output_size=args.mlp_out,
             dropout_rate=args.mlp_dropout).to(self.device)
 
+        self.fc = nn.Linear(1, 1).to(self.device)
 
     def forward(self, x):
         x = x.float()
@@ -338,6 +364,7 @@ class Regressor(nn.Module):
 
         out = self.mlp(enc_last)
         out = F.softplus(out)  
+        out = self.fc(out)
         return out.squeeze(1)
     
     @staticmethod

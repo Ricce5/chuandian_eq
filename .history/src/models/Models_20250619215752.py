@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .layers import MLP, AttentionPooling
-from .transformer import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
+from .Layers import MLP, CNN, AttentionPooling
+from .transformer.transformers import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
 from .TppModels import THP
 from src.utils.registrable import Registrable
 
@@ -23,7 +23,7 @@ def default_batch_to_input(bx):
     return features, t_n_seq
 
 
-class BaseTransformerModel(nn.Module,Registrable):
+class BaseTransformerClassifier(nn.Module,Registrable):
     def __init__(self, transformer, mlp, device):
         super().__init__()
         self.transformer = transformer.to(device)
@@ -43,7 +43,7 @@ class BaseTransformerModel(nn.Module,Registrable):
 
 
 
-class Classifier(BaseTransformerModel):
+class Classifier(BaseTransformerClassifier):
     def __init__(self, args, device):
         transformer = Transformer_ST(
             d_model=args.d_model, d_rnn=args.d_rnn, d_inner=args.d_inner,
@@ -326,6 +326,7 @@ class Regressor(nn.Module):
             output_size=args.mlp_out,
             dropout_rate=args.mlp_dropout).to(self.device)
 
+        self.fc = nn.Linear(1, 1).to(self.device)
 
     def forward(self, x):
         x = x.float()
@@ -338,6 +339,7 @@ class Regressor(nn.Module):
 
         out = self.mlp(enc_last)
         out = F.softplus(out)  
+        out = self.fc(out)
         return out.squeeze(1)
     
     @staticmethod
