@@ -46,7 +46,7 @@ def get_model_and_data(args, base_path, device):
             "train_step_module": "src.train.regressor_train_step",
             "data_func": "prepare_data",
         },
-         "LSTM": {
+         "lstm": {
             "train_step_module": "src.train.regressor_train_step",
             "data_func": "prepare_data_lstm",
         },

@@ -245,3 +245,9 @@ class ClfAttnPlTBuilder(ModelBuilder):
             head=head,
             final_activation=None
         )
+
+@ModelBuilder.register("lstm")
+class LSTMBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.lstm import LSTM
+        return LSTM(args, device=device)
