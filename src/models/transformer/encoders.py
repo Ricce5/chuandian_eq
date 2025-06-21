@@ -175,15 +175,15 @@ class Encoder_type(BaseEncoder):
 @BaseEncoder.register("Encoder_ST")
 class Encoder_ST(BaseEncoder):
     def __init__(self, d_model, d_inner, n_layers, n_head, d_k, d_v,
-                 dropout, device, loc_dim, attn_type):
+                 dropout, device, dim, attn_type):
         super().__init__(d_model, d_inner, n_layers, n_head, d_k, d_v, dropout, attn_type,
                          stack_names=["loc", "temporal", "fusion"])
         
-        self.loc_dim = loc_dim
+        self.dim = dim
         self.d_model = d_model
         self.temporal_enc = TimePositionalEncoding(d_model, device=device)
 
-        self.event_emb_loc = self.make_mlp(input_dim=loc_dim, output_dim=d_model)
+        self.event_emb_loc = self.make_mlp(input_dim=dim, output_dim=d_model)
 
     def make_mlp(self, input_dim, output_dim, hidden_dim=None, num_layers=4):
         hidden_dim = hidden_dim or output_dim
@@ -193,12 +193,12 @@ class Encoder_ST(BaseEncoder):
         layers.append(nn.Linear(hidden_dim, output_dim))
         return nn.Sequential(*layers)
 
-    def forward(self, event_loc, event_time, non_pad_mask):
+    def forward(self, event_mark, event_time, non_pad_mask):
         slf_attn_mask = self.build_attention_mask(event_time)
 
         # input embeddings
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
-        enc_output_loc = self.event_emb_loc(event_loc) * non_pad_mask
+        enc_output_loc = self.event_emb_loc(event_mark) * non_pad_mask
         enc_output_fusion = enc_output_temporal + enc_output_loc
 
         # forward through each stack
@@ -305,7 +305,7 @@ class Encoder_SE(BaseEncoder):
             nn.Linear(d_model, d_model)
         )
 
-    def forward(self, event_loc, event_mag, event_time, non_pad_mask):
+    def forward(self, event_loc, event_time, event_mag, non_pad_mask):
         # === Attention mask
         slf_attn_mask = self.build_attention_mask(event_time)
 

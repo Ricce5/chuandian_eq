@@ -42,7 +42,7 @@ class Classifier(BaseTransformerModel):
             d_model=args.d_model, d_rnn=args.d_rnn, d_inner=args.d_inner,
             n_layers=args.n_layers, n_head=args.n_head, d_k=args.d_k, d_v=args.d_v,
             dropout=args.t_dropout, dropout_post_rnn=getattr(args, 'rnn_dropout', 0),
-            device=device, loc_dim=args.dim, attn_type=args.attn_type
+            device=device, dim=args.dim, attn_type=args.attn_type
         )
         mlp = MLP(args.mlp_hdw, input_size=3 * args.d_model, output_size=args.mlp_out, dropout_rate=args.mlp_dropout)
         super().__init__(transformer, mlp, device)

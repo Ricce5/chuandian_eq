@@ -10,7 +10,7 @@ from src.utils.file_utils import create_save_dir,find_latest_model_path
 from src.data.preparation import prepare_data,prepare_data_lstm,prepare_data_tpp
 import src.train.config_setup as config_setup 
 import src.train.trainer as trainer
-import src.models.Models
+from src.models.builders import ModelBuilder
 import shutil
 import os
 import json
@@ -22,44 +22,36 @@ import optuna
 def get_model_and_data(args, base_path, device):
     model_type = args.model
     supported_models = {
-        "Classifier": {
+        "classifier": {
             "train_step_module": "src.train.classifier_train_step",
-            "model_class": "Classifier",
             "data_func": "prepare_data",
         },
         "Classifier_STM": {
             "train_step_module": "src.train.classifier_train_step",
-            "model_class": "Classifier_STM",
             "data_func": "prepare_data",
         },
          "Classifier_SE": {
             "train_step_module": "src.train.classifier_train_step",
-            "model_class": "Classifier_SE",
             "data_func": "prepare_data",
         },
         "ClfAttnPl": {
             "train_step_module": "src.train.classifier_train_step",
-            "model_class": "ClfAttnPl",
             "data_func": "prepare_data",
         },
-        "ClfAttnPl_T": {
+        "clf_attnpl_t": {
             "train_step_module": "src.train.classifier_train_step",
-            "model_class": "ClfAttnPl_T",
             "data_func": "prepare_data",
         },
         "Regressor": {
             "train_step_module": "src.train.regressor_train_step",
-            "model_class": "Regressor",
             "data_func": "prepare_data",
         },
          "LSTM": {
             "train_step_module": "src.train.regressor_train_step",
-            "model_class": "LSTM",
             "data_func": "prepare_data_lstm",
         },
         "THP": {
             "train_step_module": "src.train.tpp_train_step",
-            "model_class": "THP",
             "data_func": "prepare_data_tpp",
         },
 
@@ -70,10 +62,9 @@ def get_model_and_data(args, base_path, device):
         raise ValueError(f"Unsupported model type: {model_type}. Supported models are: {', '.join(supported_models.keys())}.")
     model_info = supported_models[model_type]
     train_step = __import__(model_info["train_step_module"], fromlist=[''])
-    model_class = getattr(src.models.Models, model_info["model_class"])
     data_func = globals()[model_info["data_func"]]
     df, train_loader, val_loader, test_loader,dataset = data_func(args, base_path)
-    return train_step, model_class, df, train_loader, val_loader, test_loader
+    return train_step,df, train_loader, val_loader, test_loader
 
 
 def objective(trial,args):
@@ -90,8 +81,8 @@ def objective(trial,args):
     shutil.copy(args_cli.config, f"{args.save_dir}/config.yaml")
     writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard", f"trial_{trial.number}"))
 
-    train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
-    model, criterion, optimizer, scheduler, args = config_setup.setup_config(args, device, model_class,train_loader)
+    train_step, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
+    model, criterion, optimizer, scheduler, args = config_setup.setup_config(args, device,train_loader)
 
     print(f'Trial {trial.number}')
     
@@ -118,7 +109,7 @@ def objective(trial,args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, choices=['train', 'test','optuna'], default='train', help='Run mode: train or test')
-    parser.add_argument('--model', type=str, choices=['Classifier','Classifier_STM','Classifier_SE','ClfAttnPl','ClfAttnPl_T','Regressor','LSTM','THP'],
+    parser.add_argument('--model', type=str, choices=ModelBuilder.list_available(),
                          required=True, help='Model name')
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
@@ -152,10 +143,7 @@ if __name__ == "__main__":
         shutil.copy(args_cli.config, config_path)
         writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard"))
 
-        train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
-        print(train_step)
-        print(model_class)
-
+        train_step,  df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
 
         resume_path = getattr(args, 'resume_path', None)
         if resume_path is None:
@@ -169,7 +157,7 @@ if __name__ == "__main__":
             checkpoint = torch.load(resume_path, map_location=device)
 
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(
-            args, device, model_class, train_dataloader=train_loader,
+            args, device,train_dataloader=train_loader,
             checkpoint=checkpoint, restore_weights=(checkpoint is not None)
 )
 
@@ -188,13 +176,14 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.use_sampler = False
-        train_step, model_class, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
+        args.model = args.model.lower()
+        train_step, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(
-            args, device, model_class,train_loader,
+            args, device,train_loader,
             checkpoint=checkpoint, restore_weights=True
         )
 

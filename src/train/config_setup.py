@@ -54,7 +54,7 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None):
     return model, start_epoch, best_val_loss
 
 
-def setup_config(args, device, model_class, train_dataloader=None, checkpoint=None, restore_weights=True):
+def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_weights=True):
     """
     初始化模型、优化器、调度器（支持从 checkpoint 加载训练或测试模型）
     """

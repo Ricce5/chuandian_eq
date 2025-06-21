@@ -10,16 +10,10 @@ from src.utils.mask_utils import get_last_valid_step
 
 
 class BaseModel(nn.Module):
-    """
-    通用模型骨干（Backbone），包含：
-    - encoder: Transformer / LSTM / 其他序列建模器
-    - input_adapter: 负责从原始输入构造 encoder 所需的输入
-    """
-
     def __init__(self, encoder, input_adapter, device):
         super().__init__()
         self.encoder = encoder.to(device)
-        self.input_adapter = input_adapter  # callable: x -> (features, t_n_seq, ...)
+        self.input_adapter = input_adapter  # callable: x -> dict {"features": ..., "event_time": ...}
         self.device = device
 
     def forward(self, x):
@@ -32,8 +26,13 @@ class BaseModel(nn.Module):
         """
         assert x.device == self.device, f"Input tensor on {x.device}, but model on {self.device}"
         x = x.float()
-        inputs = self.input_adapter(x)  # e.g. (f_seq, t_n_seq, ...)
-        encoder_out, non_pad_mask = self.encoder(*inputs)
+
+        # 输入适配器返回 dict，而非 tuple
+        inputs = self.input_adapter(x)  # dict: {"features": ..., "event_time": ...}
+
+        # 只传一个参数给 encoder（BaseTransformer）
+        encoder_out, non_pad_mask = self.encoder(inputs)
+
         return encoder_out, non_pad_mask
 
 

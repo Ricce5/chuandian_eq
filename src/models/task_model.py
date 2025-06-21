@@ -22,21 +22,12 @@ class TaskModel(nn.Module):
         self.final_activation = final_activation
 
     def forward(self, x):
-        # 1. 编码器 + 输入适配器
         enc_out, non_pad_mask = self.base_model(x)
-
-        # 2. 获取额外输入（如 t_n_seq 用于拼接 attention pooling）
         extra_inputs = {}
         if hasattr(self.base_model.input_adapter, "get_extra_inputs"):
             extra_inputs = self.base_model.input_adapter.get_extra_inputs(x)
-
-        # 3. 表示提取（如取最后一步 or attention pooling）
         representation = self.extractor(enc_out, non_pad_mask, extra_inputs)
-
-        # 4. head 输出
         out = self.head(representation)
-
-        # 5. 可选激活函数（如回归任务常用 softplus，分类任务用 sigmoid）
         if self.final_activation:
             out = self.final_activation(out)
 

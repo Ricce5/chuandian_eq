@@ -53,7 +53,7 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
 
-    if args.model in ["Classifier", "Classifier_STM",'Classifier_SE',"ClfAttnPl","ClfAttnPl_T"]:
+    if args.model in ["classifier", "Classifier_STM",'Classifier_SE',"ClfAttnPl","clf_attnpl_t"]:
         from .classifier_train_step import train, validate
     elif args.model in ["Regressor","LSTM"]:
         from .regressor_train_step import train, validate

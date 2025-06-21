@@ -30,3 +30,6 @@ class AttentionPooling(nn.Module):
         output = torch.sum(x * attn_weights.unsqueeze(-1), dim=1)  # [batch_size, input_dim]
 
         return output, attn_weights  # return both for optional inspection
+
+
+
