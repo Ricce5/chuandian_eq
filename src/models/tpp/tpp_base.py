@@ -38,7 +38,7 @@ class TppBase(nn.Module):
         return sampled_dtimes
 
     def compute_loglikelihood(self, time_delta_seq, lambda_at_event, lambdas_loss_samples, seq_mask, type_seq):
-        """计算事件序列的日志似然"""
+        """计算事件序列的似然"""
         lambda_at_event = lambda_at_event + self.eps
         lambdas_loss_samples = lambdas_loss_samples + self.eps
 

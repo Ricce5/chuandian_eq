@@ -31,7 +31,8 @@ class ChinaArrayBase(Catalog):
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
             "start_ts": pd.Timestamp("1970-01-01"),
-            "end_ts": pd.Timestamp("2023-08-13"),
+            "end_ts": pd.Timestamp("2023-08-14"),
+            
         }
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
@@ -137,6 +138,7 @@ class ChinaArraySlidingWindow(ChinaArrayBase):
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
         test_ratio: float = 0.15,
+        use_event_sequence: bool = True,
     ):
         super().__init__(root_dir, catalog_file, mag_completeness)
 
@@ -147,6 +149,7 @@ class ChinaArraySlidingWindow(ChinaArrayBase):
         self.metadata["train_ratio"] = train_ratio
         self.metadata["val_ratio"] = val_ratio
         self.metadata["test_ratio"] = test_ratio
+        self.metadata["use_event_sequence"] = use_event_sequence
 
         self.train, self.val, self.test = self.generate_sliding_windows(
             window_size_days, step_size_days
@@ -165,6 +168,8 @@ class ChinaArraySlidingWindow(ChinaArrayBase):
                 start=window_start,
                 end=window_end,
             )
+            if self.metadata["use_event_sequence"]:
+                 seq = seq.to_event_sequence()
             sequences.append(seq)
             window_start += step_size_days
 
