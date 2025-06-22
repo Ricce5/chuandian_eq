@@ -180,7 +180,7 @@ def test(data_loader, model, criterion, device, save_dir=None):
         'rmse': rmse
     }
     log_metrics(metrics, prefix="Testing")
-    
+
     # 保存图像
     if save_dir:
         os.makedirs(save_dir, exist_ok=True)

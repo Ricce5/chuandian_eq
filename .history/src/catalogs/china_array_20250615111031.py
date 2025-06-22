@@ -49,14 +49,6 @@ class ChinaArrayBase(Catalog):
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
         df.sort_values("time", inplace=True)
-        # 微小扰动重复时间戳，避免 inter_time = 0
-        duplicated_mask = df["time"].duplicated(keep=False)
-        if duplicated_mask.any():
-            df.loc[duplicated_mask, "time"] += pd.to_timedelta(
-                np.random.uniform(1e-8, 1e-6, duplicated_mask.sum()), unit="D"  # 1e-6D = 86.4ms 
-            )
-            df.sort_values("time", inplace=True)
-        #
         df["time_diff"] = df["time"].diff().dt.total_seconds()
         df = df[df["time_diff"] > 0].copy()
 
