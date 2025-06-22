@@ -93,7 +93,7 @@ class StandardAttention(BaseAttention):
         if attn_mask is not None:
             if attn_mask.dim() == 3:
                 attn_mask = attn_mask.unsqueeze(1)  # [B, 1, L, S]
-            scores = scores.masked_fill(attn_mask, -np.inf)
+            scores = scores.masked_fill(attn_mask, -1e9)
         
 
         attn_weights = F.softmax(scores, dim=-1)
@@ -125,7 +125,7 @@ class FullAttention(BaseAttention):
             if attn_mask is None:
                 attn_mask = TriangularCausalMask(B, L, device=q.device).mask
 
-            scores.masked_fill_(attn_mask, -np.inf)
+            scores.masked_fill_(attn_mask, -1e9)
 
         attn_weights = self.dropout(torch.softmax(scale * scores, dim=-1))
         output = torch.einsum("bhls,bshd->blhd", attn_weights, v)
@@ -199,7 +199,7 @@ class ProbAttention(BaseAttention):
             else:
                 attn_mask = prob_mask
 
-            scores.masked_fill_(attn_mask, -np.inf)
+            scores.masked_fill_(attn_mask, -1e9)
 
         attn = torch.softmax(scores, dim=-1)
 
