@@ -1,13 +1,13 @@
-# resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250603-142623/last_model_1.pth
+resume_path: /home/yzzhang/pjt/chuandian_eq/checkpoints/thp_20250622-112950/last_model_1.pth
 # 模型设置
-model: thp_type
-dataset: taxi
-num_event_types: 10
-pad_token_id: 10
+model: thp
+dataset: ChinaArray
+num_event_types: 1
+pad_token_id: 1
 task_type: tpp
 # 训练参数
 
-batch_size: 128
+batch_size: 32
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
@@ -28,9 +28,8 @@ n_head: 8
 d_k: 16
 d_v: 16
 t_dropout: 0.1
-rnn_dropout: 0.01
-attn_type: full
-
+rnn_dropout: 0
+attn_type: flash
 # MLP 参数
 mlp_out: 1
 mlp_dropout: 0.3
