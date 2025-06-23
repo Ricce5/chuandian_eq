@@ -42,7 +42,7 @@ def get_model_and_data(args, base_path, device):
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
-        "Regressor": {
+        "reg_attnpl": {
             "train_step_module": "src.train.regressor_train_step",
             "data_func": "prepare_data",
         },

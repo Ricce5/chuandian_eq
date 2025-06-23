@@ -55,7 +55,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
 
     if args.model in ["classifier", "Classifier_STM",'Classifier_SE',"ClfAttnPl","clf_attnpl_t"]:
         from .classifier_train_step import train, validate
-    elif args.model in ["Regressor","lstm"]:
+    elif args.model in ["Regressor","lstm","reg_attnpl"]:
         from .regressor_train_step import train, validate
     elif args.model in ["thp","thp_type"]:
         from .tpp_train_step import train, validate
