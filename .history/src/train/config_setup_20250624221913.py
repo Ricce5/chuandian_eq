@@ -109,10 +109,9 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
         warmup_ratio = float(warmup_ratio)
     except ValueError:
         warmup_ratio = 0.1
-        
     accumulation_steps = getattr(args, 'accumulation_steps', 1)
     total_steps = len(train_dataloader) * args.epochs // accumulation_steps
-    warmup_steps = int(warmup_ratio * total_steps)
+    warmup_steps = int(args.warmup_ratio * total_steps)
 
     if scheduler_type == "plateau":
         return ReduceLROnPlateau(

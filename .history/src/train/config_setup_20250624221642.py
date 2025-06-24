@@ -104,15 +104,11 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
     根据参数返回对应的学习率调度器
     支持 PyTorch 和 Hugging Face 的调度器
     """
-    warmup_ratio = getattr(args, 'warmup_ratio', 0.1) 
-    try:
-        warmup_ratio = float(warmup_ratio)
-    except ValueError:
-        warmup_ratio = 0.1
-        
-    accumulation_steps = getattr(args, 'accumulation_steps', 1)
-    total_steps = len(train_dataloader) * args.epochs // accumulation_steps
-    warmup_steps = int(warmup_ratio * total_steps)
+    print(args.warmup_ratio)
+    if args.warmup_ratio is not None:
+        accumulation_steps = getattr(args, 'accumulation_steps', 1)
+        total_steps = len(train_dataloader) * args.epochs // accumulation_steps
+        warmup_steps = int(args.warmup_ratio * total_step s)
 
     if scheduler_type == "plateau":
         return ReduceLROnPlateau(
