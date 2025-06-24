@@ -1,6 +1,6 @@
+# 'b_std_mlk', 'std_gr_mlk' 'b_std_lsq', 'std_gr_lsq'与matlab程序计算结果有差异
 import numpy as np
 import math
-from decimal import Decimal
 import pandas as pd
 
 def cal2jd(date):
@@ -206,11 +206,10 @@ def calculate_seismic_change_rate(sub_jd, Twindow, t):
     winlen_days = fTw / Tbin
     fNormInvalLength = winlen_days / nBin1
 
-    # zvalue = calculate_zvalue(R1, R2, S1, S2, N1, N2)
-
+    zvalue = calculate_zvalue(R1, R2, S1, S2, N1, N2)
     beta = (N2 - nEq1 * fNormInvalLength) / np.sqrt(nEq1 * fNormInvalLength * (1 - fNormInvalLength))
 
-    return  beta
+    return  beta,zvalue
 
 def get_max_magnitude_in_forecast(jd, mag, t, Tfore):
     """
@@ -361,7 +360,7 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
         # 调用子函数计算特征
         b_lsq, a_lsq, std_gr_lsq, b_mlk, a_mlk, std_gr_mlk, dM_lsq, dM_mlk, b_std_lsq, b_std_mlk, num_mag_int = calculate_magnitudes_and_features(sub_mag, Mc, dMag)
         T_elaps = calculate_elapsed_times(jd, t_now, mag, Mag_elaps)
-        beta = calculate_seismic_change_rate(sub_jd, Twindow, t_now)
+        beta,zvalue = calculate_seismic_change_rate(sub_jd, Twindow, t_now)
         Mag_max_obs = get_max_magnitude_in_forecast(jd, mag, t_now, Tfore)
        
 
@@ -383,6 +382,7 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
         features["prob_x7_mlk"][i] = np.exp(-3 * b_mlk / np.log10(np.exp(1)))
         features["Energy_sqrt"][i] = np.sqrt(np.sum(10 ** (12 + 1.8 * sub_mag)))
         features["beta"][i] = beta
+        features["zvalue"][i] = zvalue
         features["Mag_max_obs"][i] = Mag_max_obs
         
 

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from src.models.layers import MLP, CNN, AttentionPooling,ScaledSoftplus
 from src.models.transformer.transformers import Transformer_type ,Transformer, Transformer_ST, Transformer_STM, Transformer_SE
-from src.models.thinning import EventSampler
+from src.models.tpp.thinning import EventSampler
 
 class THP(nn.Module):
     def __init__(self, args, device):

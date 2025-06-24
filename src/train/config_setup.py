@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, StepLR, LinearLR, SequentialLR
 from transformers import get_cosine_schedule_with_warmup,get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
-from .scheduler import WarmupLinearDecay
+from .scheduler import WarmupLinearDecay, NoOpScheduler
 from torch import nn
 import os
 
@@ -163,6 +163,7 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
             warmup_steps=warmup_steps,
             total_steps=total_steps
         )   
-
+    elif scheduler_type == "none":
+         return NoOpScheduler(optimizer)
     else:
         raise ValueError("Invalid scheduler type. Choose from 'plateau', 'cosine', 'hf_cosine', 'hf_linear', 'hf_constant'.")
