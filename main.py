@@ -126,7 +126,7 @@ if __name__ == "__main__":
         args_cli.config = f"config/{args_cli.model}.yaml"
 
    
-    set_seed(1)
+    set_seed(0)
 
     args = config_loader.load_args_from_yaml(args_cli.config)
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.use_sampler = False

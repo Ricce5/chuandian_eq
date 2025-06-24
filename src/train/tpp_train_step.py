@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device):
+def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2):
     """Epoch operation in training phase."""
     import numpy as np
     from tqdm import tqdm
@@ -19,27 +19,19 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
     total_num_event = 0  # number of total non-pad events
     total_num_pred = 0   # total number of predictions for time RMSE
 
+    optimizer.zero_grad()  # Only call once at the beginning, to initialize gradients
+    step_count = 0  # 跟踪已处理的步骤数
     for batch in tqdm(data_loader, desc='Training'):
         batch = batch.to(device)  # Move the entire batch to device
-        # Move data to device
-       
-        label_dtime = batch[:,1:].inter_times.to(device)
-        label_type = batch[:,1:].type_seq.to(device)
+        label_dtime = batch[:, 1:].inter_times.to(device)
+        label_type = batch[:, 1:].type_seq.to(device)
         pad_mask = label_type != model.pad_token_id  # assume model has pad_token_id
 
         # Forward
-        optimizer.zero_grad()
-        pred_dtime, pred_type = None, None
         pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
 
         loss, num_event = model.log_likelihood(batch)
-        loss.backward()
-        optimizer.step()
-        step_scheduler(scheduler, event='batch')
-
-        # Logging
-        total_loss += loss.item()
-        total_num_event += num_event
+        loss.backward()  # Accumulate gradients
 
         # === Type prediction accuracy ===
         if pred_type is not None:
@@ -52,6 +44,17 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
             time_se = ((pred_dtime - label_dtime) ** 2)[pad_mask]
             total_time_se += time_se.sum().item()
             total_num_pred += pad_mask.sum().item()
+
+        # Accumulate loss
+        total_loss += loss.item()
+        total_num_event += num_event
+
+        # If accumulation_steps have been completed, update the model
+        step_count += 1
+        if  step_count % accumulation_steps == 0 or  step_count  == len(data_loader):  # Update after every 'accumulation_steps' batches
+            optimizer.step()  # Perform parameter update
+            optimizer.zero_grad()  # Clear gradients for the next accumulation
+            step_scheduler(scheduler, event='batch')  # Update scheduler
 
     avg_loss = total_loss / total_num_event if total_num_event > 0 else 0
     type_acc = total_event_rate / total_num_event if total_num_event > 0 else 0

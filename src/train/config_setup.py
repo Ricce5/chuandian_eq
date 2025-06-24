@@ -62,6 +62,8 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     from src.models.builders import ModelBuilder
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
+    # from src.models.Models import classifier
+    # model = classifier(args, device=device)
 
     # 默认值
     args.start_epoch = 0
@@ -103,6 +105,11 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
     根据参数返回对应的学习率调度器
     支持 PyTorch 和 Hugging Face 的调度器
     """
+    # 计算总的训练步骤数，考虑到梯度累积的影响
+    accumulation_steps = getattr(args, 'accumulation_steps', 1)
+    total_steps = len(train_dataloader) * args.epochs // accumulation_steps
+    warmup_steps = int(args.warmup_ratio * total_steps)
+
     if scheduler_type == "plateau":
         return ReduceLROnPlateau(
             optimizer,
@@ -119,33 +126,25 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
             eta_min=args.scheduler_min_lr
         )
     elif scheduler_type == "hf_cosine":
-        total_steps = len(train_dataloader) * args.epochs
-        warmup_steps = int(args.warmup_ratio * total_steps)
         return get_cosine_schedule_with_warmup(
             optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=total_steps
         )
     elif scheduler_type == "hf_linear":
-        total_steps = len(train_dataloader) * args.epochs
-        warmup_steps = int(args.warmup_ratio * total_steps)
         return get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=total_steps
         )
     elif scheduler_type == "hf_constant":
-        total_steps = len(train_dataloader) * args.epochs
-        warmup_steps = int(args.warmup_ratio * total_steps)
         return get_constant_schedule_with_warmup(
             optimizer,
             num_warmup_steps=warmup_steps
         )
     elif scheduler_type == "step_warmup":
-        total_steps = len(train_dataloader) * args.epochs
-        warmup_steps = int(args.warmup_ratio * total_steps)
-        step_size = int(args.step_lr_step_size_ratio*total_steps)  # e.g., every N steps to decay
-        gamma = args.step_lr_gamma               # decay factor
+        step_size = int(args.step_lr_step_size_ratio * total_steps)  # 每N个步骤衰减一次
+        gamma = args.step_lr_gamma  # 衰减因子
 
         step_scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
         warmup_scheduler = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)
@@ -157,8 +156,6 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
         )
     
     elif scheduler_type == "warmup_linear_decay":
-        total_steps = len(train_dataloader) * args.epochs
-        warmup_steps = int(args.warmup_ratio * total_steps)
         return WarmupLinearDecay(
             optimizer,
             base_lr=args.learning_rate,

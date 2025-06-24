@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .layers import MLP, AttentionPooling
 from .transformer import Transformer, Transformer_ST, Transformer_STM, Transformer_SE
-from .TppModels import THP
+# from .TppModels import THP
 from src.utils.registrable import Registrable
 from src.utils.mask_utils import get_last_valid_step
 
@@ -25,8 +25,13 @@ class BaseTransformerModel(nn.Module,Registrable):
 
     def forward(self, x):
         x = x.float()
-        inputs = self._batch_to_input(x)
-        enc_out, non_pad_mask = self.transformer(*inputs)
+        features, t_n_seq = self._batch_to_input(x)
+        features_dict = {
+            "event_time": t_n_seq,  # 事件时间序列
+            "event_mark": features,    # 其他特征（如地理位置和幅度）
+        }
+
+        enc_out, non_pad_mask = self.transformer( features_dict)
         enc_last, _ = get_last_valid_step(enc_out, non_pad_mask)
         out = self.mlp(enc_last)
         return out.squeeze(1)
@@ -36,7 +41,7 @@ class BaseTransformerModel(nn.Module,Registrable):
 
 
 
-class Classifier(BaseTransformerModel):
+class classifier(BaseTransformerModel):
     def __init__(self, args, device):
         transformer = Transformer_ST(
             d_model=args.d_model, d_rnn=args.d_rnn, d_inner=args.d_inner,
