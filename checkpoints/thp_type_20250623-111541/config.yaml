@@ -1,12 +1,13 @@
 # resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250603-142623/last_model_1.pth
-# freeze_parts: [transformer, mlp] # [transformer, mlp]
 # 模型设置
-model: reg_attnpl
-task_type: regression
-dataset: ChuanDian
+model: thp_type
+dataset: taxi
+num_event_types: 10
+pad_token_id: 10
+task_type: tpp
 # 训练参数
 
-batch_size: 32
+batch_size: 128
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
@@ -28,7 +29,7 @@ d_k: 16
 d_v: 16
 t_dropout: 0.1
 rnn_dropout: 0.01
-attn_type: flash
+attn_type: full
 
 # MLP 参数
 mlp_out: 1
@@ -42,12 +43,9 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-Mc: 5
-Mf: 5
+Mc: 3 # 4.5
 Twindow: 200
-Tfore: 100
-dt: 30
-context_len: 0
+dt: 10
 split_by_time: true
-use_sampler: false # true
+use_sampler: true # true
 time_order:  [train, val, test]

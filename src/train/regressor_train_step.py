@@ -6,23 +6,25 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device):
+def train(data_loader, model, criterion, optimizer,scheduler, device, accumulation_steps=2):
     model.train()
     total_loss = 0
     all_node_preds = []  # 存储所有预测值
     all_node_targets = []  # 存储所有目标值
-
+    optimizer.zero_grad()
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
+        
         pred = model(x)
         loss = criterion(pred, y)
         loss.backward()
-
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
         
-        optimizer.step()
-        step_scheduler(scheduler, event='batch')
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
+            optimizer.step()  # 更新参数
+            optimizer.zero_grad()  # 清空梯度
+            step_scheduler(scheduler, event='batch')  # 更新调度器
+
         total_loss += loss.item()
 
         # 收集所有预测和目标值

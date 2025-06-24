@@ -69,6 +69,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     best_val_loss = float(1e5)
     best_model_wts = None
     start_epoch = 0
+    accumulation_steps = getattr(args, 'accumulation_steps', 1)
 
     if os.path.exists(checkpoint_path):
         print(f"Resuming training from checkpoint: {checkpoint_path}")
@@ -78,7 +79,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
         for epoch in range(start_epoch, args.epochs):
             print(f"Epoch {epoch + 1}\n-------------------------------")
 
-            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device)
+            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device,accumulation_steps)
             val_loss, val_metrics = validate(val_loader, model, criterion, device)
 
             step_scheduler(scheduler, event='epoch', val_loss=val_loss)

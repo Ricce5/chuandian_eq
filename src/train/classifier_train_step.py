@@ -6,23 +6,33 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import classification_metrics, log_metrics, plot_and_save_roc_curve, plot_classification_distribution
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=0.5):
+def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2):
     model.train()
     total_loss = 0
     all_node_preds = []  # 存储所有预测值
     all_node_targets = []  # 存储所有目标值
+    optimizer.zero_grad()  # 初始化梯度
 
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
+
+        # 计算预测值
         pred = model(x)
         loss = criterion(pred, y)
+
+        # 反向传播
         loss.backward()
 
+        # 梯度裁剪（可选）
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
-        
-        optimizer.step()
-        step_scheduler(scheduler, event='batch')
+
+        # 累积梯度
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
+            optimizer.step()  # 更新参数
+            optimizer.zero_grad()  # 清空梯度
+            step_scheduler(scheduler, event='batch')  # 更新调度器
+
+        # 累加损失
         total_loss += loss.item()
 
         # 收集所有预测和目标值
@@ -32,16 +42,18 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, threshold=
         if batch % 100 == 0:
             tqdm.write(f"Batch {batch:>5d}/{len(data_loader):>5d} | Loss: {loss.item():.6f}")
 
-  
+    # 合并所有的预测和目标
     all_node_preds = np.concatenate(all_node_preds, axis=0)
     all_node_targets = np.concatenate(all_node_targets, axis=0)
 
-
+    # 计算指标
     metrics = classification_metrics(all_node_targets, all_node_preds)
     log_metrics(metrics, prefix="Training")
+
     avg_train_loss = total_loss / len(data_loader)
     
     return avg_train_loss, metrics
+
 
 def validate(data_loader, model, criterion, device, threshold=0.5):
     model.eval()
