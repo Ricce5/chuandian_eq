@@ -126,7 +126,7 @@ if __name__ == "__main__":
         args_cli.config = f"config/{args_cli.model}.yaml"
 
    
-    set_seed(1)
+    set_seed(0)
 
     args = config_loader.load_args_from_yaml(args_cli.config)
 
