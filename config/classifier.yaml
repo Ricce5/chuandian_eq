@@ -4,6 +4,7 @@ dataset: ChinaArray
 # 训练参数
 
 batch_size: 64
+accumulation_steps: 2
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
@@ -42,7 +43,7 @@ cuda_id: "0"
 Mc: 3 # 4.5
 Mf: 6
 Twindow: 200
-Tfore: 20
+Tfore: 100
 dt: 10
 context_len: 1
 split_by_time: true
