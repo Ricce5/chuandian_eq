@@ -31,6 +31,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
         pred_dtime, pred_type = model.predict_one_step_at_every_event(batch)
 
         loss, num_event = model.log_likelihood(batch)
+        loss = loss/accumulation_steps  
         loss.backward()  # Accumulate gradients
 
         # === Type prediction accuracy ===

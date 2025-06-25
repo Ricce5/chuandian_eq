@@ -21,12 +21,10 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
         loss = criterion(pred, y)
 
         # 反向传播
+        loss = loss/accumulation_steps  
         loss.backward()
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
-
-        
         if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
             optimizer.step()  # 更新参数
             optimizer.zero_grad()  # 清空梯度
             step_scheduler(scheduler, event='batch')  # 更新调度器
