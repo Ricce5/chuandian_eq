@@ -1,10 +1,10 @@
 # 模型设置
-model: clf_attnpl_t
-dataset:  ChinaArray
+model: classifier
+dataset: ChinaArray
 # 训练参数
 
 batch_size: 64
-accumulation_steps: 1
+accumulation_steps: 8
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
@@ -19,12 +19,13 @@ step_lr_gamma: 0.5
 # transfomer结构参数
 d_model: 128
 d_rnn: 128
-d_inner: 128
+d_inner: 256
 n_layers: 4
 n_head: 8
 d_k: 16
 d_v: 16
 t_dropout: 0.1
+rnn_dropout: 0
 attn_type: flash
 
 # MLP 参数
