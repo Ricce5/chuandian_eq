@@ -20,6 +20,8 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
 
+        print(accumulation_steps)
+        print((batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader))
         if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
             optimizer.step()  # 更新参数
             optimizer.zero_grad()  # 清空梯度
