@@ -8,8 +8,8 @@ feature_cols: ['Num', 'Mag_max', 'Mag_mean', 'b_lsq', 'a_lsq',
        'beta','zvalue' ]
 
 
-batch_size: 64
-accumulation_steps:  2
+batch_size: 128
+accumulation_steps:  1
 warmup_ratio: None
 learning_rate: 1e-3
 weight_decay: 1e-5
@@ -24,15 +24,15 @@ lstm_hidden_size: 256
 lstm_num_layers: 4
 lstm_dropout: 0.3
 
-epochs: 200
+epochs: 50
 save_dir: null
 cuda_id: "0"
 
 Mc: 3
 Mf: 5.0
 Mag_elaps: [6, 6.5, 7, 7.5]
-Twindow: 200
-Tfore: 100
+Twindow: 600 # 200
+Tfore: 300   # 100
 dt: 10
 context_len: 0
 dMag: 0.1

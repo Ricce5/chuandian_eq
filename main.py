@@ -125,10 +125,9 @@ if __name__ == "__main__":
     if args_cli.config is None:
         args_cli.config = f"config/{args_cli.model}.yaml"
 
-   
-    set_seed(0)
-
     args = config_loader.load_args_from_yaml(args_cli.config)
+    seed = getattr(args, 'seed', 0)
+    set_seed(seed)
 
     # Save directory: create or load based on mode
     if args_cli.mode in ["train", "optuna"]:
@@ -180,7 +179,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.use_sampler = False
@@ -191,7 +190,6 @@ if __name__ == "__main__":
             checkpoint=checkpoint, restore_weights=True
         )
 
-   
         test_loss, metrics = train_step.test(
             model=model,
             criterion=criterion,
@@ -199,7 +197,7 @@ if __name__ == "__main__":
             device=device,
             save_dir=args.save_dir,
         )
-
+        
         train_step.visualize_results(model,train_loader, val_loader, test_loader, device,args.save_dir)
 
         with open(os.path.join(args.save_dir, "metrics.json"), "w") as f:

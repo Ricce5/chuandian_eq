@@ -30,7 +30,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
             step_scheduler(scheduler, event='batch')  # 更新调度器
 
         # 累加损失
-        total_loss += loss.item()
+        total_loss += loss.item()*accumulation_steps
 
         # 收集所有预测和目标值
         all_node_preds.append(pred.cpu().detach().numpy())

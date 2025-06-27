@@ -47,7 +47,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
             total_num_pred += pad_mask.sum().item()
 
         # Accumulate loss
-        total_loss += loss.item()
+        total_loss += loss.item() * accumulation_steps
         total_num_event += num_event
 
         # If accumulation_steps have been completed, update the model
