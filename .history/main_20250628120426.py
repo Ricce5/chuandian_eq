@@ -182,6 +182,7 @@ if __name__ == "__main__":
         checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
+        args.save_dir = "/home/yzzhang/pjt/chuandian_eq/checkpoints/clf_attnpl_t_20250623-151121"
         args.use_sampler = False
         args.model = args.model.lower()
         train_step, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)

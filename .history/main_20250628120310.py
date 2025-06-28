@@ -179,6 +179,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
+        args.save_dir = "/home/yzzhang/pjt/chuandian_eq/checkpoints/clf_attnpl_t_20250623-151121"
         checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
