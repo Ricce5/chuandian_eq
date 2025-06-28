@@ -1,2 +1,2 @@
-1. args随机种子设置
-2. total loss计算 的accumulation step修正
+1. pad从10000改为0
+2. 修正event_loader的mask的值没有随constants变化的bug

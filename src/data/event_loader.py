@@ -15,7 +15,7 @@ from scipy.spatial.distance import cdist
 from torch.utils.data import WeightedRandomSampler,Subset
 from src.data.data_utils import get_split_indices
 from torch.utils.data import WeightedRandomSampler
-
+from .constants import PAD
 
 
 
@@ -182,7 +182,7 @@ class EventDataset(torch.utils.data.Dataset):
 
 
 
-def array_pad_t(insts, PAD=0):
+def array_pad_t(insts, PAD):
     max_len = max(len(inst) for inst in insts)
     padded_batch = [np.pad(inst, (0, max_len - len(inst)), constant_values=PAD) for inst in insts]
     return np.stack(padded_batch)
@@ -190,7 +190,7 @@ def array_pad_t(insts, PAD=0):
 
 def collate_fn(instances):
     sample_tuples, target_values = zip(*instances)
-    padded_samples = [array_pad_t(sample, PAD=0) for sample in zip(*sample_tuples)]
+    padded_samples = [array_pad_t(sample, PAD=PAD) for sample in zip(*sample_tuples)]
     padded_samples = np.array(padded_samples)
     padded_samples = torch.tensor(padded_samples, dtype=torch.float32).permute(1, 2, 0)
     padded_targets = torch.tensor(target_values, dtype=torch.float32)
