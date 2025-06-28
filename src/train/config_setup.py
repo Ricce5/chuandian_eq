@@ -61,7 +61,7 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     from src.models.builders import ModelBuilder
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
-    print(model)
+ 
     # from src.models.Models import classifier
     # model = classifier(args, device=device)
 
