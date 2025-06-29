@@ -248,11 +248,11 @@ class Encoder_STM(BaseEncoder):
             nn.Linear(d_model, d_model),
         )
 
-    def forward(self, event_loc, event_time, event_magnitude, non_pad_mask):
+    def forward(self, event_loc, event_time, event_mag, non_pad_mask):
         slf_attn_mask = self.build_attention_mask(event_time)
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
         enc_output_loc = self.event_emb_loc(event_loc) * non_pad_mask
-        enc_output_mag = self.event_emb_magnitude(event_magnitude) * non_pad_mask
+        enc_output_mag = self.event_emb_magnitude(event_mag) * non_pad_mask
 
         enc_output_fusion = enc_output_temporal + enc_output_loc + enc_output_mag
 

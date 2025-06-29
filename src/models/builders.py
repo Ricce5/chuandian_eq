@@ -86,7 +86,7 @@ class ClassifierSEBuilder(ModelBuilder):
 
         # 分类头（输入维度为 3 * d_rnn）
         head = TaskHead(
-            input_dim=3 * args.d_rnn,
+            input_dim=3 * args.d_model,
             output_dim=args.mlp_out,
             head_type="mlp",
             hidden_layers=args.mlp_hdw,
@@ -122,6 +122,7 @@ class ClassifierSTMBuilder(ModelBuilder):
             device=device,
             loc_dim=args.loc_dim,
             attn_type=args.attn_type,
+            dropout_post_rnn=getattr(args, 'rnn_dropout', 0),
         )
 
         input_adapter = S_T_M_InputAdapter()
@@ -168,6 +169,7 @@ class ClassifierAttnPlBuilder(ModelBuilder):
             device=device,
             dim=args.dim,
             attn_type=args.attn_type,
+            dropout_post_rnn=getattr(args, 'rnn_dropout', 0),
         )
 
         input_adapter = SM_T_InputAdapter()
@@ -218,7 +220,8 @@ class ClfAttnPlTBuilder(ModelBuilder):
             dropout=args.t_dropout,
             device=device,
             dim=args.dim,
-            attn_type=args.attn_type
+            attn_type=args.attn_type,
+            dropout_post_rnn=getattr(args, 'rnn_dropout', 0)
         )
 
         adapter = SM_T_InputAdapterWithTime()
@@ -338,6 +341,7 @@ class RegressorAttnPlBuilder(ModelBuilder):
             device=device,
             dim=args.dim,
             attn_type=args.attn_type,
+            dropout_post_rnn=getattr(args, 'rnn_dropout', 0),
         )
 
         input_adapter = SM_T_InputAdapter()

@@ -26,15 +26,15 @@ def get_model_and_data(args, base_path, device):
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
-        "Classifier_STM": {
+        "classifier_stm": {
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
-         "Classifier_SE": {
+         "classifier_se": {
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
-        "ClfAttnPl": {
+        "clf_attnpl": {
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
@@ -179,7 +179,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.use_sampler = False

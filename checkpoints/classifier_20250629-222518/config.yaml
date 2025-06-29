@@ -1,14 +1,13 @@
-resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250603-142623/last_model_1.pth
-freeze_parts: [transformer, mlp] # [transformer, mlp]
 # 模型设置
-model: Regressor
-task_type: regression
-dataset: CD2021
+# resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250629-170840/last_model_1.pth
+model: classifier
+dataset: ChuanDian
 # 训练参数
 
-batch_size: 32
+batch_size: 64
+accumulation_steps: 2
 warmup_ratio: 0.1
-learning_rate: 5e-4 # 5e-4
+learning_rate: 1e-3 # 5e-4
 weight_decay: 1e-5
 scheduler_factor: null
 scheduler_patience: null
@@ -20,14 +19,14 @@ step_lr_gamma: 0.5
 
 # transfomer结构参数
 d_model: 128
-d_rnn: 256
+d_rnn: 128
 d_inner: 256
 n_layers: 4
 n_head: 8
 d_k: 16
 d_v: 16
 t_dropout: 0.1
-rnn_dropout: 0.01
+rnn_dropout: 0
 attn_type: flash
 
 # MLP 参数
@@ -42,12 +41,13 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-Mc: 5
-Mf: 5
-Twindow: 730
-Tfore: 365
-dt: 30
-context_len: 0
+seed: 0
+Mc: 3 # 4.5
+Mf: 4.5
+Twindow: 200
+Tfore: 20
+dt: 10
+context_len: 1
 split_by_time: true
-use_sampler: false # true
+use_sampler: true # true
 time_order:  [train, val, test]

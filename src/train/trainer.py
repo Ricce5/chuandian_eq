@@ -53,9 +53,9 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
 
-    if args.model in ["classifier", "Classifier_STM",'Classifier_SE',"ClfAttnPl","clf_attnpl_t"]:
+    if args.model in ["classifier", "classifier_stm",'classifier_se',"clf_attnpl","clf_attnpl_t"]:
         from .classifier_train_step import train, validate
-    elif args.model in ["Regressor","lstm","reg_attnpl"]:
+    elif args.model in ["regressor","lstm","reg_attnpl"]:
         from .regressor_train_step import train, validate
     elif args.model in ["thp","thp_type"]:
         from .tpp_train_step import train, validate
@@ -66,15 +66,17 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     os.makedirs(save_dir, exist_ok=True)
 
     checkpoint_path = os.path.join(args.save_dir, f'checkpoint_interrupted_{index}.pth')
-    best_val_loss = float(1e5)
+    best_val_loss = float('inf')
     best_model_wts = None
     start_epoch = 0
     accumulation_steps = getattr(args, 'accumulation_steps', 1)
-
+    train_metrics = {}
+    val_metrics = {}   
+    
     if os.path.exists(checkpoint_path):
         print(f"Resuming training from checkpoint: {checkpoint_path}")
         start_epoch, best_val_loss = load_checkpoint(checkpoint_path, model, optimizer, scheduler, device)
-
+     
     try:
         for epoch in range(start_epoch, args.epochs):
             print(f"Epoch {epoch + 1}\n-------------------------------")

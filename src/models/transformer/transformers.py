@@ -112,7 +112,7 @@ class Transformer_type(BaseTransformer):
 @BaseTransformer.register("Transformer_SE")
 class Transformer_SE(BaseTransformer):
     def __init__(self, d_model=256, d_rnn=128, d_inner=1024,
-                 n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,
+                 n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,dropout_post_rnn=0.3,
                  device=None, loc_dim=2, attn_type='full'):
 
         from .encoders import Encoder_SE
@@ -133,7 +133,7 @@ class Transformer_SE(BaseTransformer):
             "temporal": RNN_layers(d_model, d_rnn),
             "mark": RNN_layers(d_model, d_rnn)
         }
-        super().__init__(encoder=encoder, rnn_modules=rnn_modules)
+        super().__init__(encoder=encoder, rnn_modules=rnn_modules, post_rnn_dropout=dropout_post_rnn)
 
 
 @BaseTransformer.register("Transformer_ST")
@@ -165,7 +165,7 @@ class Transformer_ST(BaseTransformer):
 @BaseTransformer.register("Transformer_STM")
 class Transformer_STM(BaseTransformer):
     def __init__(self, d_model=256, d_rnn=128, d_inner=1024,
-                 n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,
+                 n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1, dropout_post_rnn=0.3,
                  device=None, loc_dim=2, attn_type='full'):
 
         from .encoders import Encoder_STM
@@ -187,4 +187,4 @@ class Transformer_STM(BaseTransformer):
             "loc": RNN_layers(d_model, d_rnn),
             "magnitude": RNN_layers(d_model, d_rnn)
         }
-        super().__init__(encoder=encoder, rnn_modules=rnn_modules)
+        super().__init__(encoder=encoder, rnn_modules=rnn_modules, post_rnn_dropout=dropout_post_rnn)
