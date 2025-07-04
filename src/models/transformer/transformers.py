@@ -59,7 +59,8 @@ class Transformer(BaseTransformer):
 
     def __init__(self,
                  d_model=256, d_rnn=128, d_inner=1024,
-                 n_layers=4, n_head=4, d_k=64, d_v=64,dropout_post_rnn=0.3,
+                 n_layers=4,emb_n_layer=4,
+                 n_head=4, d_k=64, d_v=64,dropout_post_rnn=0.3,
                  dropout=0.1, device=None, dim=2, attn_type='full'):
 
         from .encoders import Encoder
@@ -67,6 +68,7 @@ class Transformer(BaseTransformer):
             d_model=d_model,
             d_inner=d_inner,
             n_layers=n_layers,
+            emb_n_layer=emb_n_layer,
             n_head=n_head,
             d_k=d_k,
             d_v=d_v,

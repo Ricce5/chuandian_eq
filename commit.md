@@ -1,7 +1,5 @@
-修改encoder为encoder_tm, 增加T_M_InputAdapter
-增加TimeShiftedPositionalEncoding
-增加classifier_tm
-
+重命名classifier_tm为classifier_tm_s
+base_encoder的make_mlp移到基类
 
 
 

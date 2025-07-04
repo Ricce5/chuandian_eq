@@ -31,6 +31,15 @@ class BaseEncoder(nn.Module, Registrable):
             for name in stack_names
         })
 
+    def make_mlp(self, input_dim, output_dim, hidden_dim=None, num_layers=4):
+        hidden_dim = hidden_dim or output_dim
+        layers = [nn.Linear(input_dim, hidden_dim), nn.ReLU()]
+        for _ in range(num_layers - 2):
+            layers += [nn.Linear(hidden_dim, hidden_dim), nn.ReLU()]
+        layers.append(nn.Linear(hidden_dim, output_dim))
+        return nn.Sequential(*layers)
+    
+    
     def _build_layer_stack(self, d_model, d_inner, n_layers, n_head, d_k, d_v, dropout, attn_type):
         return nn.ModuleList([
             EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,
@@ -87,7 +96,7 @@ class Encoder(BaseEncoder):
     def __init__(self,
                  d_model, d_inner,
                  n_layers, n_head, d_k, d_v, dropout,
-                 device, attn_type, dim):
+                 device, attn_type, dim, emb_n_layer):
         super().__init__(
             d_model=d_model,
             d_inner=d_inner,
@@ -102,12 +111,8 @@ class Encoder(BaseEncoder):
 
         self.d_model = d_model
         self.temporal_enc = TimePositionalEncoding(d_model, device=device)
-
-        self.event_emb = nn.Sequential(
-            nn.Linear(dim, d_model),
-            nn.ReLU(),
-            nn.Linear(d_model, d_model),
-        )
+        self.event_emb = self.make_mlp(input_dim=dim, output_dim=d_model,num_layers=emb_n_layer)
+        
 
     def forward(self, event_mark, event_time, non_pad_mask):
         # === 构造 Attention Mask ===
@@ -181,13 +186,7 @@ class Encoder_ST(BaseEncoder):
 
         self.event_emb_loc = self.make_mlp(input_dim=dim, output_dim=d_model)
 
-    def make_mlp(self, input_dim, output_dim, hidden_dim=None, num_layers=4):
-        hidden_dim = hidden_dim or output_dim
-        layers = [nn.Linear(input_dim, hidden_dim), nn.ReLU()]
-        for _ in range(num_layers - 2):
-            layers += [nn.Linear(hidden_dim, hidden_dim), nn.ReLU()]
-        layers.append(nn.Linear(hidden_dim, output_dim))
-        return nn.Sequential(*layers)
+    
 
     def forward(self, event_mark, event_time, non_pad_mask):
         slf_attn_mask = self.build_attention_mask(event_time)

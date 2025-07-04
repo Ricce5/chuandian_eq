@@ -1,5 +1,5 @@
 # 模型设置
-model: classifier
+model: classifier_stm_s
 dataset: ChinaArray
 # 训练参数
 
@@ -17,10 +17,11 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
 
 # transfomer结构参数
-d_model: 32
-d_rnn: 32
-d_inner: 64
-n_layers: 2
+d_model: 128
+d_rnn: 128
+d_inner: 256
+n_layers: 4
+emb_n_layers: 2 
 n_head: 8
 d_k: 16
 d_v: 16

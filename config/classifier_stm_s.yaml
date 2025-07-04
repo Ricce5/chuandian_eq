@@ -1,11 +1,10 @@
 # 模型设置
-# resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250629-170840/last_model_1.pth
-model: classifier_tm
-dataset: ChuanDian
+model: classifier_stm_s
+dataset: ChinaArray
 # 训练参数
 
-batch_size: 2
-accumulation_steps: 1
+batch_size: 64
+accumulation_steps: 2
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
@@ -22,6 +21,7 @@ d_model: 128
 d_rnn: 128
 d_inner: 256
 n_layers: 4
+emb_n_layers: 2 
 n_head: 8
 d_k: 16
 d_v: 16
@@ -35,15 +35,15 @@ mlp_dropout: 0.3
 mlp_hdw: [256, 128, 64]
 
 # 其他参数
-dim: 1
-epochs: 300
+dim: 3
+epochs: 150
 save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
 seed: 0
 Mc: 3 # 4.5
-Mf: 4.5
+Mf: 6
 Twindow: 200
 Tfore: 20
 dt: 10
