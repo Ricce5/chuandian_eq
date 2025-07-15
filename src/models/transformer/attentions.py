@@ -2,12 +2,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.utils.mask_utils import TriangularCausalMask, ProbMask
-from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
+from eq.utils.mask_utils import TriangularCausalMask, ProbMask, get_self_attn_mask_from_non_pad_mask, get_attn_mask_with_cache
+from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func, flash_attn_kvpacked_func,flash_attn_varlen_func
 from flash_attn.bert_padding import unpad_input, pad_input
 from  math import sqrt
 from abc import ABC, abstractmethod
-from src.utils.registrable import Registrable
+from eq.utils.registrable import Registrable
+from typing import Optional
 
 
 class BaseAttention(nn.Module, ABC,Registrable):
@@ -19,7 +20,7 @@ class BaseAttention(nn.Module, ABC,Registrable):
     Expected input shapes:
         query, key, value: [B, L, H, D]
         attn_mask: Optional[Tensor] with shape broadcastable to [B, H, L, S]
-        padding_mask: Optional[Tensor] with shape [B, L]
+        non_pad_mask: Optional[Tensor] with shape [B, L]
 
     Returns:
         output: [B, L, H, D]
@@ -36,8 +37,9 @@ class BaseAttention(nn.Module, ABC,Registrable):
         q: torch.Tensor,
         k: torch.Tensor,
         v: torch.Tensor,
-        attn_mask: torch.Tensor = None,
-        padding_mask: torch.Tensor = None
+        attn_mask: Optional[torch.Tensor] = None,
+        non_pad_mask: torch.Tensor = None,
+        causal: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """
         Compute attention.
@@ -47,13 +49,63 @@ class BaseAttention(nn.Module, ABC,Registrable):
             key: [B, L, H, D]
             value: [B, L, H, D]
             attn_mask: [B, H, L, S] or [B, L, S] or None
-            padding_mask: [B, L] or None
+            non_pad_mask: [B, L] or None
 
         Returns:
             output: [B, L, H, D]
             attention_weights: [B, H, L, S] or None
         """
         pass
+
+    @staticmethod
+    def build_attn_mask(
+        non_pad_mask: torch.Tensor,
+        L_k: int,
+        causal: bool = True,
+    ) -> torch.Tensor:
+        """
+        Generate an attention mask compatible with cached key/value tensors,
+        combining both key padding mask and optional causal (future-masking).
+
+        Args:
+            non_pad_mask (Tensor): Boolean tensor of shape [B, L_q],
+                where True indicates a valid (non-padding) token.
+            L_k (int): Total key sequence length, including any cached keys.
+            causal (bool): If True, applies a causal (upper triangular) mask to prevent
+                attending to future positions.
+
+        Returns:
+            Tensor: Boolean attention mask of shape [B, 1, L_q, L_k],
+                where True indicates masked positions.
+        """
+        assert L_k is not None, "L_k must be provided"
+        non_pad_mask = non_pad_mask.to(dtype=torch.bool) if non_pad_mask is not None else None
+        self_attn_mask = get_self_attn_mask_from_non_pad_mask(non_pad_mask, causal=causal)
+        attn_mask = get_attn_mask_with_cache(self_attn_mask, L_k)
+        attn_mask = attn_mask.unsqueeze(1) if attn_mask is not None else None
+        return attn_mask
+  
+    @staticmethod
+    def mask_out(out, non_pad_mask):
+        """
+        Apply non-padding mask to the output.
+        Args:
+            out: [B, L, H, D]
+            non_pad_mask: [B, L] or None
+        Returns:
+            out: [B, L, H, D] with padding positions set to 0
+        """
+        if non_pad_mask is not None:
+            mask = non_pad_mask.bool().unsqueeze(2).unsqueeze(3)  
+            out = torch.where(mask, out, torch.zeros_like(out))  
+        return out
+    
+    def set_dropout(self, p: float):
+        """
+        Optional: Override in subclasses if they use dropout.
+        """
+        pass
+
 
 
 @BaseAttention.register(name="standard")
@@ -72,18 +124,21 @@ class StandardAttention(BaseAttention):
         self.scale = scale 
         self.dropout = nn.Dropout(attn_dropout)
 
-    def forward(self, q, k, v, attn_mask=None, padding_mask=None):
+    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
         """
         Args:
             q, k, v: [B, L, H, D]
             attn_mask: [B, H, L, S] or [B, L, S] or None
-            padding_mask: Optional, not used (reserved for flash-attn compatibility)
+            non_pad_mask: Optional, not used (reserved for flash-attn compatibility)
 
         Returns:
             output: [B, L, H, D]
             attn_weights (optional): [B, H, L, S]
         """
         # [B, L, H, D] → [B, H, L, D]
+        L_k = k.shape[1] 
+        if attn_mask is None:
+            attn_mask = self.build_attn_mask(non_pad_mask, L_k, causal=causal)
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
@@ -101,43 +156,49 @@ class StandardAttention(BaseAttention):
 
         output = torch.matmul(attn_weights, v)  # [B, H, L, D]``
         output = output.transpose(1, 2)  # → [B, L, H, D]
-
+        output = self.mask_out(output, non_pad_mask)
         if self.output_attention:
             return output, attn_weights
         else:
             return output, None
+    def set_dropout(self, p: float):
+        self.dropout = nn.Dropout(p)
+
+   
 
 @BaseAttention.register(name="full")
 class FullAttention(BaseAttention):
-    def __init__(self, mask_flag=True, scale=None, attn_dropout=0.1, output_attention=False):
+    def __init__(self, scale=None, attn_dropout=0.1, output_attention=False):
         super().__init__(output_attention=output_attention)
         self.scale = scale
-        self.mask_flag = mask_flag
         self.dropout = nn.Dropout(attn_dropout)
-        
-    def forward(self, q, k, v, attn_mask,padding_mask=None):
-        B, L, H, E = q.shape
-        _, S, _, D = v.shape
-        scale = self.scale or 1./sqrt(E)
+
+    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
+        B, L_q, H, E = q.shape
+        _, L_k, _, D = v.shape
+        scale = self.scale or 1. / sqrt(E)
+        if attn_mask is None:
+            attn_mask = self.build_attn_mask(non_pad_mask, L_k, causal=causal)
 
         scores = torch.einsum("blhe,bshe->bhls", q, k)
-        if self.mask_flag:
-            if attn_mask is None:
-                attn_mask = TriangularCausalMask(B, L, device=q.device).mask
-
-            scores.masked_fill_(attn_mask, -np.inf)
-
+        if attn_mask is not None:
+            if attn_mask.dim() == 3:
+                attn_mask = attn_mask.unsqueeze(1)  # [B, 1, L, S]
+            scores = scores.masked_fill(attn_mask, -np.inf)
         attn_weights = self.dropout(torch.softmax(scale * scores, dim=-1))
         output = torch.einsum("bhls,bshd->blhd", attn_weights, v)
-
+        output = self.mask_out(output, non_pad_mask)
         if self.output_attention:
             return (output.contiguous(), attn_weights)
         else:
             return (output.contiguous(), None)
-        
+    def set_dropout(self, p: float):
+        self.dropout = nn.Dropout(p)
+
+
 @BaseAttention.register(name="prob")
 class ProbAttention(BaseAttention):
-    def __init__(self, mask_flag=True, factor=5, scale=None, attn_dropout=0.1, output_attention=False):
+    def __init__(self, mask_flag=True, factor=10, scale=None, attn_dropout=0.1, output_attention=False):
         super().__init__(output_attention=output_attention)
         self.factor = factor
         self.scale = scale
@@ -221,9 +282,11 @@ class ProbAttention(BaseAttention):
             return context_in, None
 
 
-    def forward(self, q, k, v, attn_mask,padding_mask=None):
+    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
         B, L_Q, H, D = q.shape
         _, L_K, _, _ = k.shape
+        if attn_mask is None:
+            attn_mask = self.build_attn_mask(non_pad_mask, L_K, causal=causal)
 
         q = q.transpose(2,1)
         k = k.transpose(2,1)
@@ -245,59 +308,188 @@ class ProbAttention(BaseAttention):
         context = self._get_initial_context(v, L_Q)
         # update the context with selected top_k q
         context, attn = self._update_context(context, v, scores_top, index, L_Q, attn_mask)
-        
-        return context.transpose(2,1).contiguous(), attn
+        out = context.transpose(2,1).contiguous()  # [B, L_Q, H, D]
+        out = self.mask_out(out, non_pad_mask)
+        return out, attn
+    
+    def set_dropout(self, p: float):
+        device = next(self.parameters()).device  # 获取当前模块的 device
+        self.dropout = nn.Dropout(p).to(device)
+
+
     
 
+    
 @BaseAttention.register(name="flash")
 class FlashAttentionWrapper(BaseAttention):
-    def __init__(self, attn_dropout=0.1, causal=True, output_attention=False):
-        super().__init__( output_attention= output_attention)
+    def __init__(self, attn_dropout=0.1, output_attention=False, scale=None, precision="fp16"):
+        super().__init__(output_attention=output_attention)
         self.dropout = attn_dropout
-        self.causal = causal
+        self.scale = scale
+        self.precision = precision.lower()
 
-    def forward(self, q, k, v, padding_mask=None, attn_mask=None):
-        # 没有使用 attn_mask，因为 FlashAttention 不支持
-        """
-        Args:
-            q, k, v: [B, L, H, D]
-            padding_mask: [B, L] where 1=True means valid, 0=False means padding
-        Returns:
-            out: [B, L, H, D]
-        """
-        B, L, H, D = q.shape
-        device = q.device
+        if self.precision not in {"fp16", "bf16"}:
+            raise ValueError(f"Unsupported precision '{self.precision}'. Must be 'fp16' or 'bf16'.")
 
-        # Ensure float16 for FlashAttention
-        q = q.to(torch.float16)
-        k = k.to(torch.float16)
-        v = v.to(torch.float16)
+    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
+        B, L_q, H, D = q.shape
+        L_kv = k.shape[1]
 
-        # Use custom unpad_input: returns 5 values
-        q_unpad, indices, cu_seqlens, max_seqlen, _ = unpad_input(q, padding_mask)
-        k_unpad, _, _, _, _ = unpad_input(k, padding_mask)
-        v_unpad, _, _, _, _ = unpad_input(v, padding_mask)
+        assert q.device.type == "cuda", "FlashAttention requires CUDA device"
 
-        # Stack QKV into shape [total, 3, H, D]
-        qkv = torch.stack([q_unpad, k_unpad, v_unpad], dim=1)  # [total, 3, H, D]
+        # Select dtype based on precision
+        dtype_map = {"fp16": torch.float16, "bf16": torch.bfloat16}
+        dtype = dtype_map[self.precision]
 
-        # Call varlen FlashAttention
-        out_unpad = flash_attn_varlen_qkvpacked_func(
-            qkv,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen,
+        # Convert q/k/v to target dtype
+        q, k, v = q.to(dtype), k.to(dtype), v.to(dtype)
+
+        # Handle padding mask
+        if non_pad_mask is None:
+            non_pad_mask_q = torch.ones(B, L_q, dtype=torch.bool, device=q.device)
+        else:
+            non_pad_mask_q = non_pad_mask.bool()
+
+        # Handle prefix cache: if kv is longer than q, pad kv mask
+        if L_q != L_kv:
+            assert L_q < L_kv, "L_q must be <= L_kv for prefix masking"
+            non_pad_mask_kv = self.build_kv_non_pad_mask_with_cache(non_pad_mask_q, total_kv_len=L_kv)
+        else:
+            non_pad_mask_kv = non_pad_mask_q
+
+        # Unpad q/k/v for FlashAttention
+        q_unpad, q_indices, cu_q, q_max_len, _ = unpad_input(q, non_pad_mask_q)
+        k_unpad, _, cu_k, k_max_len, _ = unpad_input(k, non_pad_mask_kv)
+        v_unpad, _, _, _, _ = unpad_input(v, non_pad_mask_kv)
+
+        # Determine scaling factor
+        softmax_scale = self.scale if self.scale is not None else 1.0 / sqrt(D)
+        out_unpad = flash_attn_varlen_func(
+            q_unpad,
+            k_unpad,
+            v_unpad,
+            cu_seqlens_q=cu_q,
+            cu_seqlens_k=cu_k,
+            max_seqlen_q=q_max_len,
+            max_seqlen_k=k_max_len,
             dropout_p=self.dropout,
-            softmax_scale=None,
-            causal=self.causal,
+            softmax_scale=softmax_scale,
+            causal=causal,
             window_size=(-1, -1),
-            softcap=0.0,
-            alibi_slopes=None,
-            deterministic=False,
-            return_attn_probs=False
+            return_attn_probs=False,
         )
 
-        # Recover [B, L, H, D]
-        out = pad_input(out_unpad, indices, B, L)
-        out = out.to(torch.float32)
+        # Pad back to [B, L_q, H, D]
+        out = pad_input(out_unpad, q_indices, B, L_q)
 
-        return (out, None) 
+        return out.to(torch.float32), None
+
+    @staticmethod
+    def build_kv_non_pad_mask_with_cache(
+        non_pad_mask_q: torch.Tensor,  # [B, L_q]
+        total_kv_len: int,         # L_kv
+    ) -> torch.Tensor:
+        B, L_q = non_pad_mask_q.shape
+        L_kv = total_kv_len
+        L_cache = L_kv - L_q
+
+        if L_cache == 0:
+            return non_pad_mask_q
+
+        prefix_valid = torch.ones((B, L_cache), dtype=torch.bool, device=non_pad_mask_q.device)
+        return torch.cat([prefix_valid, non_pad_mask_q], dim=1)  # [B, L_kv]
+    
+    def set_dropout(self, p: float):
+        self.dropout = p
+
+
+
+
+# @BaseAttention.register(name="flash")
+# class FlashAttentionWrapper(BaseAttention):
+#     def __init__(self, attn_dropout=0.1, causal=True, output_attention=False,precision="fp16",scale=None):
+#         super().__init__( output_attention= output_attention)
+#         self.dropout = attn_dropout
+    
+
+#     def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
+#         # 没有使用 attn_mask，因为 FlashAttention 不支持
+#         """
+#         Args:
+#             q, k, v: [B, L, H, D]
+#             non_pad_mask: [B, L] where 1=True means valid, 0=False means padding
+#         Returns:
+#             out: [B, L, H, D]
+#         """
+#         B, L, H, D = q.shape
+#         device = q.device
+
+#         # Ensure float16 for FlashAttention
+#         q = q.to(torch.float16)
+#         k = k.to(torch.float16)
+#         v = v.to(torch.float16)
+
+#         # Use custom unpad_input: returns 5 values
+#         q_unpad, indices, cu_seqlens, max_seqlen, _ = unpad_input(q, non_pad_mask)
+#         k_unpad, _, _, _, _ = unpad_input(k, non_pad_mask)
+#         v_unpad, _, _, _, _ = unpad_input(v, non_pad_mask)
+
+#         # Stack QKV into shape [total, 3, H, D]
+#         qkv = torch.stack([q_unpad, k_unpad, v_unpad], dim=1)  # [total, 3, H, D]
+
+#         # Call varlen FlashAttention？
+#         out_unpad = flash_attn_varlen_qkvpacked_func(
+#             qkv,
+#             cu_seqlens=cu_seqlens,
+#             max_seqlen=max_seqlen,
+#             dropout_p=self.dropout,
+#             softmax_scale=None,
+#             causal=causal,
+#             window_size=(-1, -1),
+#             softcap=0.0,
+#             alibi_slopes=None,
+#             deterministic=False,
+#             return_attn_probs=False
+#         )
+
+#         # Recover [B, L, H, D]
+#         out = pad_input(out_unpad, indices, B, L)
+#         out = out.to(torch.float32)
+
+#         return (out, None) 
+
+# @BaseAttention.register(name="flash_kv")
+# class FlashKVAttentionWrapper(BaseAttention):
+#     def __init__(self, attn_dropout=0, output_attention=False):
+#         super().__init__(output_attention=output_attention)
+#         self.dropout = attn_dropout
+#     def forward(
+#         self,
+#         q: torch.Tensor,      # [B, L_q, H, D]
+#         k: torch.Tensor,      # [B, L_k, H, D]
+#         v: torch.Tensor,      # [B, L_k, H, D]
+#         non_pad_mask: torch.Tensor = None,
+#         attn_mask: torch.Tensor = None,
+#         causal: bool = True,
+#     ):
+#         B, L, H, D = q.shape
+
+
+#         # Ensure float16 for FlashAttention
+#         q = q.to(torch.float16)
+#         k = k.to(torch.float16)
+#         v = v.to(torch.float16)
+
+#         kv = torch.stack([k, v], dim=2)  # [B, L_k, 2, H, D]
+
+#         out = flash_attn_kvpacked_func(
+#             dropout_p=self.dropout,
+#             q=q,
+#             kv=kv,
+#             causal=causal,
+#             softmax_scale=None,
+#             return_attn_probs=False
+#         )  # [B, L_q, H, D]
+
+#         out = out.to(torch.float32)
+#         return out, None

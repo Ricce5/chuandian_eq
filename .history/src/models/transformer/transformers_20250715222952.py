@@ -23,48 +23,21 @@ class BaseTransformer(nn.Module, Registrable):
     })
 
 
-    def _init_or_extract_cache(self, caches: Optional[Dict[str, Any]]) -> Tuple[Optional[Dict[str, List[Dict[str, torch.Tensor]]]], Dict[str, Any]]:
+    def _init_or_extract_cache(self, caches: Optional[Dict[str, Any]]) -> Tuple[Optional[List[Dict]], Dict[str, Any]]:
         """
-        Helper function to cleanly handle cache extraction or initialization,
-        supporting both single and multi-stack encoder cache.
+        Helper function to cleanly handle cache extraction or initialization.
         """
-        stack_names = getattr(self.encoder, "stack_names", ["default"])
-
-        # 训练时或无 cache，返回空结构
         if self.training or caches is None:
-            encoder_cache = {
-                name: None for name in stack_names
-            }
-            rnn_cache_dict = {
-                name: None for name in self.rnns
-            }
+            encoder_cache = None
+            rnn_cache_dict = {name: None for name in self.rnns}
         else:
             encoder_cache = caches.get("encoder", None)
             rnn_cache_dict = caches.get("rnn", {name: None for name in self.rnns})
-
-            # 检查 RNN cache 是否与定义一致
             if set(rnn_cache_dict.keys()) != set(self.rnns.keys()):
                 raise KeyError(
                     f"caches['rnn'] keys 与 RNN 模块不一致：{list(rnn_cache_dict.keys())} vs {list(self.rnns.keys())}"
                 )
-
-            if encoder_cache is not None:
-                if isinstance(encoder_cache, list):
-                    # 说明是旧结构，只支持一个堆栈
-                    if len(stack_names) != 1:
-                        raise ValueError(f"encoder_cache 是 List，但 encoder.stack_names 有多个：{stack_names}")
-                    encoder_cache = {stack_names[0]: encoder_cache}
-                elif isinstance(encoder_cache, dict):
-                    # 多堆栈结构，校验键
-                    if set(encoder_cache.keys()) != set(stack_names):
-                        raise KeyError(
-                            f"encoder_cache.keys() 与 stack_names 不一致：{list(encoder_cache.keys())} vs {stack_names}"
-                        )
-                else:
-                    raise TypeError(f"encoder_cache 类型不合法，收到：{type(encoder_cache)}")
-
         return encoder_cache, rnn_cache_dict
-
 
     def forward(
         self,

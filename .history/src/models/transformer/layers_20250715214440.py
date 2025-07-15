@@ -108,8 +108,8 @@ class RNN_layers(nn.Module):
 
     def __init__(self, d_model, d_rnn, num_layers=1):
         super().__init__()
-        self.rnn = nn.LSTM(d_model, d_rnn, num_layers=num_layers, batch_first=True)
-        # self.rnn = nn.GRU(d_model, d_rnn, num_layers=num_layers, batch_first=True)
+        # self.rnn = nn.LSTM(d_model, d_rnn, num_layers=num_layers, batch_first=True)
+        self.rnn = nn.GRU(d_model, d_rnn, num_layers=num_layers, batch_first=True)
         self.projection = nn.Linear(d_rnn, d_model)
         self.num_layers = num_layers
 
@@ -120,10 +120,9 @@ class RNN_layers(nn.Module):
         if cache is not None and cache[0] is not None:
             return cache
         h0 = torch.zeros(self.num_layers, batch_size, self.rnn.hidden_size, device=device)
-        c0 = torch.zeros(self.num_layers, batch_size, self.rnn.hidden_size, device=device)
-        return (h0, c0)
-        # return h0
-
+        # c0 = torch.zeros(self.num_layers, batch_size, self.rnn.hidden_size, device=device)
+        # return (h0, c0)
+        return h0
     def forward(
         self,
         data: torch.Tensor,                         

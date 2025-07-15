@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .layers import EncoderLayer,TimePositionalEncoding, RNN_layers
-from src.utils.mask_utils import get_non_pad_mask, get_attn_key_pad_mask, get_subsequent_mask
+from eq.utils.mask_utils import get_non_pad_mask, get_attn_key_pad_mask, get_subsequent_mask
 
 class Encoder(nn.Module):
     """ A encoder model with self attention mechanism. """

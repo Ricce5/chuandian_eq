@@ -231,8 +231,8 @@ class Encoder_ST(BaseEncoder):
     event_time,
     non_pad_mask,
     attn_mask: Optional[torch.Tensor] = None,
-    caches: Optional[Dict[str, List[Dict[str, torch.Tensor]]]] = None
-    ):
+    caches: Optional[List[Dict[str, torch.Tensor]]] = None):
+        slf_attn_mask = self.build_attention_mask(event_time)
 
         # input embeddings
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
@@ -241,14 +241,13 @@ class Encoder_ST(BaseEncoder):
 
         # forward through each stack
         outputs = self.forward_multi_stack(
-            inputs_dict={
+            {
                 "temporal": enc_output_temporal,
                 "loc": enc_output_loc,
                 "fusion": enc_output_fusion
             },
             non_pad_mask=non_pad_mask,
-            attn_mask=attn_mask,
-            caches_dict=caches
+            slf_attn_mask=slf_attn_mask
         )
 
         return outputs["fusion"], outputs["temporal"], outputs["loc"]

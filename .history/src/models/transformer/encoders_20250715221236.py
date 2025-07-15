@@ -231,8 +231,7 @@ class Encoder_ST(BaseEncoder):
     event_time,
     non_pad_mask,
     attn_mask: Optional[torch.Tensor] = None,
-    caches: Optional[Dict[str, List[Dict[str, torch.Tensor]]]] = None
-    ):
+    caches: Optional[List[Dict[str, torch.Tensor]]] = None):
 
         # input embeddings
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
