@@ -198,8 +198,7 @@ if __name__ == "__main__":
             checkpoint=checkpoint, restore_weights=True
         )
         model.set_attn_dropout(0)
-        # model.set_attn_type("flash")
-        # print(model.base_model.encoder.encoder.attn_type)
+        print(model.)
         test_loss, metrics = train_step.test(
             model=model,
             criterion=criterion,
