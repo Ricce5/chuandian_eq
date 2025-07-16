@@ -16,7 +16,7 @@ import os
 import json
 import yaml
 import optuna
-
+#  torch.autograd.set_detect_anomaly(True)
 
 
 def get_model_and_data(args, base_path, device):

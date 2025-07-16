@@ -381,6 +381,9 @@ class FlashAttentionWrapper(BaseAttention):
 
         # Pad back to [B, L_q, H, D]
         out = pad_input(out_unpad, q_indices, B, L_q)
+        if torch.isnan(out).any():
+            print("警告：输出张量 'out' 包含 NaN 值。")
+            # raise ValueError("Output tensor 'out' contains NaN values.")
         return out.to(torch.float32), None
 
     @staticmethod

@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 from typing import List, Dict, Callable, Optional, Tuple, Union, Any
 from .layers import RNN_layers
-from src.utils.mask_utils import  get_non_pad_mask
-from src.utils.registrable import Registrable
-from src.data.dot_dict import DotDict
+from eq.utils.mask_utils import  get_non_pad_mask
+from eq.utils.registrable import Registrable
+from eq.data.dot_dict import DotDict
 
 class BaseTransformer(nn.Module, Registrable):
     def __init__(self, encoder: nn.Module, rnn_modules: Dict[str, nn.Module], post_rnn_dropout: float = 0.0):
@@ -87,6 +87,11 @@ class BaseTransformer(nn.Module, Registrable):
         input_mask = features_dict.get("input_mask", None)
         if input_mask is None:
             non_pad_mask = get_non_pad_mask(event_time)
+            print(event_time[0,:])
+            if not non_pad_mask.all():
+                print("transformer non_pad_mask 中存在 False 值。")
+            else:
+                print("transformer non_pad_mask 中所有值都是 True。")
         else:
             non_pad_mask = input_mask.unsqueeze(-1)
 

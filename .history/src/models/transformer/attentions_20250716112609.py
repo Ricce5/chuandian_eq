@@ -344,11 +344,18 @@ class FlashAttentionWrapper(BaseAttention):
         # Convert q/k/v to target dtype
         q, k, v = q.to(dtype), k.to(dtype), v.to(dtype)
 
-
+        # Handle padding mask
+        print(non_pad_mask.shape)
+        if not non_pad_mask.all():
+            print("attn non_pad_mask 中存在 False 值。")
+        else:
+            print("attn non_pad_mask 中所有值都是 True。")
         if non_pad_mask is None:
             non_pad_mask_q = torch.ones(B, L_q, dtype=torch.bool, device=q.device)
         else:
             non_pad_mask_q = non_pad_mask.bool()
+        
+        
 
         # Handle prefix cache: if kv is longer than q, pad kv mask
         if L_q != L_kv:
@@ -381,6 +388,9 @@ class FlashAttentionWrapper(BaseAttention):
 
         # Pad back to [B, L_q, H, D]
         out = pad_input(out_unpad, q_indices, B, L_q)
+        if torch.isnan(out).any():
+            print("警告：输出张量 'out' 包含 NaN 值。")
+            # raise ValueError("Output tensor 'out' contains NaN values.")
         return out.to(torch.float32), None
 
     @staticmethod

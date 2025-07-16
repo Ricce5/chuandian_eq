@@ -2,12 +2,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.utils.mask_utils import TriangularCausalMask, ProbMask, get_self_attn_mask_from_non_pad_mask, get_attn_mask_with_cache
+from eq.utils.mask_utils import TriangularCausalMask, ProbMask, get_self_attn_mask_from_non_pad_mask, get_attn_mask_with_cache
 from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func, flash_attn_kvpacked_func,flash_attn_varlen_func
 from flash_attn.bert_padding import unpad_input, pad_input
 from  math import sqrt
 from abc import ABC, abstractmethod
-from src.utils.registrable import Registrable
+from eq.utils.registrable import Registrable
 from typing import Optional
 
 
@@ -332,6 +332,15 @@ class FlashAttentionWrapper(BaseAttention):
             raise ValueError(f"Unsupported precision '{self.precision}'. Must be 'fp16' or 'bf16'.")
 
     def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
+        torch.autograd.set_detect_anomaly(True)
+        if torch.isnan(q).any():
+            print("警告：输入张量 'q' 包含 NaN 值。")
+            # 可以选择在这里抛出错误，或根据需求记录日志/处理
+            # raise ValueError("Input tensor 'q' contains NaN values.")
+        if torch.isnan(k).any():
+            print("警告：输入张量 'k' 包含 NaN 值。")
+        if torch.isnan(v).any():
+            print("警告：输入张量 'v' 包含 NaN 值。")
         B, L_q, H, D = q.shape
         L_kv = k.shape[1]
 
@@ -344,11 +353,18 @@ class FlashAttentionWrapper(BaseAttention):
         # Convert q/k/v to target dtype
         q, k, v = q.to(dtype), k.to(dtype), v.to(dtype)
 
-
+        # Handle padding mask
+        print(non_pad_mask.shape)
+        if not non_pad_mask.all():
+            print("attn non_pad_mask 中存在 False 值。")
+        else:
+            print("attn non_pad_mask 中所有值都是 True。")
         if non_pad_mask is None:
             non_pad_mask_q = torch.ones(B, L_q, dtype=torch.bool, device=q.device)
         else:
             non_pad_mask_q = non_pad_mask.bool()
+        
+        
 
         # Handle prefix cache: if kv is longer than q, pad kv mask
         if L_q != L_kv:
@@ -381,6 +397,9 @@ class FlashAttentionWrapper(BaseAttention):
 
         # Pad back to [B, L_q, H, D]
         out = pad_input(out_unpad, q_indices, B, L_q)
+        if torch.isnan(out).any():
+            print("警告：输出张量 'out' 包含 NaN 值。")
+            # raise ValueError("Output tensor 'out' contains NaN values.")
         return out.to(torch.float32), None
 
     @staticmethod

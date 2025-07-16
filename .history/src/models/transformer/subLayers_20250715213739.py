@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from .attentions import StandardAttention, FlashAttentionWrapper, ProbAttention,FullAttention,BaseAttention
 from math import sqrt
 from typing import Optional, Dict
-from src.utils.mask_utils import TriangularCausalMask, get_self_attn_mask_from_non_pad_mask,get_attn_mask_with_cache
+from eq.utils.mask_utils import TriangularCausalMask, get_self_attn_mask_from_non_pad_mask,get_attn_mask_with_cache
 
 
 class MultiHeadAttention(nn.Module):

@@ -103,10 +103,10 @@ def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
     # Convert predictions and targets to numpy arrays
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
-    if np.any(np.isnan(all_node_preds)):
-        print("警告：'all_node_preds' 包含 NaN 值。這可能會影響指標計算。")
+    if np.any(np.isnan(all_node_targets)):
+        print("警告：'all_node_targets' 包含 NaN 值。這可能會影響指標計算。")
     else:
-        print("'all_node_preds' 不包含任何 NaN 值。")
+        print("'all_node_targets' 不包含任何 NaN 值。")
 
     # Calculate evaluation metrics
     metrics = classification_metrics(all_node_targets, all_node_preds)

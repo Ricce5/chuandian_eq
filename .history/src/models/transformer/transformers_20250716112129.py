@@ -87,6 +87,11 @@ class BaseTransformer(nn.Module, Registrable):
         input_mask = features_dict.get("input_mask", None)
         if input_mask is None:
             non_pad_mask = get_non_pad_mask(event_time)
+            print(event_time[0,:])
+            if not non_pad_mask.all():
+                print("transformer non_pad_mask 中存在 False 值。")
+            else:
+                print("transformer non_pad_mask 中所有值都是 True。")
         else:
             non_pad_mask = input_mask.unsqueeze(-1)
 
