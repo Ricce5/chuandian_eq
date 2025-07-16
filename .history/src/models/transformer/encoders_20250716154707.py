@@ -161,16 +161,13 @@ class Encoder(BaseEncoder):
             raise ValueError("event_emb 输出包含 NaN")
         enc_output += tem_enc  # 注入时间偏置
         # === 注入时间偏置进行注意力处理 ===
-        outputs = self.forward_multi_stack(
+        return self.forward_layer_stack(
             stack_name="default",
-            inputs_dict={
-                "default": enc_output,
-            },
+            x=enc_output,
             non_pad_mask=non_pad_mask,
             attn_mask=attn_mask,
             caches=caches
         )
-        return outputs["default"]
 
 
 @BaseEncoder.register("Encoder_type")
@@ -207,8 +204,8 @@ class Encoder_type(BaseEncoder):
         tem_enc = self.temporal_enc(event_time) * non_pad_mask
         enc_output = self.event_emb(event_type) * non_pad_mask
         enc_output += tem_enc  
-
-        outputs =self.forward_multi_stack(
+        
+        return self.forward_multi_stack(
             inputs_dict={
                 "default": enc_output,
             },
@@ -216,8 +213,6 @@ class Encoder_type(BaseEncoder):
             attn_mask=attn_mask,
             caches_dict=caches
         )
-
-        return outputs["default"]
 
 @BaseEncoder.register("Encoder_ST")
 class Encoder_ST(BaseEncoder):
@@ -295,9 +290,8 @@ class Encoder_STM(BaseEncoder):
             nn.Linear(d_model, d_model),
         )
 
-    def forward(self, event_loc, event_time, event_mag, non_pad_mask,
-    attn_mask: Optional[torch.Tensor] = None,
-    caches: Optional[Dict[str, List[Dict[str, torch.Tensor]]]] = None):
+    def forward(self, event_loc, event_time, event_mag, non_pad_mask):
+        slf_attn_mask = self.build_attention_mask(event_time)
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
         enc_output_loc = self.event_emb_loc(event_loc) * non_pad_mask
         enc_output_mag = self.event_emb_magnitude(event_mag) * non_pad_mask
@@ -312,9 +306,7 @@ class Encoder_STM(BaseEncoder):
                 "fusion": enc_output_fusion
             },
             non_pad_mask=non_pad_mask,
-            attn_mask=attn_mask,
-            caches_dict=caches
-
+            slf_attn_mask=slf_attn_mask
         )
 
         return outputs["fusion"], outputs["temporal"], outputs["loc"], outputs["magnitude"]
@@ -355,10 +347,10 @@ class Encoder_SE(BaseEncoder):
             nn.Linear(d_model, d_model)
         )
 
-    def forward(self, event_loc, event_time, event_mag, non_pad_mask,
-                 attn_mask: Optional[torch.Tensor] = None,
-                 caches: Optional[Dict[str, List[Dict[str, torch.Tensor]]]] = None):
-       
+    def forward(self, event_loc, event_time, event_mag, non_pad_mask):
+        # === Attention mask
+        slf_attn_mask = self.build_attention_mask(event_time)
+
         # === Input encodings (all masked)
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
         enc_output_loc = self.event_emb_loc(event_loc) * non_pad_mask
@@ -374,8 +366,7 @@ class Encoder_SE(BaseEncoder):
                 "fusion": enc_output_fusion
             },
             non_pad_mask=non_pad_mask,
-            attn_mask=attn_mask,
-            caches_dict=caches
+            slf_attn_mask=slf_attn_mask
         )
 
         return outputs["fusion"], outputs["temporal"], outputs["mark"]

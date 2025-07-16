@@ -16,7 +16,7 @@ import os
 import json
 import yaml
 import optuna
-#  torch.autograd.set_detect_anomaly(True)
+
 
 
 def get_model_and_data(args, base_path, device):
@@ -27,14 +27,6 @@ def get_model_and_data(args, base_path, device):
             "data_func": "prepare_data",
         },
         "classifier_stm": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-         "classifier_tm_s": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-         "classifier_stm_s": {
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
@@ -197,9 +189,7 @@ if __name__ == "__main__":
             args, device,train_loader,
             checkpoint=checkpoint, restore_weights=True
         )
-        model.set_attn_dropout(0)
-        # model.set_attn_type("flash")
-        # print(model.base_model.encoder.encoder.attn_type)
+
         test_loss, metrics = train_step.test(
             model=model,
             criterion=criterion,

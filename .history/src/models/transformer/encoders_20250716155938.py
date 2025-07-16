@@ -312,7 +312,7 @@ class Encoder_STM(BaseEncoder):
                 "fusion": enc_output_fusion
             },
             non_pad_mask=non_pad_mask,
-            attn_mask=attn_mask,
+            slf_attn_mask=attn_mask,
             caches_dict=caches
 
         )
@@ -374,7 +374,7 @@ class Encoder_SE(BaseEncoder):
                 "fusion": enc_output_fusion
             },
             non_pad_mask=non_pad_mask,
-            attn_mask=attn_mask,
+            slf_attn_mask=attn_mask,
             caches_dict=caches
         )
 
