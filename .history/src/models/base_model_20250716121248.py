@@ -31,8 +31,6 @@ class BaseModel(nn.Module):
 
     def set_attn_type(self, new_type: str):
         self.encoder.set_attn_type(new_type)
-
-        
     def set_attn_dropout(self, p: float):
         self.encoder.set_attn_dropout(p)
 
