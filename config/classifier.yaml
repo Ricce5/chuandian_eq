@@ -1,5 +1,6 @@
 # 模型设置
-# resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250629-170840/last_model_1.pth
+resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/thp_20250724-174759/last_model_1.pth
+load_specific_parts: ['encoder']
 model: classifier
 # 训练参数
 
@@ -17,15 +18,15 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
 
 # transfomer结构参数
-d_model: 128
-d_rnn: 128
-d_inner: 256
-n_layers: 4
+d_model: 64
+d_rnn: 64
+d_inner: 128
+n_layers: 2
 n_head: 8
 d_k: 16
 d_v: 16
 t_dropout: 0.1
-rnn_dropout: 0
+rnn_dropout: 0.2
 attn_type: flash
 
 # MLP 参数
@@ -40,14 +41,15 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-dataset: QTMSanJacinto
+dataset: SCEDC
 seed: 0
-Mc: 0.6 # 4.5
-Mf: 3.5
-Twindow: 150
-Tfore: 75
-dt: 5
-context_len: 0
+Mc: 2 # 4.5
+Mf: 5
+Twindow: 300
+Tfore: 150
+dt: 10
+context_len: 1
 split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]
+
