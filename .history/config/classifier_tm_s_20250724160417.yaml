@@ -1,15 +1,16 @@
-# 模型设置
-# resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/classifier_20250629-170840/last_model_1.pth
-model: classifier
+# # 模型设置
+# resume_path: /home/yzzhang/pjt/chuandian_eq/checkpoints/thp_20250722-143748/last_model_1.pth
+# load_specific_parts: ['encoder']
+model: classifier_tm_s
 # 训练参数
 
-batch_size: 256
-accumulation_steps: 1
+batch_size: 32
+accumulation_steps: 4
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
 scheduler_factor: null
-scheduler_patience: null
+scheduler_patience: null        
 scheduler_threshold: null
 scheduler_min_lr: 1e-6
 scheduler_type: step_warmup
@@ -17,10 +18,10 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
 
 # transfomer结构参数
-d_model: 128
-d_rnn: 128
-d_inner: 256
-n_layers: 4
+d_model: 32 # 128
+d_rnn: 64
+d_inner: 64 # 256
+n_layers: 2
 n_head: 8
 d_k: 16
 d_v: 16
@@ -34,20 +35,20 @@ mlp_dropout: 0.3
 mlp_hdw: [256, 128, 64]
 
 # 其他参数
-dim: 3
+dim: 1
 epochs: 300
 save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-dataset: QTMSanJacinto
+dataset: White
 seed: 0
 Mc: 0.6 # 4.5
-Mf: 3.5
+Mf: 4.5
 Twindow: 150
 Tfore: 75
 dt: 5
-context_len: 0
+context_len: 1
 split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]

@@ -2,14 +2,14 @@
 # load_specific_parts: ['encoder']
 # 模型设置
 model: thp
-dataset: SCEDC
+dataset: White
 minibatch_training: true
 pad_token_id: 1
 task_type: tpp
 # 训练参数
 
-batch_size: 8
-accumulation_steps: 4
+batch_size: 32
+accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 1e-3 # 5e-4
 weight_decay: 1e-5
@@ -22,10 +22,10 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
 # transfomer结构参数
-d_model: 64
-d_rnn: 128
-d_inner: 128
-n_layers: 4
+d_model: 32
+d_rnn: 64
+d_inner: 64
+n_layers: 2
 n_head: 8
 d_k: 16
 d_v: 16

@@ -38,7 +38,6 @@ class SCEDC(Catalog):
         val_start_ts: pd.Timestamp = pd.Timestamp("2005-01-01"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2014-01-01"),
     ):
-        self.root_dir = Path(root_dir)
         metadata = {
             "name": f"SCEDC",
             "freq": "1D",
