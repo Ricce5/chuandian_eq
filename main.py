@@ -34,6 +34,14 @@ def get_model_and_data(args, base_path, device):
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
         },
+         "clf_tm_attnpl": {
+            "train_step_module": "src.train.classifier_train_step",
+            "data_func": "prepare_data",
+        },
+          "clf_tm_attnpl_t": {
+            "train_step_module": "src.train.classifier_train_step",
+            "data_func": "prepare_data",
+        },
          "classifier_stm_s": {
             "train_step_module": "src.train.classifier_train_step",
             "data_func": "prepare_data",
@@ -132,6 +140,7 @@ if __name__ == "__main__":
         args_cli.config = f"config/{args_cli.model}.yaml"
 
     args = config_loader.load_args_from_yaml(args_cli.config)
+    assert args.model.lower() == args_cli.model.lower(), "Model name in config must match command line argument"
     seed = getattr(args, 'seed', 0)
     set_seed(seed)
 
@@ -184,10 +193,10 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        # args.load_specific_parts = None
         checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
+        args.load_specific_parts = None
         args.use_sampler = False
         args.model = args.model.lower()
         train_step, df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
@@ -202,7 +211,7 @@ if __name__ == "__main__":
         test_loss, metrics = train_step.test(
             model=model,
             criterion=criterion,
-            data_loader=val_loader,  # Test data loader
+            data_loader=test_loader,  # Test data loader
             device=device,
             save_dir=args.save_dir,
         )

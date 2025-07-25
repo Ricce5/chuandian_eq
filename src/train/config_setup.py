@@ -45,8 +45,8 @@ def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
         None
     """
     model_state_dict = model.state_dict()  # 获取模型当前的state_dict
-
-    if load_specific_parts:
+    print(f"load_specific_parts: {load_specific_parts}")  # 调试信息
+    if load_specific_parts is not None:
         # 选择性加载权重到指定部分
         for name, param in checkpoint_state_dict.items():
             if any(keyword in name for keyword in load_specific_parts) and name in model_state_dict:
@@ -106,8 +106,6 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
  
-    # from src.models.Models import classifier
-    # model = classifier(args, device=device)
 
     # 默认值
     args.start_epoch = 0

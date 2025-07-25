@@ -55,6 +55,18 @@ class M_T_InputAdapter:
             "event_time": bx[:, :, 1],     
         }
     
+class M_T_InputAdapterWithTime:
+    def __call__(self, bx):
+        return {
+            "event_mark": bx[:, :, 2:3],       
+            "event_time": bx[:, :, 1],     
+        }
+
+    def get_extra_inputs(self, bx):
+        return {
+            "event_time": bx[:, :, 1]  
+        }
+    
 class THP_BatchInputAdapter:
     def __init__(self, model: Optional[nn.Module] = None):
         self.model = model  # 引用 THP 模型实例

@@ -240,8 +240,6 @@ class Encoder_ST(BaseEncoder):
     ):
 
         # input embeddings
-        print("event_mark shape:", event_mark.shape)
-        print("event_time shape:", event_time.shape)
         enc_output_temporal = self.temporal_enc(event_time) * non_pad_mask
         enc_output_loc = self.event_emb_loc(event_mark) * non_pad_mask
         enc_output_fusion = enc_output_temporal + enc_output_loc
