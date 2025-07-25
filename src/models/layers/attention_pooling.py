@@ -25,7 +25,7 @@ class AttentionPooling(nn.Module):
 
         # Normalize scores with softmax
         attn_weights = F.softmax(scores, dim=-1)  # [batch_size, seq_len] 确保权重的和为1
-
+        # torch.save(attn_weights, "attn_weights.pt")  # Save attention weights for inspection
         # Compute weighted sum
         output = torch.sum(x * attn_weights.unsqueeze(-1), dim=1)  # [batch_size, input_dim]
 
