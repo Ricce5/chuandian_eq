@@ -1,11 +1,11 @@
 # # 模型设置
 # resume_path: ./checkpoints/thp_20250722-143748/last_model_1.pth
 # load_specific_parts: ['encoder']
-model: clf_tm_cv_attnpl_t 
+model: clf_tm_attnpl_t 
 
 # 训练参数
-batch_size: 16
-accumulation_steps: 8
+batch_size: 64
+accumulation_steps: 2
 warmup_ratio: 0.1
 learning_rate: 5e-4 # 5e-4
 weight_decay: 1e-5
@@ -19,9 +19,9 @@ step_lr_gamma: 0.5
 
 # transfomer结构参数
 d_model: 64 # 128
-d_rnn: 128
+d_rnn: 64
 d_inner: 128 # 256
-n_layers: 1
+n_layers: 2
 n_head: 8
 d_k: 16
 d_v: 16
