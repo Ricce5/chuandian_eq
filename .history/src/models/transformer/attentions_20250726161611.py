@@ -331,7 +331,7 @@ class FlashAttentionWrapper(BaseAttention):
         if self.precision not in {"fp16", "bf16"}:
             raise ValueError(f"Unsupported precision '{self.precision}'. Must be 'fp16' or 'bf16'.")
 
-    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True,window_size=(-1, -1)):
+    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True,window_size=(5, 0)):
         B, L_q, H, D = q.shape
         L_kv = k.shape[1]
 
@@ -364,6 +364,7 @@ class FlashAttentionWrapper(BaseAttention):
 
         # Determine scaling factor
         softmax_scale = self.scale if self.scale is not None else 1.0 / sqrt(D)
+        print(window_size)
         out_unpad = flash_attn_varlen_func(
             q_unpad,
             k_unpad,

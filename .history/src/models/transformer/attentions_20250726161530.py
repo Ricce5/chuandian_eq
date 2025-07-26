@@ -331,7 +331,7 @@ class FlashAttentionWrapper(BaseAttention):
         if self.precision not in {"fp16", "bf16"}:
             raise ValueError(f"Unsupported precision '{self.precision}'. Must be 'fp16' or 'bf16'.")
 
-    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True,window_size=(-1, -1)):
+    def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True,window_size=(5, 0)):
         B, L_q, H, D = q.shape
         L_kv = k.shape[1]
 
