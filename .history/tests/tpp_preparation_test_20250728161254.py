@@ -21,10 +21,6 @@ batch.mag.shape
 # %%
 batch.arrival_times.shape
 # %%
-batch.inter_times.shape
-# %%
-batch.nll_event_mask.shape
-# %%
 import  src.models.builders as builders
 import torch
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

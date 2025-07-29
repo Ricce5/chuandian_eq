@@ -23,7 +23,7 @@ batch.arrival_times.shape
 # %%
 batch.inter_times.shape
 # %%
-batch.nll_event_mask.shape
+batch.nll_mask
 # %%
 import  src.models.builders as builders
 import torch

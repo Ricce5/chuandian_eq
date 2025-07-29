@@ -160,35 +160,26 @@ def get_attn_mask_with_cache(
 
     
 
-def masked_select_per_row(matrices, mask):
-    """
-    扩展版本：支持多个矩阵共享同一个行级掩码。
+def masked_select_per_row(matrix, mask):
+    """Perform masked select on each row, and return the result as a padded tensor."""
+    # Convert inputs to tensors if they are lists
+    if isinstance(matrix, list):
+        matrix = torch.tensor(matrix)
+    if isinstance(mask, list):
+        mask = torch.tensor(mask)
 
-    Args:
-        matrices: 一个 3D tensor 或一个 list of 2D tensors，形状为 [B, M, N] 或长度为 B，每个 [M, N]
-        mask: 布尔矩阵 [M, N]，表示哪些元素被选中
+    assert matrix.shape == mask.shape and matrix.ndim == 2, "matrix and mask must be 2D and of same shape"
 
-    Returns:
-        selected_matrices: list of 2D tensors，形状为 [B, max_len]（按行填充）
-        masks: list of 2D float tensors，与 selected_matrices 对应，表示实际值 vs padding
-    """
-    if isinstance(matrices, torch.Tensor):
-        matrices = [matrices[i] for i in range(matrices.shape[0])]
-    
-    assert all(matrix.shape == mask.shape for matrix in matrices), "每个 matrix 必须与 mask 同形状"
+    selected_rows = [
+        row.masked_select(m.bool())
+        for row, m in zip(matrix, mask)
+    ]
 
-    selected_matrices = []
-    new_masks = []
-
-    for matrix in matrices:
-        selected_rows = [
-            row.masked_select(mask_row.bool()) for row, mask_row in zip(matrix, mask)
-        ]
-        padded = pad_sequence(selected_rows)
-        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows]).float()
-
-        selected_matrices.append(padded)
-        new_masks.append(mask_tensor)
-
-    return selected_matrices, new_masks
-
+    # Pad rows to max length and stack
+    new_matrix = pad_sequence(selected_rows, batch_first=True, padding_value=0)
+    new_mask = pad_sequence(
+        [torch.ones_like(r, dtype=torch.float) for r in selected_rows],
+        batch_first=True,
+        padding_value=0
+    )
+    return new_matrix, new_mask

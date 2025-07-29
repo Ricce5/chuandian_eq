@@ -192,3 +192,17 @@ def masked_select_per_row(matrices, mask):
 
     return selected_matrices, new_masks
 
+
+matrix1 = torch.tensor([[0, 1, 2, 3, 4,1],
+                        [5, 6, 7, 8, 9,1]])
+matrix2 = torch.tensor([[10,11,12,13,14,1],
+                        [15,16,17,18,19,1]])
+mask = torch.tensor([[0, 1, 1, 1, 0,0],
+                     [0, 0, 0, 1, 1,0]])
+
+selected, new_mask = masked_select_per_row([matrix1, matrix2], mask)
+
+for i, (s, m) in enumerate(zip(selected, new_mask)):
+    print(f"Matrix {i}:")
+    print(s)
+    print(m)

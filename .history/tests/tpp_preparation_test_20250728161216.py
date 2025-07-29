@@ -15,15 +15,11 @@ for batch in train_loader:
     print(batch)
     break
 # %%
-batch.input_mask.shape
+batch.input_mask
 # %%
-batch.mag.shape
+batch.mag
 # %%
-batch.arrival_times.shape
-# %%
-batch.inter_times.shape
-# %%
-batch.nll_event_mask.shape
+batch.arrival_times
 # %%
 import  src.models.builders as builders
 import torch

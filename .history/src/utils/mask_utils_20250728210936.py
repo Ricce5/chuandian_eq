@@ -160,6 +160,9 @@ def get_attn_mask_with_cache(
 
     
 
+import torch
+from torch.nn.utils.rnn import pad_sequence
+
 def masked_select_per_row(matrices, mask):
     """
     扩展版本：支持多个矩阵共享同一个行级掩码。
@@ -184,11 +187,10 @@ def masked_select_per_row(matrices, mask):
         selected_rows = [
             row.masked_select(mask_row.bool()) for row, mask_row in zip(matrix, mask)
         ]
-        padded = pad_sequence(selected_rows)
-        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows]).float()
+        padded = pad_sequence(selected_rows, batch_first=True)
+        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows], batch_first=True).float()
 
         selected_matrices.append(padded)
         new_masks.append(mask_tensor)
 
     return selected_matrices, new_masks
-

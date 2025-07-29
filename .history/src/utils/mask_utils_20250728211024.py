@@ -184,11 +184,25 @@ def masked_select_per_row(matrices, mask):
         selected_rows = [
             row.masked_select(mask_row.bool()) for row, mask_row in zip(matrix, mask)
         ]
-        padded = pad_sequence(selected_rows)
-        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows]).float()
+        padded = pad_sequence(selected_rows, batch_first=True)
+        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows], batch_first=True).float()
 
         selected_matrices.append(padded)
         new_masks.append(mask_tensor)
 
     return selected_matrices, new_masks
 
+
+matrix1 = torch.tensor([[0, 1, 2, 3, 4],
+                        [5, 6, 7, 8, 9]])
+matrix2 = torch.tensor([[10,11,12,13,14],
+                        [15,16,17,18,19]])
+mask = torch.tensor([[0, 1, 1, 1, 0],
+                     [0, 0, 0, 1, 1]])
+
+selected, new_mask = masked_select_per_row([matrix1, matrix2], mask)
+
+for i, (s, m) in enumerate(zip(selected, new_mask)):
+    print(f"Matrix {i}:")
+    print(s)
+    print(m)

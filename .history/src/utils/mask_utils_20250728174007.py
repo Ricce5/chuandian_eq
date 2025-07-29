@@ -1,7 +1,6 @@
 import torch
 import src.data.constants as Constants
 from src.data.constants import PAD
-from src.data.batch import pad_sequence
 from typing import Optional
 
 class TriangularCausalMask():
@@ -160,35 +159,41 @@ def get_attn_mask_with_cache(
 
     
 
-def masked_select_per_row(matrices, mask):
-    """
-    扩展版本：支持多个矩阵共享同一个行级掩码。
+def masked_select_per_row(matrix, mask):
+    """Perform masked select on each row, and return the result as a padded tensor.
 
     Args:
-        matrices: 一个 3D tensor 或一个 list of 2D tensors，形状为 [B, M, N] 或长度为 B，每个 [M, N]
-        mask: 布尔矩阵 [M, N]，表示哪些元素被选中
+        matrix: 2-d tensor from which values must be selected, shape [M, N]
+        mask: Boolean matrix indicating what entries must be selected, shape [M, N]
 
     Returns:
-        selected_matrices: list of 2D tensors，形状为 [B, max_len]（按行填充）
-        masks: list of 2D float tensors，与 selected_matrices 对应，表示实际值 vs padding
+        new_matrix: 2-d tensor, where each row contains the selected entries from the
+            respective row of matrix + padding.
+        new_mask: Float mask indicating what entries correspond to actual values
+            (new_mask[i, j] = 1 => new_matrix[i, j] is not padding).
+
+    Example:
+        >>> matrix = torch.tensor([
+                [0, 1, 2, 3, 4],
+                [5, 6, 7, 8, 9],
+            ])
+        >>> mask = torch.tensor([
+                [0, 1, 1, 1, 0],
+                [0, 0, 0, 1, 1],
+            ])
+        >>> selected, new_mask = masked_select_per_row(matrix, mask)
+        >>> print(selected)
+        tensor([[1, 2, 3],
+                [8, 9, 0]])
+        >>> print(new_mask)
+        tensor([[1., 1., 1.],
+                [1., 1., 0.]])
     """
-    if isinstance(matrices, torch.Tensor):
-        matrices = [matrices[i] for i in range(matrices.shape[0])]
-    
-    assert all(matrix.shape == mask.shape for matrix in matrices), "每个 matrix 必须与 mask 同形状"
+    assert matrix.shape == mask.shape and matrix.ndim == 2
+    selected_rows = []
+    for matrix_row, mask_row in zip(matrix, mask.bool()):
+        selected_rows.append(matrix_row.masked_select(mask_row)) # masked_select:torch对象的方法，根据mask选择
 
-    selected_matrices = []
-    new_masks = []
-
-    for matrix in matrices:
-        selected_rows = [
-            row.masked_select(mask_row.bool()) for row, mask_row in zip(matrix, mask)
-        ]
-        padded = pad_sequence(selected_rows)
-        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows]).float()
-
-        selected_matrices.append(padded)
-        new_masks.append(mask_tensor)
-
-    return selected_matrices, new_masks
-
+    new_matrix = pad_sequence(selected_rows)
+    new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])
+    return new_matrix, new_mask.float()
