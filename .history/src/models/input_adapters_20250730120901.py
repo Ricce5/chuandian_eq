@@ -81,8 +81,8 @@ class THP_BatchInputAdapter:
 
         return {
             "event_mark": mark * bx.input_mask[:, :, None],
-            # "event_time": bx.arrival_times/self.model.time_max * bx.input_mask,  
-            "event_time": bx.arrival_times * bx.input_mask, 
+            # "event_time": bx.arrival_times/self.model.time_max * bx.input_mask,  # /20000
+            "event_time": bx.arrival_times * bx.input_mask,  # /20000
             "input_mask": bx.input_mask.float(),
         }
     
@@ -100,8 +100,7 @@ class THP_Logdeltat_BatchInputAdapter:
 
         return {
             "event_mark": mark * bx.input_mask[:, :, None],
-            # "event_time": bx.arrival_times/self.model.time_max * bx.input_mask,  
-            "event_time": bx.arrival_times * bx.input_mask, 
+            "event_time": bx.arrival_times/self.model.time_max * bx.input_mask,  # /20000
             "log_inter_time": log_inter_times * bx.input_mask[:, :, None],
             "input_mask": bx.input_mask.float(),
         }

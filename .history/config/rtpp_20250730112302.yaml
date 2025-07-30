@@ -1,6 +1,6 @@
 # resume_path: /home/yzzhang/pjt/chuandian_eq/checkpoints/thp_20250622-112950/last_model_1.pth
 # 模型设置
-model: thp_deltat
+model: rtpp
 num_event_types: 1
 pad_token_id: 1
 task_type: tpp
@@ -15,35 +15,26 @@ scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
 scheduler_min_lr: 1e-6
-scheduler_type: step_warmup
+scheduler_type: none
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
-# transfomer结构参数
-d_model: 64
-d_rnn: 128
-d_inner: 128
-n_layers: 2
-n_head: 8
-d_k: 16
-d_v: 16
-t_dropout: 0.1
-rnn_dropout: 0.2
-attn_type: flash
-
-
-
+rnn_type: GRU
+d_model: 32
+rnn_dropout: 0.3
 # 
 num_components: 32
 
 # 其他参数
 dim: 1
-epochs: 500
+epochs: 1000
 save_dir: null
 cuda_id: "0"
-dataset: ChuanDian
-minibatch_training: false
+
 
 # 数据与控制参数
+dataset: ChuanDian
+seed: 0
+minibatch_training: false
 split_by_time: true
 time_order:  [train, val, test]

@@ -93,6 +93,7 @@ def test(train_loader=None, val_loader=None, test_loader=None, model=None, crite
         with torch.no_grad():
             for batch in tqdm(loader, desc=f"Evaluating {name}"):
                 batch = batch.to(device)
+                print(model.nll_loss(batch).shape)
                 loss = model.nll_loss(batch).mean()
                 total_loss += loss.item()
                 step_count += 1
