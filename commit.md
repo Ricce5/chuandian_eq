@@ -1,4 +1,5 @@
-test的loss计算由求和改为求平均
+weilbull分布的log_survival计算增加对shape的裁剪
+增加mtpp
 
 
 问题
@@ -9,5 +10,8 @@ tmp_batch 的pad与现有版本不兼容
 thp的时间信息没有充分利用，应该加入
 建模概率分布的方式不如建模条件强度函数的方式
 是否使用mini_batch在训练和测试阶段对单位时间上的nll几乎无影响
+weibull分布数值问题
+
 mini
 debug: thp不除t_max
+tpp_trainstep增加梯度裁剪

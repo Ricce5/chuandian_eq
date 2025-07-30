@@ -30,6 +30,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
         # If accumulation_steps have been completed, update the model
         step_count += 1
         if  step_count % accumulation_steps == 0 or  step_count  == len(data_loader):  # Update after every 'accumulation_steps' batches
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
             optimizer.step()  # Perform parameter update
             optimizer.zero_grad()  # Clear gradients for the next accumulation
             step_scheduler(scheduler, event='batch')  # Update scheduler

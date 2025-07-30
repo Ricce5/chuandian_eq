@@ -16,8 +16,8 @@ import os
 import json
 import yaml
 import optuna
-torch.backends.cudnn.enabled = False
-#  torch.autograd.set_detect_anomaly(True)
+# torch.backends.cudnn.enabled = False
+torch.autograd.set_detect_anomaly(True)
 
 
 def get_model_and_data(args, base_path, device):
@@ -84,9 +84,10 @@ def get_model_and_data(args, base_path, device):
             "train_step_module": "src.train.tpp_train_step",
             "data_func": "prepare_data_tpp",
         },
-
-
-
+         "mtpp": {
+            "train_step_module": "src.train.tpp_train_step",
+            "data_func": "prepare_data_tpp",
+        },
     }
     if model_type not in supported_models:
         raise ValueError(f"Unsupported model type: {model_type}. Supported models are: {', '.join(supported_models.keys())}.")

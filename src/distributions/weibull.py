@@ -1,7 +1,7 @@
 import torch
 from torch.distributions import constraints
 from torch.distributions.utils import broadcast_all
-
+import torch.nn.functional as F
 from .distribution import Distribution
 
 
@@ -22,6 +22,8 @@ class Weibull(Distribution):
 
     def log_survival(self, x):
         x = torch.clamp_min(x, self.eps)  # ensure x > 0 for numerical stability
+        # print(f"shape min: {self.shape.min().item()}")
+        self.shape = F.softplus(self.shape).clamp(min=1e-3)
         return self.scale.neg() * torch.pow(x, self.shape)
 
     def log_prob(self, x):

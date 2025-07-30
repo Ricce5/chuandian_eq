@@ -574,10 +574,14 @@ class THPDeltatBuilder(ModelBuilder):
 class RTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.recurrent import RecurrentTPP
-        from src.models.base_model import BaseModel
-        import torch.nn as nn
         return RecurrentTPP(args, device)
 
+
+@ModelBuilder.register("mtpp")
+class MTTPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.mtpp import MambaTPP
+        return MambaTPP(args, device)
 
 @ModelBuilder.register("reg_attnpl")
 class RegressorAttnPlBuilder(ModelBuilder):

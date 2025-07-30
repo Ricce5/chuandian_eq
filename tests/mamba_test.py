@@ -1,44 +1,55 @@
+# %%
 import torch
-from mamba_ssm import Mamba2
-model = Mamba2(
-    d_model=512,  # 隐藏层维度
-    d_state=128,  # 状态空间维度
-    d_conv=4,  # 卷积层大小
-    ngroups=1,  # 分组数
-    expand=2,  # 扩展因子
-    headdim=64,  # 头维度
-    rmsnorm=True,  # 是否使用 RMSNorm
-    chunk_size=256,  # 分块大小
-    device='cuda'  # 使用 CUDA
-)
-import torch
+from mamba_ssm import Mamba  # 替换为你的 Mamba 实现路径
 
-# 给定的序列长度
-seq_lengths = [5, 10, 6, 8, 3, 7, 9, 5]
-batch_size = len(seq_lengths)
-seqlen = max(seq_lengths)  # 批次中的最大序列长度
+# 设置随机种子以保证可复现
+torch.manual_seed(42)
 
-# 计算 cu_seqlens：累积序列长度
-cu_seqlens = torch.cumsum(torch.tensor([0] + seq_lengths[:-1]), dim=0).to('cuda')
+# 初始化模型
+d_model = 64
+batch_size = 2
+seq_len = 10
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# 创建一个新的 seq_idx，它的形状应该是 (batch_size, seqlen)
-seq_idx = torch.zeros((batch_size, seqlen), dtype=torch.int32).to('cuda')
+model = Mamba(
+    d_model=d_model,
+    d_state=16,
+    d_conv=3,
+    expand=2,
+    dt_rank="auto",
+    use_fast_path=False
+).to(device)
+model.eval()  # 禁用 dropout 等行为
 
-# 填充 seq_idx，每个序列中的元素都为该序列在批次中的索引
-for i, length in enumerate(seq_lengths):
-    seq_idx[i, :length] = i
+# 构造测试输入
+input_tensor = torch.randn(batch_size, seq_len, d_model, device=device)
 
-# 打印 cu_seqlens 和 seq_idx 以验证
-print("cu_seqlens:", cu_seqlens)
-print("seq_idx:", seq_idx)
-
-# 进行推理
-u = torch.randn(batch_size, seqlen, 512).to('cuda')  # 示例输入张量，最大序列长度
-inference_params = None  # 推理参数占位符
-
-model.eval()
+# %%
+# 一次性前向传播
 with torch.no_grad():
-    output = model(u, seqlen=None, seq_idx=seq_idx, cu_seqlens=cu_seqlens, inference_params=inference_params)
+    output_full = model(input_tensor)
 
-print(output.shape)
+# %%
+# 增量 step() 推理
+with torch.no_grad():
+    conv_state, ssm_state = model.allocate_inference_cache(batch_size=batch_size, max_seqlen=seq_len)
 
+    outputs = []
+    for t in range(seq_len):
+        token = input_tensor[:, t:t+1, :]  # shape: (B, 1, D)
+        out, conv_state, ssm_state = model.step(token, conv_state, ssm_state)
+        outputs.append(out)
+
+    output_stepwise = torch.cat(outputs, dim=1)  # shape: (B, L, D)
+
+# %%
+# 比较两种方式是否一致
+diff = (output_full - output_stepwise).abs().max()
+print("Max difference between forward() and step():", diff.item())
+
+# 判断是否基本一致（浮点误差容忍 1e-5）
+assert diff < 1e-5, "Mismatch between step() and forward()"
+
+print("✅ forward() and step() outputs are consistent!")
+print("Output shape:", output_stepwise.shape)
+# %%
