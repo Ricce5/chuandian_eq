@@ -16,7 +16,7 @@ import os
 import json
 import yaml
 import optuna
-# torch.backends.cudnn.enabled = False
+torch.backends.cudnn.enabled = False
 torch.autograd.set_detect_anomaly(True)
 
 
@@ -85,6 +85,10 @@ def get_model_and_data(args, base_path, device):
             "data_func": "prepare_data_tpp",
         },
          "mtpp": {
+            "train_step_module": "src.train.tpp_train_step",
+            "data_func": "prepare_data_tpp",
+        },
+           "mhp": {
             "train_step_module": "src.train.tpp_train_step",
             "data_func": "prepare_data_tpp",
         },
@@ -207,7 +211,7 @@ if __name__ == "__main__":
         checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
-        # args.minibatch_training = False
+        args.minibatch_training = False
         args.load_specific_parts = None
         args.use_sampler = False
         args.model = args.model.lower()

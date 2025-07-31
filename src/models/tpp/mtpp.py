@@ -12,6 +12,7 @@ import src.distributions as dist
 
 from .tpp_model import TPPModel
 from mamba_ssm import Mamba
+from mamba_ssm.utils.generation import InferenceParams
 
 class MambaTPP(TPPModel):
     """Neural TPP model with an recurrent encoder.
@@ -67,15 +68,17 @@ class MambaTPP(TPPModel):
             + int(self.input_magnitude)  # magnitude features 取true或false
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
+        self.layer_idx = 0 
         self.mamba = Mamba(
             d_model=self.context_size,
             d_state= self.context_size//2,
             d_conv=3,
             expand=2,
             dt_rank="auto",
-            use_fast_path=True
-        ).to(self.device)
-        self.fc = nn.Linear(self.num_inputs, self.context_size)
+            use_fast_path=True,
+            layer_idx=self.layer_idx,
+        )
+        self.input_proj = nn.Linear(self.num_inputs, self.context_size)
         self.dropout = nn.Dropout(args.rnn_dropout)
         self.to(self.device)
 
@@ -89,7 +92,7 @@ class MambaTPP(TPPModel):
     def encode_extra_features(self, extra_feat):
         return extra_feat
 
-    def get_context(self, batch):
+    def get_context(self, batch,inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
 
         Returns:
@@ -99,12 +102,19 @@ class MambaTPP(TPPModel):
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        hidden_state = self.fc(features)  
-        rnn_output = self.mamba(hidden_state)*batch.input_mask[:, :, None]
+        hidden_state = self.input_proj(features)  
+        rnn_output = self.mamba(hidden_state,inference_params)*batch.input_mask[:, :, None]
         rnn_output = rnn_output[:, :-1, :] 
         output = F.pad(rnn_output, (0, 0, 1, 0)) 
         output = self.dropout(output)
         return output  
+
+    def get_current_state(self, input, inference_params=None):
+        """Get the current state of the model for inference."""
+        hidden_state = self.input_proj(input)  # (B, L, C)
+        current_state = self.mamba(hidden_state, inference_params)  # (B, L, C)
+        return current_state
+    
 
     def get_inter_time_dist(self, context):
         """Get the distribution over the inter-event times given the context."""
@@ -192,11 +202,16 @@ class MambaTPP(TPPModel):
         if self.num_extra_features is not None:
             raise ValueError("Sampling is not currently supported for extra features")
 
-        # 初始化状态
+        inference_params = InferenceParams(
+            max_seqlen=1000,
+            max_batch_size=batch_size,
+            key_value_memory_dict={self.layer_idx: self.mamba.allocate_inference_cache(batch_size=batch_size, max_seqlen=1000)},
+        )
         if past_seq is not None:
             t_start = past_seq.t_end
             past_batch = src.data.Batch.from_list([past_seq])
-            current_state = self.get_context(past_batch)[:, [-1], :]  # (1, 1, C)
+            current_state = self.get_context(past_batch,inference_params)[:, [-1], :]  # (1, 1, C)
+            inference_params.seqlen_offset += 1
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
         else:
@@ -233,7 +248,8 @@ class MambaTPP(TPPModel):
             rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
 
             # RNN 更新状态
-            current_state = self.rnn(rnn_input, current_state.transpose(0, 1).contiguous())[0]
+            current_state = self.get_current_state(rnn_input, inference_params=inference_params)
+            inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)
             current_state = current_state.detach()  # 关键：防止图增长
             # print(f"current_state: {torch.sum(current_state)}")

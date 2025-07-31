@@ -582,6 +582,14 @@ class MTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.mtpp import MambaTPP
         return MambaTPP(args, device)
+    
+
+@ModelBuilder.register("mhp")
+class MHPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.mhp import MHP
+        return MHP(args, device)
+
 
 @ModelBuilder.register("reg_attnpl")
 class RegressorAttnPlBuilder(ModelBuilder):

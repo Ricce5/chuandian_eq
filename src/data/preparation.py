@@ -198,6 +198,8 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
         pad_token_id=getattr(args, 'pad_token_id', None),
     )
     args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
+    args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
+    args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()
     args.mag_mean = torch.cat([seq.mag for seq in catalog_ds.train]).mean().item()
     args.time_max = torch.max(torch.tensor([seq.t_end for seq in catalog_ds.train])).item()
     args.mag_completeness = catalog_ds.metadata["mag_completeness"]

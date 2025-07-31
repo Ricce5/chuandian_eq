@@ -1,6 +1,5 @@
-weilbull分布的log_survival计算增加对shape的裁剪
-增加mtpp
 
+weibull 的eps改1e-5
 
 问题
 tmp_batch 的pad与现有版本不兼容
