@@ -1,5 +1,5 @@
 import torch
-from src.models.mha.rotary_embedding import RotaryEmbedding
+from src.models.mha.rotary_embedding_time import RotaryEmbedding
 rotary_emb = RotaryEmbedding(dim=64)
 
 q = torch.randn(2, 10, 8, 64)  # (batch, seqlen, nheads, dim)
