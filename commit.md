@@ -1,6 +1,4 @@
 
-去除self.shape = F.softplus(self.shape).clamp(min=1e-3)
-增加支持时间输入的ROPE
 
 问题
 tmp_batch 的pad与现有版本不兼容
