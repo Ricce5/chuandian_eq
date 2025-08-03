@@ -1,6 +1,4 @@
-时间rope torch实现
-bptt实现，运行成功
-
+block中mixer自适应接受参数
 
 
 问题

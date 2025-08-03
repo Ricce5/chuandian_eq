@@ -21,6 +21,8 @@ class ChuanDianBase(Catalog):
         self.root_dir.mkdir(parents=True, exist_ok=True)
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
+        elif catalog_file is None:
+            self.catalog_file = self.root_dir / "Chuandian2021.dat"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
@@ -98,7 +100,7 @@ class ChuanDianBase(Catalog):
 class ChuanDianStandard(ChuanDianBase):
     def __init__(
         self,
-        root_dir: Union[str, Path],
+        root_dir: Union[str, Path] = None,
         catalog_file: Union[str, Path] = None,
         mag_completeness: float = 3.0,
         train_start_ts: pd.Timestamp = pd.Timestamp("2000-01-01"),

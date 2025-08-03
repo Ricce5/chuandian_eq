@@ -11,9 +11,9 @@ import src.distributions as dist
 from .tpp_model import TPPModel
 from functools import partial
 from src.models.mha.mha_time import MHATime
+from src.models.mamba.block import Block
 from mamba_ssm.modules.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
-from mamba_ssm.modules.block import Block
 from mamba_ssm.utils.generation import InferenceParams
 
 class BlockTPP(TPPModel):
@@ -80,6 +80,7 @@ class BlockTPP(TPPModel):
                 mixer_cls=partial(MHA,
                                 num_heads=H,
                                 rotary_emb_dim=rotary_emb_dim,
+                                causal=True,
                                 layer_idx=0),
                 mlp_cls=partial(GatedMLP,
                             hidden_features=mlp_hidden_dim,
@@ -89,7 +90,7 @@ class BlockTPP(TPPModel):
             residual_in_fp32= True,
         ).cuda()  
         self.input_proj = nn.Linear(self.num_inputs, self.context_size)
-        self.dropout = nn.Dropout(args.rnn_dropout)
+        self.dropout =  nn.Dropout(args.rnn_dropout)
         self.norm_f = nn.LayerNorm(self.context_size, elementwise_affine=False)
         self.to(self.device)
 
@@ -121,8 +122,9 @@ class BlockTPP(TPPModel):
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
         dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
+        t_input =   batch.arrival_times * batch.input_mask/self.tau_mean
         hidden_states = self.input_proj(features)
-        hidden_states,residual = self.block(hidden_states,inference_params)
+        hidden_states,residual = self.block(hidden_states,inference_params,times =t_input)
         rnn_output = hidden_states  *batch.input_mask[:, :, None]
         rnn_output = rnn_output[:, :-1, :] 
         output = F.pad(rnn_output, (0, 0, 1, 0)) 
@@ -269,7 +271,7 @@ class BlockTPP(TPPModel):
 
             rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
 
-            # RNN 更新状态
+            
             current_state = self.get_current_state(rnn_input, inference_params=inference_params, dt_input=next_inter_times)
             inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)

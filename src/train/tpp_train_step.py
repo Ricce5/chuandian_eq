@@ -36,7 +36,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
             step_scheduler(scheduler, event='batch')  # Update scheduler
 
     metrics = {
-        'total_nll': total_loss,
+        'avg_nll': total_loss/len(data_loader),  # Average event log-likelihood
     }
     log_metrics(metrics, prefix="Training")
 
@@ -64,7 +64,7 @@ def validate(data_loader, model, criterion, device, accumulation_steps=2):
             step_count += 1
 
     metrics = {
-        'total_nll': total_loss,  # 事件的对数似然
+        'avg_nll': total_loss/len(data_loader),  # Average event log-likelihood
     }
     
     log_metrics(metrics, prefix="Validation")
