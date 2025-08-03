@@ -590,6 +590,12 @@ class MHPBuilder(ModelBuilder):
         from src.models.tpp.mhp import MHP
         return MHP(args, device)
 
+@ModelBuilder.register("btpp")
+class BTTPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.btpp import BlockTPP
+        return BlockTPP(args, device)
+
 
 @ModelBuilder.register("reg_attnpl")
 class RegressorAttnPlBuilder(ModelBuilder):

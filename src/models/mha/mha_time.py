@@ -103,7 +103,7 @@ class MHATime(nn.Module):
         assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
         return _update_kv_cache(kv, inference_params, self.layer_idx)
 
-    def _apply_rotary_update_kvcache_attention(self, q, kv, inference_params):
+    def _apply_rotary_update_kvcache_attention(self, q, kv,times, inference_params):
         """
         Fast path that combine 3 steps: apply rotary to Q and K, update kv cache, and apply attention.
         q: (batch_size, seqlen_q, nheads, head_dim)
@@ -112,7 +112,7 @@ class MHATime(nn.Module):
         assert inference_params is not None and inference_params.seqlen_offset > 0
         if self.rotary_emb_dim > 0:
             self.rotary_emb._update_cos_sin_cache(
-                inference_params.max_seqlen, device=q.device, dtype=q.dtype
+                times, device=q.device, dtype=q.dtype
             )
             rotary_cos, rotary_sin = self.rotary_emb._cos_cached, self.rotary_emb._sin_cached
         else:
@@ -251,7 +251,7 @@ class MHATime(nn.Module):
         ):
             if self.rotary_emb_dim > 0:
                 q, kv = self.rotary_emb(
-                    q, kv, seqlen_offset=seqlen_offset, max_seqlen=rotary_max_seqlen,times=times
+                    q, kv, times=times
                 )
             if inference_params is None:
                 k, v = kv.unbind(dim=-3)
@@ -263,7 +263,7 @@ class MHATime(nn.Module):
             else:
                 context = self._update_kvcache_attention(q, kv, inference_params)
         else:
-            context = self._apply_rotary_update_kvcache_attention(q, kv, inference_params)
+            context = self._apply_rotary_update_kvcache_attention(q, kv,times, inference_params)
         context = rearrange(context, "... h d -> ... (h d)")
         if self.mlp_dim > 0:
             context = torch.cat([context, x_mlp], dim=-1)

@@ -1,3 +1,6 @@
+时间rope torch实现
+bptt实现，运行成功
+
 
 
 问题

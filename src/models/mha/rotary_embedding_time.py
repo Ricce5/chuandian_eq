@@ -1,191 +1,136 @@
 import torch
 import torch.nn as nn
-from typing import Optional, Union, Tuple
-from einops import rearrange
-from flash_attn.layers.rotary import  apply_rotary_emb_qkv_, apply_rotary_emb_kv_, apply_rotary_emb_func ,apply_rotary_emb_torch
+from einops import rearrange, repeat
+from typing import Optional, Tuple, Union
 
 
-class RotaryEmbeddingTime(torch.nn.Module):
+def rotate_half(x, interleaved=False):
+    if not interleaved:
+        x1, x2 = x.chunk(2, dim=-1)
+        return torch.cat([-x2, x1], dim=-1)
+    else:
+        x1 = x[..., ::2]
+        x2 = x[..., 1::2]
+        return rearrange(torch.stack([-x2, x1], dim=-1), "... d two -> ... (d two)", two=2)
+
+
+def apply_rotary_emb_torch(x, cos, sin, interleaved=False):
     """
-    Rotary Position Embedding / XPos with optional real-time support
+    x: (batch_size, seqlen, nheads, headdim)
+    cos, sin: (seqlen, rotary_dim / 2) or (batch_size, seqlen, rotary_dim / 2)
     """
+    ro_dim = cos.shape[-1] * 2
+    assert ro_dim <= x.shape[-1]
+    if not interleaved:
+        cos = repeat(cos, "... d -> ... 1 (2 d)")
+        sin = repeat(sin, "... d -> ... 1 (2 d)")
+    else:
+        cos = repeat(cos, "... d -> ... 1 (d 2)")
+        sin = repeat(sin, "... d -> ... 1 (d 2)")
 
+    x_rot = x[..., :ro_dim]
+    x_pass = x[..., ro_dim:]
+    return torch.cat([x_rot * cos + rotate_half(x_rot, interleaved) * sin, x_pass], dim=-1)
+
+
+class RotaryEmbeddingTime(nn.Module):
     def __init__(
         self,
         dim: int,
         base: float = 10000.0,
         interleaved: bool = False,
         scale_base: Optional[float] = None,
-        pos_idx_in_fp32: bool = True,
         device=None,
     ):
         super().__init__()
         self.dim = dim
-        self.base = float(base)
-        self.pos_idx_in_fp32 = pos_idx_in_fp32
-
-        # Generate and save the inverse frequency buffer
-        inv_freq = self._compute_inv_freq(device)
-        self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self.base = base
         self.interleaved = interleaved
         self.scale_base = scale_base
 
-        # XPos scale
-        scale = (
-            (torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim) / (1.4 * dim)
-            if scale_base is not None
-            else None
-        )
-        self.register_buffer("scale", scale, persistent=False)
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer("inv_freq", inv_freq.to(device), persistent=False)
 
-        # Cache for cos/sin
-        self._seq_len_cached = 0
+        if scale_base is not None:
+            scale = (torch.arange(0, dim, 2, dtype=torch.float32) + 0.4 * dim) / (1.4 * dim)
+        else:
+            scale = None
+        self.register_buffer("scale", scale, persistent=False)
         self._cos_cached = None
         self._sin_cached = None
         self._cos_k_cached = None
         self._sin_k_cached = None
 
-    def _compute_inv_freq(self, device=None):
-        return 1.0 / (
-            self.base
-            ** (torch.arange(0, self.dim, 2, device=device, dtype=torch.float32) / self.dim)
-        )
 
-    # ----------------- 新增方法: 支持真实时间 -----------------
-    def _update_cos_sin_cache_with_times(self, times, device=None, dtype=None):
-        """
-        times: shape [seqlen] or [batch, seqlen], 单位自定义（秒/毫秒等）
-        """
-        if times.dim() == 2:
-            assert times.shape[0] == 1, "Batch dimension should be 1 for time input"
-            times = times[0]
-
-        times = times.to(torch.float32)  
-        if self.inv_freq.dtype != torch.float32:
-            inv_freq = self._compute_inv_freq(device=device)
+    def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device):
+        # times: (seqlen,) or (batch, seqlen)
+        inv_freq = self.inv_freq.to(device)
+        if times.ndim == 1:
+            # (seqlen,) @ (rotary_dim/2,) -> (seqlen, rotary_dim/2)
+            freqs = torch.outer(times, inv_freq)
+        elif times.ndim == 2:
+            # (batch, seqlen) @ (rotary_dim/2,) -> (batch, seqlen, rotary_dim/2)
+            freqs = torch.einsum('bs,d->bsd', times, inv_freq)
         else:
-            inv_freq = self.inv_freq
+            raise ValueError("`times` should be of shape (seqlen,) or (batch, seqlen)")
 
-        # [seqlen, dim/2]
-        freqs = torch.outer(times, inv_freq)
-
-        if self.scale is None:
+        if self.scale_base is None:
             self._cos_cached = torch.cos(freqs).to(dtype)
             self._sin_cached = torch.sin(freqs).to(dtype)
+            self._cos_k_cached = torch.cos(freqs).to(dtype)
+            self._sin_k_cached = torch.sin(freqs).to(dtype)
         else:
-            seqlen = times.shape[0]
-            power = (
-                torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device)
-                - seqlen // 2
-            ) / self.scale_base
-            scale = self.scale.to(device=power.device) ** rearrange(power, "s -> s 1")
-
+            seqlen = times.shape[-1]
+            power = (times - seqlen // 2) / self.scale_base
+            scale = self.scale.to(device=power.device) ** rearrange(power, "... -> ... 1")
             self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
             self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
             self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
             self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
-    # ----------------- 原始离散位置缓存逻辑 -----------------
-    def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
-        if (
-            seqlen > self._seq_len_cached
-            or self._cos_cached is None
-            or self._cos_cached.device != device
-            or self._cos_cached.dtype != dtype
-            or (self.training and self._cos_cached.is_inference())
-        ):
-            self._seq_len_cached = seqlen
 
-            if self.pos_idx_in_fp32:
-                t = torch.arange(seqlen, device=device, dtype=torch.float32)
-                inv_freq = self.inv_freq.to(torch.float32)
-            else:
-                t = torch.arange(seqlen, device=device, dtype=self.inv_freq.dtype)
-                inv_freq = self.inv_freq
+        
 
-            freqs = torch.outer(t, inv_freq)
-            if self.scale is None:
-                self._cos_cached = torch.cos(freqs).to(dtype)
-                self._sin_cached = torch.sin(freqs).to(dtype)
-            else:
-                power = (
-                    torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device)
-                    - seqlen // 2
-                ) / self.scale_base
-                scale = self.scale.to(device=power.device) ** rearrange(power, "s -> s 1")
-                self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
-                self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
-                self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
-                self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
-    # ----------------- forward -----------------
     def forward(
         self,
         qkv: torch.Tensor,
         kv: Optional[torch.Tensor] = None,
-        seqlen_offset: Union[int, torch.Tensor] = 0,
-        max_seqlen: Optional[int] = None,
+        times: Optional[torch.Tensor] = None,
         num_heads_q: Optional[int] = None,
-        times: Optional[torch.Tensor] = None,  # <--- 新增
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
-        如果传入 times，将用真实时间计算 RoPE；否则使用离散位置索引。
+        qkv: (batch, seqlen, 3, nheads, headdim) or (batch, seqlen, num_heads_q + 2 * num_heads_k, headdim)
+             or just (batch, seqlen, nheads, headdim) if kv is provided (i.e., this is Q)
+        kv: optional, (batch, seqlen, 2, nheads, headdim)
         """
-        seqlen = qkv.shape[1]
+        device = qkv.device
+        dtype = qkv.dtype
 
-        if times is not None:
-            self._update_cos_sin_cache_with_times(times, device=qkv.device, dtype=qkv.dtype)
-        elif max_seqlen is not None:
-                self._update_cos_sin_cache(max_seqlen, device=qkv.device, dtype=qkv.dtype)
-        elif isinstance(seqlen_offset, int):
-                self._update_cos_sin_cache(seqlen + seqlen_offset, device=qkv.device, dtype=qkv.dtype)
+        assert times is not None, "times must be provided for rotary embedding"
+        self._update_cos_sin_cache(times, dtype, device)
 
-        # 后续与原实现一致
         if kv is None:
-            if self.scale is None:
-                return apply_rotary_emb_qkv_(
-                    qkv,
-                    self._cos_cached,
-                    self._sin_cached,
-                    interleaved=self.interleaved,
-                    seqlen_offsets=seqlen_offset,
-                    num_heads_q=num_heads_q,
-                )
-            else:
-                return apply_rotary_emb_qkv_(
-                    qkv,
-                    self._cos_cached,
-                    self._sin_cached,
-                    self._cos_k_cached,
-                    self._sin_k_cached,
-                    interleaved=self.interleaved,
-                    seqlen_offsets=seqlen_offset,
-                    num_heads_q=num_heads_q,
-                )
+            # fused case: apply to qkv
+            if qkv.dim() == 5:  # (B, S, 3, H, D)
+                q = qkv[:, :, 0]
+                k = qkv[:, :, 1]
+                v = qkv[:, :, 2]
+                q = apply_rotary_emb_torch(q, self._cos_cached, self._sin_cached, self.interleaved)
+                k = apply_rotary_emb_torch(k, self._cos_k_cached, self._sin_k_cached, self.interleaved)
+                return torch.stack([q, k, v], dim=2)  # (B, S, 3, H, D)
+            else:  # (B, S, H_total, D), e.g. GQA
+                assert num_heads_q is not None
+                n_heads_total = qkv.shape[2]
+                n_heads_k = (n_heads_total - num_heads_q) // 2
+                q = qkv[:, :, :num_heads_q]
+                k = qkv[:, :, num_heads_q : num_heads_q + n_heads_k]
+                q = apply_rotary_emb_torch(q, self._cos_cached, self._sin_cached, self.interleaved)
+                k = apply_rotary_emb_torch(k, self._cos_k_cached, self._sin_k_cached, self.interleaved)
+                qkv_rot = torch.cat([q, k, qkv[:, :, num_heads_q + n_heads_k :]], dim=2)
+                return qkv_rot
         else:
-            q = qkv
-            q = apply_rotary_emb_func(
-                q,
-                self._cos_cached,
-                self._sin_cached,
-                interleaved=self.interleaved,
-                inplace=True,
-                seqlen_offsets=seqlen_offset,
-            )
-            if self.scale is None:
-                kv = apply_rotary_emb_kv_(
-                    kv,
-                    self._cos_cached,
-                    self._sin_cached,
-                    interleaved=self.interleaved,
-                    seqlen_offsets=seqlen_offset,
-                )
-            else:
-                kv = apply_rotary_emb_kv_(
-                    kv,
-                    self._cos_k_cached,
-                    self._sin_k_cached,
-                    interleaved=self.interleaved,
-                    seqlen_offsets=seqlen_offset,
-                )
-            return q, kv
+            q = apply_rotary_emb_torch(qkv, self._cos_cached, self._sin_cached, self.interleaved)
+            kv_rot = kv.clone()
+            kv_rot[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
+            return q, kv_rot
