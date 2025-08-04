@@ -1,5 +1,6 @@
 
-参数配置使用omega_conf
+
+
 
 问题
 tmp_batch 的pad与现有版本不兼容
