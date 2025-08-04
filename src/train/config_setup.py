@@ -10,51 +10,14 @@ import os
 from omegaconf import DictConfig, ListConfig, OmegaConf
 import typing
 
-def clean_for_omegaconf(d):
-    # 递归清理输入，去除不支持的 Union 类型字段和复杂对象
-    if isinstance(d, (DictConfig, dict)):
-        new_d = {}
-        for k, v in d.items():
-            # 跳过Union类型字段（类型信息在 __origin__）
-            if hasattr(v, '__origin__') and v.__origin__ is typing.Union:
-                continue
-            # 递归清理子字段
-            if isinstance(v, (DictConfig, dict, ListConfig, list)):
-                new_d[k] = clean_for_omegaconf(v)
-            # 对于类实例，转成 dict 再清理
-            elif hasattr(v, '__dict__'):
-                new_d[k] = clean_for_omegaconf(vars(v))
-            else:
-                new_d[k] = v
-        return new_d
-    elif isinstance(d, (ListConfig, list)):
-        return [clean_for_omegaconf(x) for x in d]
-    else:
-        return d
-    
-def dict_to_namespace(d):
-    """递归地将字典转成 argparse.Namespace"""
-    ns = argparse.Namespace()
-    for k, v in d.items():
-       setattr(ns, k, v)
-    return ns
-
-def load_args_from_checkpoint(args, checkpoint):
+def load_args_from_checkpoint(cfg, checkpoint):
     if 'hyperparameters' not in checkpoint:
         raise KeyError("Checkpoint does not contain 'hyperparameters'.")
 
-    restored_args = checkpoint['hyperparameters']
-    if isinstance(restored_args, (DictConfig, ListConfig)):
-        restored_args = OmegaConf.to_container(restored_args, resolve=True)
-
-    restored_args_clean = clean_for_omegaconf(restored_args)
-    base_dict = vars(args) if args is not None and not isinstance(args, dict) else (args or {})
-
-    merged_dict = dict(base_dict)
-    merged_dict.update(restored_args_clean)
-
-    merged_namespace = dict_to_namespace(merged_dict)
-    return merged_namespace
+    restored_cfg = checkpoint['hyperparameters']
+    restored_cfg = OmegaConf.create(checkpoint['hyperparameters'])
+    final_cfg = OmegaConf.merge(cfg, restored_cfg) if cfg is not None else restored_cfg
+    return final_cfg
 
 
 def freeze_model_parts(model, freeze_keywords=None):

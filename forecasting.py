@@ -30,10 +30,10 @@ def main():
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
     catalog_ds = catalog_ds_class(root_dir=f'data/{args.dataset}/raw', catalog_file=None)
 
-    checkpoint_path = Path(args.checkpoint_dir) / "best_model_1.pth"
+    checkpoint_path = Path(args.checkpoint_dir) / "last_model_1.pth"
     check_point = torch.load(checkpoint_path, weights_only=False)
     ckpt_args = load_args_from_checkpoint(None, check_point)
-
+    print(f"Loaded checkpoint with args: {ckpt_args}")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model_builder = ModelBuilder.by_name(ckpt_args.model.lower())()
     model = model_builder(ckpt_args, device)

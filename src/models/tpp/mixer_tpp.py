@@ -121,7 +121,7 @@ class MixerTPP(TPPModel):
         """Get the current state of the model for inference."""
 
         dt_input = self.normalize_inter_times(dt_input)
-        current_state,residual = self.encoder(features=input, inference_params=inference_params, dt_input=dt_input)  # (B, L, C)
+        current_state = self.encoder(features=input, inference_params=inference_params, dt_input=dt_input)  # (B, L, C)
         return current_state
     
 
@@ -218,7 +218,7 @@ class MixerTPP(TPPModel):
         inference_params = InferenceParams(
             max_seqlen=max_seqlen,
             max_batch_size=batch_size,
-            key_value_memory_dict={self.layer_idx: self.block.allocate_inference_cache(batch_size=batch_size, max_seqlen=max_seqlen)},
+            key_value_memory_dict= self.encoder.allocate_inference_cache(batch_size=batch_size, max_seqlen=max_seqlen),
         )
         if past_seq is not None:
             t_start = past_seq.t_end

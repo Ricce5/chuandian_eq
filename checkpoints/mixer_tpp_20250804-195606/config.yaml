@@ -19,17 +19,17 @@ scheduler_type: none
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
-d_model: 128
+d_model: 32
 rnn_dropout: 0.3
 mixer_model_config:
   input_dim: 2
-  d_model: 128
-  n_layer: 1                 # 可根据实验设为 2~6
+  d_model: 32
+  n_layer: 4                 # 可根据实验设为 2~6
   d_intermediate: 128        # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
 
   ssm_cfg:
-      layer: Mamba1                # 必须存在，用于选择使用 Mamba1
-
+      layer: Mamba1                # 必须存在，用于选择使用 Mamba2
+   
   attn_cfg:
     num_heads: 4
     rotary_emb_dim: 8        # 一般为 d_model // num_heads // 2

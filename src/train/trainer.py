@@ -103,7 +103,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                     'val_loss': best_val_loss,
                     'train_metrics': train_metrics,
                     'val_metrics': val_metrics,
-                    'hyperparameters': vars(args),
+                    'hyperparameters': OmegaConf.to_container(args, resolve=True),
                 }
 
                 best_model_path = os.path.join(save_dir, f'best_model_{index}.pth')

@@ -201,7 +201,7 @@ if __name__ == "__main__":
             args, device,train_dataloader=train_loader,
             checkpoint=checkpoint, restore_weights=(checkpoint is not None)
 )
-        ##
+        
         val_loss, metrics = trainer.train_and_save(
             args=args,
             model=model,
