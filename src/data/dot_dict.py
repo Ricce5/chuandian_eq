@@ -136,6 +136,16 @@ class DotDict:
                 return x
 
         return self.apply_(to_double)
+    
+    def half(self):
+        """Convert all float tensors to torch.float16."""
+        def to_half(x):
+            if isinstance(x, torch.Tensor) and _is_float(x):
+                return x.half()
+            else:
+                return x
+        return self.apply_(to_half)
+
 
     def float(self):
         """Convert all float tensors to torch.float32."""

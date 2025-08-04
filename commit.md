@@ -1,5 +1,5 @@
-block中mixer自适应接受参数
-
+mha的flash_attn前后增加强制类型转换
+btpp采样
 
 问题
 tmp_batch 的pad与现有版本不兼容

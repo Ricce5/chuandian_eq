@@ -56,7 +56,6 @@ def main():
         model.to('cuda:0')
         past_seq.to('cuda:0')
 
-    past_seq.float()
     all_forecasts = []
 
     for _ in range(args.num_samples // args.samples_per_batch):

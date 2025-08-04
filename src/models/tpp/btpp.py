@@ -12,7 +12,7 @@ from .tpp_model import TPPModel
 from functools import partial
 from src.models.mha.mha_time import MHATime
 from src.models.mamba.block import Block
-from mamba_ssm.modules.mha import MHA
+from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 
@@ -42,9 +42,9 @@ class BlockTPP(TPPModel):
         self.num_extra_features = None
         self.context_size = args.d_model
         self.num_components = args.num_components
-        self.register_buffer("tau_mean", torch.tensor(args.tau_mean, dtype=torch.float32))  # 平均事件间隔
-        self.register_buffer("tau_min", torch.tensor(args.tau_min, dtype=torch.float32))  # 最小事件间隔
-        self.register_buffer("tau_max", torch.tensor(args.tau_max, dtype=torch.float32))  # 最大事件间隔
+        self.register_buffer("tau_mean", torch.tensor(args.tau_mean, dtype=torch.float32))
+        self.register_buffer("tau_min", torch.tensor(args.tau_min, dtype=torch.float32))  
+        self.register_buffer("tau_max", torch.tensor(args.tau_max, dtype=torch.float32))  
         self.register_buffer("log_tau_mean", self.tau_mean.log())
         self.register_buffer("mag_mean", torch.tensor(args.mag_mean, dtype=torch.float32))
         self.register_buffer("time_max", torch.tensor(args.time_max, dtype=torch.float32))
@@ -124,7 +124,12 @@ class BlockTPP(TPPModel):
         dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
         t_input =   batch.arrival_times * batch.input_mask/self.tau_mean
         hidden_states = self.input_proj(features)
-        hidden_states,residual = self.block(hidden_states,inference_params,times =t_input)
+        hidden_states, residual = self.block(
+            hidden_states,
+            inference_params=inference_params,
+            times=t_input
+        )
+
         rnn_output = hidden_states  *batch.input_mask[:, :, None]
         rnn_output = rnn_output[:, :-1, :] 
         output = F.pad(rnn_output, (0, 0, 1, 0)) 
@@ -134,8 +139,8 @@ class BlockTPP(TPPModel):
     def get_current_state(self, input, inference_params=None, dt_input=None):
         """Get the current state of the model for inference."""
         hidden_states = self.input_proj(input)  # (B, L, C)
-        dt_input = self.normalize_inter_times(dt_input) 
-        current_state = self.mamba(hidden_states, inference_params, dt_input=dt_input)  # (B, L, C)
+        dt_input = self.normalize_inter_times(dt_input)
+        current_state,residual = self.block(hidden_states, inference_params=inference_params, dt_input=dt_input)  # (B, L, C)
         return current_state
     
 
@@ -226,100 +231,90 @@ class BlockTPP(TPPModel):
         if self.num_extra_features is not None:
             raise ValueError("Sampling is not currently supported for extra features")
 
+        print(past_seq.arrival_times.shape)
+        past_seq_len = len(past_seq)
+        max_generation_len = 2000
+        max_seqlen = past_seq_len + max_generation_len
+
         inference_params = InferenceParams(
-            max_seqlen=1000,
+            max_seqlen=max_seqlen,
             max_batch_size=batch_size,
-            key_value_memory_dict={self.layer_idx: self.mamba.allocate_inference_cache(batch_size=batch_size, max_seqlen=1000)},
+            key_value_memory_dict={self.layer_idx: self.block.allocate_inference_cache(batch_size=batch_size, max_seqlen=max_seqlen)},
         )
         if past_seq is not None:
             t_start = past_seq.t_end
             past_batch = src.data.Batch.from_list([past_seq])
-            current_state = self.get_context(past_batch,inference_params)[:, [-1], :]  # (1, 1, C)
+            current_state = self.get_context(past_batch, inference_params)[:, [-1], :]  # (1, 1, C)
             inference_params.seqlen_offset += 1
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
         else:
-            current_state = torch.zeros(batch_size, 1, self.context_size, device=self.device)
+            current_state = torch.zeros(batch_size, 1, self.context_size, device=self.device, dtype=torch.float16)
             time_remaining = None
 
         t_end = t_start + duration
-        inter_time_list = []  # 用列表累积，避免频繁 cat
+        inter_time_list = []
         if self.predict_magnitude:
             mag_list = []
 
         generated = False
         while not generated:
             inter_time_dist = self.get_inter_time_dist(current_state)
-
             if time_remaining is None:
-                next_inter_times = inter_time_dist.sample()  # (B, 1)
+                next_inter_times = inter_time_dist.sample()
             else:
                 next_inter_times = inter_time_dist.sample_conditional(lower_bound=time_remaining)
                 next_inter_times -= time_remaining
                 time_remaining = None
 
             next_inter_times.clamp_max_(t_end - t_start)
-            inter_time_list.append(next_inter_times)  
+            inter_time_list.append(next_inter_times)
 
-            rnn_input_list = [self.encode_time(next_inter_times)]
-
+            rnn_input_list = [self.encode_time(next_inter_times)] 
             if self.predict_magnitude:
                 mag_dist = self.get_magnitude_dist(current_state)
-                next_mag = mag_dist.sample()  # (B, 1)
+                next_mag = mag_dist.sample()
                 mag_list.append(next_mag)
                 rnn_input_list.append(self.encode_magnitude(next_mag))
 
             rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
-
-            
             current_state = self.get_current_state(rnn_input, inference_params=inference_params, dt_input=next_inter_times)
             inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)
-            current_state = current_state.detach()  # 关键：防止图增长
-            # print(f"current_state: {torch.sum(current_state)}")
+            current_state = current_state.detach()
 
-            # 检查是否达到采样终点
             total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
             generated = total_time >= (t_end - t_start)
 
-        # 合并列表成张量
-        inter_times = torch.cat(inter_time_list, dim=1)  # (B, L)
-        if self.predict_magnitude:
-            magnitudes = torch.cat(mag_list, dim=1)  # (B, L)
-        else:
-            magnitudes = None
+        inter_times = torch.cat(inter_time_list, dim=1)
+        magnitudes = torch.cat(mag_list, dim=1) if self.predict_magnitude else None
 
-        # 时间修正与padding处理
         duration = t_end - t_start
-        unclipped_arrival_times = inter_times.cumsum(-1)  # (B, L)
+        unclipped_arrival_times = inter_times.cumsum(-1)
         epsilon = 1e-5
-        padding_mask = unclipped_arrival_times > duration-epsilon
+        padding_mask = unclipped_arrival_times > duration - epsilon
         inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
         if (last_surv_time < 0).any():
             print("Min last_surv_time:", last_surv_time.min().item())
-            print("Any negative?", (last_surv_time < 0).any().item())
             raise ValueError("last_surv_time < 0 detected")
-
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
 
         batch = src.data.Batch(
             inter_times=inter_times,
             arrival_times=inter_times.cumsum(-1),
-            t_start=torch.full([batch_size], t_start, device=self.device).float(),
-            t_end=torch.full([batch_size], t_end, device=self.device).float(),
-            t_nll_start=torch.full([batch_size], t_start, device=self.device).float(),
+            t_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float16),
+            t_end=torch.full([batch_size], t_end, device=self.device, dtype=torch.float16),
+            t_nll_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float16),
             mask=padding_mask.float(),
             start_idx=torch.zeros(batch_size, device=self.device).long(),
             end_idx=end_idx,
             mag=magnitudes,
         )
 
-        if return_sequences:
-            return batch.to_list()
-        else:
-            return batch
+        return batch.to_list() if return_sequences else batch
+
 
 
     # 时间变换定理，任何TPP可转化为单位泊松过程
