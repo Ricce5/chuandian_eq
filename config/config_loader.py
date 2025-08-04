@@ -1,48 +1,38 @@
-import yaml
-import argparse
-from types import SimpleNamespace
+from omegaconf import OmegaConf
+from copy import deepcopy
 
-def load_args_from_yaml(path='config/config.yaml'):
-    with open(path, 'r') as f:
-        cfg_dict = yaml.safe_load(f)
-    # 显式类型转换
-    cfg_dict['learning_rate'] = float(cfg_dict['learning_rate'])
-    cfg_dict['weight_decay'] = float(cfg_dict['weight_decay'])
-    cfg_dict['scheduler_min_lr'] = float(cfg_dict['scheduler_min_lr'])
-    if 'scheduler_type' in ['plateau']:
-        cfg_dict['scheduler_factor'] = float(cfg_dict['scheduler_factor'])
-        cfg_dict['scheduler_patience'] = int(cfg_dict['scheduler_patience'])
-        cfg_dict['scheduler_threshold'] = float(cfg_dict['scheduler_threshold'])
-    cfg_dict['batch_size'] = int(cfg_dict['batch_size'])
-    cfg_dict['cuda_id'] = int(cfg_dict['cuda_id'])
+def load_args_from_yaml(path='config.yaml'):
+    cfg = OmegaConf.load(path)
 
-    
-    if 'attn_type' not in cfg_dict:
-        cfg_dict['attn_type'] = 'scaled_dot'
+    # 类型解析（如果是 string 类型）
+    cfg.learning_rate = float(cfg.learning_rate)
+    cfg.weight_decay = float(cfg.weight_decay)
+    cfg.scheduler_min_lr = float(cfg.scheduler_min_lr)
+    if cfg.scheduler_type == "plateau":
+        cfg.scheduler_factor = float(cfg.scheduler_factor)
+        cfg.scheduler_patience = int(cfg.scheduler_patience)
+        cfg.scheduler_threshold = float(cfg.scheduler_threshold)
+    cfg.batch_size = int(cfg.batch_size)
+    cfg.cuda_id = int(cfg.cuda_id)
 
-    if 'time_order' in cfg_dict:
-        if isinstance(cfg_dict['time_order'], list):
-            cfg_dict['time_order'] = tuple(cfg_dict['time_order'])
-
-        if not isinstance(cfg_dict['time_order'], tuple):
-            raise ValueError(f"time_order must be a list or tuple, got {type(cfg_dict['time_order'])}")
-
-        expected = {'train', 'val', 'test'}
-        actual = set(cfg_dict['time_order'])
-        if actual != expected or len(cfg_dict['time_order']) != 3:
-            raise ValueError(f"time_order must be a permutation of ('train', 'val', 'test'), got {cfg_dict['time_order']}")
-
+    # 解析 time_order
+    if "time_order" in cfg:
+        if isinstance(cfg.time_order, list):
+            cfg.time_order = tuple(cfg.time_order)
+        if set(cfg.time_order) != {"train", "val", "test"} or len(cfg.time_order) != 3:
+            raise ValueError(f"time_order must be a permutation of ('train','val','test'), got {cfg.time_order}")
     else:
-        cfg_dict['time_order'] = ('train', 'val', 'test')
-    args = SimpleNamespace(**cfg_dict)
-    
-    if args.model in ["lstm"]:
-        for Mag in args.Mag_elaps:
+        cfg.time_order = ("train", "val", "test")
+
+    # 检查 lstm 模型的 feature_cols 添加逻辑
+    if cfg.model == "lstm":
+        feature_cols = deepcopy(cfg.feature_cols)
+        for Mag in cfg.Mag_elaps:
             telaps_key = f"T_elaps{Mag}"
-            if any(telaps_key in feature for feature in args.feature_cols):
+            if telaps_key in feature_cols:
                 raise ValueError(f"feature_cols会从Mag_elaps添加特征 {telaps_key}，不能重复添加。")
-        args.feature_cols.extend([f"T_elaps{Mag}" for Mag in args.Mag_elaps])
-        print(f"feature_cols: {args.feature_cols}")
-    return args
+            feature_cols.append(telaps_key)
+        cfg.feature_cols = feature_cols
+        print(f"feature_cols: {cfg.feature_cols}")
 
-
+    return cfg

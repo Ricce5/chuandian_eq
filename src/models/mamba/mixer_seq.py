@@ -14,10 +14,9 @@ import torch.nn as nn
 from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.modules.mamba_simple import Mamba
 from mamba_ssm.modules.mamba2 import Mamba2
-from mamba_ssm.modules.mha import MHA
+from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
-from mamba_ssm.modules.block import Block
-from mamba_ssm.utils.generation import GenerationMixin
+from src.models.mamba.block import Block
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
 
 try:
@@ -212,4 +211,64 @@ class MixerModel(nn.Module):
             )
         return hidden_states
 
+
+class MambaModel(nn.Module):
+
+    def __init__(
+        self,
+        config: MambaConfig,
+        initializer_cfg=None,
+        device=None,
+        dtype=None,
+    ) -> None:
+        self.config = config
+        d_model = config.d_model
+        n_layer = config.n_layer
+        d_intermediate = config.d_intermediate
+        ssm_cfg = config.ssm_cfg
+        attn_layer_idx = config.attn_layer_idx
+        attn_cfg = config.attn_cfg
+        rms_norm = config.rms_norm
+        residual_in_fp32 = config.residual_in_fp32
+        fused_add_norm = config.fused_add_norm
+        factory_kwargs = {"device": device, "dtype": dtype}
+
+        super().__init__()
+
+        self.backbone = MixerModel(
+            d_model=d_model,
+            n_layer=n_layer,
+            d_intermediate=d_intermediate,
+            ssm_cfg=ssm_cfg,
+            attn_layer_idx=attn_layer_idx,
+            attn_cfg=attn_cfg,
+            rms_norm=rms_norm,
+            initializer_cfg=initializer_cfg,
+            fused_add_norm=fused_add_norm,
+            residual_in_fp32=residual_in_fp32,
+            **factory_kwargs,
+        )
+
+        # Initialize weights and apply final processing
+        self.apply(
+            partial(
+                _init_weights,
+                n_layer=n_layer,
+                **(initializer_cfg if initializer_cfg is not None else {}),
+            )
+        )
+
+
+    def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
+        return self.backbone.allocate_inference_cache(batch_size, max_seqlen, dtype=dtype, **kwargs)
+
+    def forward(self, features, inference_params=None, num_last_tokens=0, **mixer_kwargs):
+        """
+        "position_ids" is just to be compatible with Transformer generation. We don't use it.
+        num_last_tokens: if > 0, only return the logits for the last n tokens
+        """
+        hidden_states = self.backbone(features, inference_params=inference_params, **mixer_kwargs)
+        if num_last_tokens > 0:
+            hidden_states = hidden_states[:, -num_last_tokens:]
+        return hidden_states
 

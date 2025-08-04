@@ -1,6 +1,6 @@
 import os
 import torch
-
+from omegaconf import OmegaConf
 
 
 def step_scheduler(scheduler, event='epoch', val_loss=None):
@@ -57,7 +57,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
         from .classifier_train_step import train, validate
     elif args.model in ["regressor","lstm","reg_attnpl"]:
         from .regressor_train_step import train, validate
-    elif args.model in ["thp","rtpp","mtpp","thp_deltat","mhp","btpp"]:
+    elif args.model in ["thp","rtpp","mtpp","thp_deltat","mhp","btpp","mixer_tpp"]:
         from .tpp_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")
@@ -116,7 +116,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                 'val_loss': val_loss,
                 'train_metrics': train_metrics,
                 'val_metrics': val_metrics,
-                'hyperparameters': vars(args),
+                'hyperparameters': OmegaConf.to_container(args, resolve=True),
             }
 
             torch.save(save_data_last, last_model_path)

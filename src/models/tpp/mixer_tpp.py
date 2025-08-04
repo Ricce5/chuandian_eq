@@ -12,11 +12,12 @@ from .tpp_model import TPPModel
 from functools import partial
 from src.models.mha.mha_time import MHATime
 from src.models.mamba.block import Block
+from src.models.mamba.mixer_seq import MixerModel
 from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 
-class BlockTPP(TPPModel):
+class MixerTPP(TPPModel):
     """Neural TPP model with an recurrent encoder.
 
     Args:
@@ -69,27 +70,8 @@ class BlockTPP(TPPModel):
             + int(self.input_magnitude)  # magnitude features 取true或false
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
-        D = args.d_model  # batch size, sequence length, embedding dim
-        H = 4               # number of heads
-        rotary_emb_dim = D // H // 2  # 通常是一半 head_dim
-        mlp_hidden_dim = 256
-        self.layer_idx = 0
-        
-        self.block = Block(
-                dim=D,
-                mixer_cls=partial(MHA,
-                                num_heads=H,
-                                rotary_emb_dim=rotary_emb_dim,
-                                causal=True,
-                                layer_idx=0),
-                mlp_cls=partial(GatedMLP,
-                            hidden_features=mlp_hidden_dim,
-                            out_features=D),
-            norm_cls=nn.LayerNorm,
-            fused_add_norm=False,
-            residual_in_fp32= True,
-        ).cuda()  
-        self.input_proj = nn.Linear(self.num_inputs, self.context_size)
+
+        self.encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
         self.dropout =  nn.Dropout(args.rnn_dropout)
         self.norm_f = nn.LayerNorm(self.context_size, elementwise_affine=False)
         self.to(self.device)
@@ -123,9 +105,8 @@ class BlockTPP(TPPModel):
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
         dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
         t_input =   batch.arrival_times * batch.input_mask/self.tau_mean
-        hidden_states = self.input_proj(features)
-        hidden_states, residual = self.block(
-            hidden_states,
+        hidden_states = self.encoder(
+            features=features,
             inference_params=inference_params,
             times=t_input
         )
@@ -138,9 +119,9 @@ class BlockTPP(TPPModel):
 
     def get_current_state(self, input, inference_params=None, dt_input=None):
         """Get the current state of the model for inference."""
-        hidden_states = self.input_proj(input)  # (B, L, C)
+
         dt_input = self.normalize_inter_times(dt_input)
-        current_state,residual = self.block(hidden_states, inference_params=inference_params, dt_input=dt_input)  # (B, L, C)
+        current_state,residual = self.encoder(features=input, inference_params=inference_params, dt_input=dt_input)  # (B, L, C)
         return current_state
     
 
@@ -171,7 +152,7 @@ class BlockTPP(TPPModel):
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
         dt_input = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-        rnn_output = self.block(features.contiguous())  # (B, L, C)
+        rnn_output = self.encoder(features.contiguous())  # (B, L, C)
         return rnn_output
 
     def get_magnitude_dist(self, context):

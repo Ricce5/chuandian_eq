@@ -88,11 +88,15 @@ def get_model_and_data(args, base_path, device):
             "train_step_module": "src.train.tpp_train_step",
             "data_func": "prepare_data_tpp",
         },
-           "mhp": {
+         "mhp": {
             "train_step_module": "src.train.tpp_train_step",
             "data_func": "prepare_data_tpp",
         },
         "btpp": {
+            "train_step_module": "src.train.tpp_train_step",
+            "data_func": "prepare_data_tpp",
+        },
+         "mixer_tpp": {
             "train_step_module": "src.train.tpp_train_step",
             "data_func": "prepare_data_tpp",
         },

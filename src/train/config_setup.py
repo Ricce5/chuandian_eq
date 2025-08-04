@@ -4,24 +4,58 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, StepL
 from transformers import get_cosine_schedule_with_warmup,get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
 from .scheduler import WarmupLinearDecay, NoOpScheduler
 from torch import nn
+import argparse
 from argparse import Namespace
 import os
+from omegaconf import DictConfig, ListConfig, OmegaConf
+import typing
 
+def clean_for_omegaconf(d):
+    # 递归清理输入，去除不支持的 Union 类型字段和复杂对象
+    if isinstance(d, (DictConfig, dict)):
+        new_d = {}
+        for k, v in d.items():
+            # 跳过Union类型字段（类型信息在 __origin__）
+            if hasattr(v, '__origin__') and v.__origin__ is typing.Union:
+                continue
+            # 递归清理子字段
+            if isinstance(v, (DictConfig, dict, ListConfig, list)):
+                new_d[k] = clean_for_omegaconf(v)
+            # 对于类实例，转成 dict 再清理
+            elif hasattr(v, '__dict__'):
+                new_d[k] = clean_for_omegaconf(vars(v))
+            else:
+                new_d[k] = v
+        return new_d
+    elif isinstance(d, (ListConfig, list)):
+        return [clean_for_omegaconf(x) for x in d]
+    else:
+        return d
+    
+def dict_to_namespace(d):
+    """递归地将字典转成 argparse.Namespace"""
+    ns = argparse.Namespace()
+    for k, v in d.items():
+       setattr(ns, k, v)
+    return ns
 
 def load_args_from_checkpoint(args, checkpoint):
-    """
-    从 checkpoint 中恢复超参数并更新 args。(处理 checkpoint 中参数与 config 中参数不一致的情况)
-    """
     if 'hyperparameters' not in checkpoint:
         raise KeyError("Checkpoint does not contain 'hyperparameters'.")
-    
+
     restored_args = checkpoint['hyperparameters']
-    if args is None:
-        args = Namespace()
-    for key, value in restored_args.items():
-        setattr(args, key, value)
-    
-    return args
+    if isinstance(restored_args, (DictConfig, ListConfig)):
+        restored_args = OmegaConf.to_container(restored_args, resolve=True)
+
+    restored_args_clean = clean_for_omegaconf(restored_args)
+    base_dict = vars(args) if args is not None and not isinstance(args, dict) else (args or {})
+
+    merged_dict = dict(base_dict)
+    merged_dict.update(restored_args_clean)
+
+    merged_namespace = dict_to_namespace(merged_dict)
+    return merged_namespace
+
 
 def freeze_model_parts(model, freeze_keywords=None):
     if freeze_keywords is None:

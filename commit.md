@@ -1,5 +1,4 @@
-mha的flash_attn前后增加强制类型转换
-btpp采样
+config_loader 使用omegaconf实现
 
 问题
 tmp_batch 的pad与现有版本不兼容

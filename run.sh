@@ -9,5 +9,6 @@ python main.py --model thp --mode train
 python main.py --model rtpp --mode train
 python main.py --model mtpp --mode train
 python main.py --model mhp --mode train
+python main.py --model mixer_tpp --mode train
 python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train

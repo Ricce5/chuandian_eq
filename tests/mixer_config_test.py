@@ -1,58 +1,26 @@
 # %%
 import torch
-from src.models.mamba.mixer_seq import MixerModel  # 替换为你的 MixerModel 实现路径
-
-# 配置参数
+from config.config_loader import load_args_from_yaml
+args = load_args_from_yaml('./config/mixer_tpp.yaml')
 device = "cuda" if torch.cuda.is_available() else "cpu"
 dtype = torch.float32
 
-d_model = 32
-n_layer = 1
-d_intermediate = 0
-input_dim = 64  # 模拟embedding输出，不一定要等于d_model
-
-# 实例化 MixerModel
-model = MixerModel(
-    d_model=d_model,
-    n_layer=n_layer,
-    d_intermediate=d_intermediate,
-    input_dim=input_dim,
-    ssm_cfg={
-        "layer": "Mamba2",           # 必须存在，用于选择使用 Mamba2
-        "d_state": 32,              # 状态维度
-        "d_conv": 4,                 # 卷积核大小
-        "conv_init": None,          # 卷积初始化方式
-        "expand": 2,                # 扩展倍数（控制中间通道）
-        "headdim": 8,              # 每头的维度
-        "d_ssm": None,              # 如果设置，只对部分维度应用SSM
-        "ngroups": 1,               # 分组数（通常用于group norm/conv）
-        "A_init_range": (1, 16),    # 初始化范围
-        "D_has_hdim": False,        # D项是否使用 headdim
-        "rmsnorm": True,            # 是否内部启用 RMSNorm
-        "norm_before_gate": False,  # 是否在 Gated MLP 之前归一化
-        "dt_min": 0.001,
-        "dt_max": 0.1,
-        "dt_init_floor": 1e-4,
-        "dt_limit": (0.0, float("inf")),
-        "bias": False,
-        "conv_bias": True,
-        "chunk_size": 256,          # 用于内存优化的分块大小
-        "use_mem_eff_path": True,   # 是否启用 fused kernel 路径
-        "sequence_parallel": True,  # 是否启用 sequence parallel
-        # "process_group": None,    # 可选，用于分布式训练
-    },
-    rms_norm=True,
-    residual_in_fp32=True,
-    fused_add_norm=True,
-    device=device,
-    dtype=dtype,
-).to(device)
-model.eval()
-
 # %%
-# 测试前向推理
+print(args)
+# %
+# %%
+config = args.mixer_model_config
+# %%
+from src.models.mamba.mixer_seq import MixerModel 
+
+model = MixerModel(**config, device=device, dtype=dtype).to(device)
+# %%
+print(config)
+# %%
+input_dim = config.get("input_dim") 
+d_model = config.get("d_model") 
 batch_size = 2
-seq_len = 16000
+seq_len = 16
 input_features = torch.randn(batch_size, seq_len, input_dim, device=device)
 
 with torch.no_grad():

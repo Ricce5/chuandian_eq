@@ -595,6 +595,14 @@ class BTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.btpp import BlockTPP
         return BlockTPP(args, device)
+    
+
+@ModelBuilder.register("mixer_tpp")
+class MixerTPPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.mixer_tpp import MixerTPP
+        return MixerTPP(args, device)
+    
 
 
 @ModelBuilder.register("reg_attnpl")
@@ -606,8 +614,6 @@ class RegressorAttnPlBuilder(ModelBuilder):
         from src.models.heads import TaskHead
         from src.models.base_model import BaseModel
         from src.models.extractors.attention_pooling import AttentionPoolingExtractor
-
-        # 编码器
         encoder = Transformer_ST(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
