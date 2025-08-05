@@ -36,10 +36,9 @@ class MixerTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, args,device=None):
+    def __init__(self, args,base_model, hypernet_time,hypernet_mag):
         super().__init__()
-        self.device = device if device else torch.device('cpu')
-        self.input_magnitude = True
+
         self.predict_magnitude = True
         self.num_extra_features = None
         self.context_size = args.d_model
@@ -54,28 +53,20 @@ class MixerTPP(TPPModel):
         self.register_buffer(
             "mag_completeness", torch.tensor(args.mag_completeness, dtype=torch.float32)
         )
+        self.input_magnitude = True
+        self.base_model = base_model
+        self.device = self.base_model.device
+        self.base_model.input_adapter.model = self
 
-        # Decoder for the time distribution
-        self.num_time_params = 3 * self.num_components
-        self.hypernet_time = nn.Linear(self.context_size, self.num_time_params)
-
-        # RNN input features
-        if self.input_magnitude:
-            # Decoder for magnitude
-            self.num_mag_params = 1  # (1 rate)
-            self.hypernet_mag = nn.Linear(self.context_size, self.num_mag_params)
-
+        self.hypernet_time = hypernet_time
+        self.hypernet_mag = hypernet_mag
+        self.dropout = nn.Dropout(p=args.dropout)
 
         self.num_inputs = (
             1  # inter-event times
             + int(self.input_magnitude)  # magnitude features 取true或false
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
-
-        self.encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
-        self.dropout =  nn.Dropout(args.rnn_dropout)
-        self.norm_f = nn.LayerNorm(self.context_size, elementwise_affine=False)
-        self.to(self.device)
 
 
     def get_context(self, batch, inference_params=None):
@@ -84,22 +75,10 @@ class MixerTPP(TPPModel):
         Returns:
             context: Context vectors, shape (batch_size, seq_len, context_size)
         """
-        feat_list = [self.encode_time(batch.inter_times)]  
-        if self.input_magnitude:
-            feat_list.append(self.encode_magnitude(batch.mag))
-        features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        inter_times_normalized = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-        arrival_times_normalized = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
-        hidden_states = self.encoder(
-            features=features,
-            inference_params=inference_params,
-            times=arrival_times_normalized,
-            inter_times=inter_times_normalized
-        )
-
-        rnn_output = hidden_states  *batch.input_mask[:, :, None]
-        rnn_output = rnn_output[:, :-1, :] 
-        output = F.pad(rnn_output, (0, 0, 1, 0)) 
+        hidden_states = self.base_model(batch, inference_params=inference_params)  # (B, L, C)
+        enc_output = hidden_states  *batch.input_mask[:, :, None]
+        enc_output = enc_output[:, :-1, :] 
+        output = F.pad(enc_output, (0, 0, 1, 0)) 
         output = self.dropout(output)
         return output  
 
@@ -108,10 +87,7 @@ class MixerTPP(TPPModel):
             inference_params: Optional[InferenceParams] = None,
             ):
         """Get the current state of the model for inference."""
-
-        inter_times_normalized = self.normalize_inter_times(batch.inter_times)
-        arrival_times_normalized = self.normalize_arrival_times(batch.arrival_times)
-        current_state = self.encoder(batch, inference_params=inference_params, inter_times=inter_times_normalized, times=arrival_times_normalized)
+        current_state = self.encoder(batch, inference_params=inference_params)
         return current_state
     
 
@@ -137,13 +113,8 @@ class MixerTPP(TPPModel):
         )
 
     def forward(self, batch):
-        feat_list = [self.encode_time(batch.inter_times)]  # 上一次事件到当前事件的时间间隔
-        if self.input_magnitude:
-            feat_list.append(self.encode_magnitude(batch.mag))
-        features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        inter_times_normalized = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-        rnn_output = self.encoder(features.contiguous())  # (B, L, C)
-        return rnn_output
+        enc_output = self.get_context(batch)  # (B, L, C)
+        return enc_output
 
     def get_magnitude_dist(self, context):
         log_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)

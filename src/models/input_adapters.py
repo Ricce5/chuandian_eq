@@ -127,9 +127,9 @@ class Mixer_BatchInputAdapter:
             "input_mask": batch.input_mask.float(),
         }
         if return_inter_times:
-            output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask[:, :, None]
+            output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
         if return_times:
-            output["times"] = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask[:, :, None]
+            output["times"] = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
         return output
 
     

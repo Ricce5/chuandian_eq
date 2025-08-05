@@ -597,12 +597,23 @@ class BTTPBuilder(ModelBuilder):
         return BlockTPP(args, device)
     
 
+
 @ModelBuilder.register("mixer_tpp")
 class MixerTPPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.mixer_tpp import MixerTPP
-        return MixerTPP(args, device)
-    
+        from src.models.input_adapters import Mixer_BatchInputAdapter
+        from src.models.heads import TaskHead
+        from src.models.base_model import BaseModel
+        from src.models.mamba.mixer_seq import MixerModel,MixerModelWrapper
+        import torch
+        import torch.nn as nn   
+        encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
+        adapter = Mixer_BatchInputAdapter(model=None)
+        hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
+        hypernet_mag = nn.Linear(args.d_model, 1).to(device)
+        base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
+        return MixerTPP(args,base_model, hypernet_time, hypernet_mag)
 
 
 @ModelBuilder.register("reg_attnpl")

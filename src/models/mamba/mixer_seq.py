@@ -38,6 +38,7 @@ def create_block(
     residual_in_fp32=False,
     fused_add_norm=False,
     layer_idx=None,
+    dropout_prob=0.0,
     device=None,
     dtype=None,
 ):
@@ -61,7 +62,8 @@ def create_block(
         }
         mixer_cls = partial(mixer_map[ssm_layer], layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
     else:
-        if attn_cfg.get("layer", "MHA") == "MHATime":
+        attn_layer = attn_cfg.pop("layer", "MHA")
+        if attn_layer == "MHATime":
             mixer_cls = partial(MHATime, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
         else:
             mixer_cls = partial(MHA, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
@@ -81,6 +83,7 @@ def create_block(
         norm_cls=norm_cls,
         fused_add_norm=fused_add_norm,
         residual_in_fp32=residual_in_fp32,
+        dropout_prob=dropout_prob,
     )
     block.layer_idx = layer_idx
     return block
@@ -134,6 +137,7 @@ class MixerModel(nn.Module):
         initializer_cfg=None,
         fused_add_norm=False,
         residual_in_fp32=False,
+        dropout_prob: float = 0.0,
         device=None,
         dtype=None,
     ) -> None:
@@ -142,7 +146,7 @@ class MixerModel(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
 
         self.input_linear = nn.Linear(input_dim, d_model)
-
+        self.dropout = nn.Dropout(dropout_prob) if dropout_prob > 0 else nn.Identity()
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
         # Add -> LN -> Attn / MLP / Mixer, returning both the residual branch (output of Add) and
@@ -194,6 +198,7 @@ class MixerModel(nn.Module):
     def forward(self, features=None, inference_params=None, **mixer_kwargs):
 
         hidden_states = self.input_linear(features)
+        hidden_states = self.dropout(hidden_states)
         residual = None
         for layer in self.layers:
             hidden_states, residual = layer(
@@ -277,3 +282,28 @@ class MambaModel(nn.Module):
             hidden_states = hidden_states[:, -num_last_tokens:]
         return hidden_states
 
+class MixerModelWrapper(nn.Module):
+    def __init__(self,):
+        super().__init__()
+        self.encoder = MixerModel()
+
+    def forward(self, features_dict, inference_params=None):
+        return self.encoder(**features_dict, inference_params=inference_params)
+    
+
+class MixerModelWrapper(nn.Module):
+    def __init__(self, encoder, input_adapter, device):
+        super().__init__()
+        self.encoder = encoder.to(device)
+        self.input_adapter = input_adapter 
+        self.device = device
+
+    def forward(self, batch, inference_params=None):
+        assert batch.device == self.device, f"Input tensor on {batch.device}, but model on {self.device}"
+        batch = batch.float()
+        batch = batch.to(self.device)
+        
+        inputs = self.input_adapter(batch)  
+        out = self.encoder(**inputs, inference_params=inference_params)
+        return out
+    

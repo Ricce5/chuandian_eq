@@ -32,11 +32,10 @@ mixer_model_config:
       layer: MambaTime                # 必须存在，用于选择使用 Mamba1
 
   attn_cfg:
-    layer: MHATime
+    layer: MHA
     num_heads: 4
     rotary_emb_dim: 4   # 一般为 d_model // num_heads // 2
-    rotary_emb_scale_base: 1024
-    rotary_emb_time_center: 3200
+    rotary_emb_scale_base: 512
     causal: true
 
   norm_epsilon: 1e-5
