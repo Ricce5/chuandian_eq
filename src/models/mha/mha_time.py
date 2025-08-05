@@ -37,6 +37,8 @@ class MHATime(nn.Module):
         rotary_emb_dim=0,
         rotary_emb_base=10000.0,
         rotary_emb_interleaved=False,
+        rotary_emb_scale_base=None,
+        rotary_emb_time_center=None,
         device=None,
         dtype=None,
     ) -> None:
@@ -74,6 +76,8 @@ class MHATime(nn.Module):
                 base=rotary_emb_base,
                 interleaved=rotary_emb_interleaved,
                 device=device,
+                scale_base=rotary_emb_scale_base,
+                time_center=rotary_emb_time_center,
             )
 
         self.in_proj = nn.Linear(embed_dim, qkv_dim + self.mlp_dim, bias=qkv_proj_bias, **factory_kwargs)

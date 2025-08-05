@@ -16,7 +16,7 @@ import os
 import json
 import yaml
 import optuna
-torch.backends.cudnn.enabled = False
+# torch.backends.cudnn.enabled = False
 torch.autograd.set_detect_anomaly(True)
 
 

@@ -60,6 +60,7 @@ class MHA(nn.Module):
         rotary_emb_dim=0,
         rotary_emb_base=10000.0,
         rotary_emb_interleaved=False,
+        rotary_emb_scale_base=None,
         device=None,
         dtype=None,
     ) -> None:
@@ -96,6 +97,7 @@ class MHA(nn.Module):
                 self.rotary_emb_dim,
                 base=rotary_emb_base,
                 interleaved=rotary_emb_interleaved,
+                scale_base= rotary_emb_scale_base,
                 device=device,
             )
 

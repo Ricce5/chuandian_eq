@@ -17,6 +17,7 @@ from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 
+
 class MixerTPP(TPPModel):
     """Neural TPP model with an recurrent encoder.
 

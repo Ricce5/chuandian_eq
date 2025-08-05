@@ -48,6 +48,7 @@ class BlockTPP(TPPModel):
         self.register_buffer("log_tau_mean", self.tau_mean.log())
         self.register_buffer("mag_mean", torch.tensor(args.mag_mean, dtype=torch.float32))
         self.register_buffer("time_max", torch.tensor(args.time_max, dtype=torch.float32))
+        self.register_buffer("time_mean", torch.tensor(args.time_mean, dtype=torch.float32))
         self.register_buffer("richter_b", torch.tensor(args.richter_b_mle, dtype=torch.float32))
         self.register_buffer(
             "mag_completeness", torch.tensor(args.mag_completeness, dtype=torch.float32)
@@ -72,14 +73,17 @@ class BlockTPP(TPPModel):
         D = args.d_model  # batch size, sequence length, embedding dim
         H = 4               # number of heads
         rotary_emb_dim = D // H // 2  # 通常是一半 head_dim
+        rotary_emb_scale_base = 1024
         mlp_hidden_dim = 256
         self.layer_idx = 0
         
         self.block = Block(
                 dim=D,
-                mixer_cls=partial(MHA,
+                mixer_cls=partial(MHATime,
                                 num_heads=H,
                                 rotary_emb_dim=rotary_emb_dim,
+                                rotary_emb_scale_base=rotary_emb_scale_base,
+                                rotary_emb_time_center= self.time_mean/self.tau_mean,
                                 causal=True,
                                 layer_idx=0),
                 mlp_cls=partial(GatedMLP,

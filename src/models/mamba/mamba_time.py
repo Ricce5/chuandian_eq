@@ -28,7 +28,7 @@ except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 
-class Mamba_dt(nn.Module):
+class MambaTime(nn.Module):
     def __init__(
         self,
         d_model,
@@ -56,6 +56,8 @@ class Mamba_dt(nn.Module):
         self.expand = expand
         self.d_inner = int(self.expand * self.d_model)
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
+        self.dt_min = dt_min
+        self.dt_max = dt_max
         self.use_fast_path = False
         self.layer_idx = layer_idx
 
@@ -120,6 +122,30 @@ class Mamba_dt(nn.Module):
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
         self.eps = eps
 
+    def _encode_external_dt(self, dt_input: Tensor, batch: int, seqlen: int, dtype, device) -> Tensor:
+        """
+        Encodes external dt input into shape (B, d_inner, L) using bounded learnable weights.
+        """
+        if dt_input.shape != (batch, seqlen):
+            raise ValueError(f"Expected dt_input shape ({batch}, {seqlen}), got {dt_input.shape}")
+
+        dt = dt_input.to(dtype=dtype, device=device).clamp_min(self.eps)  # Ensure positive dt
+        weight = self._bounded_weight_tanh(self.dt_min, self.dt_max)      # (1, d_inner)
+        dt = torch.matmul(dt.unsqueeze(-1), weight)                       # (B, L, d_inner)
+        dt = dt.permute(0, 2, 1).contiguous()                             # (B, d_inner, L)
+        return dt
+
+
+    def _bounded_weight_tanh(self, min_val: float = 0.01, max_val: float = 1 ) -> Tensor:
+        """
+        Returns a bounded positive projection weight tensor in range [min_val, max_val].
+        """
+        raw_weight = self.dt_input_proj.weight.view(1, -1)  # (1, d_inner)
+        bounded_weight = min_val + (max_val - min_val) * 0.5 * (torch.tanh(raw_weight) + 1)
+        return bounded_weight  # (1, d_inner)
+
+
+
     def forward(self, hidden_states, inference_params=None, dt_input: Optional[Tensor] = None):
         """
         hidden_states: (B, L, D)
@@ -130,9 +156,11 @@ class Mamba_dt(nn.Module):
         conv_state, ssm_state = None, None
         if inference_params is not None:
             conv_state, ssm_state = self._get_states_from_cache(inference_params, batch)
+            if dt_input is not None:
+                dt = self._encode_external_dt(dt_input, batch, seqlen, hidden_states.dtype, hidden_states.device)
             if inference_params.seqlen_offset > 0:
                 # The states are updated inplace
-                out, _, _ = self.step(hidden_states, conv_state, ssm_state)
+                out, _, _ = self.step(hidden_states, conv_state, ssm_state, dt)
                 return out
 
         # We do matmul and transpose BLH -> HBL at the same time
@@ -189,15 +217,7 @@ class Mamba_dt(nn.Module):
             # ...
 
             if dt_input is not None:
-                # Case: using external dt
-                assert dt_input.shape == (batch, seqlen), f"Expected dt_input shape (B, L), got {dt_input.shape}"
-                dt = dt_input.to(dtype=x.dtype, device=x.device)
-                # dt = dt.unsqueeze(1).expand(-1, self.d_inner, -1)  # → (B, d_inner, L)
-                # dt: (B, L) → (B, d_inner, L) via linear layer with positive weights
-                dt.clamp_min_(min=self.eps) 
-                dt = dt.unsqueeze(-1) @ F.sigmoid(self.dt_input_proj.weight.T) # (B, L, d_inner)
-                dt = dt.permute(0, 2, 1).contiguous()  # (B, d_inner, L)
-                # print(f"dt shape: {dt.shape}, min: {dt.min().item()}, max: {dt.max().item()}")
+                dt = self._encode_external_dt(dt_input, batch, seqlen, x.dtype, x.device)
                 delta_bias = None
                 delta_softplus = False  # Don't apply softplus again
             else:

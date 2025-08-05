@@ -202,6 +202,7 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
     args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()
     args.mag_mean = torch.cat([seq.mag for seq in catalog_ds.train]).mean().item()
     args.time_max = torch.max(torch.tensor([seq.t_end for seq in catalog_ds.train])).item()
+    args.time_mean = torch.cat([seq.arrival_times[:-1] for seq in catalog_ds.train]).mean().item()
     args.mag_completeness = catalog_ds.metadata["mag_completeness"]
     if "richter_b" in catalog_ds.metadata:
         # Use ground truth value, if available

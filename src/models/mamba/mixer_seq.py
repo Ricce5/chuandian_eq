@@ -15,6 +15,8 @@ from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.modules.mamba_simple import Mamba
 from mamba_ssm.modules.mamba2 import Mamba2
 from src.models.mha.mha import MHA
+from src.models.mamba.mamba_time import MambaTime
+from src.models.mha.mha_time import MHATime
 from mamba_ssm.modules.mlp import GatedMLP
 from src.models.mamba.block import Block
 from mamba_ssm.utils.hf import load_config_hf, load_state_dict_hf
@@ -50,16 +52,19 @@ def create_block(
         # Create a copy of the config to modify
         ssm_cfg = copy.deepcopy(ssm_cfg) if ssm_cfg is not None else {}
         ssm_layer = ssm_cfg.pop("layer", "Mamba1")
-        if ssm_layer not in ["Mamba1", "Mamba2"]:
-            raise ValueError(f"Invalid ssm_layer: {ssm_layer}, only support Mamba1 and Mamba2")
-        mixer_cls = partial(
-            Mamba2 if ssm_layer == "Mamba2" else Mamba,
-            layer_idx=layer_idx,
-            **ssm_cfg,
-            **factory_kwargs
-        )
+        if ssm_layer not in {"Mamba1", "Mamba2", "MambaTime"}:
+            raise ValueError(f"Invalid ssm_layer: {ssm_layer}")
+        mixer_map = {
+            "Mamba1": Mamba,
+            "Mamba2": Mamba2,
+            "MambaTime": MambaTime,
+        }
+        mixer_cls = partial(mixer_map[ssm_layer], layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
     else:
-        mixer_cls = partial(MHA, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
+        if attn_cfg.get("layer", "MHA") == "MHATime":
+            mixer_cls = partial(MHATime, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
+        else:
+            mixer_cls = partial(MHA, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
     norm_cls = partial(
         nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
     )

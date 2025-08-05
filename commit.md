@@ -1,6 +1,7 @@
-RotaryEmbeddingTime 在scale下改为取时间平均为centre
-
-
+增加rope—t对center的处理
+在bptt中实现rope-t
+优化ManmbaTime模块
+mixer create block兼容TIme模块
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -11,6 +12,8 @@ thp的时间信息没有充分利用，应该加入
 建模概率分布的方式不如建模条件强度函数的方式
 是否使用mini_batch在训练和测试阶段对单位时间上的nll几乎无影响
 weibull分布数值问题
+scale rope的center只对数值产生影响，因为不改变相对位置
+
 
 mini
 debug: thp不除t_max

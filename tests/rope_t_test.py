@@ -12,8 +12,8 @@ dtype = torch.float16
 dim = 8
 seq_len = 5
 
-rope_orig = RotaryEmbeddingOrig(dim).to(device)
-rope_time = RotaryEmbeddingTime(dim).to(device)
+rope_orig = RotaryEmbeddingOrig(dim,scale_base=512).to(device)
+rope_time = RotaryEmbeddingTime(dim,scale_base=512).to(device)
 
 # 模拟整数时间索引（0,1,2,...） => 原版行为
 times = torch.arange(seq_len, device=device).unsqueeze(0)  # (1, S)
@@ -28,12 +28,10 @@ out_time = rope_time(qkv.clone(), times=times)
 # 计算差异
 diff = (out_orig - out_time).abs().max().item()
 print("Max difference:", diff)
-
 # 验证是否接近
 assert diff < 1e-3, "行为与原版不一致"
 print("✅ RotaryEmbeddingTime 与原版在整数索引下表现一致")
 
-# %%
 # %%
 import torch
 from src.models.mha.rotary_embedding_time import RotaryEmbeddingTime
@@ -42,7 +40,7 @@ def test_rotary_embedding_time_strict():
     device = "cuda"
     dtype = torch.float16
 
-    B, L, H, D = 1, 5, 2, 8  # batch, seq_len, num_heads, head_dim
+    B, L, H, D = 1, 500, 2, 8  # batch, seq_len, num_heads, head_dim
     num_heads = H
 
     qkv_full = torch.randn(B, L, 3, H, D, device=device, dtype=dtype)
@@ -54,7 +52,7 @@ def test_rotary_embedding_time_strict():
     print("out_full:", out_full.shape)
 
     # 2️⃣ 按步 KV Cache 模拟
-    rope_cache = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024).to(device)
+    rope_cache = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024,time_center=L//2).to(device)
     outs = []
     for i in range(L):
         qkv_step = qkv_full[:, i:i+1]
@@ -65,7 +63,7 @@ def test_rotary_embedding_time_strict():
     print("out_cache:", out_cache.shape)
 
     # 3️⃣ 连续时间模式
-    rope_time = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024).to(device)
+    rope_time = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024,time_center=L//2).to(device)
     out_time = rope_time(qkv_full.clone(), num_heads_q=num_heads, times=times)
     print("out_time:", out_time.shape)
 
@@ -82,4 +80,18 @@ def test_rotary_embedding_time_strict():
 if __name__ == "__main__":
     test_rotary_embedding_time_strict()
 
+# %%
+import torch
+from flash_attn.layers.rotary import RotaryEmbedding as RotaryEmbeddingOrig
+from src.models.mha.rotary_embedding_time import RotaryEmbeddingTime
+from src.utils.utils import set_seed
+set_seed(42)
+rope_time = RotaryEmbeddingTime(dim, scale_base=512).to(device)
+base = torch.arange(seq_len, device=device).float()
+noise = torch.randn(2, seq_len, device=device) * 0.1  # 加一些小噪声
+times = (base.unsqueeze(0) + noise).clamp(min=0.0)
+# 模拟 qkv
+qkv = torch.randn(2, seq_len, 3, 1, dim, device=device, dtype=dtype)
+# %%
+out_time = rope_time(qkv.clone(), times=times)
 # %%

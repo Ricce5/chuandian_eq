@@ -1,5 +1,5 @@
 import torch
-from src.models.mamba.mamba_dt import Mamba_dt  # 替换为你的 Mamba_dt 实现路径
+from src.models.mamba.mamba_time import Mamba_dt  # 替换为你的 Mamba_dt 实现路径
 from mamba_ssm.utils.generation import InferenceParams
 
 # 设置随机种子

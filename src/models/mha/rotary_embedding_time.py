@@ -40,6 +40,7 @@ class RotaryEmbeddingTime(nn.Module):
         base: float = 10000.0,
         interleaved: bool = False,
         scale_base: Optional[float] = None,
+        time_center: Optional[float] = None,
         device=None,
     ):
         super().__init__()
@@ -60,9 +61,10 @@ class RotaryEmbeddingTime(nn.Module):
         self._sin_cached = None
         self._cos_k_cached = None
         self._sin_k_cached = None
+        self._center_cached = time_center if time_center is not None else None
 
 
-    def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device):
+    def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device, update_center: bool = False):
         # times: (seqlen,) or (batch, seqlen)
         inv_freq = self.inv_freq.to(device)
         if times.ndim == 1:
@@ -80,8 +82,9 @@ class RotaryEmbeddingTime(nn.Module):
             self._cos_k_cached = torch.cos(freqs).to(dtype)
             self._sin_k_cached = torch.sin(freqs).to(dtype)
         else:
-            center = times.float().mean(dim=-1, keepdim=True)
-            power = (times - center) / self.scale_base
+            if update_center or self._center_cached is None:
+                self._center_cached = times.float().mean().item()
+            power = (times - self._center_cached) / self.scale_base
             scale = self.scale.to(device=power.device) ** rearrange(power, "... -> ... 1")
             self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
             self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
@@ -131,5 +134,6 @@ class RotaryEmbeddingTime(nn.Module):
                 return qkv_rot
         else:
             q = apply_rotary_emb_torch(qkv, self._cos_cached, self._sin_cached, self.interleaved)
-            kv[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
-            return q, kv
+            kv_rot = kv.clone()
+            kv_rot[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
+            return q, kv_rot

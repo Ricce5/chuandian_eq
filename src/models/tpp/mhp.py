@@ -11,7 +11,7 @@ import src
 import src.distributions as dist
 
 from .tpp_model import TPPModel
-from src.models.mamba.mamba_dt import Mamba_dt
+from src.models.mamba.mamba_time import MambaTime
 from mamba_ssm.utils.generation import InferenceParams
 
 class MHP(TPPModel):
@@ -71,7 +71,7 @@ class MHP(TPPModel):
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.layer_idx = 0 
-        self.mamba = Mamba_dt(
+        self.mamba = MambaTime(
             d_model=self.context_size,
             d_state= self.context_size//2,
             d_conv=3,
