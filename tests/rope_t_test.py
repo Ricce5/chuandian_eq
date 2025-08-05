@@ -49,12 +49,12 @@ def test_rotary_embedding_time_strict():
     times = torch.arange(L, device=device, dtype=torch.float32).unsqueeze(0)  # (1, L)
 
     # 1️⃣ 标准模式（一次性）
-    rope_full = RotaryEmbeddingOrig(D, interleaved=False).to(device)
+    rope_full = RotaryEmbeddingOrig(D, interleaved=False, scale_base=1024).to(device)
     out_full = rope_full(qkv_full.clone(), num_heads_q=num_heads)
     print("out_full:", out_full.shape)
 
     # 2️⃣ 按步 KV Cache 模拟
-    rope_cache = RotaryEmbeddingTime(D, interleaved=False).to(device)
+    rope_cache = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024).to(device)
     outs = []
     for i in range(L):
         qkv_step = qkv_full[:, i:i+1]
@@ -65,7 +65,7 @@ def test_rotary_embedding_time_strict():
     print("out_cache:", out_cache.shape)
 
     # 3️⃣ 连续时间模式
-    rope_time = RotaryEmbeddingTime(D, interleaved=False).to(device)
+    rope_time = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024).to(device)
     out_time = rope_time(qkv_full.clone(), num_heads_q=num_heads, times=times)
     print("out_time:", out_time.shape)
 

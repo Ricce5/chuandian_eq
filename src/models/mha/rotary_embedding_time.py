@@ -80,8 +80,8 @@ class RotaryEmbeddingTime(nn.Module):
             self._cos_k_cached = torch.cos(freqs).to(dtype)
             self._sin_k_cached = torch.sin(freqs).to(dtype)
         else:
-            seqlen = times.shape[-1]
-            power = (times - seqlen // 2) / self.scale_base
+            center = times.float().mean(dim=-1, keepdim=True)
+            power = (times - center) / self.scale_base
             scale = self.scale.to(device=power.device) ** rearrange(power, "... -> ... 1")
             self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
             self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
@@ -131,6 +131,5 @@ class RotaryEmbeddingTime(nn.Module):
                 return qkv_rot
         else:
             q = apply_rotary_emb_torch(qkv, self._cos_cached, self._sin_cached, self.interleaved)
-            kv_rot = kv.clone()
-            kv_rot[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
-            return q, kv_rot
+            kv[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
+            return q, kv

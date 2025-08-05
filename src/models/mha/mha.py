@@ -1,5 +1,5 @@
 # Copyright (c) 2024, Tri Dao, Albert Gu.
-
+# 推理阶段计算flash_attn强制使用float16
 import math
 
 import torch

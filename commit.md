@@ -1,4 +1,4 @@
-
+RotaryEmbeddingTime 在scale下改为取时间平均为centre
 
 
 
