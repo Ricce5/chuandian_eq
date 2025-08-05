@@ -110,19 +110,19 @@ class MHP(TPPModel):
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
+        inter_times = self.normalize_inter_times(batch.inter_times)* batch.input_mask
         hidden_state = self.input_proj(features)  
-        rnn_output = self.mamba(hidden_state,inference_params, dt_input=dt_input)*batch.input_mask[:, :, None]
+        rnn_output = self.mamba(hidden_state,inference_params, inter_times=inter_times)*batch.input_mask[:, :, None]
         rnn_output = rnn_output[:, :-1, :] 
         output = F.pad(rnn_output, (0, 0, 1, 0)) 
         output = self.dropout(output)
         return output  
 
-    def get_current_state(self, input, inference_params=None, dt_input=None):
+    def get_current_state(self, input, inference_params=None, inter_times=None):
         """Get the current state of the model for inference."""
         hidden_state = self.input_proj(input)  # (B, L, C)
-        dt_input = self.normalize_inter_times(dt_input) 
-        current_state = self.mamba(hidden_state, inference_params, dt_input=dt_input)  # (B, L, C)
+        inter_times = self.normalize_inter_times(inter_times) 
+        current_state = self.mamba(hidden_state, inference_params, inter_times=inter_times)  # (B, L, C)
         return current_state
     
 
@@ -152,8 +152,8 @@ class MHP(TPPModel):
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        dt_input = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-        rnn_output = self.mamba(features.contiguous(), dt_input=dt_input)  # (B, L, C)
+        inter_times = self.normalize_inter_times(batch.inter_times) * batch.input_mask
+        rnn_output = self.mamba(features.contiguous(), inter_times=inter_times)  # (B, L, C)
         return rnn_output
 
     # log_rate没有被使用
@@ -259,7 +259,7 @@ class MHP(TPPModel):
             rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
 
             # RNN 更新状态
-            current_state = self.get_current_state(rnn_input, inference_params=inference_params, dt_input=next_inter_times)
+            current_state = self.get_current_state(rnn_input, inference_params=inference_params, inter_times=next_inter_times)
             inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)
             current_state = current_state.detach()  # 关键：防止图增长

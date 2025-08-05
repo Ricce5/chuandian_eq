@@ -1,7 +1,4 @@
-增加rope—t对center的处理
-在bptt中实现rope-t
-优化ManmbaTime模块
-mixer create block兼容TIme模块
+
 
 问题
 tmp_batch 的pad与现有版本不兼容

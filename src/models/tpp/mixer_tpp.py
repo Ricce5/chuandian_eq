@@ -77,24 +77,8 @@ class MixerTPP(TPPModel):
         self.norm_f = nn.LayerNorm(self.context_size, elementwise_affine=False)
         self.to(self.device)
 
-    def encode_time(self, inter_times):  # 做log变换并中心化
-        log_tau = torch.log(torch.clamp_min(inter_times, 1e-10)).unsqueeze(-1)
-        return log_tau - self.log_tau_mean
 
-    def normalize_inter_times(self, inter_times):
-        """Normalize inter-event times to the range [0, 1]."""
-        return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + 1e-10)
-
-
-    def encode_magnitude(self, mag): # 中心化
-        return mag.unsqueeze(-1) - self.mag_mean
-
-    def encode_extra_features(self, extra_feat):
-        return extra_feat
-
-
-
-    def get_context(self, batch,inference_params=None):
+    def get_context(self, batch, inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
 
         Returns:
@@ -104,12 +88,13 @@ class MixerTPP(TPPModel):
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
-        t_input =   batch.arrival_times * batch.input_mask/self.tau_mean
+        inter_times_normalized = self.normalize_inter_times(batch.inter_times) * batch.input_mask
+        arrival_times_normalized = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
         hidden_states = self.encoder(
             features=features,
             inference_params=inference_params,
-            times=t_input
+            times=arrival_times_normalized,
+            inter_times=inter_times_normalized
         )
 
         rnn_output = hidden_states  *batch.input_mask[:, :, None]
@@ -118,11 +103,15 @@ class MixerTPP(TPPModel):
         output = self.dropout(output)
         return output  
 
-    def get_current_state(self, input, inference_params=None, dt_input=None):
+    def get_current_state(self,
+            batch: src.data.Batch, 
+            inference_params: Optional[InferenceParams] = None,
+            ):
         """Get the current state of the model for inference."""
 
-        dt_input = self.normalize_inter_times(dt_input)
-        current_state = self.encoder(features=input, inference_params=inference_params, dt_input=dt_input)  # (B, L, C)
+        inter_times_normalized = self.normalize_inter_times(batch.inter_times)
+        arrival_times_normalized = self.normalize_arrival_times(batch.arrival_times)
+        current_state = self.encoder(batch, inference_params=inference_params, inter_times=inter_times_normalized, times=arrival_times_normalized)
         return current_state
     
 
@@ -152,7 +141,7 @@ class MixerTPP(TPPModel):
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        dt_input = self.normalize_inter_times(batch.inter_times) * batch.input_mask
+        inter_times_normalized = self.normalize_inter_times(batch.inter_times) * batch.input_mask
         rnn_output = self.encoder(features.contiguous())  # (B, L, C)
         return rnn_output
 
@@ -224,7 +213,9 @@ class MixerTPP(TPPModel):
         if past_seq is not None:
             t_start = past_seq.t_end
             past_batch = src.data.Batch.from_list([past_seq])
-            current_state = self.get_context(past_batch, inference_params)[:, [-1], :]  # (1, 1, C)
+            buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=1500)
+            sample_batch = buffer_batch.get_sample_batch()
+            current_state = self.get_current_state(sample_batch)
             inference_params.seqlen_offset += 1
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]

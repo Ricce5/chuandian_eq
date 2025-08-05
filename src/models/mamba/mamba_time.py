@@ -146,7 +146,7 @@ class MambaTime(nn.Module):
 
 
 
-    def forward(self, hidden_states, inference_params=None, dt_input: Optional[Tensor] = None):
+    def forward(self, hidden_states, inference_params=None, inter_times: Optional[Tensor] = None):
         """
         hidden_states: (B, L, D)
         Returns: same shape as hidden_states
@@ -156,8 +156,8 @@ class MambaTime(nn.Module):
         conv_state, ssm_state = None, None
         if inference_params is not None:
             conv_state, ssm_state = self._get_states_from_cache(inference_params, batch)
-            if dt_input is not None:
-                dt = self._encode_external_dt(dt_input, batch, seqlen, hidden_states.dtype, hidden_states.device)
+            if inter_times is not None:
+                dt = self._encode_external_dt(inter_times, batch, seqlen, hidden_states.dtype, hidden_states.device)
             if inference_params.seqlen_offset > 0:
                 # The states are updated inplace
                 out, _, _ = self.step(hidden_states, conv_state, ssm_state, dt)
@@ -216,8 +216,8 @@ class MambaTime(nn.Module):
             
             # ...
 
-            if dt_input is not None:
-                dt = self._encode_external_dt(dt_input, batch, seqlen, x.dtype, x.device)
+            if  inter_times is not None:
+                dt = self._encode_external_dt(inter_times, batch, seqlen, x.dtype, x.device)
                 delta_bias = None
                 delta_softplus = False  # Don't apply softplus again
             else:
