@@ -20,7 +20,7 @@ def process_cn_catalog(dat_file):
     jd = np.array([sf.cal2jd(d) - jd0 for d in data])
 
     df.loc[:, 't'] = jd
-    df['dt'] = df['t'].diff().shift(-1)
+    df['dt'] = df['t'].diff().fillna(0)
     df = df[['t', 'Magnitude', 'Latitude', 'Longitude', 'Depth', 'dt']]
     csv_file = os.path.splitext(dat_file)[0] + '.csv'
     df.to_csv(csv_file, index=False)
@@ -32,7 +32,7 @@ def process_cn_catalog(dat_file):
 def process_synthetic_catlog(dat_file):
     column_names =["ID1", "ID2", "t", "Magnitude", "Depth", "Longitude", "Latitude"]
     df = pd.read_csv(dat_file, header=None, names=column_names, sep='\s+')
-    df['dt'] = df['t'].diff().shift(-1)
+    df['dt'] = df['t'].diff().fillna(0)
     df = df[['t', 'Magnitude', 'Latitude', 'Longitude', 'Depth', 'dt']]
     # 保存为同名csv文件
     csv_file = os.path.splitext(dat_file)[0] + '.csv'
@@ -73,7 +73,7 @@ def process_recast_catalog(csv_file, metadata_file):
     jd0 = sf.cal2jd(start_ts)
     jd = np.array([sf.cal2jd(d) - jd0 for d in df['ts']])
     df['t'] = jd
-    df['dt'] = df['t'].diff().shift(-1)
+    df['dt'] = df['t'].diff().fillna(0)
     df = df[['t', 'magnitude', 'latitude', 'longitude', 'depth', 'dt', 'ts']]
     csv_file = Path(csv_file)
     save_file = csv_file.parent / f'processed_{csv_file.stem}.csv'
