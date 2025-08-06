@@ -157,10 +157,11 @@ class MambaTime(nn.Module):
         if inference_params is not None:
             conv_state, ssm_state = self._get_states_from_cache(inference_params, batch)
             if inter_times is not None:
-                dt = self._encode_external_dt(inter_times, batch, seqlen, hidden_states.dtype, hidden_states.device)
+                assert inter_times.shape == (batch, seqlen), \
+                    f"Expected inter_times shape ({batch}, {seqlen}), got {inter_times.shape}"
             if inference_params.seqlen_offset > 0:
                 # The states are updated inplace
-                out, _, _ = self.step(hidden_states, conv_state, ssm_state, dt)
+                out, _, _ = self.step(hidden_states, conv_state, ssm_state, inter_times)
                 return out
 
         # We do matmul and transpose BLH -> HBL at the same time
@@ -276,11 +277,8 @@ class MambaTime(nn.Module):
         dt, B, C = torch.split(x_db, [self.dt_rank, self.d_state, self.d_state], dim=-1)
 
         if dt_input is not None:
-            dt = dt_input.to(dtype=x.dtype, device=x.device)
-            assert dt.shape[1] == 1, f"Expected dt_input with shape (B, 1), got {dt.shape}"
-            dt = dt.clamp_min(self.eps)  # 避免为 0，确保稳定性
-            dt_weight = F.sigmoid(self.dt_input_proj.weight.T)  # (1, d_inner)
-            dt = dt.unsqueeze(-1) @ dt_weight  # (B, d_inner)
+            dt = self._encode_external_dt(dt_input, hidden_states.shape[0], 1, x.dtype, x.device).squeeze(-1)
+            print(dt.shape)
             delta_softplus = False
         else:
             dt = F.linear(dt, self.dt_proj.weight)  # -> (B, d_inner)

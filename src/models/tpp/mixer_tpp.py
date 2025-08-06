@@ -87,8 +87,10 @@ class MixerTPP(TPPModel):
             inference_params: Optional[InferenceParams] = None,
             ):
         """Get the current state of the model for inference."""
-        current_state = self.encoder(batch, inference_params=inference_params)
-        return current_state
+        print(batch)
+        current_state = self.base_model(batch, inference_params=inference_params)
+        print(current_state.shape)
+        return current_state[:, -1:, :]
     
 
     def get_inter_time_dist(self, context):
@@ -173,19 +175,19 @@ class MixerTPP(TPPModel):
             raise ValueError("Sampling is not currently supported for extra features")
 
         past_seq_len = len(past_seq)
-        max_generation_len = 2000
-        max_seqlen = past_seq_len + max_generation_len
+        max_sample_len = 2000
+        max_seqlen = past_seq_len + max_sample_len
 
         inference_params = InferenceParams(
             max_seqlen=max_seqlen,
             max_batch_size=batch_size,
-            key_value_memory_dict= self.encoder.allocate_inference_cache(batch_size=batch_size, max_seqlen=max_seqlen),
+            key_value_memory_dict= self.base_model.encoder.allocate_inference_cache(batch_size=batch_size, max_seqlen=max_seqlen),
         )
         if past_seq is not None:
             t_start = past_seq.t_end
             past_batch = src.data.Batch.from_list([past_seq])
-            buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=1500)
-            sample_batch = buffer_batch.get_sample_batch()
+            buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
+            sample_batch = buffer_batch.get_tmp_batch()
             current_state = self.get_current_state(sample_batch)
             inference_params.seqlen_offset += 1
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
@@ -212,15 +214,16 @@ class MixerTPP(TPPModel):
             next_inter_times.clamp_max_(t_end - t_start)
             inter_time_list.append(next_inter_times)
 
-            rnn_input_list = [self.encode_time(next_inter_times)] 
+           
             if self.predict_magnitude:
                 mag_dist = self.get_magnitude_dist(current_state)
                 next_mag = mag_dist.sample()
                 mag_list.append(next_mag)
-                rnn_input_list.append(self.encode_magnitude(next_mag))
 
-            rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
-            current_state = self.get_current_state(rnn_input, inference_params=inference_params, dt_input=next_inter_times)
+            buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag if self.predict_magnitude else None)
+            sample_batch = buffer_batch.get_tmp_batch()  
+
+            current_state = self.get_current_state(sample_batch, inference_params=inference_params)
             inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)
             current_state = current_state.detach()

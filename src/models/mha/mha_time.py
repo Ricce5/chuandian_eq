@@ -107,16 +107,17 @@ class MHATime(nn.Module):
         assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
         return _update_kv_cache(kv, inference_params, self.layer_idx)
 
-    def _apply_rotary_update_kvcache_attention(self, q, kv,times, inference_params):
+    def _apply_rotary_update_kvcache_attention(self, q, kv, inference_params):
         """
         Fast path that combine 3 steps: apply rotary to Q and K, update kv cache, and apply attention.
         q: (batch_size, seqlen_q, nheads, head_dim)
         kv: (batch_size, seqlen_k, 2, nheads_kv, head_dim)
         """
+        orig_dtype = q.dtype
         assert inference_params is not None and inference_params.seqlen_offset > 0
         if self.rotary_emb_dim > 0:
             self.rotary_emb._update_cos_sin_cache(
-                times, device=q.device, dtype=q.dtype
+                inference_params.max_seqlen, device=q.device, dtype=q.dtype
             )
             rotary_cos, rotary_sin = self.rotary_emb._cos_cached, self.rotary_emb._sin_cached
         else:
@@ -131,22 +132,23 @@ class MHATime(nn.Module):
         )
         assert flash_attn_with_kvcache is not None, "flash_attn must be installed"
         context = flash_attn_with_kvcache(
-            q,
-            kv_cache[:, :, 0],
-            kv_cache[:, :, 1],
-            kv[:, :, 0],
-            kv[:, :, 1],
-            rotary_cos=rotary_cos,
-            rotary_sin=rotary_sin,
+            q.to(dtype=torch.float16),
+            kv_cache[:, :, 0].to(dtype=torch.float16),
+            kv_cache[:, :, 1].to(dtype=torch.float16),
+            kv[:, :, 0].to(dtype=torch.float16),
+            kv[:, :, 1].to(dtype=torch.float16),
+            rotary_cos=rotary_cos.to(dtype=torch.float16) if rotary_cos is not None else None,
+            rotary_sin=rotary_sin.to(dtype=torch.float16) if rotary_sin is not None else None,
             cache_seqlens=cache_seqlens,
             softmax_scale=self.softmax_scale,
             causal=self.causal,
             rotary_interleaved=self.rotary_emb.interleaved if self.rotary_emb_dim > 0 else False,
         )
-        return context
+        return context.to(dtype=orig_dtype)
 
     def _update_kvcache_attention(self, q, kv, inference_params):
         """Write kv to inference_params, then do attention"""
+        orig_dtype = q.dtype
         if (
             inference_params.seqlen_offset == 0
             or flash_attn_with_kvcache is None
@@ -169,15 +171,16 @@ class MHATime(nn.Module):
                 else inference_params.seqlen_offset
             )
             return flash_attn_with_kvcache(
-                q,
-                kv_cache[:, :, 0],
-                kv_cache[:, :, 1],
-                kv[:, :, 0],
-                kv[:, :, 1],
-                cache_seqlens=cache_seqlens,
-                softmax_scale=self.softmax_scale,
-                causal=self.causal,
-            )
+                    q.to(dtype=torch.float16),
+                    kv_cache[:, :, 0].to(dtype=torch.float16),
+                    kv_cache[:, :, 1].to(dtype=torch.float16),
+                    kv[:, :, 0].to(dtype=torch.float16),
+                    kv[:, :, 1].to(dtype=torch.float16),
+                    cache_seqlens=cache_seqlens,
+                    softmax_scale=self.softmax_scale,
+                    causal=self.causal,
+                ).to(dtype=orig_dtype)
+            
 
     def forward(self, x,times, inference_params=None):
         """

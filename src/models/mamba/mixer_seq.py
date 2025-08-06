@@ -62,6 +62,7 @@ def create_block(
         }
         mixer_cls = partial(mixer_map[ssm_layer], layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
     else:
+        attn_cfg = copy.deepcopy(attn_cfg) if ssm_cfg is not None else {}
         attn_layer = attn_cfg.pop("layer", "MHA")
         if attn_layer == "MHATime":
             mixer_cls = partial(MHATime, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
