@@ -53,11 +53,19 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
 
-    if args.model in ["classifier", "classifier_stm",'classifier_se',"clf_attnpl","clf_attnpl_t","classifier_tm_s","clf_tm_attnpl","clf_tm_attnpl_t","classifier_stm_s", "clf_tm_cv_attnpl_t"]:
+    classifier_models = [
+        "classifier", "classifier_stm", "classifier_se", "clf_attnpl", "clf_attnpl_t",
+        "classifier_tm_s", "clf_tm_attnpl", "clf_tm_attnpl_t", "classifier_stm_s",
+        "clf_tm_cv_attnpl_t", "clf_mixer_attnpl_t"
+    ]
+    regressor_models = ["regressor", "lstm", "reg_attnpl"]
+    tpp_models = ["thp", "rtpp", "mtpp", "thp_deltat", "mhp", "btpp", "mixer_tpp"]
+
+    if args.model in classifier_models:
         from .classifier_train_step import train, validate
-    elif args.model in ["regressor","lstm","reg_attnpl"]:
+    elif args.model in regressor_models:
         from .regressor_train_step import train, validate
-    elif args.model in ["thp","rtpp","mtpp","thp_deltat","mhp","btpp","mixer_tpp"]:
+    elif args.model in tpp_models:
         from .tpp_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")

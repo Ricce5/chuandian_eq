@@ -1,4 +1,7 @@
 MambaTime step方法修正
+selective_state_update 中0被替换为(0,0), 处理None下的情况
+mixer MambaTime采样调通
+adapter缓存统计值
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -15,3 +18,7 @@ scale rope的center只对数值产生影响，因为不改变相对位置
 mini
 debug: thp不除t_max
 tpp_trainstep增加梯度裁剪
+
+
+ps
+selective_state_update 中0被替换为(0,0), 处理None下的情况

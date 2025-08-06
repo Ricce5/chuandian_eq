@@ -36,31 +36,20 @@ class MixerTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, args,base_model, hypernet_time,hypernet_mag):
+    def __init__(self, base_model, hypernet_time, hypernet_mag,dropout):
         super().__init__()
 
         self.predict_magnitude = True
         self.num_extra_features = None
-        self.context_size = args.d_model
-        self.num_components = args.num_components
-        self.register_buffer("tau_mean", torch.tensor(args.tau_mean, dtype=torch.float32))
-        self.register_buffer("tau_min", torch.tensor(args.tau_min, dtype=torch.float32))  
-        self.register_buffer("tau_max", torch.tensor(args.tau_max, dtype=torch.float32))  
-        self.register_buffer("log_tau_mean", self.tau_mean.log())
-        self.register_buffer("mag_mean", torch.tensor(args.mag_mean, dtype=torch.float32))
-        self.register_buffer("time_max", torch.tensor(args.time_max, dtype=torch.float32))
-        self.register_buffer("richter_b", torch.tensor(args.richter_b_mle, dtype=torch.float32))
-        self.register_buffer(
-            "mag_completeness", torch.tensor(args.mag_completeness, dtype=torch.float32)
-        )
         self.input_magnitude = True
         self.base_model = base_model
         self.device = self.base_model.device
-        self.base_model.input_adapter.model = self
 
         self.hypernet_time = hypernet_time
         self.hypernet_mag = hypernet_mag
-        self.dropout = nn.Dropout(p=args.dropout)
+        self.dropout = nn.Dropout(dropout)
+        self.register_buffer("richter_b", self.base_model.input_adapter.richter_b)
+        self.register_buffer("mag_completeness", self.base_model.input_adapter.mag_completeness)
 
         self.num_inputs = (
             1  # inter-event times
@@ -87,9 +76,7 @@ class MixerTPP(TPPModel):
             inference_params: Optional[InferenceParams] = None,
             ):
         """Get the current state of the model for inference."""
-        print(batch)
         current_state = self.base_model(batch, inference_params=inference_params)
-        print(current_state.shape)
         return current_state[:, -1:, :]
     
 
@@ -99,11 +86,9 @@ class MixerTPP(TPPModel):
         # Very small params may lead to numerical problems, clamp to avoid this
         # params = clamp_preserve_gradients(params, -6.0, np.inf)
         # params = clamp_preserve_gradients(params, -6.0, 6.0)
-        scale, shape, weight_logits = torch.split(
-            params,
-            [self.num_components, self.num_components, self.num_components],
-            dim=-1,
-        )
+        num_components = params.shape[-1] // 3
+        scale, shape, weight_logits = torch.split(params, [num_components, num_components, num_components], dim=-1)
+
         scale = F.softplus(scale.clamp_min(-5.0))
         shape = F.softplus(shape.clamp_min(-5.0))
         weight_logits = F.log_softmax(weight_logits, dim=-1)

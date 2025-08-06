@@ -502,6 +502,43 @@ class ClfAttnPlTBuilder(ModelBuilder):
             head=head,
             final_activation=None
         )
+    
+
+@ModelBuilder.register("clf_mixer_attnpl_t")
+class ClfMixerAttnPlTBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.input_adapters import Mixer_InputAdapterWithTime
+        from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
+        from src.models.task_model import TaskModel
+        from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
+        from src.models.heads import TaskHead
+        import torch
+
+        encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
+        adapter = Mixer_InputAdapterWithTime()
+        base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
+
+        extractor = AttentionPoolingWithTimeExtractor(
+            input_dim=args.d_model + 1,
+            hidden_dim=args.d_model,
+            device=device
+        )
+
+        head = TaskHead(
+            input_dim=args.d_model + 1,
+            output_dim=args.mlp_out,
+            head_type="mlp",
+            hidden_layers=args.mlp_hdw,
+            dropout=args.mlp_dropout,
+            device=device
+        )
+
+        return TaskModel(
+            base_model=base_model,
+            extractor=extractor,
+            head=head,
+            final_activation=None
+        )
 
 @ModelBuilder.register("lstm")
 class LSTMBuilder(ModelBuilder):
@@ -609,11 +646,11 @@ class MixerTPPBuilder(ModelBuilder):
         import torch
         import torch.nn as nn   
         encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
-        adapter = Mixer_BatchInputAdapter(model=None)
+        adapter = Mixer_BatchInputAdapter(args)
         hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
         hypernet_mag = nn.Linear(args.d_model, 1).to(device)
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
-        return MixerTPP(args,base_model, hypernet_time, hypernet_mag)
+        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout)
 
 
 @ModelBuilder.register("reg_attnpl")

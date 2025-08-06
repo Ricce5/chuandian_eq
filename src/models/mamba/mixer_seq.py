@@ -306,5 +306,10 @@ class MixerModelWrapper(nn.Module):
         
         inputs = self.input_adapter(batch)  
         out = self.encoder(**inputs, inference_params=inference_params)
+        print(inputs.keys())
+        if hasattr(inputs, "non_pad_mask"):
+            non_pad_mask = inputs["non_pad_mask"]
+            out = out * non_pad_mask
+            return out, non_pad_mask, None
         return out
     

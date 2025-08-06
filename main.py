@@ -21,93 +21,36 @@ torch.autograd.set_detect_anomaly(True)
 
 
 def get_model_and_data(args, base_path, device):
-    model_type = args.model
-    supported_models = {
-        "classifier": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-        "classifier_stm": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-         "classifier_tm_s": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-         "clf_tm_attnpl": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-          "clf_tm_attnpl_t": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-          "clf_tm_cv_attnpl_t": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-         "classifier_stm_s": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-         "classifier_se": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-        "clf_attnpl": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-        "clf_attnpl_t": {
-            "train_step_module": "src.train.classifier_train_step",
-            "data_func": "prepare_data",
-        },
-        "reg_attnpl": {
-            "train_step_module": "src.train.regressor_train_step",
-            "data_func": "prepare_data",
-        },
-         "lstm": {
-            "train_step_module": "src.train.regressor_train_step",
-            "data_func": "prepare_data_lstm",
-        },
-        "thp": {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
-        "thp_deltat":
-        {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
-         "rtpp": {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
-         "mtpp": {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
-         "mhp": {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
-        "btpp": {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
-         "mixer_tpp": {
-            "train_step_module": "src.train.tpp_train_step",
-            "data_func": "prepare_data_tpp",
-        },
+    # Map model names to their train step and data preparation functions
+    model_map = {
+        "classifier": ("src.train.classifier_train_step", prepare_data),
+        "classifier_stm": ("src.train.classifier_train_step", prepare_data),
+        "classifier_tm_s": ("src.train.classifier_train_step", prepare_data),
+        "clf_tm_attnpl": ("src.train.classifier_train_step", prepare_data),
+        "clf_tm_attnpl_t": ("src.train.classifier_train_step", prepare_data),
+        "clf_tm_cv_attnpl_t": ("src.train.classifier_train_step", prepare_data),
+        "classifier_stm_s": ("src.train.classifier_train_step", prepare_data),
+        "classifier_se": ("src.train.classifier_train_step", prepare_data),
+        "clf_attnpl": ("src.train.classifier_train_step", prepare_data),
+        "clf_attnpl_t": ("src.train.classifier_train_step", prepare_data),
+        "clf_mixer_attnpl_t": ("src.train.classifier_train_step", prepare_data),
+        "reg_attnpl": ("src.train.regressor_train_step", prepare_data),
+        "lstm": ("src.train.regressor_train_step", prepare_data_lstm),
+        "thp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "thp_deltat": ("src.train.tpp_train_step", prepare_data_tpp),
+        "rtpp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "mtpp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "mhp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "btpp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "mixer_tpp": ("src.train.tpp_train_step", prepare_data_tpp),
     }
-    if model_type not in supported_models:
-        raise ValueError(f"Unsupported model type: {model_type}. Supported models are: {', '.join(supported_models.keys())}.")
-    model_info = supported_models[model_type]
-    train_step = __import__(model_info["train_step_module"], fromlist=[''])
-    data_func = globals()[model_info["data_func"]]
-    df, train_loader, val_loader, test_loader,dataset = data_func(args, base_path)
-    return train_step,df, train_loader, val_loader, test_loader
+    model_type = args.model
+    if model_type not in model_map:
+        raise ValueError(f"Unsupported model type: {model_type}. Supported models are: {', '.join(model_map.keys())}.")
+    train_step_module, data_func = model_map[model_type]
+    train_step = importlib.import_module(train_step_module)
+    df, train_loader, val_loader, test_loader, _ = data_func(args, base_path)
+    return train_step, df, train_loader, val_loader, test_loader
 
 
 def objective(trial,args):

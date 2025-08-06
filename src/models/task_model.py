@@ -2,19 +2,7 @@ import torch
 import torch.nn as nn
 
 class TaskModel(nn.Module):
-    """
-    将 encoder + 表示提取器 + head 整合为一个完整任务模型。
-    支持分类、回归、计数等场景。
-    """
-
     def __init__(self, base_model, extractor, head, final_activation=None):
-        """
-        Args:
-            base_model: BaseModel，负责生成 encoder 输出和 mask
-            extractor: 表示提取器（从 encoder 输出中提取序列表示）
-            head: MLP 或线性分类器等任务头
-            final_activation: 可选激活函数，如 sigmoid / softplus
-        """
         super().__init__()
         self.base_model = base_model
         self.extractor = extractor

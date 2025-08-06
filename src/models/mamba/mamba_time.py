@@ -278,7 +278,6 @@ class MambaTime(nn.Module):
 
         if dt_input is not None:
             dt = self._encode_external_dt(dt_input, hidden_states.shape[0], 1, x.dtype, x.device).squeeze(-1)
-            print(dt.shape)
             delta_softplus = False
         else:
             dt = F.linear(dt, self.dt_proj.weight)  # -> (B, d_inner)

@@ -2,6 +2,7 @@ import   torch
 import  torch.nn as nn
 import src.data
 from typing import Optional
+from src.utils.mask_utils import  get_non_pad_mask
 
 class SM_T_InputAdapter:
     def __call__(self, bx):
@@ -107,9 +108,15 @@ class THP_Logdeltat_BatchInputAdapter:
         }
 
 class Mixer_BatchInputAdapter:
-    def __init__(self, model: Optional[nn.Module] = None):
-        self.model = model  # 引用 THP 模型实例
-
+    def __init__(self, args):
+        self.tau_mean = torch.tensor(args.tau_mean, dtype=torch.float32)
+        self.tau_min = torch.tensor(args.tau_min, dtype=torch.float32)
+        self.tau_max = torch.tensor(args.tau_max, dtype=torch.float32)
+        self.log_tau_mean = self.tau_mean.log()
+        self.mag_mean = torch.tensor(args.mag_mean, dtype=torch.float32)
+        self.time_max = torch.tensor(args.time_max, dtype=torch.float32)
+        self.richter_b = torch.tensor(args.richter_b_mle, dtype=torch.float32)
+        self.mag_completeness = torch.tensor(args.mag_completeness, dtype=torch.float32)
     def __call__(
         self,
         batch: src.data.Batch,
@@ -127,10 +134,7 @@ class Mixer_BatchInputAdapter:
             "input_mask": batch.input_mask.float(),
         }
         if return_inter_times:
-            print("inter_times", batch.inter_times.shape)
-            print("input_mask", batch.input_mask.shape)
             output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-            print("normalized inter_times", output["inter_times"].shape)
         if return_times:
             output["times"] = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
         return output
@@ -138,14 +142,30 @@ class Mixer_BatchInputAdapter:
     
     def normalize_log_inter_times(self, inter_times): 
         log_tau = torch.log(torch.clamp_min(inter_times, 1e-10)).unsqueeze(-1)
-        return log_tau - self.model.log_tau_mean
+        return log_tau - self.log_tau_mean
     
     def normalize_magnitude(self, mag):
-        return mag.unsqueeze(-1) - self.model.mag_mean
+        return mag.unsqueeze(-1) - self.mag_mean
     
     def normalize_inter_times(self, inter_times):
-        return (inter_times - self.model.tau_min) / (self.model.tau_max - self.model.tau_min + 1e-10)
+        return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + 1e-10)
       
 
     def normalize_arrival_times(self, arrival_times):
-        return arrival_times / self.model.tau_mean
+        return arrival_times / self.tau_mean
+    
+
+class Mixer_InputAdapterWithTime:
+    def __call__(self, bx):
+        event_time = bx[:, :, 1]
+        non_pad_mask = get_non_pad_mask(event_time)
+        return {
+            "features": bx[:, :, 2:3] * non_pad_mask,
+            "event_time": event_time * non_pad_mask.squeeze(-1),
+            "non_pad_mask": non_pad_mask
+        }
+
+    def get_extra_inputs(self, bx):
+        return {
+            "event_time": bx[:, :, 1]  
+        }
