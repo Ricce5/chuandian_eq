@@ -9,8 +9,8 @@ class TaskModel(nn.Module):
         self.head = head
         self.final_activation = final_activation
 
-    def forward(self, x):
-        enc_out, non_pad_mask,_ = self.base_model(x)
+    def forward(self, x,caches=None):
+        enc_out, non_pad_mask,_ = self.base_model(x, caches)
         extra_inputs = {}
         if hasattr(self.base_model.input_adapter, "get_extra_inputs"):
             extra_inputs = self.base_model.input_adapter.get_extra_inputs(x)

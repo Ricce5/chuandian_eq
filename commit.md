@@ -1,4 +1,5 @@
-clf_mixer_attnpl_t调通
+event loader增加delta_t
+
 
 问题
 tmp_batch 的pad与现有版本不兼容

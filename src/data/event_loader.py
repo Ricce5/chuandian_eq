@@ -77,9 +77,15 @@ def generate_single_sample(df, df_nl, t_now, Twindow, Tfore, Mf, context_len):
         future_sample = {col: quake[col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
         sample["future_dict"].append(future_sample)
 
-    for _, quake in history.iterrows():
+    history = history.reset_index(drop=True) 
+    for idx, quake in history.iterrows():
         history_sample = {col: df_nl.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
         history_sample["t_nl"] = (quake["t"] - t_now) / Twindow + 1
+        if idx == 0:  
+            history_sample["delta_t"] = 0
+        else:
+            prev_t = history.loc[idx - 1, "t"]
+            history_sample["delta_t"] = quake["t"] - prev_t
         sample["history_dict"].append(history_sample)
 
     for _, quake in context.iterrows():
@@ -104,7 +110,7 @@ def construct_samples_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t
     array_dict = {
         "history": {
             field: [extract_field_array(sample["history_dict"], field) for sample in samples_list]
-            for field in ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth"]
+            for field in ["t", "t_nl","delta_t", "Magnitude", "Latitude", "Longitude", "Depth"]
         },
         "future": {
             field: [extract_field_array(sample["future_dict"], field) for sample in samples_list]
@@ -127,7 +133,7 @@ class EventDataset(torch.utils.data.Dataset):
         self.Mf = Mf
         self.mag_min = mag_min
         self.mag_max = mag_max
-        self.data_fields = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth"]
+        self.data_fields = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth", "delta_t"]
 
         self.samples = []
         self.labels = []
