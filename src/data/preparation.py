@@ -15,7 +15,7 @@ def prepare_data(args, base_dir):
     }
     task_prefix = task_prefix_map.get(args.task_type)
     def generate_data():
-        samples_list, array_dict = loader.get_list(
+        samples_list, array_dict = loader.construct_samples_list(
             df, df_nl,
             Mc=args.Mc,
             Mf=args.Mf,

@@ -39,16 +39,12 @@ def normalize_df(df):
 
 
 
-def dict_to_array(dict_list, field):
+def extract_field_array(dict_list, field):
     values = [sample[field] for sample in dict_list]
     return np.array(values) if values else np.array([])
 
 
-def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=0):
-    if Mf is None:
-        Mf = Mc  
-    df = df[df['Magnitude'] >= Mc].copy()
-    samples_list = []
+def generate_time_array(df, Twindow, Tfore, dt, t_array=None):
     t = df["t"].values
     t.sort()
     print(f"地震事件数量（大于Mc）：{len(t)}")
@@ -58,57 +54,69 @@ def get_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, c
         if len(t_array) == 0:
             raise ValueError("t_array 不能为空")
         if np.any(t_array < t[0] + Twindow) or np.any(t_array > t[-1]):
-            print("Warning: t_array 有值超出数据时间范围")
-        Nloop = len(t_array)
-        t_array_final = t_array
+            print("⚠️ Warning: t_array 有值超出数据时间范围")
+        return t_array
     else:
         Nloop = int(np.ceil((t[-1] - t[0] - Twindow - Tfore) / dt))
-        t_array_final = Twindow + t[0] + np.arange(Nloop) * dt
+        return Twindow + t[0] + np.arange(Nloop) * dt
 
+
+def generate_single_sample(df, df_nl, t_now, Twindow, Tfore, Mf, context_len):
+    history = df[(df["t"] < t_now) & (df["t"] >= t_now - Twindow)]
+    future_shocks = df[(df["t"] >= t_now) & (df["t"] < t_now + Tfore) & (df["Magnitude"] >= Mf)]
+    context = df[(df["t"] >= t_now - context_len * Tfore) & (df["t"] < t_now + context_len * Tfore)]
+
+    sample = {
+        "history_dict": [],
+        "future_dict": [],
+        "context_dict": [],
+        "t": t_now,
+    }
+
+    for _, quake in future_shocks.iterrows():
+        future_sample = {col: quake[col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
+        sample["future_dict"].append(future_sample)
+
+    for _, quake in history.iterrows():
+        history_sample = {col: df_nl.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
+        history_sample["t_nl"] = (quake["t"] - t_now) / Twindow + 1
+        sample["history_dict"].append(history_sample)
+
+    for _, quake in context.iterrows():
+        context_sample = {col: quake[col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
+        sample["context_dict"].append(context_sample)
+
+    return sample
+
+
+def construct_samples_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=0):
+    if Mf is None:
+        Mf = Mc
+
+    df_filtered = df[df['Magnitude'] >= Mc].copy()
+    t_array_final = generate_time_array(df_filtered, Twindow, Tfore, dt, t_array)
+
+    samples_list = []
     for t_now in t_array_final:
-        history = df[(df["t"] < t_now) & (df["t"] >= t_now - Twindow)]
-        future_shocks = df[(df["t"] >= t_now) & (df["t"] < t_now + Tfore) & (df["Magnitude"] >= Mf)]   # Mf=Mc 下消除限制
-        context = df[(df["t"] >= t_now - context_len * Tfore) & (df["t"] < t_now + context_len * Tfore)]
-
-        sample_structure = {
-            "history_dict": [],
-            "future_dict": [],
-            "context_dict": [],
-            "t": t_now,
-        }
-
-        for _, quake in future_shocks.iterrows():
-            future_sample = {col: df.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
-            sample_structure["future_dict"].append(future_sample)
-
-        for _, quake in history.iterrows():
-            history_sample = {col: df_nl.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
-            history_sample["t_nl"] = (quake["t"] - t_now) / Twindow + 1
-            sample_structure["history_dict"].append(history_sample)
-
-        for _, quake in context.iterrows():
-            context_sample = {col: df.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
-            sample_structure["context_dict"].append(context_sample)
-
-        samples_list.append(sample_structure)
+        sample = generate_single_sample(df_filtered, df_nl, t_now, Twindow, Tfore, Mf, context_len)
+        samples_list.append(sample)
 
     array_dict = {
         "history": {
-            field: [dict_to_array(samples_list[i]["history_dict"], field) for i in range(len(samples_list))]
+            field: [extract_field_array(sample["history_dict"], field) for sample in samples_list]
             for field in ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth"]
         },
         "future": {
-            field: [dict_to_array(samples_list[i]["future_dict"], field) for i in range(len(samples_list))]
+            field: [extract_field_array(sample["future_dict"], field) for sample in samples_list]
             for field in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]
         },
         "context": {
-            field: [dict_to_array(samples_list[i]["context_dict"], field) for i in range(len(samples_list))]
+            field: [extract_field_array(sample["context_dict"], field) for sample in samples_list]
             for field in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]
         }
     }
 
     return samples_list, array_dict
-
 
 
 class EventDataset(torch.utils.data.Dataset):
@@ -182,7 +190,7 @@ class EventDataset(torch.utils.data.Dataset):
 
 
 
-def array_pad_t(insts, PAD):
+def pad_1d_sequences(insts, PAD):
     max_len = max(len(inst) for inst in insts)
     padded_batch = [np.pad(inst, (0, max_len - len(inst)), constant_values=PAD) for inst in insts]
     return np.stack(padded_batch)
@@ -190,7 +198,7 @@ def array_pad_t(insts, PAD):
 
 def collate_fn(instances):
     sample_tuples, target_values = zip(*instances)
-    padded_samples = [array_pad_t(sample, PAD=PAD) for sample in zip(*sample_tuples)]
+    padded_samples = [pad_1d_sequences(sample, PAD=PAD) for sample in zip(*sample_tuples)]
     padded_samples = np.array(padded_samples)
     padded_samples = torch.tensor(padded_samples, dtype=torch.float32).permute(1, 2, 0)
     padded_targets = torch.tensor(target_values, dtype=torch.float32)
@@ -265,6 +273,19 @@ def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True,
     return train_set, val_set, test_set
 
 
+
+def get_sequence_length_stats(array_dict):
+    history_times = array_dict["history"]["t"]
+    lengths = [len(seq) for seq in history_times]
+
+    if not lengths:
+        print("没有可用的序列")
+        return
+
+    print(f"序列长度 - 最小值: {min(lengths)}, 最大值: {max(lengths)}, 平均值: {sum(lengths)/len(lengths):.2f}")
+    return lengths
+
+
 def split_data(samples_list, array_dict, test_size=0.1, val_size=0.1, random_state=40, by_time=False):
     n = len(samples_list)
     indices = list(range(n))
@@ -295,13 +316,4 @@ def split_data(samples_list, array_dict, test_size=0.1, val_size=0.1, random_sta
 
     return (train_samples, train_dict), (val_samples, val_dict), (test_samples, test_dict)
 
-def get_sequence_length_stats(array_dict):
-    history_times = array_dict["history"]["t"]
-    lengths = [len(seq) for seq in history_times]
 
-    if not lengths:
-        print("没有可用的序列")
-        return
-
-    print(f"序列长度 - 最小值: {min(lengths)}, 最大值: {max(lengths)}, 平均值: {sum(lengths)/len(lengths):.2f}")
-    return lengths

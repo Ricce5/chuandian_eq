@@ -1,7 +1,4 @@
-MambaTime step方法修正
-selective_state_update 中0被替换为(0,0), 处理None下的情况
-mixer MambaTime采样调通
-adapter缓存统计值
+clf_mixer_attnpl_t调通
 
 问题
 tmp_batch 的pad与现有版本不兼容
