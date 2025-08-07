@@ -84,6 +84,7 @@ class RotaryEmbeddingTime(nn.Module):
         else:
             if update_center or self._center_cached is None:
                 self._center_cached = times.float().mean().item()
+                print(f"Updated rotary embedding center to {self._center_cached}")
             power = (times - self._center_cached) / self.scale_base
             scale = self.scale.to(device=power.device) ** rearrange(power, "... -> ... 1")
             self._cos_cached = (torch.cos(freqs) * scale).to(dtype)

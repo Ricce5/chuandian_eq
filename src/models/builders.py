@@ -507,7 +507,7 @@ class ClfAttnPlTBuilder(ModelBuilder):
 @ModelBuilder.register("clf_mixer_attnpl_t")
 class ClfMixerAttnPlTBuilder(ModelBuilder):
     def __call__(self, args, device):
-        from src.models.input_adapters import Mixer_InputAdapterWithTime
+        from src.models.input_adapters import MixerInputAdapterWithTime
         from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
         from src.models.task_model import TaskModel
         from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
@@ -515,7 +515,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         import torch
 
         encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
-        adapter = Mixer_InputAdapterWithTime()
+        adapter = MixerInputAdapterWithTime(args)
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
 
         extractor = AttentionPoolingWithTimeExtractor(

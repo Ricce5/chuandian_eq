@@ -80,3 +80,15 @@ def process_recast_catalog(csv_file, metadata_file):
     df.rename(columns={'magnitude': 'Magnitude', 'latitude': 'Latitude', 'longitude': 'Longitude', 'depth': 'Depth'}, inplace=True)
     df.to_csv(save_file, index=False)
     return df
+
+def calculate_catalog_statistics(df):
+    stats = {
+        'tau_mean': float(df['dt'].mean()),
+        'tau_max': float(df['dt'].max()),
+        'tau_min': float(df['dt'].min()),
+        'time_max': float(df['t'].max()),
+        'time_mean': float(df['t'].mean()),
+        'mag_completeness': float(df['Magnitude'].min()),
+        'mag_mean': float(df['Magnitude'].mean())
+    }
+    return stats

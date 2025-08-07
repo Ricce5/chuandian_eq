@@ -1,11 +1,14 @@
 import math
 from src.utils.file_utils import save_or_load_data
 from src.utils.catalog_utils import split_minibatches
-from src.data.preprocessing import load_and_filter_catalog
+from src.data.preprocessing import load_and_filter_catalog, calculate_catalog_statistics 
+from  omegaconf import OmegaConf
 
 def prepare_data(args, base_dir):
     import src.data.event_loader as loader
     df = load_and_filter_catalog(base_dir, Mc=args.Mc)
+    statistics = calculate_catalog_statistics(df)
+    args.stats = OmegaConf.create(statistics)
     df_nl,scalers = loader.normalize_df(df)
     args.task_type = getattr(args, "task_type", "classification")
     task_prefix_map = {
