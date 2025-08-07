@@ -1,11 +1,19 @@
 # %%
 import src
+import torch
 from src.data.preparation import prepare_data
 from config.config_loader import load_args_from_yaml 
 args= load_args_from_yaml("../config/classifier.yaml")
 base_dir = f"../data/{args.dataset}"
 # %%
 seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data(base_dir=base_dir, args=args,)
+# %%
+for x,y in train_loader:
+    break
+# %%
+x[0,:,:]
+torch.max(x[0,:,0])
+torch.min(x[0,:,0])
 # %%
 seq.inter_times
 # %%

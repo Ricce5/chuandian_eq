@@ -1,5 +1,5 @@
-实现MixerInputAdapterWithTime
-
+ 完善对RotaryEmbeddingTime的center的处理 
+ MHATime用于clf任务实现
 
 问题
 tmp_batch 的pad与现有版本不兼容

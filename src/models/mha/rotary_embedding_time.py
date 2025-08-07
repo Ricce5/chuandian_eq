@@ -33,6 +33,47 @@ def apply_rotary_emb_torch(x, cos, sin, interleaved=False):
     return torch.cat([x_rot * cos + rotate_half(x_rot, interleaved) * sin, x_pass], dim=-1)
 
 
+def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "mean") -> torch.Tensor:
+    """
+    Compute center from non-zero elements in each sample.
+    
+    Args:
+        times: (batch, seqlen) tensor
+        mode: 'mean' | 'midpoint'
+        
+    Returns:
+        (batch,) tensor of center values
+    """
+    assert mode in ["mean", "midpoint"], f"Unsupported mode: {mode}"
+
+    non_zero_mask = times != 0  # (batch, seqlen)
+    times_float = times.float()
+
+    if mode == "mean":
+        sums = (times_float * non_zero_mask).sum(dim=1)
+        counts = non_zero_mask.sum(dim=1).clamp(min=1)  # 避免除0
+        center = sums / counts
+    elif mode == "midpoint":
+        # 将非零以外的地方设为 +inf / -inf 后取 min/max
+        times_with_inf = times_float.clone()
+        times_with_inf[~non_zero_mask] = float('inf')
+        min_vals, _ = torch.min(times_with_inf, dim=1)
+
+        times_with_ninf = times_float.clone()
+        times_with_ninf[~non_zero_mask] = float('-inf')
+        max_vals, _ = torch.max(times_with_ninf, dim=1)
+
+        center = (min_vals + max_vals) / 2
+
+        # 若某一行全是0，min=inf, max=-inf，此时结果为 nan，需要额外处理
+        all_zero_mask = non_zero_mask.sum(dim=1) == 0
+        center[all_zero_mask] = 0  # 或者设为 nan、-1、其他默认值
+
+    return center
+
+
+
+
 class RotaryEmbeddingTime(nn.Module):
     def __init__(
         self,
@@ -41,6 +82,7 @@ class RotaryEmbeddingTime(nn.Module):
         interleaved: bool = False,
         scale_base: Optional[float] = None,
         time_center: Optional[float] = None,
+        center_mode:str = "dynamic",  #  'auto' | 'fixed' | 'dynamic'
         device=None,
     ):
         super().__init__()
@@ -62,6 +104,7 @@ class RotaryEmbeddingTime(nn.Module):
         self._cos_k_cached = None
         self._sin_k_cached = None
         self._center_cached = time_center if time_center is not None else None
+        self.center_mode = center_mode
 
 
     def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device, update_center: bool = False):
@@ -82,15 +125,33 @@ class RotaryEmbeddingTime(nn.Module):
             self._cos_k_cached = torch.cos(freqs).to(dtype)
             self._sin_k_cached = torch.sin(freqs).to(dtype)
         else:
-            if update_center or self._center_cached is None:
-                self._center_cached = times.float().mean().item()
-                print(f"Updated rotary embedding center to {self._center_cached}")
-            power = (times - self._center_cached) / self.scale_base
+            if self.center_mode == "fixed":
+                assert self._center_cached is not None, "Fixed center mode requires `time_center`."
+                center = self._center_cached
+
+            elif self.center_mode == "dynamic":
+                center =compute_nonzero_center_per_sample(times,'midpoint')[:, None] 
+            elif self.center_mode == "auto":
+                if self._center_cached is None:
+                    self._center_cached = compute_nonzero_center_per_sample(times)[:, None] 
+                    print(f"[RotaryEmbeddingTime] Auto-inferred center: {self._center_cached}")
+                center = self._center_cached
+
+            else:
+                raise ValueError(f"Unsupported center_mode: {self.center_mode}")
+            power = (times - center) / self.scale_base
             scale = self.scale.to(device=power.device) ** rearrange(power, "... -> ... 1")
             self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
             self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
             self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
             self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
+
+    def set_fixed_center(self, center: Union[float, torch.Tensor]):
+        if not isinstance(center, torch.Tensor):
+            center = torch.tensor(center, dtype=torch.float32)
+        assert center.dim() == 0, f"Fixed center must be scalar, got shape: {center.shape}"
+        self._center_cached = center
+
 
 
         

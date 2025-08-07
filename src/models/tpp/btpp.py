@@ -127,6 +127,7 @@ class BlockTPP(TPPModel):
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
         dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
         t_input =   batch.arrival_times * batch.input_mask/self.tau_mean
+        print(t_input.min(), t_input.max())
         hidden_states = self.input_proj(features)
         hidden_states, residual = self.block(
             hidden_states,

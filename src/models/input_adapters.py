@@ -167,10 +167,11 @@ class MixerInputAdapterWithTime:
         self.eps = 1e-10
         self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
         self.features_input_keys = getattr(args, 'features_input_keys', ['mag'])
+        self.Twindow = getattr(args, 'Twindow', None)  
 
     def __call__(self, batch_tensor):
         arrival_times = batch_tensor[:, :, 0]
-        event_times = batch_tensor[:, :, 1]
+        arrival_times_nl = batch_tensor[:,:,1]
         mag = batch_tensor[:, :, 2:3]
         inter_times = batch_tensor[:, :, -1]
         loc = batch_tensor[:, :, 3:5]
@@ -198,7 +199,7 @@ class MixerInputAdapterWithTime:
         }
 
         if "times" in self.extra_input_keys:
-            output["times"] = self.normalize_arrival_times(arrival_times) * non_pad_mask.squeeze(-1)
+            output["times"] = self.normalize_arrival_times_nl(arrival_times_nl) * non_pad_mask.squeeze(-1)
         if "inter_times" in self.extra_input_keys:
             output["inter_times"] = self.normalize_inter_times(inter_times) * non_pad_mask.squeeze(-1)
 
@@ -216,6 +217,6 @@ class MixerInputAdapterWithTime:
         log_tau = torch.log(torch.clamp_min(inter_times, self.eps)).unsqueeze(-1)
         return log_tau - self.log_tau_mean
 
-    def normalize_arrival_times(self, arrival_times):
-        return arrival_times / self.tau_mean
+    def normalize_arrival_times_nl(self, arrival_times_nl):
+        return arrival_times_nl *self.Twindow/ self.tau_mean
 
