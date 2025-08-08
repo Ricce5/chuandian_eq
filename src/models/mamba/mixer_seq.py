@@ -62,7 +62,7 @@ def create_block(
         }
         mixer_cls = partial(mixer_map[ssm_layer], layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
     else:
-        attn_cfg = copy.deepcopy(attn_cfg) if ssm_cfg is not None else {}
+        attn_cfg = copy.deepcopy(attn_cfg) if attn_cfg is not None else {}
         attn_layer = attn_cfg.pop("layer", "MHA")
         if attn_layer == "MHATime":
             mixer_cls = partial(MHATime, layer_idx=layer_idx, **attn_cfg, **factory_kwargs)
@@ -283,14 +283,6 @@ class MambaModel(nn.Module):
             hidden_states = hidden_states[:, -num_last_tokens:]
         return hidden_states
 
-class MixerModelWrapper(nn.Module):
-    def __init__(self,):
-        super().__init__()
-        self.encoder = MixerModel()
-
-    def forward(self, features_dict, inference_params=None):
-        return self.encoder(**features_dict, inference_params=inference_params)
-    
 
 class MixerModelWrapper(nn.Module):
     def __init__(self, encoder, input_adapter, device):

@@ -1,6 +1,9 @@
 import os
 import torch
 from omegaconf import OmegaConf
+from torch.optim.swa_utils import AveragedModel
+
+
 
 
 def step_scheduler(scheduler, event='epoch', val_loss=None):
@@ -50,6 +53,13 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
     scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
     return checkpoint.get('epoch', 0), checkpoint.get('best_val_loss', float('inf'))
 
+
+
+def ema_avg_fn(ema_param, model_param, num_averaged):
+    decay = 0.999
+    return ema_param * decay + model_param * (1.0 - decay)
+
+
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
 
@@ -81,6 +91,11 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     train_metrics = {}
     val_metrics = {}   
     
+    use_ema = getattr(args, 'use_ema', False)
+    ema_decay = getattr(args, 'ema_decay', 0.999)
+    
+
+
     if os.path.exists(checkpoint_path):
         print(f"Resuming training from checkpoint: {checkpoint_path}")
         start_epoch, best_val_loss = load_checkpoint(checkpoint_path, model, optimizer, scheduler, device)
