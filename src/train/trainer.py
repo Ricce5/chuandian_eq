@@ -123,7 +123,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                best_model_wts = ema_model.state_dict() if use_ema and ema_model is not None else model.state_dict()
+                best_model_wts = ema_model.module.state_dict() if use_ema and ema_model is not None else model.state_dict()
 
                 save_data = {
                     'model_state_dict': best_model_wts,
@@ -139,7 +139,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
 
             last_model_path = os.path.join(save_dir, f'last_model_{index}.pth')
             save_data_last = {
-                'model_state_dict': (ema_model.state_dict() if use_ema and ema_model is not None else model.state_dict()),
+                'model_state_dict': ema_model.module.state_dict() if use_ema and ema_model is not None else model.state_dict(),
                 'val_loss': val_loss,
                 'train_metrics': train_metrics,
                 'val_metrics': val_metrics,
