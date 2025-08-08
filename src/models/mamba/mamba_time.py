@@ -48,6 +48,7 @@ class MambaTime(nn.Module):
         dtype=None,
         eps=1e-5,
     ):
+
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.d_model = d_model

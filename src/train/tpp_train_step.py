@@ -13,7 +13,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
 
     model.train()
 
-    total_loss = 0  # cumulative event log-likelihood
+    total_loss = 0.0  # cumulative event log-likelihood
 
     optimizer.zero_grad()  # Only call once at the beginning, to initialize gradients
     step_count = 0  # 跟踪已处理的步骤数

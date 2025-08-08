@@ -10,7 +10,8 @@ thp的时间信息没有充分利用，应该加入
 是否使用mini_batch在训练和测试阶段对单位时间上的nll几乎无影响
 weibull分布数值问题
 scale rope的center只对数值产生影响，因为不改变相对位置
-
+使用fused_add_norm会导致测试集性能下降
+mamba模块使用小卷积核，大核容易过拟合，使得测试集性能不好
 
 mini
 debug: thp不除t_max
