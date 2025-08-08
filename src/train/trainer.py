@@ -55,10 +55,6 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 
 
 
-def ema_avg_fn(ema_param, model_param, num_averaged):
-    decay = 0.999
-    return ema_param * decay + model_param * (1.0 - decay)
-
 
 def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                    val_loader, save_dir, device, index=1, writer=None):
@@ -93,8 +89,14 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     
     use_ema = getattr(args, 'use_ema', False)
     ema_decay = getattr(args, 'ema_decay', 0.999)
-    
-
+   
+    if use_ema:
+        def _ema_avg_fn(ema_p, p, n):  # 把超参透传进来
+            return ema_p * ema_decay + p * (1.0 - ema_decay)
+        ema_model = AveragedModel(model, avg_fn=_ema_avg_fn).to(device)
+        print(f"Using EMA with decay {ema_decay}")
+    else:
+         ema_model = None
 
     if os.path.exists(checkpoint_path):
         print(f"Resuming training from checkpoint: {checkpoint_path}")
@@ -104,8 +106,10 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
         for epoch in range(start_epoch, args.epochs):
             print(f"Epoch {epoch + 1}\n-------------------------------")
 
-            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device,accumulation_steps)
-            val_loss, val_metrics = validate(val_loader, model, criterion, device)
+            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device,accumulation_steps, ema_model=ema_model)
+            val_loss, val_metrics = validate(val_loader, 
+                                              ema_model if use_ema and ema_model is not None else model,
+                                            criterion, device)
 
             step_scheduler(scheduler, event='epoch', val_loss=val_loss)
 
@@ -119,7 +123,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                best_model_wts = model.state_dict()
+                best_model_wts = ema_model.state_dict() if use_ema and ema_model is not None else model.state_dict()
 
                 save_data = {
                     'model_state_dict': best_model_wts,
@@ -135,7 +139,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
 
             last_model_path = os.path.join(save_dir, f'last_model_{index}.pth')
             save_data_last = {
-                'model_state_dict': model.state_dict(),
+                'model_state_dict': (ema_model.state_dict() if use_ema and ema_model is not None else model.state_dict()),
                 'val_loss': val_loss,
                 'train_metrics': train_metrics,
                 'val_metrics': val_metrics,
