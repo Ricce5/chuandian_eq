@@ -47,6 +47,7 @@ class MambaTime(nn.Module):
         device=None,
         dtype=None,
         eps=1e-5,
+        use_conv: bool = True,
     ):
 
         factory_kwargs = {"device": device, "dtype": dtype}
@@ -59,20 +60,23 @@ class MambaTime(nn.Module):
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
         self.dt_min = dt_min
         self.dt_max = dt_max
-        self.use_fast_path = False
+        self.use_conv = use_conv
         self.layer_idx = layer_idx
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
 
-        self.conv1d = nn.Conv1d(
-            in_channels=self.d_inner,
-            out_channels=self.d_inner,
-            bias=conv_bias,
-            kernel_size=d_conv,
-            groups=self.d_inner,
-            padding=d_conv - 1,
-            **factory_kwargs,
-        )
+        if self.use_conv:
+            self.conv1d = nn.Conv1d(
+                in_channels=self.d_inner,
+                out_channels=self.d_inner,
+                bias=conv_bias,
+                kernel_size=d_conv,
+                groups=self.d_inner,
+                padding=d_conv - 1,
+                **factory_kwargs,
+            )
+        else:
+            self.conv1d = None
 
         self.activation = "silu"
         self.act = nn.SiLU()
@@ -176,25 +180,10 @@ class MambaTime(nn.Module):
 
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
-        if self.use_fast_path and causal_conv1d_fn is not None and inference_params is None:  # Doesn't support outputting the states
-            out = mamba_inner_fn(
-                xz,
-                self.conv1d.weight,
-                self.conv1d.bias,
-                self.x_proj.weight,
-                self.dt_proj.weight,
-                self.out_proj.weight,
-                self.out_proj.bias,
-                A,
-                None,  # input-dependent B
-                None,  # input-dependent C
-                self.D.float(),
-                delta_bias=self.dt_proj.bias.float(),
-                delta_softplus=True,
-            )
-        else:
-            x, z = xz.chunk(2, dim=1)
-            # Compute short convolution
+
+        x, z = xz.chunk(2, dim=1)
+        # Compute short convolution
+        if self.use_conv:
             if conv_state is not None:
                 # If we just take x[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
                 # Instead F.pad will pad with zeros if seqlen < self.d_conv, and truncate otherwise.
@@ -209,46 +198,48 @@ class MambaTime(nn.Module):
                     bias=self.conv1d.bias,
                     activation=self.activation,
                 )
+        else: 
+            x = self.act(x)
 
-            # We're careful here about the layout, to avoid extra transposes.
-            # We want dt to have d as the slowest moving dimension
-            # and L as the fastest moving dimension, since those are what the ssm_scan kernel expects.
-            x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
-            dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
-            
-            # ...
+        # We're careful here about the layout, to avoid extra transposes.
+        # We want dt to have d as the slowest moving dimension
+        # and L as the fastest moving dimension, since those are what the ssm_scan kernel expects.
+        x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
+        dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
+        
+        # ...
 
-            if  inter_times is not None:
-                dt = self._encode_external_dt(inter_times, batch, seqlen, x.dtype, x.device)
-                delta_bias = None
-                delta_softplus = False  # Don't apply softplus again
-            else:
-                # Default case: dt learned from projection
-                dt = self.dt_proj.weight @ dt.t()  # (d_inner, B*L)
-                dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
-                delta_bias = self.dt_proj.bias.float()
-                delta_softplus = True
+        if  inter_times is not None:
+            dt = self._encode_external_dt(inter_times, batch, seqlen, x.dtype, x.device)
+            delta_bias = None
+            delta_softplus = False  # Don't apply softplus again
+        else:
+            # Default case: dt learned from projection
+            dt = self.dt_proj.weight @ dt.t()  # (d_inner, B*L)
+            dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
+            delta_bias = self.dt_proj.bias.float()
+            delta_softplus = True
 
-            B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
-            C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
-            assert self.activation in ["silu", "swish"]
-            y = selective_scan_fn(
-                x,
-                dt,
-                A,
-                B,
-                C,
-                self.D.float(),
-                z=z,
-                delta_bias=delta_bias,
-                delta_softplus=delta_softplus,
-                return_last_state=ssm_state is not None,
-            )
-            if ssm_state is not None:
-                y, last_state = y
-                ssm_state.copy_(last_state)
-            y = rearrange(y, "b d l -> b l d")
-            out = self.out_proj(y)
+        B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+        C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+        assert self.activation in ["silu", "swish"]
+        y = selective_scan_fn(
+            x,
+            dt,
+            A,
+            B,
+            C,
+            self.D.float(),
+            z=z,
+            delta_bias=delta_bias,
+            delta_softplus=delta_softplus,
+            return_last_state=ssm_state is not None,
+        )
+        if ssm_state is not None:
+            y, last_state = y
+            ssm_state.copy_(last_state)
+        y = rearrange(y, "b d l -> b l d")
+        out = self.out_proj(y)
         return out
 
     def step(self, hidden_states, conv_state, ssm_state, dt_input: Optional[Tensor] = None):
@@ -258,21 +249,24 @@ class MambaTime(nn.Module):
         x, z = xz.chunk(2, dim=-1)  # (B, D)
 
         # Conv step
-        if causal_conv1d_update is None:
-            conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # (B, D, W)
-            conv_state[:, :, -1] = x
-            x = torch.sum(conv_state * rearrange(self.conv1d.weight, "d 1 w -> d w"), dim=-1)
-            if self.conv1d.bias is not None:
-                x = x + self.conv1d.bias
-            x = self.act(x).to(dtype=dtype)
+        if self.use_conv:
+            if causal_conv1d_update is None:
+                conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # (B, D, W)
+                conv_state[:, :, -1] = x
+                x = torch.sum(conv_state * rearrange(self.conv1d.weight, "d 1 w -> d w"), dim=-1)
+                if self.conv1d.bias is not None:
+                    x = x + self.conv1d.bias
+                x = self.act(x).to(dtype=dtype)
+            else:
+                x = causal_conv1d_update(
+                    x,
+                    conv_state,
+                    rearrange(self.conv1d.weight, "d 1 w -> d w"),
+                    self.conv1d.bias,
+                    self.activation,
+                )
         else:
-            x = causal_conv1d_update(
-                x,
-                conv_state,
-                rearrange(self.conv1d.weight, "d 1 w -> d w"),
-                self.conv1d.bias,
-                self.activation,
-            )
+            x = self.act(x).to(dtype=dtype)
 
         x_db = self.x_proj(x)  # (B, dt_rank + 2 * d_state)
         dt, B, C = torch.split(x_db, [self.dt_rank, self.d_state, self.d_state], dim=-1)
@@ -317,10 +311,14 @@ class MambaTime(nn.Module):
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
         device = self.out_proj.weight.device
-        conv_dtype = self.conv1d.weight.dtype if dtype is None else dtype
-        conv_state = torch.zeros(
-            batch_size, self.d_model * self.expand, self.d_conv, device=device, dtype=conv_dtype
-        )
+        if self.use_conv:
+            conv_dtype = self.conv1d.weight.dtype if dtype is None else dtype
+            conv_state = torch.zeros(
+                batch_size, self.d_model * self.expand, self.d_conv, device=device, dtype=conv_dtype
+            )
+        else:
+            conv_state = None
+
         ssm_dtype = self.dt_proj.weight.dtype if dtype is None else dtype
         # ssm_dtype = torch.float32
         ssm_state = torch.zeros(
@@ -332,13 +330,17 @@ class MambaTime(nn.Module):
         assert self.layer_idx is not None
         if self.layer_idx not in inference_params.key_value_memory_dict:
             batch_shape = (batch_size,)
-            conv_state = torch.zeros(
-                batch_size,
-                self.d_model * self.expand,
-                self.d_conv,
-                device=self.conv1d.weight.device,
-                dtype=self.conv1d.weight.dtype,
-            )
+            if self.use_conv:
+                conv_state = torch.zeros(
+                    batch_size,
+                    self.d_model * self.expand,
+                    self.d_conv,
+                    device=self.conv1d.weight.device,
+                    dtype=self.conv1d.weight.dtype,
+                )
+            else:
+                conv_state = None
+
             ssm_state = torch.zeros(
                 batch_size,
                 self.d_model * self.expand,
@@ -352,6 +354,7 @@ class MambaTime(nn.Module):
             conv_state, ssm_state = inference_params.key_value_memory_dict[self.layer_idx]
             # TODO: What if batch size changes between generation, and we reuse the same states?
             if initialize_states:
-                conv_state.zero_()
+                if conv_state is not None:
+                    conv_state.zero_() 
                 ssm_state.zero_()
         return conv_state, ssm_state

@@ -19,6 +19,7 @@ model = MambaTime(
     expand=2,
     dt_rank="auto",
     layer_idx=1,  # 一定要指定 layer_idx
+    use_conv=False,
 ).to(device)
 model.eval()
 

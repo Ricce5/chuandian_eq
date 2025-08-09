@@ -1,4 +1,4 @@
-ema支持
+mamba_time的use_conv支持
 
 问题
 tmp_batch 的pad与现有版本不兼容
