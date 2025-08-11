@@ -15,7 +15,17 @@ x[0,:,:]
 torch.max(x[0,:,0])
 torch.min(x[0,:,0])
 # %%
-seq.inter_times
+for x,y in train_loader:
+    print(x[0,:,-1])
+# %%
+for x,y in train_loader:
+    print(x[0,:,0])
+# %%   
+for x,y in train_loader:
+    print(x[0,:,0])
+    print(x[0,:,-1])
+    diff = torch.diff(x[0, :, 0])
+    print(diff)
 # %%
 seq.arrival_times
 # %%

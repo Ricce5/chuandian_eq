@@ -60,6 +60,8 @@ def load_and_filter_catalog(base_dir, Mc):
     # 读取并过滤地震目录
     df = pd.read_csv(os.path.join(raw_dir, chosen_file))
     df = df[df['Magnitude'] >= Mc].reset_index(drop=True)
+    df = df.sort_values(by='t').reset_index(drop=True)
+    df['dt'] = df['t'].diff().fillna(0)
     return df
 
 

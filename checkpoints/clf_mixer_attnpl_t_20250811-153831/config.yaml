@@ -16,7 +16,7 @@ step_lr_gamma: 0.5
 
 d_model: 64
 mixer_model_config:
-  input_dim: 3
+  input_dim: 1
   dropout_prob: 0.1
   d_model: 64
   n_layer: 2                
@@ -31,7 +31,7 @@ mixer_model_config:
     layer: MHATime
     num_heads: 4
     rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
-    rotary_emb_scale_base: 1024
+    rotary_emb_scale_base: 2048
     rotary_emb_center_mode: dynamic
     # rotary_emb_time_center: 666
     causal: true
@@ -69,4 +69,4 @@ context_len: 1
 split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]
-features_input_keys : ['mag','loc'] #  'log_inter_times'
+features_input_keys : ['mag'] #  'log_inter_times'

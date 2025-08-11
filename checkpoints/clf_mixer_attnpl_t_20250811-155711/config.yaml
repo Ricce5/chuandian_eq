@@ -16,7 +16,7 @@ step_lr_gamma: 0.5
 
 d_model: 64
 mixer_model_config:
-  input_dim: 3
+  input_dim: 1
   dropout_prob: 0.1
   d_model: 64
   n_layer: 2                
@@ -58,10 +58,10 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-dataset:  ChinaArray
+dataset: ChuanDian
 seed: 0
 Mc: 3 # 4.5
-Mf: 6
+Mf: 4.5
 Twindow: 200
 Tfore: 20
 dt: 10
@@ -69,4 +69,4 @@ context_len: 1
 split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]
-features_input_keys : ['mag','loc'] #  'log_inter_times'
+features_input_keys : ['mag'] #  'log_inter_times'
