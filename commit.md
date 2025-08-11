@@ -20,3 +20,5 @@ tpp_trainstep增加梯度裁剪
 
 ps
 selective_state_update 中0被替换为(0,0), 处理None下的情况
+mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
+加载ckpt中args存在隐患，只能够覆盖，ckpt中没有的参数会保在args中
