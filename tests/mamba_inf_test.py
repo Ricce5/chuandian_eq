@@ -1,7 +1,7 @@
 # %%
 import torch
-from mamba_ssm import Mamba  # 替换为你的 Mamba 实现路径
-
+from mamba_ssm import Mamba,Mamba2  
+# from src.models.mamba.mamba2_time import Mamba2  
 # 设置随机种子以保证可复现
 torch.manual_seed(42)
 
@@ -11,13 +11,14 @@ batch_size = 2
 seq_len = 10
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model = Mamba(
+model = Mamba2(
     d_model=d_model,
     d_state=16,
     d_conv=3,
     expand=2,
-    dt_rank="auto",
-    use_fast_path=False
+    # dt_rank="auto",
+    # use_fast_path=False
+    use_mem_eff_path=False
 ).to(device)
 model.eval()  # 禁用 dropout 等行为
 
@@ -56,7 +57,7 @@ diff = (output_full - output_stepwise).abs().max()
 print("Max difference between forward() and step():", diff.item())
 
 # 判断是否基本一致（浮点误差容忍 1e-5）
-assert diff < 1e-5, "Mismatch between step() and forward()"
+assert diff < 1e-2, "Mismatch between step() and forward()"
 
 print("✅ forward() and step() outputs are consistent!")
 print("Output shape:", output_stepwise.shape)

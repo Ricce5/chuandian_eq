@@ -1,8 +1,9 @@
 # Copyright (c) 2024, Tri Dao, Albert Gu.
 
 import math
-
+from typing import Optional
 import torch
+from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -34,7 +35,7 @@ from mamba_ssm.ops.triton.ssd_combined import mamba_split_conv1d_scan_combined
 from huggingface_hub import PyTorchModelHubMixin
 
 
-class Mamba2(nn.Module, PyTorchModelHubMixin):
+class Mamba2Time(nn.Module, PyTorchModelHubMixin):
     def __init__(
         self,
         d_model,
@@ -57,7 +58,6 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
         conv_bias=True,
         # Fused kernel and sharding options
         chunk_size=256,
-        use_mem_eff_path=True,
         layer_idx=None,  # Absorb kwarg for general module
         process_group=None,
         sequence_parallel=True,
@@ -89,7 +89,7 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
         self.dt_limit = dt_limit
         self.activation = "silu"
         self.chunk_size = chunk_size
-        self.use_mem_eff_path = use_mem_eff_path
+        self.use_mem_eff_path = False
         self.layer_idx = layer_idx
 
         # Order: [z, x, B, C, dt]
@@ -150,8 +150,33 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
             self.out_proj = RowParallelLinear(self.d_inner * self.world_size, self.d_model, bias=bias,
                                               process_group=self.process_group, sequence_parallel=self.sequence_parallel,
                                               **factory_kwargs)
+        self.dt_input_proj = nn.Linear(1, self.nheads, bias=False,**factory_kwargs)
+        nn.init.uniform_(self.dt_input_proj.weight, a=0.01, b=0.1)
+    
+    def _encode_external_dt(self, dt_input: Tensor, batch: int, seqlen: int, dtype, device) -> Tensor:
+        """
+        Encodes external dt input into shape (B, d_inner, L) using bounded learnable weights.
+        """
+        if dt_input.shape != (batch, seqlen):
+            raise ValueError(f"Expected dt_input shape ({batch}, {seqlen}), got {dt_input.shape}")
 
-    def forward(self, u, seqlen=None, seq_idx=None, cu_seqlens=None, inference_params=None):
+        dt = dt_input.to(dtype=dtype, device=device).clamp_min(self.eps)  # Ensure positive dt
+        weight = self._bounded_weight_tanh(self.dt_min, self.dt_max)      # (1, d_inner)
+        dt = torch.matmul(dt.unsqueeze(-1), weight)                       # (B, L, d_inner)
+        # dt = dt.permute(0, 2, 1).contiguous()                             # (B, d_inner, L)
+        return dt
+
+
+    def _bounded_weight_tanh(self, min_val: float = 0.01, max_val: float = 1 ) -> Tensor:
+        """
+        Returns a bounded positive projection weight tensor in range [min_val, max_val].
+        """
+        raw_weight = self.dt_input_proj.weight.view(1, -1)  # (1, d_inner)
+        bounded_weight = min_val + (max_val - min_val) * 0.5 * (torch.tanh(raw_weight) + 1)
+        return bounded_weight  # (1, d_inner)
+
+
+    def forward(self, u, seqlen=None, seq_idx=None, cu_seqlens=None, inference_params=None,inter_times: Optional[Tensor] = None):
         """
         u: (batch, seqlen, hidden_dim) if seqlen=None.
             If seqlen is not None, u is (batch * seqlen, hidden_dim). This is so that when we
@@ -170,9 +195,12 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
         if inference_params is not None:
             inference_batch = cu_seqlens.shape[0] - 1 if cu_seqlens is not None else batch
             conv_state, ssm_state = self._get_states_from_cache(inference_params, inference_batch)
+            if inter_times is not None:
+                assert inter_times.shape == (batch, seqlen), \
+                    f"Expected inter_times shape ({batch}, {seqlen}), got {inter_times.shape}"
             if inference_params.seqlen_offset > 0:
                 # The states are updated inplace
-                out, _, _ = self.step(u, conv_state, ssm_state)
+                out, _, _ = self.step(u, conv_state, ssm_state, inter_times)
                 return out
 
         zxbcdt = self.in_proj(u)  # (B, L, d_in_proj) or (B * L, d_in_proj)
@@ -213,6 +241,14 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
                 [d_mlp, d_mlp, self.d_ssm, self.d_ssm + 2 * self.ngroups * self.d_state, self.nheads],
                 dim=-1
             )
+            if inter_times is not None:
+                dt = self._encode_external_dt(inter_times, batch, seqlen, x.dtype, x.device)
+                dt_softplus = False
+                dt_bias = torch.zeros_like(self.dt_bias)
+            else:
+                dt_softplus = True
+                dt_bias = self.dt_bias
+            print(dt.shape)
             if conv_state is not None:
                 if cu_seqlens is None:
                     # If we just take xBC[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
@@ -250,8 +286,8 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
                 chunk_size=self.chunk_size,
                 D=rearrange(self.D, "(h p) -> h p", p=self.headdim) if self.D_has_hdim else self.D,
                 z=rearrange(z, "b l (h p) -> b l h p", p=self.headdim) if not self.rmsnorm else None,
-                dt_bias=self.dt_bias,
-                dt_softplus=True,
+                dt_bias=dt_bias,
+                dt_softplus=dt_softplus,
                 seq_idx=seq_idx,
                 cu_seqlens=cu_seqlens,
                 **dt_limit_kwargs,
@@ -275,7 +311,7 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
             out = self.out_proj(y)
         return out
 
-    def step(self, hidden_states, conv_state, ssm_state):
+    def step(self, hidden_states, conv_state, ssm_state, dt_input: Optional[Tensor] = None):
         dtype = hidden_states.dtype
         assert hidden_states.shape[1] == 1, "Only support decoding with 1 token at a time for now"
         zxbcdt = self.in_proj(hidden_states.squeeze(1))  # (B 2D)
@@ -285,7 +321,14 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
             [d_mlp, d_mlp, self.d_ssm, self.d_ssm + 2 * self.ngroups * self.d_state, self.nheads],
             dim=-1
         )
-
+        if dt_input is not None:
+            dt = self._encode_external_dt(dt_input, hidden_states.shape[0], 1, x.dtype, x.device).squeeze(1)
+            dt_bias = torch.zeros_like(self.dt_bias)
+            dt_softplus = False
+        else:
+            dt_bias = self.dt_bias
+            dt_softplus = True
+        print(dt.shape)
         # Conv step
         if causal_conv1d_update is None:
             conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # Update state (B D W)
@@ -310,7 +353,10 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
         if selective_state_update is None:
             assert self.ngroups == 1, "Only support ngroups=1 for this inference code path"
             # Discretize A and B
-            dt = F.softplus(dt + self.dt_bias.to(dtype=dt.dtype))  # (batch, nheads)
+            if dt_softplus :
+                dt = F.softplus(dt + self.dt_bias.to(dtype=dt.dtype))  # (batch, nheads)
+            else:
+                dt = dt + dt_bias.to(dtype=dt.dtype)
             dA = torch.exp(dt * A)  # (batch, nheads)
             x = rearrange(x, "b (h p) -> b h p", p=self.headdim)
             dBx = torch.einsum("bh,bn,bhp->bhpn", dt, B, x)
@@ -323,7 +369,7 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
         else:
             A = repeat(A, "h -> h p n", p=self.headdim, n=self.d_state).to(dtype=torch.float32)
             dt = repeat(dt, "b h -> b h p", p=self.headdim)
-            dt_bias = repeat(self.dt_bias, "h -> h p", p=self.headdim)
+            dt_bias = repeat(dt_bias, "h -> h p", p=self.headdim)
             D = repeat(self.D, "h -> h p", p=self.headdim)
             B = rearrange(B, "b (g n) -> b g n", g=self.ngroups)
             C = rearrange(C, "b (g n) -> b g n", g=self.ngroups)
@@ -332,7 +378,7 @@ class Mamba2(nn.Module, PyTorchModelHubMixin):
                 z = rearrange(z, "b (h p) -> b h p", p=self.headdim)
             y = selective_state_update(
                 ssm_state, x_reshaped, dt, A, B, C, D, z=z if not self.rmsnorm else None,
-                dt_bias=dt_bias, dt_softplus=True
+                dt_bias=dt_bias, dt_softplus=dt_softplus
             )
             y = rearrange(y, "b h p -> b (h p)")
         if self.rmsnorm:

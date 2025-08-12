@@ -1,5 +1,6 @@
 import torch
-from mamba_ssm import Mamba2
+# from mamba_ssm import Mamba2
+from src.models.mamba.mamba2_time import Mamba2
 model = Mamba2(
     d_model=512,  # 隐藏层维度
     d_state=128,  # 状态空间维度
@@ -9,7 +10,8 @@ model = Mamba2(
     headdim=64,  # 头维度
     rmsnorm=True,  # 是否使用 RMSNorm
     chunk_size=256,  # 分块大小
-    device='cuda'  # 使用 CUDA
+    device='cuda',  # 使用 CUDA
+    use_mem_eff_path=False
 )
 import torch
 
