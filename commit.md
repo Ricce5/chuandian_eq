@@ -1,4 +1,5 @@
-
+Mamba2Time
+Mixer_BatchInputAdapter更改，兼容配置输入
 
 问题
 tmp_batch 的pad与现有版本不兼容

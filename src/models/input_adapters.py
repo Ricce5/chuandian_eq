@@ -117,28 +117,39 @@ class Mixer_BatchInputAdapter:
         self.time_max = torch.tensor(args.time_max, dtype=torch.float32)
         self.richter_b = torch.tensor(args.richter_b_mle, dtype=torch.float32)
         self.mag_completeness = torch.tensor(args.mag_completeness, dtype=torch.float32)
+        self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
+        # Sort feature keys to make order-insensitive
+        self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['log_inter_times','mag']))
+
     def __call__(
         self,
         batch: src.data.Batch,
-        return_inter_times: bool = True,
-        return_times: bool = True,
-        include_log_time: bool = True
     ) -> dict:
-        components = []
-        if include_log_time:
-            components.append(self.normalize_log_inter_times(batch.inter_times))
-        components.append(self.normalize_magnitude(batch.mag))
-        features = torch.cat(components, dim=-1).contiguous()
+
+        features_parts = []
+        for key in self.features_input_keys:
+            if key == "log_inter_times":
+                log_inter_times = self.normalize_log_inter_times(batch.inter_times)
+                features_parts.append(log_inter_times)
+            elif key == "mag":
+                mag = self.normalize_magnitude(batch.mag)
+                features_parts.append(mag)
+            elif key == "loc":
+                features_parts.append(batch.loc.unsqueeze(-1))
+            else:
+                raise ValueError(f"Unsupported feature key: {key}")
+        features = torch.cat(features_parts, dim=-1).contiguous()
+       
         output = {
             "features": features * batch.input_mask[:, :, None],
             "input_mask": batch.input_mask.float(),
         }
-        if return_inter_times:
+        if "times" in self.extra_input_keys:
             output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-        if return_times:
+        if "inter_times" in self.extra_input_keys:
             output["times"] = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
+        # print(f"features {torch.sum(features)}, inter_times {torch.sum(output.get('inter_times'))}, times {torch.sum(output.get('times'))}")
         return output
-
     
     def normalize_log_inter_times(self, inter_times): 
         log_tau = torch.log(torch.clamp_min(inter_times, 1e-10)).unsqueeze(-1)
@@ -153,7 +164,6 @@ class Mixer_BatchInputAdapter:
 
     def normalize_arrival_times(self, arrival_times):
         return arrival_times / self.tau_mean
-    
 
 
 
@@ -166,7 +176,7 @@ class MixerInputAdapterWithTime:
         self.log_tau_mean = self.tau_mean.log()
         self.eps = 1e-10
         self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
-        self.features_input_keys = getattr(args, 'features_input_keys', ['mag'])
+        self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['mag']))
         self.Twindow = getattr(args, 'Twindow', None)  
 
     def __call__(self, batch_tensor):

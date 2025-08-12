@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2):
+def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2, ema_model =None):
     """Epoch operation in training phase."""
     import numpy as np
     from tqdm import tqdm

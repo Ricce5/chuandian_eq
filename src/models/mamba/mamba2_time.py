@@ -63,6 +63,7 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
         sequence_parallel=True,
         device=None,
         dtype=None,
+        eps = 1e-5
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -91,6 +92,9 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
         self.chunk_size = chunk_size
         self.use_mem_eff_path = False
         self.layer_idx = layer_idx
+        self.dt_min = dt_min
+        self.dt_max = dt_max
+        self.eps = eps
 
         # Order: [z, x, B, C, dt]
         d_in_proj = 2 * self.d_inner + 2 * self.ngroups * self.d_state + self.nheads
@@ -184,6 +188,7 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
             (in case batch is small).
         Returns: same shape as u
         """
+        assert inter_times is not  None, f"Expected inter_times is not None"
         seqlen_og = seqlen
         if seqlen is None:
             batch, seqlen, dim = u.shape
@@ -242,13 +247,13 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
                 dim=-1
             )
             if inter_times is not None:
-                dt = self._encode_external_dt(inter_times, batch, seqlen, x.dtype, x.device)
+                dt = self._encode_external_dt(inter_times, batch, seqlen, z.dtype, z.device)
                 dt_softplus = False
                 dt_bias = torch.zeros_like(self.dt_bias)
             else:
                 dt_softplus = True
                 dt_bias = self.dt_bias
-            print(dt.shape)
+                
             if conv_state is not None:
                 if cu_seqlens is None:
                     # If we just take xBC[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
@@ -312,6 +317,7 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
         return out
 
     def step(self, hidden_states, conv_state, ssm_state, dt_input: Optional[Tensor] = None):
+        assert dt_input is not None, f"Expected dt_input is not None"
         dtype = hidden_states.dtype
         assert hidden_states.shape[1] == 1, "Only support decoding with 1 token at a time for now"
         zxbcdt = self.in_proj(hidden_states.squeeze(1))  # (B 2D)
@@ -322,13 +328,13 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
             dim=-1
         )
         if dt_input is not None:
-            dt = self._encode_external_dt(dt_input, hidden_states.shape[0], 1, x.dtype, x.device).squeeze(1)
+            dt = self._encode_external_dt(dt_input, hidden_states.shape[0], 1, z.dtype, z.device).squeeze(1)
             dt_bias = torch.zeros_like(self.dt_bias)
             dt_softplus = False
         else:
             dt_bias = self.dt_bias
             dt_softplus = True
-        print(dt.shape)
+ 
         # Conv step
         if causal_conv1d_update is None:
             conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # Update state (B D W)
@@ -354,7 +360,7 @@ class Mamba2Time(nn.Module, PyTorchModelHubMixin):
             assert self.ngroups == 1, "Only support ngroups=1 for this inference code path"
             # Discretize A and B
             if dt_softplus :
-                dt = F.softplus(dt + self.dt_bias.to(dtype=dt.dtype))  # (batch, nheads)
+                dt = F.softplus(dt + dt_bias.to(dtype=dt.dtype))  # (batch, nheads)
             else:
                 dt = dt + dt_bias.to(dtype=dt.dtype)
             dA = torch.exp(dt * A)  # (batch, nheads)
