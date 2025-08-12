@@ -23,11 +23,11 @@ mixer_model_config:
   d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
   attn_layer_idx: []
   ssm_cfg:
-      layer: MambaTime
-      d_conv: 2
+      layer: Mamba2
+      d_conv: 4
       # dt_rank: 1
       # use_conv: true
-      # use_mem_eff_path: false
+      use_mem_eff_path: false
 
   attn_cfg:
     layer: MHATime
@@ -60,14 +60,14 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-dataset: QTMSanJacinto
+dataset: White
 seed: 0
 Mc: 0.6 # 4.5
-Mf: 3.5
+Mf: 4.5
 Twindow: 150
 Tfore: 75
 dt: 5
-context_len: 0
+context_len: 1
 split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]
