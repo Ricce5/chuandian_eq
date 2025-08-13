@@ -5,41 +5,62 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
+from torch.nn.utils import clip_grad_norm_
+from contextlib import nullcontext
+from torch import amp
 
-def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2, ema_model =None):
-    """Epoch operation in training phase."""
-    import numpy as np
-    from tqdm import tqdm
+def train(data_loader, model, criterion, optimizer, scheduler, device,
+          accumulation_steps=2, ema_model=None, use_amp=False, max_grad_norm=3.0, pbar_desc='Training'):
+    """
+    兼容“batch是整体对象”的训练循环：
+      - 计算方式：loss = model.nll_loss(batch).mean()
+      - 支持 AMP（autocast + GradScaler）
+      - 支持梯度累积与最后一个尾步
+      - 每个优化步后可选 EMA 同步与 scheduler 的 batch 级步进
+    """
 
     model.train()
+    total_loss = 0.0
+    step_in_accum = 0
+    backend = device.type  # “cuda” 或 “cpu”
+    scaler = amp.GradScaler(backend, enabled=(backend == 'cuda' and use_amp))
+    amp_ctx = (torch.autocast(device_type='cuda', dtype=torch.bfloat16)
+               if (device.type == 'cuda' and use_amp) else nullcontext())
 
-    total_loss = 0.0  # cumulative event log-likelihood
+    optimizer.zero_grad(set_to_none=True)  # 更省内存/更快；与官方建议一致。:contentReference[oaicite:2]{index=2}
 
-    optimizer.zero_grad()  # Only call once at the beginning, to initialize gradients
-    step_count = 0  # 跟踪已处理的步骤数
-    for batch in tqdm(data_loader, desc='Training'):
-        batch = batch.to(device)  # Move the entire batch to device
+    for i, batch in enumerate(tqdm(data_loader, desc=pbar_desc)):
+        batch = batch.to(device)
 
-        loss  = model.nll_loss(batch).mean()  
-        loss = loss/accumulation_steps  
-        loss.backward()  # Accumulate gradients
+        with amp_ctx:
+            loss = model.nll_loss(batch).mean()
 
-        # Accumulate loss
-        total_loss += loss.item() * accumulation_steps
-    
-        # If accumulation_steps have been completed, update the model
-        step_count += 1
-        if  step_count % accumulation_steps == 0 or  step_count  == len(data_loader):  # Update after every 'accumulation_steps' batches
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
-            optimizer.step()  # Perform parameter update
-            optimizer.zero_grad()  # Clear gradients for the next accumulation
-            step_scheduler(scheduler, event='batch')  # Update scheduler
+        loss_to_backward = loss / accumulation_steps
+        scaler.scale(loss_to_backward).backward()
+        total_loss += loss.item()
+
+        step_in_accum += 1
+        is_update_step = (step_in_accum % accumulation_steps == 0) or (i == len(data_loader) - 1)
+
+        if is_update_step:
+            scaler.unscale_(optimizer)
+            clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad(set_to_none=True)  # 下一轮前清梯度。:contentReference[oaicite:5]{index=5}
+            step_scheduler(scheduler, event='batch')
+
+            if ema_model is not None:
+                ema_model.update_parameters(model)
+
+            if device.type == 'cuda':
+                torch.cuda.synchronize()
 
     metrics = {
-        'avg_nll': total_loss/len(data_loader),  # Average event log-likelihood
+        'avg_nll': total_loss / len(data_loader)
     }
     log_metrics(metrics, prefix="Training")
-
     return total_loss, metrics
 
 

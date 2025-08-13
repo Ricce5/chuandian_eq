@@ -120,6 +120,7 @@ class Mixer_BatchInputAdapter:
         self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
         # Sort feature keys to make order-insensitive
         self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['log_inter_times','mag']))
+        self.by_token = getattr(args, 'normalize_time_by_token', False)
 
     def __call__(
         self,
@@ -145,9 +146,9 @@ class Mixer_BatchInputAdapter:
             "input_mask": batch.input_mask.float(),
         }
         if "times" in self.extra_input_keys:
-            output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
+            output["times"] = self.normalize_arrival_times(batch.arrival_times, self.by_token) * batch.input_mask
         if "inter_times" in self.extra_input_keys:
-            output["times"] = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
+            output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
         return output
     
     def normalize_log_inter_times(self, inter_times): 
@@ -161,9 +162,11 @@ class Mixer_BatchInputAdapter:
         return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + 1e-10)
       
 
-    def normalize_arrival_times(self, arrival_times):
-        # return (arrival_times-arrival_times[:,0:1])  /self.tau_mean
-        return arrival_times 
+    def normalize_arrival_times(self, arrival_times, by_token=False): 
+        if by_token:
+            return (arrival_times - arrival_times[:, 0:1]) / self.tau_mean
+        else:
+            return arrival_times - arrival_times[:, 0:1]
 
 
 
