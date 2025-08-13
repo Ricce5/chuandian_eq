@@ -15,7 +15,7 @@ scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
 scheduler_min_lr: 1e-6
-scheduler_type:  step_warmup
+scheduler_type: 
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
@@ -29,18 +29,15 @@ mixer_model_config:
   d_intermediate: 64        # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
   attn_layer_idx: []
   ssm_cfg:
-      layer: Mamba2Rotary           # 必须存在，用于选择使用 Mamba1
+      layer: MambaTime           # 必须存在，用于选择使用 Mamba1
       d_conv: 2
-      rotary_emb_scale_base: 1024
-      rotary_emb_center_mode: dynamic
 
   attn_cfg:
     layer: MHATime
     num_heads: 4
     rotary_emb_dim: 4   # 一般为 d_model // num_heads // 2
-    rotary_emb_scale_base: 2048
-    rotary_emb_center_mode: dynamic
-    # rotary_emb_time_center: 
+    rotary_emb_scale_base: 1024
+    rotary_emb_time_center: dynamic
     causal: true
 
   norm_epsilon: 1e-5
@@ -59,7 +56,7 @@ num_components: 32
 
 # 其他参数
 dim: 1
-epochs: 300
+epochs: 500
 save_dir: null
 cuda_id: "0"
 

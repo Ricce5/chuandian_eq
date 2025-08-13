@@ -33,7 +33,7 @@ def apply_rotary_emb_torch(x, cos, sin, interleaved=False):
     return torch.cat([x_rot * cos + rotate_half(x_rot, interleaved) * sin, x_pass], dim=-1)
 
 
-def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "mean") -> torch.Tensor:
+def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "midpoint") -> torch.Tensor:
     """
     Compute center from non-zero elements in each sample.
     
@@ -58,11 +58,11 @@ def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "mean") -
         times_with_inf = times_float.clone()
         times_with_inf[~non_zero_mask] = float('inf')
         min_vals, _ = torch.min(times_with_inf, dim=1)
-
+        # print(min_vals)
         times_with_ninf = times_float.clone()
         times_with_ninf[~non_zero_mask] = float('-inf')
         max_vals, _ = torch.max(times_with_ninf, dim=1)
-
+        # print(max_vals)
         center = (min_vals + max_vals) / 2
 
         # 若某一行全是0，min=inf, max=-inf，此时结果为 nan，需要额外处理
@@ -136,7 +136,6 @@ class RotaryEmbeddingTime(nn.Module):
                     self._center_cached = compute_nonzero_center_per_sample(times)[:, None] 
                     print(f"[RotaryEmbeddingTime] Auto-inferred center: {self._center_cached}")
                 center = self._center_cached
-
             else:
                 raise ValueError(f"Unsupported center_mode: {self.center_mode}")
             power = (times - center) / self.scale_base
@@ -196,6 +195,11 @@ class RotaryEmbeddingTime(nn.Module):
                 return qkv_rot
         else:
             q = apply_rotary_emb_torch(qkv, self._cos_cached, self._sin_cached, self.interleaved)
-            kv_rot = kv.clone()
-            kv_rot[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
+            if kv.dim() == 5:
+                kv_rot = kv.clone()
+                kv_rot[:, :, 0] = apply_rotary_emb_torch(kv[:, :, 0], self._cos_k_cached, self._sin_k_cached, self.interleaved)
+            if kv.dim() == 4:
+                kv_rot = kv.clone()
+                kv_rot = apply_rotary_emb_torch(kv, self._cos_k_cached, self._sin_k_cached, self.interleaved)
             return q, kv_rot
+    

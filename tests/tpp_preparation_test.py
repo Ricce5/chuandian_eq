@@ -2,7 +2,7 @@
 import src
 from src.data.preparation import prepare_data_tpp
 from config.config_loader import load_args_from_yaml 
-args= load_args_from_yaml("../config/thp.yaml")
+args= load_args_from_yaml("../config/mixer_tpp.yaml")
 base_dir = f"../data/{args.dataset}"
 # %%
 seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data_tpp(base_dir=base_dir, args=args,)
@@ -11,9 +11,11 @@ seq.inter_times
 # %%
 seq.arrival_times
 # %%
+import torch
 for batch in train_loader:
-    print(batch)
-    break
+    print(batch.arrival_times[:,0])
+    print(torch.max(batch.arrival_times,dim=1)[0])
+    
 # %%
 batch.input_mask.shape
 # %%

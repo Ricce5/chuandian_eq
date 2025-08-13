@@ -17,6 +17,7 @@ from mamba_ssm.modules.mamba2 import Mamba2
 from src.models.mha.mha import MHA
 from src.models.mamba.mamba_time import MambaTime
 from src.models.mamba.mamba2_time import Mamba2Time  
+from src.models.mamba.mamba2_rotary import Mamba2Rotary
 from src.models.mha.mha_time import MHATime
 from mamba_ssm.modules.mlp import GatedMLP
 from src.models.mamba.block import Block
@@ -54,13 +55,14 @@ def create_block(
         # Create a copy of the config to modify
         ssm_cfg = copy.deepcopy(ssm_cfg) if ssm_cfg is not None else {}
         ssm_layer = ssm_cfg.pop("layer", "Mamba1")
-        if ssm_layer not in {"Mamba1", "Mamba2", "MambaTime","Mamba2Time"}:
+        if ssm_layer not in {"Mamba1", "Mamba2", "MambaTime","Mamba2Time","Mamba2Rotary"}:
             raise ValueError(f"Invalid ssm_layer: {ssm_layer}")
         mixer_map = {
             "Mamba1": Mamba,
             "Mamba2": Mamba2,
             "MambaTime": MambaTime,
             "Mamba2Time": Mamba2Time,
+            "Mamba2Rotary": Mamba2Rotary,
         }
         mixer_cls = partial(mixer_map[ssm_layer], layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
     else:

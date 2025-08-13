@@ -148,7 +148,6 @@ class Mixer_BatchInputAdapter:
             output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
         if "inter_times" in self.extra_input_keys:
             output["times"] = self.normalize_arrival_times(batch.arrival_times) * batch.input_mask
-        # print(f"features {torch.sum(features)}, inter_times {torch.sum(output.get('inter_times'))}, times {torch.sum(output.get('times'))}")
         return output
     
     def normalize_log_inter_times(self, inter_times): 
@@ -163,7 +162,8 @@ class Mixer_BatchInputAdapter:
       
 
     def normalize_arrival_times(self, arrival_times):
-        return arrival_times / self.tau_mean
+        # return (arrival_times-arrival_times[:,0:1])  /self.tau_mean
+        return arrival_times 
 
 
 
