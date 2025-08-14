@@ -1,6 +1,4 @@
-修正tpp的arrival_time归一化(减去起始时间)
-mamba2Rotary实现
-tpp_train_step优化
+
 
 问题
 tmp_batch 的pad与现有版本不兼容
