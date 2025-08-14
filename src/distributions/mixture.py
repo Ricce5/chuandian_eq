@@ -56,3 +56,5 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  # 混合分布�
 
             samples = torch.gather(comp_samples, gather_dim, mix_sample_r) # torch.gather 在第 gather_dim 维度上按照 mix_sample_r 中的索引提取出我们想要的 component 的样本
             return samples.squeeze(gather_dim)
+
+    
