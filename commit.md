@@ -1,4 +1,5 @@
-补充关于tau的更多统计量
+mixer_tpp加入震级预测选项
+tpp_m_train_step
 
 问题
 tmp_batch 的pad与现有版本不兼容

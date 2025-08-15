@@ -650,7 +650,8 @@ class MixerTPPBuilder(ModelBuilder):
         hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
         hypernet_mag = nn.Linear(args.d_model, 1).to(device)
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
-        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout)
+        predict_b = getattr(args, 'predict_b', False)   
+        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,predict_b=predict_b)
 
 
 @ModelBuilder.register("reg_attnpl")

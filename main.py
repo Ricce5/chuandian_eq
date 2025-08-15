@@ -42,7 +42,7 @@ def get_model_and_data(args, base_path, device):
         "mtpp": ("src.train.tpp_train_step", prepare_data_tpp),
         "mhp": ("src.train.tpp_train_step", prepare_data_tpp),
         "btpp": ("src.train.tpp_train_step", prepare_data_tpp),
-        "mixer_tpp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "mixer_tpp": ("src.train.tpp_m_train_step", prepare_data_tpp),
     }
     model_type = args.model
     if model_type not in model_map:
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         checkpoint_path = f"{args.save_dir}/best_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
-        # args.minibatch_training = False
+        args.minibatch_training = False
         args.load_specific_parts = None
         args.use_sampler = False
         args.model = args.model.lower()

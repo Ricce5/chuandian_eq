@@ -65,14 +65,17 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
         "clf_tm_cv_attnpl_t", "clf_mixer_attnpl_t"
     ]
     regressor_models = ["regressor", "lstm", "reg_attnpl"]
-    tpp_models = ["thp", "rtpp", "mtpp", "thp_deltat", "mhp", "btpp", "mixer_tpp"]
-
+    tpp_models = ["thp", "rtpp", "mtpp", "thp_deltat", "mhp", "btpp"]
+    tpp_m_models = ["mixer_tpp"]
+    print(args.model)
     if args.model in classifier_models:
         from .classifier_train_step import train, validate
     elif args.model in regressor_models:
         from .regressor_train_step import train, validate
     elif args.model in tpp_models:
         from .tpp_train_step import train, validate
+    elif args.model in tpp_m_models:
+        from .tpp_m_train_step import train, validate
     else:
         raise ValueError(f"Unsupported model class: {args.model}")
 

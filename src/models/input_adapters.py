@@ -184,18 +184,19 @@ class MixerInputAdapterWithTime:
         self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
         self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['mag']))
         self.Twindow = getattr(args, 'Twindow', None)  
-        self.by_token = getattr(args, 'normalize_time_by_token', False)
+        self.normalize_time = getattr(args, 'normalize_time_by_token', False)
         # 兼容直接传入 time_scale_base 或通过 key 查找
-        if hasattr(args, 'time_scale_base') and args.time_scale_base is not None:
-            self.time_scale_base = torch.tensor(args.time_scale_base, dtype=torch.float32)
-            print(f"using time scale base {self.time_scale_base} (from args.time_scale_base)")
-        else:
-            key = getattr(args, 'time_scale_base_key', 'tau_unfiltered')
-            self.time_scale_base = torch.tensor(
-            args.stats.get(key, 1.0),
-            dtype=torch.float32
-            )
-            print(f"using time scale base {self.time_scale_base} (key: {key})")
+        if self.normalize_time:
+            if hasattr(args, 'time_scale_base') and args.time_scale_base is not None:
+                self.time_scale_base = torch.tensor(args.time_scale_base, dtype=torch.float32)
+                print(f"using time scale base {self.time_scale_base} (from args.time_scale_base)")
+            else:
+                key = getattr(args, 'time_scale_base_key', 'tau_unfiltered')
+                self.time_scale_base = torch.tensor(
+                args.stats.get(key, 1.0),
+                dtype=torch.float32
+                )
+                print(f"using time scale base {self.time_scale_base} (key: {key})")
     def __call__(self, batch_tensor):
         arrival_times = batch_tensor[:, :, 0]
         arrival_times_nl = batch_tensor[:,:,1]
@@ -226,7 +227,7 @@ class MixerInputAdapterWithTime:
         }
 
         if "times" in self.extra_input_keys:
-            output["times"] = self.normalize_arrival_times_nl(arrival_times_nl, self.by_token) * non_pad_mask.squeeze(-1)
+            output["times"] = self.normalize_arrival_times_nl(arrival_times_nl, self.normalize_time) * non_pad_mask.squeeze(-1)
         if "inter_times" in self.extra_input_keys:
             output["inter_times"] = self.normalize_inter_times(inter_times) * non_pad_mask.squeeze(-1)
 

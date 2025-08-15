@@ -23,7 +23,6 @@ class MixerTPP(TPPModel):
 
     Args:
         input_magnitude: Should magnitude be used as model input?
-        predict_magnitude: Should the model predict the magnitude?
         num_extra_features: Number of extra features to use as input.
         context_size: Size of the RNN hidden state.
         num_components: Number of mixture components in the output distribution.
@@ -36,10 +35,11 @@ class MixerTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, base_model, hypernet_time, hypernet_mag,dropout):
+    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, predict_b):
         super().__init__()
 
-        self.predict_magnitude = True
+        device = next(base_model.parameters()).device
+        dtype = next(base_model.parameters()).dtype
         self.num_extra_features = None
         self.input_magnitude = True
         self.base_model = base_model
@@ -48,15 +48,17 @@ class MixerTPP(TPPModel):
         self.hypernet_time = hypernet_time
         self.hypernet_mag = hypernet_mag
         self.dropout = nn.Dropout(dropout)
-        self.register_buffer("richter_b", self.base_model.input_adapter.richter_b)
-        self.register_buffer("mag_completeness", self.base_model.input_adapter.mag_completeness)
+        rb = torch.as_tensor(self.base_model.input_adapter.richter_b, device=device, dtype=dtype)
+        mc = torch.as_tensor(self.base_model.input_adapter.mag_completeness, device=device, dtype=dtype)
+        self.register_buffer("richter_b", rb)
+        self.register_buffer("mag_completeness", mc)
 
         self.num_inputs = (
             1  # inter-event times
             + int(self.input_magnitude)  # magnitude features 取true或false
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
-
+        self.predict_b = predict_b
 
     def get_context(self, batch, inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
@@ -103,46 +105,100 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
 
-    def get_magnitude_dist(self, context):
-        log_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
-        b = self.richter_b * torch.ones_like(log_rate)
-        mag_min = self.mag_completeness * torch.ones_like(log_rate)
-        return dist.GutenbergRichter(b=b, mag_min=mag_min)
+    def get_magnitude_dist(self, context, predict_b=False):
+        if predict_b:
+            b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+            b_min, b_max = 0.5, 2.0
+            b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_raw)
+        else:
+            b_pred = context.new_full(context.shape[:2], float(self.richter_b))
 
-    def nll_loss(self, batch: src.data.Batch) -> torch.Tensor:
+        mag_min = context.new_full(context.shape[:2], float(self.mag_completeness))
+        return dist.GutenbergRichter(b=b_pred, mag_min=mag_min)
+
+
+
+    def nll_loss(
+        self,
+        batch: src.data.Batch,
+        *,
+        predict_b: bool = False,       # True=预测 b，False=常数 b（仍计算震级似然）
+        mag_weight: float = 1.0,       # 震级似然权重
+        reduction: str = "per_time",   # "sum" | "mean" | "per_event" | "per_time" | "none"
+        eps: float = 1e-10,
+    ):
         """
-        Compute negative log-likelihood (NLL) for a batch of event sequences.
-
-        Args:
-            batch: Batch of padded event sequences.
-
+        分别返回时间NLL、震级NLL和加权总NLL。
         Returns:
-            nll: NLL of each sequence, shape (batch_size,)
+            dict(time=..., mag=..., total=...)  # 张量或标量，取决于 reduction
         """
-        context = self.get_context(batch)  # (B, L, C)
-        # Inter-event times
-        inter_time_dist = self.get_inter_time_dist(context)
-        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # (B, L) 避免0处概率为0
-        log_like = (log_pdf * batch.nll_event_mask).sum(-1) # 对nll区间的事件，上次事件到当前事件的时间间隔的对数概率
-        # Survival time from last event until t_end
-        arange = torch.arange(batch.batch_size)
-        last_surv_context = context[arange, batch.end_idx, :] # end_idx对应生存时间
-        last_surv_dist = self.get_inter_time_dist(last_surv_context)
-        last_log_surv = last_surv_dist.log_survival(
-            batch.inter_times[arange, batch.end_idx]
-        )
-        log_like = log_like + last_log_surv.squeeze(-1)  # (B,)
+        if predict_b is None:
+            predict_b = self.predict_b
+        device = batch.inter_times.device
 
-        # Remove survival time from t_prev to t_nll_start  # 对第一个事件，计算条件概率，条件是在t_nll_start-t_prev存活
+        def _reduce(x, reduction: str):
+            # x: (B,)
+            if reduction == "sum":
+                return x.sum()
+            elif reduction == "mean":
+                return x.mean()
+            elif reduction == "per_event":
+                num_events = batch.nll_event_mask.sum(-1)  # (B,)
+                return (x / num_events.clamp_min(1)).to(x.dtype)
+            elif reduction == "per_time":
+                span = (batch.t_end - batch.t_nll_start)  # (B,)
+                return (x / span.clamp_min(eps)).to(x.dtype)
+            elif reduction == "none":
+                return x  # (B,)
+            else:
+                raise ValueError(f"Unknown reduction: {reduction}")
+
+        # ---------- Context ----------
+        context = self.get_context(batch)  # (B, L, C)
+
+        # ---------- Time part ----------
+        inter_time_dist = self.get_inter_time_dist(context)
+        log_pdf_time = inter_time_dist.log_prob(batch.inter_times.clamp_min(eps))  # (B, L)
+        log_like_time = (log_pdf_time * batch.nll_event_mask).sum(-1)  # (B,)
+
+        # last survival
+        arange = torch.arange(batch.batch_size, device=device)
+        last_surv_context = context[arange, batch.end_idx, :]         # (B, C)
+        last_surv_dist = self.get_inter_time_dist(last_surv_context)  # batched
+        last_surv_time = batch.inter_times[arange, batch.end_idx].clamp_min(eps)
+        last_log_surv = last_surv_dist.log_survival(last_surv_time).squeeze(-1)  # (B,)
+        log_like_time = log_like_time + last_log_surv
+
+        # subtract survival from t_prev to t_nll_start
         if torch.any(batch.t_nll_start != batch.t_start):
             prev_surv_context = context[arange, batch.start_idx, :]
             prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (       # nll区间上一个事件到nll区间开始时间
+            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
-            prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
-            log_like = log_like - prev_log_surv
-        return -log_like / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+            prev_log_surv = prev_surv_dist.log_survival(prev_surv_time.clamp_min(eps)).squeeze(-1)
+            log_like_time = log_like_time - prev_log_surv
+
+        nll_time = -log_like_time  # (B,)
+
+        # ---------- Magnitude part ----------
+        mag_dist = self.get_magnitude_dist(context, predict_b=predict_b)
+        mags = batch.mag.clamp_min(getattr(self, "mag_completeness", 0.0) - 1e-6)
+        log_pdf_mag = mag_dist.log_prob(mags)  # (B, L)
+        log_like_mag = (log_pdf_mag * batch.nll_event_mask).sum(-1)  # (B,)
+        nll_mag = -log_like_mag  # (B,)
+
+        # ---------- Combine ----------
+        nll_total = nll_time + mag_weight * nll_mag  # (B,)
+
+        # ---------- Reductions (same rule for all) ----------
+        out = {
+            "time": _reduce(nll_time, reduction),
+            "mag":  _reduce(nll_mag,  reduction),
+            "total": _reduce(nll_total, reduction),
+        }
+        return out
+
 
 
     @torch.inference_mode()
@@ -153,9 +209,11 @@ class MixerTPP(TPPModel):
         t_start: float = 0.0,
         past_seq: Optional[src.data.Sequence] = None,
         return_sequences: bool = False,
+        predict_b: bool = False,
     ) -> Union[src.data.Batch, List[src.data.Sequence]]:
-        if self.input_magnitude != self.predict_magnitude:
-            raise ValueError("Sampling is impossible if input_magnitude != predict_magnitude")
+
+        if predict_b is None:   
+            predict_b = self.predict_b
         if self.num_extra_features is not None:
             raise ValueError("Sampling is not currently supported for extra features")
 
@@ -178,13 +236,13 @@ class MixerTPP(TPPModel):
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
         else:
-            current_state = torch.zeros(batch_size, 1, self.context_size, device=self.device, dtype=torch.float16)
+            dtype = next(self.parameters()).dtype
+            current_state = torch.zeros(batch_size, 1, self.context_size, device=self.device, dtype=dtype)
             time_remaining = None
 
         t_end = t_start + duration
         inter_time_list = []
-        if self.predict_magnitude:
-            mag_list = []
+        mag_list = []
 
         generated = False
         while not generated:
@@ -199,13 +257,12 @@ class MixerTPP(TPPModel):
             next_inter_times.clamp_max_(t_end - t_start)
             inter_time_list.append(next_inter_times)
 
-           
-            if self.predict_magnitude:
-                mag_dist = self.get_magnitude_dist(current_state)
-                next_mag = mag_dist.sample()
-                mag_list.append(next_mag)
 
-            buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag if self.predict_magnitude else None)
+            mag_dist = self.get_magnitude_dist(current_state, predict_b)
+            next_mag = mag_dist.sample()
+            mag_list.append(next_mag)
+
+            buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag )
             sample_batch = buffer_batch.get_tmp_batch()  
 
             current_state = self.get_current_state(sample_batch, inference_params=inference_params)
@@ -217,7 +274,7 @@ class MixerTPP(TPPModel):
             generated = total_time >= (t_end - t_start)
 
         inter_times = torch.cat(inter_time_list, dim=1)
-        magnitudes = torch.cat(mag_list, dim=1) if self.predict_magnitude else None
+        magnitudes = torch.cat(mag_list, dim=1)
 
         duration = t_end - t_start
         unclipped_arrival_times = inter_times.cumsum(-1)
