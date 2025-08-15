@@ -61,6 +61,7 @@ def load_and_filter_catalog(base_dir, Mc):
     df = pd.read_csv(os.path.join(raw_dir, chosen_file))
     df = df[df['Magnitude'] >= Mc].reset_index(drop=True)
     df = df.sort_values(by='t').reset_index(drop=True)
+    df['dt_unfiltered'] = df['dt']
     df['dt'] = df['t'].diff().fillna(0)
     return df
 
@@ -85,6 +86,9 @@ def process_recast_catalog(csv_file, metadata_file):
 
 def calculate_catalog_statistics(df):
     stats = {
+        'tau_unfiltered': float(df['dt_unfiltered'].mean()),
+        'tau_q025': float(df['dt'].quantile(0.25)),
+        'tau_q05': float(df['dt'].quantile(0.5)),
         'tau_mean': float(df['dt'].mean()),
         'tau_max': float(df['dt'].max()),
         'tau_min': float(df['dt'].min()),

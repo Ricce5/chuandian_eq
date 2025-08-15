@@ -176,13 +176,26 @@ class MixerInputAdapterWithTime:
         self.tau_mean = torch.tensor(args.stats['tau_mean'], dtype=torch.float32)
         self.tau_min = torch.tensor(args.stats['tau_min'], dtype=torch.float32)
         self.tau_max = torch.tensor(args.stats['tau_max'], dtype=torch.float32)
+        self.tau_q025 = torch.tensor(args.stats['tau_q025'], dtype=torch.float32)
+        self.tau_q05 = torch.tensor(args.stats['tau_q05'], dtype=torch.float32)
+        self.tau_unfiltered = torch.tensor(args.stats['tau_unfiltered'], dtype=torch.float32)
         self.log_tau_mean = self.tau_mean.log()
         self.eps = 1e-10
         self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
         self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['mag']))
         self.Twindow = getattr(args, 'Twindow', None)  
         self.by_token = getattr(args, 'normalize_time_by_token', False)
-
+        # 兼容直接传入 time_scale_base 或通过 key 查找
+        if hasattr(args, 'time_scale_base') and args.time_scale_base is not None:
+            self.time_scale_base = torch.tensor(args.time_scale_base, dtype=torch.float32)
+            print(f"using time scale base {self.time_scale_base} (from args.time_scale_base)")
+        else:
+            key = getattr(args, 'time_scale_base_key', 'tau_unfiltered')
+            self.time_scale_base = torch.tensor(
+            args.stats.get(key, 1.0),
+            dtype=torch.float32
+            )
+            print(f"using time scale base {self.time_scale_base} (key: {key})")
     def __call__(self, batch_tensor):
         arrival_times = batch_tensor[:, :, 0]
         arrival_times_nl = batch_tensor[:,:,1]
@@ -233,6 +246,6 @@ class MixerInputAdapterWithTime:
 
     def normalize_arrival_times_nl(self, arrival_times_nl, by_token = True):
         if by_token:
-            return arrival_times_nl * self.Twindow / self.tau_mean
+            return arrival_times_nl * self.Twindow / self.time_scale_base
         else:
             return arrival_times_nl * self.Twindow
