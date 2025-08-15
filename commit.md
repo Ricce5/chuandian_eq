@@ -1,4 +1,4 @@
-支持b值满足Gamma分布的修改
+
 
 问题
 tmp_batch 的pad与现有版本不兼容
