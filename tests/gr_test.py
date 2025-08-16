@@ -1,38 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 from torch.distributions import constraints
-
-# 你的 GutenbergRichter 类
-class Distribution:
-    def __init__(self, batch_shape=torch.Size(), validate_args=False):
-        self.batch_shape = batch_shape
-
-class GutenbergRichter(Distribution):
-    arg_constraints = {"b": constraints.positive}
-
-    def __init__(self, b, mag_min=2.0, mag_max=10):
-        self.b = b
-        self.mag_min = mag_min
-        self.mag_max = mag_max
-        batch_shape = b.shape
-        super().__init__(batch_shape, validate_args=False)
-
-    def log_hazard(self, x):
-        return torch.zeros_like(x)
-
-    def log_survival(self, x):
-        return torch.zeros_like(x)
-
-    def log_prob(self, x):
-        return torch.zeros_like(x)  # 占位符
-
-    def rsample(self, sample_shape=torch.Size()):
-        shape = torch.Size(sample_shape) + self.batch_shape
-        u = torch.empty(shape, device=self.b.device, dtype=self.b.dtype).uniform_()
-        return self.b.reciprocal().neg() * torch.log10(
-            -u * (10 ** (-self.b * self.mag_min) - 10 ** (-self.b * self.mag_max)) 
-            + 10 ** (-self.b * self.mag_min)
-        )
+from src.distributions.gutenberg_richter import GutenbergRichter
 
 # 创建分布对象
 b = torch.tensor(1.0)  # 典型 b 值
@@ -48,3 +17,16 @@ plt.ylabel("Probability Density")
 plt.title("Gutenberg–Richter Magnitude Distribution (Using Class)")
 plt.savefig("gr_distribution.png", dpi=150)
 plt.show()
+
+
+# 1. 打印几个点的 log_prob
+x = torch.linspace(1, 7, steps=7)  # 包含区间外的点
+print("x =", x)
+print("log_prob(x) =", gr_dist.log_prob(x))
+
+# 2. 验证归一化 (数值积分)
+xs = torch.linspace(2.0, 6.0, steps=1000)
+pdf = gr_dist.log_prob(xs).exp()
+dx = xs[1] - xs[0]
+integral = torch.sum(pdf * dx)
+print("积分结果 (应接近1) =", integral.item())

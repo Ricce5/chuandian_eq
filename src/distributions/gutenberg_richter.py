@@ -1,6 +1,6 @@
 import torch
 from torch.distributions import constraints
-
+import math
 from .distribution import Distribution
 
 
@@ -21,8 +21,13 @@ class GutenbergRichter(Distribution):
         return torch.zeros_like(x)
 
     def log_prob(self, x):
-        # TODO: We ignore the NLL for the magnitude distribution.
-        return torch.zeros_like(x)
+        log10 = math.log(10.0)
+        valid = (x >= self.mag_min) & (x <= self.mag_max)
+        denom = 10 ** (-self.b * self.mag_min) - 10 ** (-self.b * self.mag_max)
+        log_norm_const = torch.log(self.b * log10) - torch.log(denom)
+        log_pdf = log_norm_const - self.b * log10 * x
+        return torch.where(valid, log_pdf, torch.full_like(x, float("-inf")))
+
 
     def rsample(self, sample_shape=torch.Size()):
         shape = torch.Size(sample_shape) + self.batch_shape

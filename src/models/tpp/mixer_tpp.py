@@ -110,6 +110,7 @@ class MixerTPP(TPPModel):
             b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
             b_min, b_max = 0.5, 2.0
             b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_raw)
+            # print(b_pred)
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
 
@@ -122,7 +123,7 @@ class MixerTPP(TPPModel):
         self,
         batch: src.data.Batch,
         *,
-        predict_b: bool = False,       # True=预测 b，False=常数 b（仍计算震级似然）
+        predict_b: Optional[bool] = None,      # True=预测 b，False=常数 b（仍计算震级似然）
         mag_weight: float = 1.0,       # 震级似然权重
         reduction: str = "per_time",   # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
@@ -183,11 +184,12 @@ class MixerTPP(TPPModel):
 
         # ---------- Magnitude part ----------
         mag_dist = self.get_magnitude_dist(context, predict_b=predict_b)
-        mags = batch.mag.clamp_min(getattr(self, "mag_completeness", 0.0) - 1e-6)
-        log_pdf_mag = mag_dist.log_prob(mags)  # (B, L)
-        log_like_mag = (log_pdf_mag * batch.nll_event_mask).sum(-1)  # (B,)
-        nll_mag = -log_like_mag  # (B,)
-
+        mask = batch.nll_event_mask.bool()           # (B, L)
+        log_pdf_mag = mag_dist.log_prob(batch.mag)   # (B, L)
+        # 对 mask==False 的位置直接置 0（这些位置不参与 NLL）
+        safe_log_pdf = torch.where(mask, log_pdf_mag, torch.zeros_like(log_pdf_mag))
+        log_like_mag = safe_log_pdf.sum(-1)          # (B,)
+        nll_mag = -log_like_mag                      # (B,)
         # ---------- Combine ----------
         nll_total = nll_time + mag_weight * nll_mag  # (B,)
 
@@ -209,7 +211,7 @@ class MixerTPP(TPPModel):
         t_start: float = 0.0,
         past_seq: Optional[src.data.Sequence] = None,
         return_sequences: bool = False,
-        predict_b: bool = False,
+        predict_b: Optional[bool] = None,
     ) -> Union[src.data.Batch, List[src.data.Sequence]]:
 
         if predict_b is None:   

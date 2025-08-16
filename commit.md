@@ -1,5 +1,4 @@
-mixer_tpp加入震级预测选项
-tpp_m_train_step
+
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -13,7 +12,7 @@ weibull分布数值问题
 scale rope的center只对数值产生影响，因为不改变相对位置
 使用fused_add_norm会导致测试集性能下降
 mamba模块使用小卷积核，大核容易过拟合，使得测试集性能不好
-Rope使用的时间尺度对结果影响很大
+Rope使用的时间尺度对结果影响很大, 注意根据时间尺度调整scale_base
 
 mini
 debug: thp不除t_max

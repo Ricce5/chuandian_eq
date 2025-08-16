@@ -151,8 +151,8 @@ def test(
     if nll_kwargs is None:
         nll_kwargs = {}
         nll_kwargs.setdefault('reduction', 'per_time')
-        nll_kwargs.setdefault('predict_b', False)
-        nll_kwargs.setdefault('mag_weight', 0.0)
+        nll_kwargs.setdefault('predict_b', None)
+        nll_kwargs.setdefault('mag_weight', 1)
 
 
     def compute(loader, name):
