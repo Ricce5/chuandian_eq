@@ -10,14 +10,44 @@ import os
 from omegaconf import DictConfig, ListConfig, OmegaConf
 import typing
 
+def _prune_to_schema(src, schema):
+    """
+    递归裁剪 src，只保留 schema 中存在的键/结构。
+    - Dict：仅保留 schema 有的键，并对子项递归裁剪
+    - List：按 schema 的第 0 个元素作为模板递归裁剪；若 schema 为空列表，则直接返回空列表
+    - 原子值：直接返回 src
+    """
+    # Dict 匹配
+    if isinstance(schema, DictConfig) and isinstance(src, DictConfig):
+        out = OmegaConf.create({})
+        for k in schema.keys():
+            if k in src:
+                out[k] = _prune_to_schema(src[k], schema[k])
+        return out
+
+    # List 匹配
+    if isinstance(schema, ListConfig) and isinstance(src, ListConfig):
+        if len(schema) == 0:
+            return OmegaConf.create([])
+        template = schema[0]
+        return OmegaConf.create([_prune_to_schema(v, template) for v in src])
+    return src
+
 def load_args_from_checkpoint(cfg, checkpoint):
     if 'hyperparameters' not in checkpoint:
         raise KeyError("Checkpoint does not contain 'hyperparameters'.")
 
-    restored_cfg = checkpoint['hyperparameters']
     restored_cfg = OmegaConf.create(checkpoint['hyperparameters'])
-    final_cfg = OmegaConf.merge(cfg, restored_cfg) if cfg is not None else restored_cfg
+
+    if cfg is not None:
+        cfg_pruned = _prune_to_schema(cfg, restored_cfg)
+        final_cfg = OmegaConf.merge(cfg_pruned, restored_cfg)
+    else:
+        final_cfg = restored_cfg
+    # OmegaConf.set_struct(final_cfg, True)
+
     return final_cfg
+
 
 
 def freeze_model_parts(model, freeze_keywords=None):

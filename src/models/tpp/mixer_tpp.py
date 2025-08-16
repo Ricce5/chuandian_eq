@@ -105,7 +105,7 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
 
-    def get_magnitude_dist(self, context, predict_b=False):
+    def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
         if predict_b:
             b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
             b_min, b_max = 0.5, 2.0
@@ -115,9 +115,22 @@ class MixerTPP(TPPModel):
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
 
         mag_min = context.new_full(context.shape[:2], float(self.mag_completeness))
-        return dist.GutenbergRichter(b=b_pred, mag_min=mag_min)
+        gr = dist.GutenbergRichter(b=b_pred, mag_min=mag_min)
+        if return_b:
+            return gr, b_pred
+        return gr   
+        
 
-
+    def compute_b_value(self,  seq: Optional[src.data.Sequence] = None, predict_b: bool = False):
+        past_batch = src.data.Batch.from_list([seq])
+        context = self.get_context(past_batch)
+        if predict_b:
+            b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+            b_min, b_max = 0.5, 2.0
+            b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_raw)
+        else:
+            b_pred = context.new_full(context.shape[:2], float(self.richter_b))
+        return b_pred
 
     def nll_loss(
         self,
@@ -127,6 +140,8 @@ class MixerTPP(TPPModel):
         mag_weight: float = 1.0,       # 震级似然权重
         reduction: str = "per_time",   # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
+        lambda_smooth: float = 1,                 # 平滑强度
+        smooth_type: str = "l2",                    # "l2" | "tv" | "tf2"
     ):
         """
         分别返回时间NLL、震级NLL和加权总NLL。
@@ -183,7 +198,7 @@ class MixerTPP(TPPModel):
         nll_time = -log_like_time  # (B,)
 
         # ---------- Magnitude part ----------
-        mag_dist = self.get_magnitude_dist(context, predict_b=predict_b)
+        mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True)
         mask = batch.nll_event_mask.bool()           # (B, L)
         log_pdf_mag = mag_dist.log_prob(batch.mag)   # (B, L)
         # 对 mask==False 的位置直接置 0（这些位置不参与 NLL）
@@ -193,11 +208,45 @@ class MixerTPP(TPPModel):
         # ---------- Combine ----------
         nll_total = nll_time + mag_weight * nll_mag  # (B,)
 
+        smooth_reg = b_pred.new_zeros(b_pred.shape[0])  # (B,)
+        if lambda_smooth > 0.0:
+            # 有效事件掩码（不含生存槽/后续padding）
+            mask = batch.nll_event_mask  # (B, L)
+            # 只用有事件的相邻对
+            valid_pair = (mask[:, 1:] * mask[:, :-1]).bool()  # (B, L-1)
+
+            # 真实时间差 Δt_i：建议用 inter_times
+            dt = batch.inter_times[:, 1:].clamp_min(eps)      # (B, L-1)
+
+            logb = b_pred.clamp_min(eps).log()                # (B, L)
+            d1 = (logb[:, 1:] - logb[:, :-1]) / dt            # (B, L-1)
+            d1 = d1.masked_fill(~valid_pair, 0.0)
+
+            if smooth_type == "l2":
+                smooth_seq = (d1 ** 2).sum(-1)  # (B,)
+            elif smooth_type == "tv":
+                smooth_seq = d1.abs().sum(-1)   # (B,)
+            elif smooth_type == "tf2":
+                # 二阶：再做一次差分（要三连的有效窗口）
+                valid_trip = valid_pair[:, 1:] & valid_pair[:, :-1]  # (B, L-2)
+                d2 = (d1[:, 1:] - d1[:, :-1]) / (
+                    0.5 * (dt[:, 1:] + dt[:, :-1]) + eps
+                )
+                d2 = d2.masked_fill(~valid_trip, 0.0)
+                smooth_seq = d2.abs().sum(-1)   # (B,)
+            else:
+                raise ValueError(f"unknown smooth_type: {smooth_type}")
+
+            smooth_reg = lambda_smooth * smooth_seq  # (B,)
+
+        nll_total_reg = nll_total + smooth_reg
+
         # ---------- Reductions (same rule for all) ----------
         out = {
             "time": _reduce(nll_time, reduction),
             "mag":  _reduce(nll_mag,  reduction),
-            "total": _reduce(nll_total, reduction),
+            "total": _reduce(nll_total_reg, reduction),
+            "smooth": _reduce(smooth_reg, reduction),
         }
         return out
 

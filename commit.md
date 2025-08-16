@@ -1,4 +1,4 @@
-
+加载ckpt配置时不会出现现在有之前没有的键
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -13,6 +13,8 @@ scale rope的center只对数值产生影响，因为不改变相对位置
 使用fused_add_norm会导致测试集性能下降
 mamba模块使用小卷积核，大核容易过拟合，使得测试集性能不好
 Rope使用的时间尺度对结果影响很大, 注意根据时间尺度调整scale_base
+SCEDC有效的时间输入会导致过拟合
+
 
 mini
 debug: thp不除t_max
@@ -23,5 +25,7 @@ ps
 selective_state_update 中0被替换为(0,0), 处理None下的情况
 mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 加载ckpt中args存在隐患，只能够覆盖，ckpt中没有的参数会保在args中
+
+
 
 注意8.12前clf tau_mean 取0.026 ,因为dt没有在Mc过滤后计算

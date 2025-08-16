@@ -187,6 +187,8 @@ class MixerInputAdapterWithTime:
         self.normalize_time = getattr(args, 'normalize_time_by_token', False)
         self.normalize_scale_base = getattr(args, 'normalize_scale_base', False)
         # 兼容直接传入 time_scale_base 或通过 key 查找
+        # print("normalize_time type:", type(self.normalize_time), "value:", self.normalize_time)
+
         if self.normalize_time:
             if hasattr(args, 'time_scale_base') and args.time_scale_base is not None:
                 self.time_scale_base = torch.tensor(args.time_scale_base, dtype=torch.float32)
@@ -198,7 +200,7 @@ class MixerInputAdapterWithTime:
                 dtype=torch.float32
                 )
                 print(f"using time scale base {self.time_scale_base} (key: {key})")
-                print(f"tau mean: {self.tau_mean}")
+            print(f"tau mean: {self.tau_mean}")
     def __call__(self, batch_tensor):
         arrival_times = batch_tensor[:, :, 0]
         arrival_times_nl = batch_tensor[:,:,1]
