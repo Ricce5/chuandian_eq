@@ -106,19 +106,56 @@ class MixerTPP(TPPModel):
         return enc_output
 
     def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
-        if predict_b:
-            b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
-            b_min, b_max = 0.5, 2.0
-            b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_raw)
-            # print(b_pred)
-        else:
-            b_pred = context.new_full(context.shape[:2], float(self.richter_b))
+        if predict_b is None:
+            predict_b = self.predict_b
 
-        mag_min = context.new_full(context.shape[:2], float(self.mag_completeness))
+        B, L, _ = context.shape
+        b_min, b_max = 0.5, 2.0
+        log_bmin = float(torch.log(torch.tensor(b_min, device=context.device, dtype=context.dtype)))
+        log_bmax = float(torch.log(torch.tensor(b_max, device=context.device, dtype=context.dtype)))
+        m = 0.5 * (log_bmin + log_bmax)
+        r = 0.5 * (log_bmax - log_bmin)
+
+        if not predict_b:
+            b_pred = context.new_full((B, L), float(self.richter_b))
+        else:
+            # 1) 原始头输出 s_t（无界）
+            s = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+
+            # 2) 有界变化率：d v / dt = κ * tanh(s_t)
+            # κ 控制平滑强度（越小越平滑）；可设为超参或可学习参数
+            kappa = getattr(self, "kappa", 0.1)
+            if not torch.is_tensor(kappa):
+                kappa = torch.tensor(kappa, device=context.device, dtype=context.dtype)
+
+            # 3) 真实时间间隔 dt（训练从 batch，推理请在外部设置）
+            dt = getattr(self, "_current_batch_inter_times", None)  # (B, L)
+            if dt is None or dt.shape[:2] != (B, L):
+                raise RuntimeError("需要提供 inter-event times dt（训练时在 nll_loss 里设置 self._current_batch_inter_times）")
+            dt = dt.clamp_min(1e-8)
+
+            # 4) 避免对 padding/survival 槽更新（若有 mask）
+            mask = getattr(self, "_current_batch_event_mask", None)  # (B, L) 1=事件,0=非事件
+            if mask is None:
+                mask = torch.ones(B, L, device=context.device, dtype=context.dtype)
+            # 只在事件位置更新：把非事件位置的 dt 视为 0
+            eff_dt = dt * mask
+
+            # 5) 递推 v_t 并映射到 log b 的有界区间
+            v_prev = context.new_zeros((B,), dtype=context.dtype)
+            v_seq = []
+            for t in range(L):
+                v_now = v_prev + kappa * torch.tanh(s[:, t]) * eff_dt[:, t]
+                v_seq.append(v_now)
+                v_prev = v_now
+            v = torch.stack(v_seq, dim=1)                 # (B, L)
+            log_b = m + r * torch.tanh(v)                 # (B, L)  → 有界
+            b_pred = torch.exp(log_b).clamp(b_min, b_max) # 数值保险
+
+        mag_min = context.new_full((B, L), float(self.mag_completeness))
         gr = dist.GutenbergRichter(b=b_pred, mag_min=mag_min)
-        if return_b:
-            return gr, b_pred
-        return gr   
+        return (gr, b_pred) if return_b else gr
+
         
 
     def compute_b_value(self,  seq: Optional[src.data.Sequence] = None, predict_b: bool = False):
@@ -140,7 +177,7 @@ class MixerTPP(TPPModel):
         mag_weight: float = 1.0,       # 震级似然权重
         reduction: str = "per_time",   # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
-        lambda_smooth: float = 1,                 # 平滑强度
+        lambda_smooth: float = 1e-7,                 # 平滑强度
         smooth_type: str = "l2",                    # "l2" | "tv" | "tf2"
     ):
         """
@@ -208,45 +245,11 @@ class MixerTPP(TPPModel):
         # ---------- Combine ----------
         nll_total = nll_time + mag_weight * nll_mag  # (B,)
 
-        smooth_reg = b_pred.new_zeros(b_pred.shape[0])  # (B,)
-        if lambda_smooth > 0.0:
-            # 有效事件掩码（不含生存槽/后续padding）
-            mask = batch.nll_event_mask  # (B, L)
-            # 只用有事件的相邻对
-            valid_pair = (mask[:, 1:] * mask[:, :-1]).bool()  # (B, L-1)
-
-            # 真实时间差 Δt_i：建议用 inter_times
-            dt = batch.inter_times[:, 1:].clamp_min(eps)      # (B, L-1)
-
-            logb = b_pred.clamp_min(eps).log()                # (B, L)
-            d1 = (logb[:, 1:] - logb[:, :-1]) / dt            # (B, L-1)
-            d1 = d1.masked_fill(~valid_pair, 0.0)
-
-            if smooth_type == "l2":
-                smooth_seq = (d1 ** 2).sum(-1)  # (B,)
-            elif smooth_type == "tv":
-                smooth_seq = d1.abs().sum(-1)   # (B,)
-            elif smooth_type == "tf2":
-                # 二阶：再做一次差分（要三连的有效窗口）
-                valid_trip = valid_pair[:, 1:] & valid_pair[:, :-1]  # (B, L-2)
-                d2 = (d1[:, 1:] - d1[:, :-1]) / (
-                    0.5 * (dt[:, 1:] + dt[:, :-1]) + eps
-                )
-                d2 = d2.masked_fill(~valid_trip, 0.0)
-                smooth_seq = d2.abs().sum(-1)   # (B,)
-            else:
-                raise ValueError(f"unknown smooth_type: {smooth_type}")
-
-            smooth_reg = lambda_smooth * smooth_seq  # (B,)
-
-        nll_total_reg = nll_total + smooth_reg
-
         # ---------- Reductions (same rule for all) ----------
         out = {
             "time": _reduce(nll_time, reduction),
             "mag":  _reduce(nll_mag,  reduction),
-            "total": _reduce(nll_total_reg, reduction),
-            "smooth": _reduce(smooth_reg, reduction),
+            "total": _reduce(nll_total, reduction),
         }
         return out
 

@@ -7,7 +7,7 @@ torch.manual_seed(42)
 
 # 配置参数
 d_model = 64
-batch_size = 2
+batch_size = 4
 seq_len = 10
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

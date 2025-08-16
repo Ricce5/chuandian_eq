@@ -1,4 +1,7 @@
-加载ckpt配置时不会出现现在有之前没有的键
+大量清除ckpt
+去除b值正则化
+mamba的scan_fn测试
+
 
 问题
 tmp_batch 的pad与现有版本不兼容

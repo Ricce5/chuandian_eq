@@ -223,6 +223,13 @@ class MambaTime(nn.Module):
         B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
         C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
         assert self.activation in ["silu", "swish"]
+        # print(f"x shape: {x.shape}")
+        # print(f"dt shape: {dt.shape}")
+        # print(f"A shape: {A.shape}")
+        # print(f"B shape: {B.shape}")
+        # print(f"C shape: {C.shape}")
+        # print(f"D shape: {self.D.shape}")
+        # print(f"z shape: {z.shape}")
         y = selective_scan_fn(
             x,
             dt,

@@ -19,7 +19,6 @@ def _avg_from_out_dict(out_dict):
         'nll_time':  _mean_if_tensor(out_dict['time']),
         'nll_mag':   _mean_if_tensor(out_dict['mag']),
         'nll_total': _mean_if_tensor(out_dict['total']),
-        'smooth':    _mean_if_tensor(out_dict['smooth']),
     }
 
 def train(
@@ -74,7 +73,6 @@ def train(
         sum_time += metrics_now['nll_time']
         sum_mag += metrics_now['nll_mag']
         sum_total += metrics_now['nll_total']
-        sum_smooth += metrics_now['smooth']
         num_steps += 1
 
         step_in_accum += 1
@@ -100,7 +98,6 @@ def train(
         'avg_nll_time':  (sum_time  / max(1, num_steps)),
         'avg_nll_mag':   (sum_mag   / max(1, num_steps)),
         'avg_nll_total': (sum_total / max(1, num_steps)),
-        'avg_smooth':    (sum_smooth / max(1, num_steps)),
     }
     log_metrics(metrics, prefix="Training")
     return metrics['avg_nll_total'], metrics  # 返回一个主指标和字典
