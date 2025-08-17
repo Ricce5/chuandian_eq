@@ -1,6 +1,4 @@
-大量清除ckpt
-去除b值正则化
-mamba的scan_fn测试
+对b使用ssm进行平滑
 
 
 问题

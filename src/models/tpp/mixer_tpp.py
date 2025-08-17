@@ -13,6 +13,7 @@ from functools import partial
 from src.models.mha.mha_time import MHATime
 from src.models.mamba.block import Block
 from src.models.mamba.mixer_seq import MixerModel
+from src.models.mamba.scan_wrapper import BoundedSelectiveScanWrapper
 from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
@@ -35,7 +36,7 @@ class MixerTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, predict_b):
+    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, predict_b, ssm_filter=None):
         super().__init__()
 
         device = next(base_model.parameters()).device
@@ -47,6 +48,7 @@ class MixerTPP(TPPModel):
 
         self.hypernet_time = hypernet_time
         self.hypernet_mag = hypernet_mag
+        self.ssm_filter = ssm_filter
         self.dropout = nn.Dropout(dropout)
         rb = torch.as_tensor(self.base_model.input_adapter.richter_b, device=device, dtype=dtype)
         mc = torch.as_tensor(self.base_model.input_adapter.mag_completeness, device=device, dtype=dtype)
@@ -59,6 +61,8 @@ class MixerTPP(TPPModel):
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.predict_b = predict_b
+        
+       
 
     def get_context(self, batch, inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
@@ -105,56 +109,23 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
 
-    def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
-        if predict_b is None:
-            predict_b = self.predict_b
-
-        B, L, _ = context.shape
-        b_min, b_max = 0.5, 2.0
-        log_bmin = float(torch.log(torch.tensor(b_min, device=context.device, dtype=context.dtype)))
-        log_bmax = float(torch.log(torch.tensor(b_max, device=context.device, dtype=context.dtype)))
-        m = 0.5 * (log_bmin + log_bmax)
-        r = 0.5 * (log_bmax - log_bmin)
-
-        if not predict_b:
-            b_pred = context.new_full((B, L), float(self.richter_b))
+    def get_magnitude_dist(self, context, inter_times:Optional[torch.tensor]=None, predict_b: Optional[bool] = None, return_b: bool = False):
+        if predict_b:
+            b_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+            if self.ssm_filter is not None:
+                assert inter_times is not None, "inter_times must be provided when using ssm_filter"
+                b_pred = self.ssm_filter(b_rate.unsqueeze(-1), inter_times.unsqueeze(-1)).squeeze(-1)
+            else:
+                b_min, b_max = 0.5, 2.0
+                b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_rate)
         else:
-            # 1) 原始头输出 s_t（无界）
-            s = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+            b_pred = context.new_full(context.shape[:2], float(self.richter_b))
 
-            # 2) 有界变化率：d v / dt = κ * tanh(s_t)
-            # κ 控制平滑强度（越小越平滑）；可设为超参或可学习参数
-            kappa = getattr(self, "kappa", 0.1)
-            if not torch.is_tensor(kappa):
-                kappa = torch.tensor(kappa, device=context.device, dtype=context.dtype)
-
-            # 3) 真实时间间隔 dt（训练从 batch，推理请在外部设置）
-            dt = getattr(self, "_current_batch_inter_times", None)  # (B, L)
-            if dt is None or dt.shape[:2] != (B, L):
-                raise RuntimeError("需要提供 inter-event times dt（训练时在 nll_loss 里设置 self._current_batch_inter_times）")
-            dt = dt.clamp_min(1e-8)
-
-            # 4) 避免对 padding/survival 槽更新（若有 mask）
-            mask = getattr(self, "_current_batch_event_mask", None)  # (B, L) 1=事件,0=非事件
-            if mask is None:
-                mask = torch.ones(B, L, device=context.device, dtype=context.dtype)
-            # 只在事件位置更新：把非事件位置的 dt 视为 0
-            eff_dt = dt * mask
-
-            # 5) 递推 v_t 并映射到 log b 的有界区间
-            v_prev = context.new_zeros((B,), dtype=context.dtype)
-            v_seq = []
-            for t in range(L):
-                v_now = v_prev + kappa * torch.tanh(s[:, t]) * eff_dt[:, t]
-                v_seq.append(v_now)
-                v_prev = v_now
-            v = torch.stack(v_seq, dim=1)                 # (B, L)
-            log_b = m + r * torch.tanh(v)                 # (B, L)  → 有界
-            b_pred = torch.exp(log_b).clamp(b_min, b_max) # 数值保险
-
-        mag_min = context.new_full((B, L), float(self.mag_completeness))
+        mag_min = context.new_full(context.shape[:2], float(self.mag_completeness))
         gr = dist.GutenbergRichter(b=b_pred, mag_min=mag_min)
-        return (gr, b_pred) if return_b else gr
+        if return_b:
+            return gr, b_pred
+        return gr  
 
         
 
@@ -162,9 +133,8 @@ class MixerTPP(TPPModel):
         past_batch = src.data.Batch.from_list([seq])
         context = self.get_context(past_batch)
         if predict_b:
-            b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
-            b_min, b_max = 0.5, 2.0
-            b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_raw)
+           b_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+           b_pred = self.ssm_filter(b_rate.unsqueeze(-1), past_batch.inter_times.unsqueeze(-1)).squeeze(-1)
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
         return b_pred
@@ -177,8 +147,6 @@ class MixerTPP(TPPModel):
         mag_weight: float = 1.0,       # 震级似然权重
         reduction: str = "per_time",   # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
-        lambda_smooth: float = 1e-7,                 # 平滑强度
-        smooth_type: str = "l2",                    # "l2" | "tv" | "tf2"
     ):
         """
         分别返回时间NLL、震级NLL和加权总NLL。
@@ -235,7 +203,7 @@ class MixerTPP(TPPModel):
         nll_time = -log_like_time  # (B,)
 
         # ---------- Magnitude part ----------
-        mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True)
+        mag_dist, b_pred = self.get_magnitude_dist(context, batch.inter_times, predict_b=predict_b, return_b=True)
         mask = batch.nll_event_mask.bool()           # (B, L)
         log_pdf_mag = mag_dist.log_prob(batch.mag)   # (B, L)
         # 对 mask==False 的位置直接置 0（这些位置不参与 NLL）
@@ -266,7 +234,7 @@ class MixerTPP(TPPModel):
         predict_b: Optional[bool] = None,
     ) -> Union[src.data.Batch, List[src.data.Sequence]]:
 
-        if predict_b is None:   
+        if predict_b is None:
             predict_b = self.predict_b
         if self.num_extra_features is not None:
             raise ValueError("Sampling is not currently supported for extra features")
@@ -312,7 +280,10 @@ class MixerTPP(TPPModel):
             inter_time_list.append(next_inter_times)
 
 
-            mag_dist = self.get_magnitude_dist(current_state, predict_b)
+            if self.ssm_filter is not None:
+                mag_dist = self.get_magnitude_dist(context= current_state,predict_b= predict_b)
+            else:
+                raise NotImplemented
             next_mag = mag_dist.sample()
             mag_list.append(next_mag)
 

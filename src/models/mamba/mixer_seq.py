@@ -149,7 +149,7 @@ class MixerModel(nn.Module):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
-
+        self.d_model = d_model
         self.input_linear = nn.Linear(input_dim, d_model)
         self.dropout = nn.Dropout(dropout_prob) if dropout_prob > 0 else nn.Identity()
         # We change the order of residual and layer norm:

@@ -643,15 +643,21 @@ class MixerTPPBuilder(ModelBuilder):
         from src.models.heads import TaskHead
         from src.models.base_model import BaseModel
         from src.models.mamba.mixer_seq import MixerModel,MixerModelWrapper
+        from src.models.mamba.scan_wrapper import BoundedSelectiveScanWrapper
         import torch
         import torch.nn as nn   
         encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
         adapter = Mixer_BatchInputAdapter(args)
         hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
         hypernet_mag = nn.Linear(args.d_model, 1).to(device)
+        if getattr(args, 'use_ssm_filter', False):
+            ssm_filter = BoundedSelectiveScanWrapper(d_model=1, d_state=1, device=device, 
+            B_range=getattr(args,'B_range',(1e-6, 1e-3)), output_range=getattr(args,'b_range',(0.5,2))).to(device) 
+        else:
+            ssm_filter = None
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
-        predict_b = getattr(args, 'predict_b', False)   
-        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,predict_b=predict_b)
+        predict_b = getattr(args, 'predict_b', False)
+        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,predict_b=predict_b, ssm_filter=ssm_filter)
 
 
 @ModelBuilder.register("reg_attnpl")
