@@ -74,3 +74,56 @@ class BoundedSelectiveScanWrapper(nn.Module):
         tensor = torch.randn(d_model, d_state)  # 初始化为标准正态分布
         # 将张量值限制在 [min_val, max_val] 范围内
         return min_val + (max_val - min_val) * 0.5 * (torch.tanh(tensor) + 1)
+    
+
+class BoundedDiscreteSSM(nn.Module):
+    def __init__(self, device, B_range=None, output_range=None,output_init=None):
+        super(BoundedDiscreteSSM, self).__init__()
+        self.device = device  # Ensure that device is correctly initialized
+        self.B_range = B_range if B_range is not None else (0, 1)
+        self.output_range = output_range if output_range is not None else (0.5, 2)
+        self.kappa = self._init_bounded_tensor(*self.B_range)  # Use self.device here
+        if output_init is None:
+            output_init = torch.tensor(0.8, device=self.device)  # Default initial output
+        out_min, out_max = self.output_range
+        self.state_init = self._inverse_bounded_tanh(output=output_init, min_val=out_min, max_val=out_max)  # Use self.device here
+
+    def forward(self, x, delta_t, return_last_state=False):
+        B, L, D = x.shape
+        state = torch.zeros(B, L, D, device=x.device)
+        if delta_t.dim() == 2:
+            delta_t = delta_t.unsqueeze(-1)  # Make it [B, L, 1]
+            delta_t = delta_t.expand(-1, -1, D)  # Expand to [B, L, D]
+        sequence  = self.kappa * torch.tanh(x) * delta_t  # [B, L, D]
+        state = torch.cumsum(sequence, dim=1)  
+        if self.state_init is not None:
+            state += self.state_init
+        out = self._bounded_tanh(state, *self.output_range)
+        if return_last_state:
+            return out, state
+        else:
+            return out
+
+    def _bounded_tanh(self, input, min_val: float = -1, max_val: float = 1) -> torch.Tensor:
+        """
+        使用带有范围限制的 tanh 激活函数，将输出限制在[min_val, max_val]范围内。
+        """
+        output = min_val + (max_val - min_val) * 0.5 * (torch.tanh(input) + 1)
+        return output
+
+    def _inverse_bounded_tanh(self, output, min_val: float = -1, max_val: float = 1) -> torch.Tensor:
+        """
+        计算给定 output 对应的原始 input。
+        """
+        clamped_output = torch.clamp(output, min=min_val + 1e-6, max=max_val - 1e-6)
+
+        term = (clamped_output - min_val) / (max_val - min_val) * 2 - 1
+        input = torch.atanh(term)
+        return input
+    
+    def _init_bounded_tensor(self, min_val, max_val):
+        """
+        初始化一个带有指定范围限制的张量，并返回这个张量。
+        """
+        tensor = torch.randn(1, device=self.device)  # Use self.device here
+        return min_val + (max_val - min_val) * 0.5 * (torch.tanh(tensor) + 1)
