@@ -1,4 +1,4 @@
-离散ssm处理b值
+修改Mixer_BatchInputAdapter后数值上有轻微差异
 
 
 问题

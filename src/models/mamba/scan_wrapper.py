@@ -85,16 +85,21 @@ class BoundedDiscreteSSM(nn.Module):
         self.kappa = self._init_bounded_tensor(*self.B_range)  # Use self.device here
         if output_init is None:
             output_init = torch.tensor(0.8, device=self.device)  # Default initial output
+        else:
+            output_init = torch.tensor(output_init, device=self.device)
         out_min, out_max = self.output_range
         self.state_init = self._inverse_bounded_tanh(output=output_init, min_val=out_min, max_val=out_max)  # Use self.device here
 
-    def forward(self, x, delta_t, return_last_state=False):
+    def forward(self, x, delta_t=None, return_last_state=False):
         B, L, D = x.shape
         state = torch.zeros(B, L, D, device=x.device)
-        if delta_t.dim() == 2:
+        if delta_t is not None and delta_t.dim() == 2:
             delta_t = delta_t.unsqueeze(-1)  # Make it [B, L, 1]
             delta_t = delta_t.expand(-1, -1, D)  # Expand to [B, L, D]
-        sequence  = self.kappa * torch.tanh(x) * delta_t  # [B, L, D]
+        if delta_t is not None:
+            sequence = self.kappa * torch.tanh(x) * delta_t  # [B, L, D]
+        else:
+            sequence = self.kappa * torch.tanh(x) 
         state = torch.cumsum(sequence, dim=1)  
         if self.state_init is not None:
             state += self.state_init

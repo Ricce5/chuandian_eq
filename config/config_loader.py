@@ -34,8 +34,6 @@ def load_args_from_yaml(path='config.yaml'):
             feature_cols.append(telaps_key)
         cfg.feature_cols = feature_cols
         print(f"feature_cols: {cfg.feature_cols}")
-    
-    print(f"Original B_range: {cfg.B_range}")
 
     # 处理 B_range
     if 'B_range' in cfg:

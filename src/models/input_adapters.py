@@ -1,7 +1,7 @@
 import   torch
 import  torch.nn as nn
 import src.data
-from typing import Optional
+from typing import Dict, Tuple, List, Optional
 from src.utils.mask_utils import  get_non_pad_mask
 
 class SM_T_InputAdapter:
@@ -109,62 +109,120 @@ class THP_Logdeltat_BatchInputAdapter:
 
 class Mixer_BatchInputAdapter:
     def __init__(self, args):
-        self.tau_mean = torch.tensor(args.tau_mean, dtype=torch.float32)
-        self.tau_min = torch.tensor(args.tau_min, dtype=torch.float32)
-        self.tau_max = torch.tensor(args.tau_max, dtype=torch.float32)
-        self.log_tau_mean = self.tau_mean.log()
-        self.mag_mean = torch.tensor(args.mag_mean, dtype=torch.float32)
-        self.time_max = torch.tensor(args.time_max, dtype=torch.float32)
-        self.richter_b = torch.tensor(args.richter_b_mle, dtype=torch.float32)
-        self.mag_completeness = torch.tensor(args.mag_completeness, dtype=torch.float32)
-        self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
-        # Sort feature keys to make order-insensitive
-        self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['log_inter_times','mag']))
-        self.by_token = getattr(args, 'normalize_time_by_token', False)
+        to_t = lambda x: torch.tensor(x, dtype=torch.float32)
 
-    def __call__(
-        self,
-        batch: src.data.Batch,
-    ) -> dict:
+        # ---- stats & constants
+        self.tau_mean           = to_t(args.get('tau_mean'))
+        self.tau_min            = to_t(args.get('tau_min'))
+        self.tau_max            = to_t(args.get('tau_max'))
+        self.tau_q05           = to_t(args.get('tau_q05'))
+        self.tau_q025          = to_t(args.get('tau_q025'))
+        self.log_tau_mean       = self.tau_mean.log()
+        self.mag_mean           = to_t(args.get('mag_mean'))
+        self.time_max           = to_t(args.get('time_max'))
+        self.richter_b          = to_t(args.get('richter_b_mle'))
+        self.mag_completeness   = to_t(args.get('mag_completeness'))
+        self.eps: float          = 1e-10
 
-        features_parts = []
-        for key in self.features_input_keys:
-            if key == "log_inter_times":
-                log_inter_times = self.normalize_log_inter_times(batch.inter_times)
-                features_parts.append(log_inter_times)
-            elif key == "mag":
-                mag = self.normalize_magnitude(batch.mag)
-                features_parts.append(mag)
-            elif key == "loc":
-                features_parts.append(batch.loc.unsqueeze(-1))
+        # ---- config
+        self.extra_input_keys: List[str]    = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
+        self.features_input_keys: List[str] = sorted(getattr(args, 'features_input_keys', ['log_inter_times', 'mag']))
+        self.normalize_time: bool           = getattr(args, 'normalize_time_by_token', False)
+
+        self.time_scale_base = torch.tensor(1.0, dtype=torch.float32)
+        if self.normalize_time:
+            if getattr(args, 'time_scale_base', None) is not None:
+                base = args.time_scale_base
+                print(f"using time scale base {base} (from args.time_scale_base)")
             else:
-                raise ValueError(f"Unsupported feature key: {key}")
-        features = torch.cat(features_parts, dim=-1).contiguous()
-       
-        output = {
-            "features": features * batch.input_mask[:, :, None],
-            "input_mask": batch.input_mask.float(),
-        }
-        if "times" in self.extra_input_keys:
-            output["times"] = self.normalize_arrival_times(batch.arrival_times, self.by_token) * batch.input_mask
-        if "inter_times" in self.extra_input_keys:
-            output["inter_times"] = self.normalize_inter_times(batch.inter_times) * batch.input_mask
-        return output
-    
-    def normalize_log_inter_times(self, inter_times): 
-        log_tau = torch.log(torch.clamp_min(inter_times, 1e-10)).unsqueeze(-1)
-        return log_tau - self.log_tau_mean
-    
-    def normalize_magnitude(self, mag):
-        return mag.unsqueeze(-1) - self.mag_mean
-    
-    def normalize_inter_times(self, inter_times):
-        return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + 1e-10)
-      
+                key = getattr(args, 'time_scale_base_key', 'tau_mean')
+                base = args.get(key, 1.0)
+                print(f"using time scale base {base} (key: {key})")
+            self.time_scale_base = to_t(base)
+            print(f"tau mean: {self.tau_mean}")
 
-    def normalize_arrival_times(self, arrival_times, by_token=False): 
-        if by_token:
-            return (arrival_times - arrival_times[:, 0:1]) / self.tau_mean
+    # =========================
+    # PIPELINE
+    # =========================
+    def __call__(self, batch: 'src.data.Batch') -> Dict[str, torch.Tensor]:
+        arrival_times, inter_times, mag, loc = self._extract_fields(batch)
+        non_pad_mask = self._make_non_pad_mask(arrival_times)
+        features = self._build_features(mag, loc, inter_times, non_pad_mask)
+        extras = self._build_extras(arrival_times, inter_times, non_pad_mask)
+        return {"features": features, "input_mask": non_pad_mask.squeeze(-1).float(), **extras}
+
+    # ---------- step 1: parse ----------
+    def _extract_fields(self, batch: 'src.data.Batch') -> Tuple[torch.Tensor, ...]:
+        """Extract relevant fields from the batch object."""
+        arrival_times = batch.arrival_times
+        inter_times = batch.inter_times
+        mag = batch.mag
+        loc = getattr(batch, 'loc', None) # loc might be optional
+        return arrival_times, inter_times, mag, loc
+
+    # ---------- step 2: mask ----------
+    def _make_non_pad_mask(self, arrival_times: torch.Tensor) -> torch.Tensor:
+        return arrival_times.ne(0).float().unsqueeze(-1)
+
+    # ---------- step 3: features ----------
+    def _build_features(
+        self,
+        mag: torch.Tensor,
+        loc: torch.Tensor,
+        inter_times: torch.Tensor,
+        non_pad_mask: torch.Tensor
+    ) -> torch.Tensor:
+        feature_map = {
+            "log_inter_times": self.normalize_log_inter_times(inter_times),
+            "mag": self.normalize_magnitude(mag),
+            "loc": loc.unsqueeze(-1) if loc is not None and "loc" in self.features_input_keys else None
+        }
+        parts = []
+        for key in self.features_input_keys:
+            if key in feature_map and feature_map[key] is not None:
+                parts.append(feature_map[key])
+            else:
+                raise ValueError(f"Unsupported or missing feature key: {key}")
+        
+        features = torch.cat(parts, dim=-1)
+        return features * non_pad_mask # Apply mask at the end
+
+    # ---------- step 4: extras ----------
+    def _build_extras(
+        self,
+        arrival_times: torch.Tensor,
+        inter_times: torch.Tensor,
+        non_pad_mask: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        out: Dict[str, torch.Tensor] = {}
+        
+        # Note: The original code applies the mask inside the call,
+        # but the MixerInputAdapterWithTime applies it outside.
+        # Sticking to the original Mixer_BatchInputAdapter logic,
+        # where the mask is applied outside the `if` check.
+        if "times" in self.extra_input_keys:
+            out["times"] = self.normalize_arrival_times(arrival_times, self.normalize_time) * non_pad_mask.squeeze(-1)
+        if "inter_times" in self.extra_input_keys:
+            out["inter_times"] = self.normalize_inter_times(inter_times) * non_pad_mask.squeeze(-1)
+        return out
+
+    # =========================
+    # NORMALIZERS
+    # =========================
+    def normalize_log_inter_times(self, inter_times: torch.Tensor) -> torch.Tensor:
+        log_tau = torch.log(torch.clamp_min(inter_times, self.eps)).unsqueeze(-1)
+        return log_tau - self.log_tau_mean.to(log_tau.device)
+
+    def normalize_magnitude(self, mag: torch.Tensor) -> torch.Tensor:
+        return mag.unsqueeze(-1) - self.mag_mean.to(mag.device)
+
+    def normalize_inter_times(self, inter_times: torch.Tensor) -> torch.Tensor:
+        return (inter_times - self.tau_min.to(inter_times.device)) / (self.tau_max.to(inter_times.device) - self.tau_min.to(inter_times.device) + self.eps)
+
+    def normalize_arrival_times(self, arrival_times: torch.Tensor, normalize_time: bool = False) -> torch.Tensor:
+        device = arrival_times.device
+        if normalize_time:
+            return (arrival_times - arrival_times[:, 0:1]) / self.time_scale_base.to(device) 
         else:
             return arrival_times - arrival_times[:, 0:1]
 
@@ -173,84 +231,125 @@ class Mixer_BatchInputAdapter:
 
 class MixerInputAdapterWithTime:
     def __init__(self, args):
-        self.tau_mean = torch.tensor(args.stats['tau_mean'], dtype=torch.float32)
-        self.tau_min = torch.tensor(args.stats['tau_min'], dtype=torch.float32)
-        self.tau_max = torch.tensor(args.stats['tau_max'], dtype=torch.float32)
-        self.tau_q025 = torch.tensor(args.stats['tau_q025'], dtype=torch.float32)
-        self.tau_q05 = torch.tensor(args.stats['tau_q05'], dtype=torch.float32)
-        self.tau_unfiltered = torch.tensor(args.stats['tau_unfiltered'], dtype=torch.float32)
-        self.log_tau_mean = self.tau_mean.log()
-        self.eps = 1e-10
-        self.extra_input_keys = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
-        self.features_input_keys = sorted(getattr(args, 'features_input_keys', ['mag']))
-        self.Twindow = getattr(args, 'Twindow', None)  
-        self.normalize_time = getattr(args, 'normalize_time_by_token', False)
-        self.normalize_scale_base = getattr(args, 'normalize_scale_base', False)
-        # 兼容直接传入 time_scale_base 或通过 key 查找
-        # print("normalize_time type:", type(self.normalize_time), "value:", self.normalize_time)
+        stats = args.stats
+        to_t = lambda x: torch.tensor(x, dtype=torch.float32)
 
+        # ---- stats & constants
+        self.tau_mean        = to_t(stats['tau_mean'])
+        self.tau_min         = to_t(stats['tau_min'])
+        self.tau_max         = to_t(stats['tau_max'])
+        self.tau_q025        = to_t(stats['tau_q025'])
+        self.tau_q05         = to_t(stats['tau_q05'])
+        self.tau_unfiltered  = to_t(stats['tau_unfiltered'])
+        self.log_tau_mean    = self.tau_mean.log()
+        self.eps: float      = 1e-10
+
+        # ---- config
+        self.extra_input_keys: List[str]    = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
+        self.features_input_keys: List[str] = sorted(getattr(args, 'features_input_keys', ['mag']))
+        self.Twindow: float                 = getattr(args, 'Twindow', None)
+        self.normalize_time: bool           = getattr(args, 'normalize_time_by_token', False)
+
+        # ---- time-scale base
+        self.time_scale_base = torch.tensor(1.0, dtype=torch.float32)
         if self.normalize_time:
-            if hasattr(args, 'time_scale_base') and args.time_scale_base is not None:
-                self.time_scale_base = torch.tensor(args.time_scale_base, dtype=torch.float32)
-                print(f"using time scale base {self.time_scale_base} (from args.time_scale_base)")
+            if getattr(args, 'time_scale_base', None) is not None:
+                base = args.time_scale_base
+                print(f"using time scale base {base} (from args.time_scale_base)")
             else:
                 key = getattr(args, 'time_scale_base_key', 'tau_unfiltered')
-                self.time_scale_base = torch.tensor(
-                args.stats.get(key, 1.0),
-                dtype=torch.float32
-                )
-                print(f"using time scale base {self.time_scale_base} (key: {key})")
+                base = stats.get(key, 1.0)
+                print(f"using time scale base {base} (key: {key})")
+            self.time_scale_base = to_t(base)
             print(f"tau mean: {self.tau_mean}")
-    def __call__(self, batch_tensor):
-        arrival_times = batch_tensor[:, :, 0]
-        arrival_times_nl = batch_tensor[:,:,1]
-        mag = batch_tensor[:, :, 2:3]
-        inter_times = batch_tensor[:, :, -1]
-        loc = batch_tensor[:, :, 3:5]
 
-        non_pad_mask = get_non_pad_mask(arrival_times)
-        log_inter_times = self.normalize_log_inter_times(inter_times)
+    # =========================
+    # PIPELINE
+    # =========================
+    def __call__(self, batch_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+        arrival_times, arrival_times_nl, mag, loc, inter_times = self._extract_fields(batch_tensor)
+        non_pad_mask = self._make_non_pad_mask(arrival_times)
+        features = self._build_features(mag, loc, inter_times, non_pad_mask)
+        extras = self._build_extras(arrival_times_nl, inter_times, non_pad_mask)
+        return {"features": features, "non_pad_mask": non_pad_mask, **extras}
 
-        # 动态拼接 features
-        features_parts = []
-        for key in self.features_input_keys:
-            if key == "mag":
-                features_parts.append(mag )
-            elif key == "log_inter_times":
-                features_parts.append(log_inter_times)
-            elif key == "loc":
-                features_parts.append(loc)
-            else:
-                raise ValueError(f"Unsupported feature key: {key}")
+    # ---------- step 1: parse ----------
+    def _extract_fields(self, batch_tensor: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+        """
+        期望输入格式:
+        [:, :, 0] = arrival_times
+        [:, :, 1] = arrival_times_nl
+        [:, :, 2:3] = mag
+        [:, :, 3:5] = loc
+        [:, :, -1]  = inter_times
+        """
+        arrival_times     = batch_tensor[:, :, 0]
+        arrival_times_nl  = batch_tensor[:, :, 1]
+        mag               = batch_tensor[:, :, 2:3]
+        loc               = batch_tensor[:, :, 3:5]
+        inter_times       = batch_tensor[:, :, -1]
+        return arrival_times, arrival_times_nl, mag, loc, inter_times
 
-        features = torch.cat(features_parts, dim=-1)* non_pad_mask
+    # ---------- step 2: mask ----------
+    def _make_non_pad_mask(self, arrival_times: torch.Tensor) -> torch.Tensor:
+        # 保持与原项目一致：假设外部有 get_non_pad_mask
+        return get_non_pad_mask(arrival_times)  # [B, T, 1]
 
-        output = {
-            "features": features,
-            "non_pad_mask": non_pad_mask
+    # ---------- step 3: features ----------
+    def _build_features(
+        self,
+        mag: torch.Tensor,
+        loc: torch.Tensor,
+        inter_times: torch.Tensor,
+        non_pad_mask: torch.Tensor
+    ) -> torch.Tensor:
+        feature_map = {
+            "mag": mag,                                           # [B, T, 1]
+            "log_inter_times": self.normalize_log_inter_times(inter_times),  # [B, T, 1]
+            "loc": loc                                            # [B, T, 2]
         }
+        parts = [feature_map[k] for k in self.features_input_keys]
+        features = torch.cat(parts, dim=-1) * non_pad_mask
+        return features  # [B, T, D]
+
+    # ---------- step 4: extras ----------
+    def _build_extras(
+        self,
+        arrival_times_nl: torch.Tensor,
+        inter_times: torch.Tensor,
+        non_pad_mask: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        out: Dict[str, torch.Tensor] = {}
 
         if "times" in self.extra_input_keys:
-            output["times"] = self.normalize_arrival_times_nl(arrival_times_nl, self.normalize_time) * non_pad_mask.squeeze(-1)
+            times = self.normalize_arrival_times_nl(arrival_times_nl) * non_pad_mask.squeeze(-1)
+            out["times"] = times  # [B, T]
+
         if "inter_times" in self.extra_input_keys:
-            output["inter_times"] = self.normalize_inter_times(inter_times) * non_pad_mask.squeeze(-1)
+            inter = self.normalize_inter_times(inter_times) * non_pad_mask.squeeze(-1)
+            out["inter_times"] = inter  # [B, T]
 
-        return output
+        return out
 
-    def get_extra_inputs(self, batch_tensor):
-        return {
-            "event_time": batch_tensor[:, :, 1]
-        }
-
-    def normalize_inter_times(self, inter_times):
+    # =========================
+    # NORMALIZERS
+    # =========================
+    def normalize_inter_times(self, inter_times: torch.Tensor) -> torch.Tensor:
         return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + self.eps)
 
-    def normalize_log_inter_times(self, inter_times):
+    def normalize_log_inter_times(self, inter_times: torch.Tensor) -> torch.Tensor:
         log_tau = torch.log(torch.clamp_min(inter_times, self.eps)).unsqueeze(-1)
         return log_tau - self.log_tau_mean
 
-    def normalize_arrival_times_nl(self, arrival_times_nl, by_token = True):
-        if by_token:
-            return arrival_times_nl * self.Twindow / self.time_scale_base
-        else:
-            return arrival_times_nl * self.Twindow
+    def normalize_arrival_times_nl(self, arrival_times_nl: torch.Tensor) -> torch.Tensor:
+        """
+        以 pipeline 风格简化：通过 scale 统一控制是否 token 归一化。
+        """
+        scale = self.time_scale_base if self.normalize_time else torch.tensor(1.0, dtype=torch.float32)
+        return arrival_times_nl * self.Twindow / scale
+
+    # =========================
+    # PUBLIC UTILS（可选）
+    # =========================
+    def get_extra_inputs(self, batch_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+        return {"event_time": batch_tensor[:, :, 1]}

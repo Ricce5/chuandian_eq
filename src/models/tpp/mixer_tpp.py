@@ -109,15 +109,14 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
 
-    def get_magnitude_dist(self, context, inter_times:Optional[torch.tensor]=None, predict_b: Optional[bool] = None, return_b: bool = False):
+    def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
         if predict_b:
-            b_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+            b_delta = self.hypernet_mag(context)
             if self.ssm_filter is not None:
-                assert inter_times is not None, "inter_times must be provided when using ssm_filter"
-                b_pred = self.ssm_filter(b_rate.unsqueeze(-1), inter_times.unsqueeze(-1)).squeeze(-1)
+                b_pred = self.ssm_filter(b_delta).squeeze(-1)
             else:
                 b_min, b_max = 0.5, 2.0
-                b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_rate)
+                b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_delta)
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
 
@@ -133,8 +132,8 @@ class MixerTPP(TPPModel):
         past_batch = src.data.Batch.from_list([seq])
         context = self.get_context(past_batch)
         if predict_b:
-           b_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
-           b_pred = self.ssm_filter(b_rate.unsqueeze(-1), past_batch.inter_times.unsqueeze(-1)).squeeze(-1)
+           b_delta = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+           b_pred = self.ssm_filter(b_delta.unsqueeze(-1)).squeeze(-1)
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
         return b_pred
@@ -203,7 +202,7 @@ class MixerTPP(TPPModel):
         nll_time = -log_like_time  # (B,)
 
         # ---------- Magnitude part ----------
-        mag_dist, b_pred = self.get_magnitude_dist(context, batch.inter_times, predict_b=predict_b, return_b=True)
+        mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True)
         mask = batch.nll_event_mask.bool()           # (B, L)
         log_pdf_mag = mag_dist.log_prob(batch.mag)   # (B, L)
         # 对 mask==False 的位置直接置 0（这些位置不参与 NLL）
@@ -250,7 +249,6 @@ class MixerTPP(TPPModel):
         )
         if past_seq is not None:
             t_start = past_seq.t_end
-            past_batch = src.data.Batch.from_list([past_seq])
             buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
             sample_batch = buffer_batch.get_tmp_batch()
             current_state = self.get_current_state(sample_batch)
