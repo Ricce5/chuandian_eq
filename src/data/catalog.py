@@ -53,7 +53,8 @@ class Catalog(Registrable):
                     "\nOne of the methods `generate_catalog` or `required_files` "
                     "isn't implemented correctly."
                 )
-            
+    
+    
         
 
     def generate_catalog(self):

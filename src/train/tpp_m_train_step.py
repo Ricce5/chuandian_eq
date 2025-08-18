@@ -34,8 +34,7 @@ def train(
     """
     if nll_kwargs is None:
         nll_kwargs = {}
-    # 确保不在 model 内提前做聚合，方便我们在这里做 .mean()
-    nll_kwargs.setdefault('reduction', 'none')
+    nll_kwargs.setdefault('reduction', 'per_time')
 
     model.train()
     step_in_accum = 0
@@ -114,7 +113,7 @@ def validate(
         return float('nan'), {}
     if nll_kwargs is None:
         nll_kwargs = {}
-    nll_kwargs.setdefault('reduction', 'none')
+    nll_kwargs.setdefault('reduction', 'per_time')
 
     model.eval()
     sum_time = 0.0

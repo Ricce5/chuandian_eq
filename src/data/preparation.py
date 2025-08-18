@@ -167,6 +167,37 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
     print(f"Using catalog dataset class: {catalog_ds_class}")
 
     catalog_ds = catalog_ds_class(root_dir=root_dir,catalog_file=file_path,)
+    args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
+    args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
+    args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()
+    args.tau_q05 = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).quantile(0.5).item()
+    args.tau_q025 = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).quantile(0.025).item()
+    args.mag_mean = torch.cat([seq.mag for seq in catalog_ds.train]).mean().item()
+    args.time_max = torch.max(torch.tensor([seq.t_end for seq in catalog_ds.train])).item()
+    args.time_mean = torch.cat([seq.arrival_times[:-1] for seq in catalog_ds.train]).mean().item()
+    args.mag_completeness = catalog_ds.metadata["mag_completeness"]
+    if "richter_b" in catalog_ds.metadata:
+        # Use ground truth value, if available
+        args.richter_b_mle = catalog_ds.metadata["richter_b"]
+    else:
+        mag_roundoff_error = catalog_ds.metadata.get("mag_roundoff_error", 0.0)
+        args.richter_b_mle = math.log10(math.exp(1)) / (
+            args.mag_mean - args.mag_completeness + 0.5 * mag_roundoff_error
+        )
+    if  getattr(args, 'use_bayesian_b_updater', False):
+        from src.data.bayesian_b_updater import BayesianGRBUpdater
+        b_updater = BayesianGRBUpdater(
+            Mc=args.mag_completeness,
+            **args.b_updater_cfg,
+            mag_key="mag",
+            write_back=True,
+        )
+        catalog_ds.set_b_updater(b_updater)
+        print(catalog_ds)
+        print(catalog_ds.b_updater)
+        catalog_ds.estimate_gr_b()
+        print(f"Using Bayesian GR b-value updater with delta={b_updater.delta}, a0={b_updater.a0}, init b={b_updater.init_b_target:.4f}")
+    
     if use_double_precision:
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
             for seq in cat:
@@ -200,23 +231,6 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
         shuffle=False,
         pad_token_id=getattr(args, 'pad_token_id', None),
     )
-    args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
-    args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
-    args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()
-    args.tau_q05 = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).quantile(0.5).item()
-    args.tau_q025 = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).quantile(0.025).item()
-    args.mag_mean = torch.cat([seq.mag for seq in catalog_ds.train]).mean().item()
-    args.time_max = torch.max(torch.tensor([seq.t_end for seq in catalog_ds.train])).item()
-    args.time_mean = torch.cat([seq.arrival_times[:-1] for seq in catalog_ds.train]).mean().item()
-    args.mag_completeness = catalog_ds.metadata["mag_completeness"]
-    if "richter_b" in catalog_ds.metadata:
-        # Use ground truth value, if available
-        args.richter_b_mle = catalog_ds.metadata["richter_b"]
-    else:
-        mag_roundoff_error = catalog_ds.metadata.get("mag_roundoff_error", 0.0)
-        args.richter_b_mle = math.log10(math.exp(1)) / (
-            args.mag_mean - args.mag_completeness + 0.5 * mag_roundoff_error
-        )
 
     return catalog_ds.full_sequence, train_loader, val_loader, test_loader, catalog_ds
 

@@ -34,7 +34,6 @@ class ChuanDianBase(Catalog):
             "start_ts": pd.Timestamp("1970-01-01"),
             "end_ts": pd.Timestamp("2021-05-24"),  # 需要比 catalog 中的最大时间戳大，否则inter_times会有负值
         }
-
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
 
@@ -106,8 +105,9 @@ class ChuanDianStandard(ChuanDianBase):
         train_start_ts: pd.Timestamp = pd.Timestamp("2000-01-01"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2015-01-01"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2018-01-01"),
+        b_updater: any=None
     ):
-        super().__init__(root_dir, catalog_file, mag_completeness)  # 传给父类的初始化参数
+        super().__init__(root_dir, catalog_file, mag_completeness)  
 
         self.metadata["train_start_ts"] = train_start_ts
         self.metadata["val_start_ts"] = val_start_ts
@@ -124,7 +124,15 @@ class ChuanDianStandard(ChuanDianBase):
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
+        self.b_updater = b_updater
+        print(self.b_updater)
 
+    def set_b_updater(self,b_updater):
+        self.b_updater = b_updater
+
+    def estimate_gr_b(self):
+        print(self.b_updater)
+        self.b_updater.fit(self.full_sequence)
 
 @Catalog.register(name="ChuanDian-SlidingWindow")
 class ChuanDianSlidingWindow(ChuanDianBase):

@@ -1,9 +1,9 @@
 import torch
 import math
 from src.distributions.gutenberg_richter import GutenbergRichter
-
+#%%
 # 假设每个事件有不同的 b 值
-b_values = torch.tensor([0.8, 1.0, 0.9, 1.2, 1.1])  # 这里是每个事件不同的 b 值
+b_values = torch.tensor([0.6])  # 这里是每个事件不同的 b 值
 dist = GutenbergRichter(b_values, mag_min=2.0, mag_max=10.0)
 
 # 假设有 5 个事件的震级
@@ -15,7 +15,7 @@ mask = torch.tensor([True, True, True, False, False])
 # 计算每个事件的 log_prob
 log_prob_values = dist.log_prob(sample_mags, mask=mask)
 print("log_prob values:", log_prob_values)
-
+#%%
 # 计算 log_likelihood
 log_likelihood_value = dist.log_likelihood(sample_mags, mask=mask)
 print("log_likelihood value:", log_likelihood_value)

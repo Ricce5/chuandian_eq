@@ -1,6 +1,4 @@
-b值贝叶斯更新
-GR分布完善
-
+mixer_tpp 震级似然计算改用GR分布中的封装
 
 问题
 tmp_batch 的pad与现有版本不兼容

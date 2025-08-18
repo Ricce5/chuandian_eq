@@ -1,17 +1,8 @@
-# %%
-import src
-from src.data.preparation import prepare_data_tpp
-from config.config_loader import load_args_from_yaml 
-args= load_args_from_yaml("../config/mixer_tpp.yaml")
-args.dataset = 'SCEDC'
-base_dir = f"../data/{args.dataset}"
-# %%
-seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data_tpp(base_dir=base_dir, args=args,)
-# %%
 import math
 from typing import Dict, Optional, Union
 import torch
 import matplotlib.pyplot as plt
+from .sequence import Sequence
 
 LN10 = math.log(10.0)
 
@@ -73,6 +64,7 @@ class BayesianGRBUpdater:
             s0 = a0 / (init_b_target * LN10)
         if a0 <= 0 or s0 <= 0:
             raise ValueError("a0, s0 must be positive.")
+        self.init_b_target = init_b_target
         self.a0 = float(a0)
         self.s0 = float(s0) if s0 is not None else 1e-3
         self.mag_key = mag_key
@@ -86,7 +78,8 @@ class BayesianGRBUpdater:
         self._s = None
 
     # ---------- 核心：对整个 Sequence 逐事件更新 ----------
-    def fit(self, seq) -> Dict[str, torch.Tensor]:
+    def fit(self, seq: Sequence
+            ) -> Dict[str, torch.Tensor]:
         if self.mag_key not in seq:
             raise KeyError(f"Sequence 缺少震级属性 '{self.mag_key}'。已有键：{list(seq.keys())}")
 
@@ -239,24 +232,3 @@ class BayesianGRBUpdater:
         ax.legend(loc="best")
         plt.tight_layout()
         plt.show()
-
-
-# ---------------- 使用示例 ----------------
-# %%
-updater = BayesianGRBUpdater(Mc=3, delta=0.999, a0=5, init_b_target=0.8, mag_key="mag", write_back=True)
-results = updater.fit(seq)            # 逐事件更新；同时把结果字段写回0 seq
-BayesianGRBUpdater.plot(seq)          # 绘图（可选传入 truth_lines / switch_index）
-# 在线追加一个事件：
-# updater.update_one(3.2)               # 返回该事件后的摘要
-
-# %%
-from src.data.batch import Batch
-batch = Batch.from_list([seq])   
-# %%
-from src.distributions.gutenberg_richter import GutenbergRichter
-dist = GutenbergRichter(b=batch.b_mean, mag_min=3.0, mag_max=10.0)
-dist.log_likelihood(batch.mag,batch.nll_event_mask.bool())/batch.t_end - batch.t_nll_start 
-# %%
-dist_constant = GutenbergRichter(b= args.richter_b_mle, mag_min=3.0, mag_max=10.0)
-dist_constant.log_likelihood(batch.mag,batch.nll_event_mask.bool())/batch.t_end
-# %%

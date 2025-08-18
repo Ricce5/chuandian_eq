@@ -204,10 +204,8 @@ class MixerTPP(TPPModel):
         # ---------- Magnitude part ----------
         mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True)
         mask = batch.nll_event_mask.bool()           # (B, L)
-        log_pdf_mag = mag_dist.log_prob(batch.mag)   # (B, L)
-        # 对 mask==False 的位置直接置 0（这些位置不参与 NLL）
-        safe_log_pdf = torch.where(mask, log_pdf_mag, torch.zeros_like(log_pdf_mag))
-        log_like_mag = safe_log_pdf.sum(-1)          # (B,)
+        log_like_mag = mag_dist.log_likelihood(batch.mag, mask)
+        print(torch.sum(log_like_mag))
         nll_mag = -log_like_mag                      # (B,)
         # ---------- Combine ----------
         nll_total = nll_time + mag_weight * nll_mag  # (B,)

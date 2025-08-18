@@ -71,15 +71,9 @@ seed: 0
 minibatch_training: true
 split_by_time: true
 time_order:  [train, val, test]
-features_input_keys : ['mag'] 
+features_input_keys : ['mag'] # 
 normalize_time_by_token: false
 # time_scale_base_key: tau_mean
 predict_b: false
 use_ssm_filter: true
 B_range: [1e-4, 1e-2]
-
-use_bayesian_b_updater: true
-b_updater_cfg:
-  delta: 0.98
-  a0: 1.0
-  init_b_target: 0.7
