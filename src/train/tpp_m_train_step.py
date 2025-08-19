@@ -14,22 +14,17 @@ def _mean_if_tensor(x):
     return x.mean().item() if torch.is_tensor(x) else float(x)
 
 def _avg_from_out_dict(out_dict):
-    # out_dict 里应有 'time'/'mag'/'total' 三项
-    return {
-        'nll_time':  _mean_if_tensor(out_dict['time']),
-        'nll_mag':   _mean_if_tensor(out_dict['mag']),
-        'nll_total': _mean_if_tensor(out_dict['total']),
-    }
+    return {key: _mean_if_tensor(value) for key, value in out_dict.items()}
 
 def train(
     data_loader, model, criterion, optimizer, scheduler, device,
     accumulation_steps=2, ema_model=None, use_amp=False, max_grad_norm=3.0,
-    pbar_desc='Training', loss_key='total',  # 反传的目标：'total'|'time'|'mag'
+    pbar_desc='Training', loss_key='total',  # 反传的目标：'total'|'time'|'mag' 或其他任意 key
     nll_kwargs: dict | None = None           # 透传给 model.nll_loss 的参数（例如 predict_b / mag_weight / reduction）
 ):
     """
-    兼容“model.nll_loss 返回 dict(time, mag, total)”的训练循环。
-    - 反传目标由 loss_key 决定；同时记录三项的 batch 平均指标。
+    兼容“model.nll_loss 返回任意键的字典”的训练循环。
+    - 反传目标由 loss_key 决定；同时记录所有项的 batch 平均指标。
     - 建议 nll_kwargs 至少包含 {'reduction': 'none'}，便于逐序列取 mean。
     """
     if nll_kwargs is None:
@@ -46,32 +41,28 @@ def train(
     optimizer.zero_grad(set_to_none=True)
 
     # 统计指标（epoch 平均）
-    sum_time = 0.0
-    sum_mag = 0.0
-    sum_total = 0.0
-    sum_smooth = 0.0
+    sum_metrics = {}
     num_steps = 0
 
     for i, batch in enumerate(tqdm(data_loader, desc=pbar_desc)):
         batch = batch.to(device)
 
         with amp_ctx:
-            # out: {'time': (B,), 'mag': (B,), 'total': (B,)}
             out = model.nll_loss(batch, **nll_kwargs)
-            # 反传目标
             if loss_key not in out:
                 raise KeyError(f"loss_key='{loss_key}' 不在 nll 输出中，可选项：{list(out.keys())}")
             loss = out[loss_key].mean()
 
-        # 梯度累积
+
         loss_to_backward = loss / accumulation_steps
         scaler.scale(loss_to_backward).backward()
 
-        # 累计日志（不参与反传）
+
         metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
-        sum_time += metrics_now['nll_time']
-        sum_mag += metrics_now['nll_mag']
-        sum_total += metrics_now['nll_total']
+        for key, value in metrics_now.items():
+            if key not in sum_metrics:
+                sum_metrics[key] = 0.0
+            sum_metrics[key] += value
         num_steps += 1
 
         step_in_accum += 1
@@ -93,13 +84,10 @@ def train(
                 torch.cuda.synchronize()
 
     # epoch 平均指标
-    metrics = {
-        'avg_nll_time':  (sum_time  / max(1, num_steps)),
-        'avg_nll_mag':   (sum_mag   / max(1, num_steps)),
-        'avg_nll_total': (sum_total / max(1, num_steps)),
-    }
+    metrics = {f'avg_{key}': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Training")
-    return metrics['avg_nll_total'], metrics  # 返回一个主指标和字典
+    return metrics.get(f'avg_{loss_key}', 0.0), metrics
+
 
 
 def validate(
@@ -107,7 +95,7 @@ def validate(
     loss_key='total', nll_kwargs: dict | None = None
 ):
     """
-    验证阶段（无反传），返回 time/mag/total 三项的平均 NLL。
+    验证阶段（无反传），返回所有键的平均 NLL。
     """
     if data_loader is None:
         return float('nan'), {}
@@ -116,28 +104,23 @@ def validate(
     nll_kwargs.setdefault('reduction', 'per_time')
 
     model.eval()
-    sum_time = 0.0
-    sum_mag = 0.0
-    sum_total = 0.0
+    sum_metrics = {}
     num_steps = 0
 
     with torch.no_grad():
         for batch in tqdm(data_loader, desc='Validating'):
             batch = batch.to(device)
-            out = model.nll_loss(batch, **nll_kwargs)  # dict
+            out = model.nll_loss(batch, **nll_kwargs)  # 任意字典
             metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
-            sum_time += metrics_now['nll_time']
-            sum_mag += metrics_now['nll_mag']
-            sum_total += metrics_now['nll_total']
+            for key, value in metrics_now.items():
+                if key not in sum_metrics:
+                    sum_metrics[key] = 0.0
+                sum_metrics[key] += value
             num_steps += 1
 
-    metrics = {
-        'avg_nll_time':  (sum_time  / max(1, num_steps)),
-        'avg_nll_mag':   (sum_mag   / max(1, num_steps)),
-        'avg_nll_total': (sum_total / max(1, num_steps)),
-    }
+    metrics = {f'avg_{key}': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Validation")
-    return metrics['avg_nll_total'], metrics
+    return metrics.get(f'avg_{loss_key}', 0.0), metrics
 
 
 def test(
@@ -146,7 +129,7 @@ def test(
     nll_kwargs: dict | None = None
 ):
     """
-    在任意子集 {train, val, test} 上评估，分别返回 time/mag/total 的平均 NLL。
+    在任意子集 {train, val, test} 上评估，分别返回所有键的平均 NLL。
     """
     if nll_kwargs is None:
         nll_kwargs = {}
@@ -154,54 +137,46 @@ def test(
         nll_kwargs.setdefault('predict_b', None)
         nll_kwargs.setdefault('mag_weight', 1)
 
-
     def compute(loader, name):
         if loader is None:
             return None, None
         model.eval()
-        sum_time = 0.0
-        sum_mag = 0.0
-        sum_total = 0.0
+        sum_metrics = {}
         num_steps = 0
         with torch.no_grad():
             for batch in tqdm(loader, desc=f"Evaluating {name}"):
                 batch = batch.to(device)
                 out = model.nll_loss(batch, **nll_kwargs)
                 metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
-                sum_time += metrics_now['nll_time']
-                sum_mag += metrics_now['nll_mag']
-                sum_total += metrics_now['nll_total']
+                for key, value in metrics_now.items():
+                    if key not in sum_metrics:
+                        sum_metrics[key] = 0.0
+                    sum_metrics[key] += value
                 num_steps += 1
-        avg = {
-            'time':  sum_time  / max(1, num_steps),
-            'mag':   sum_mag   / max(1, num_steps),
-            'total': sum_total / max(1, num_steps),
-        }
-        return avg, (sum_time, sum_mag, sum_total)
+        # 计算所有键的平均值
+        avg = {key: sum_value / max(1, num_steps) for key, sum_value in sum_metrics.items()}
+        return avg, sum_metrics
 
     results = {}
     metrics = {}
 
     avg, sums = compute(train_loader, 'train')
     if avg is not None:
-        results['nll_train_total'], results['nll_train_time'], results['nll_train_mag'] = sums[2], sums[0], sums[1]
-        metrics['nll_train_total'] = avg['total']
-        metrics['nll_train_time']  = avg['time']
-        metrics['nll_train_mag']   = avg['mag']
+        for key, value in sums.items():
+            results[f'nll_train_{key}'] = value
+            metrics[f'nll_train_{key}'] = avg.get(key, 0.0)
 
     avg, sums = compute(val_loader, 'val')
     if avg is not None:
-        results['nll_val_total'], results['nll_val_time'], results['nll_val_mag'] = sums[2], sums[0], sums[1]
-        metrics['nll_val_total'] = avg['total']
-        metrics['nll_val_time']  = avg['time']
-        metrics['nll_val_mag']   = avg['mag']
+        for key, value in sums.items():
+            results[f'nll_val_{key}'] = value
+            metrics[f'nll_val_{key}'] = avg.get(key, 0.0)
 
     avg, sums = compute(test_loader, 'test')
     if avg is not None:
-        results['nll_test_total'], results['nll_test_time'], results['nll_test_mag'] = sums[2], sums[0], sums[1]
-        metrics['nll_test_total'] = avg['total']
-        metrics['nll_test_time']  = avg['time']
-        metrics['nll_test_mag']   = avg['mag']
+        for key, value in sums.items():
+            results[f'nll_test_{key}'] = value
+            metrics[f'nll_test_{key}'] = avg.get(key, 0.0)
 
     log_metrics(metrics, prefix="Evaluation")
     return results, metrics

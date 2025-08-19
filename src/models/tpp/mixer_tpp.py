@@ -3,7 +3,8 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical, Gamma
+from torch.distributions import Categorical
+from  src.distributions import Gamma
 from src.distributions.utils import clamp_preserve_gradients
 import numpy as np
 import src
@@ -36,7 +37,7 @@ class MixerTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, predict_b, ssm_filter=None):
+    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, predict_b, ssm_filter=None, use_b_updater=False,loss_weights=None):
         super().__init__()
 
         device = next(base_model.parameters()).device
@@ -61,6 +62,18 @@ class MixerTPP(TPPModel):
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.predict_b = predict_b
+        self.use_b_updater = use_b_updater
+        if loss_weights is None:
+            self.weights = {
+            "time_weight": 1.0,
+            "mag_weight": 1.0,
+            "b_weight": 1.0
+            }
+        else:
+            self.weights = loss_weights
+            self.weights.setdefault("time_weight", 1.0)
+            self.weights.setdefault("mag_weight", 1.0)
+            self.weights.setdefault("b_weight", 1.0)
         
        
 
@@ -113,13 +126,14 @@ class MixerTPP(TPPModel):
         if predict_b:
             b_delta = self.hypernet_mag(context)
             if self.ssm_filter is not None:
-                b_pred = self.ssm_filter(b_delta).squeeze(-1)
+                b_pred = self.ssm_filter(b_delta)
             else:
                 b_min, b_max = 0.5, 2.0
-                b_pred = b_min + (b_max - b_min) * torch.sigmoid(b_delta)
+                b_pred = b_min + (b_max - b_min) * 0.5 * (torch.tanh(b_delta) + 1)
+                b_pred = b_pred
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
-        return b_pred
+        return b_pred.squeeze(-1) 
 
     def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
         b_pred = self._get_b_pred(context, predict_b)
@@ -134,9 +148,9 @@ class MixerTPP(TPPModel):
         context = self.get_context(past_batch)
         b_pred = self._get_b_pred(context, predict_b)
         return b_pred
-    
+
     def get_updater_b_distribution(self,batch):
-        gamma =  Gamma(batch.a_t, batch.s_t * torch.log(torch.tensor(10.0, device=batch.device)))  
+        gamma =  Gamma(batch.a_t, batch.s_t * torch.log(torch.tensor(10.0, device=batch.device)))
         return gamma
 
     def nll_loss(
@@ -144,8 +158,9 @@ class MixerTPP(TPPModel):
         batch: src.data.Batch,
         *,
         predict_b: Optional[bool] = None,      # True=预测 b，False=常数 b（仍计算震级似然）
-        mag_weight: float = 1.0,       # 震级似然权重
-        reduction: str = "per_time",   # "sum" | "mean" | "per_event" | "per_time" | "none"
+        use_b_updater: Optional[bool] = None,  # 是否使用b的更新器
+        weights: dict = None,                   # 字典化配置各部分权重
+        reduction: str = "per_time",           # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
     ):
         """
@@ -153,8 +168,11 @@ class MixerTPP(TPPModel):
         Returns:
             dict(time=..., mag=..., total=...)  # 张量或标量，取决于 reduction
         """
-        if predict_b is None:
-            predict_b = self.predict_b
+
+        weights = self.weights if weights is None else weights
+        predict_b = self.predict_b if predict_b is None else predict_b
+        use_b_updater = self.use_b_updater if use_b_updater is None else use_b_updater
+
         device = batch.inter_times.device
 
         def _reduce(x, reduction: str):
@@ -206,22 +224,28 @@ class MixerTPP(TPPModel):
         mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True)
         mask = batch.nll_event_mask.bool()           # (B, L)
         log_like_mag = mag_dist.log_likelihood(batch.mag, mask)
-        print(torch.sum(log_like_mag))
         nll_mag = -log_like_mag                      # (B,)
-        # ---------- b part ----------
-        b_updater_dist = self.get_updater_b_distribution(batch)
-        log_like_b = b_updater_dist.log_likelihood(b_pred, batch.nll_event_mask.bool())
-        nll_b = -log_like_b
-        print(nll_b)
-        # ---------- Combine ----------
-        nll_total = nll_time + mag_weight * nll_mag  # (B,)
 
-        # ---------- Reductions (same rule for all) ----------
+        # ---------- Combine ----------
+        nll_total = weights["time_weight"] * nll_time + weights["mag_weight"] * nll_mag   # (B,)
+
+        # ---------- b part ----------
+        if use_b_updater:
+            b_updater_dist = self.get_updater_b_distribution(batch)
+            log_like_b = b_updater_dist.log_likelihood(b_pred, batch.nll_event_mask.bool())
+            nll_b = -log_like_b
+            nll_total += weights["b_weight"] * nll_b
+
+        # ---------- Reductions (same rule for all) ---------
         out = {
             "time": _reduce(nll_time, reduction),
             "mag":  _reduce(nll_mag,  reduction),
             "total": _reduce(nll_total, reduction),
         }
+
+        # 只有在 use_b_updater 为 True 时，才返回 "b" 字段
+        if use_b_updater:
+            out["b"] = _reduce(nll_b, reduction)
         return out
 
 

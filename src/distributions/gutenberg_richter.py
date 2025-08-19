@@ -35,7 +35,6 @@ class GutenbergRichter(Distribution):
     def log_prob(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         # Expand b to match the shape of x
         b = self.b.expand_as(x)  # Shape (B, L)
-
         valid = (x >= self.mag_min) & (x <= self.mag_max)
         denom = 10 ** (-b * self.mag_min) - 10 ** (-b * self.mag_max)
         log_norm_const = torch.log(b * LOG10) - torch.log(denom)

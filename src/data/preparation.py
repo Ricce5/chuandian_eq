@@ -184,7 +184,7 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
         args.richter_b_mle = math.log10(math.exp(1)) / (
             args.mag_mean - args.mag_completeness + 0.5 * mag_roundoff_error
         )
-    if  getattr(args, 'use_bayesian_b_updater', False):
+    if  getattr(args, 'use_b_updater', False):
         from src.data.bayesian_b_updater import BayesianGRBUpdater
         b_updater = BayesianGRBUpdater(
             Mc=args.mag_completeness,

@@ -74,17 +74,12 @@ time_order:  [train, val, test]
 features_input_keys : ['mag'] 
 normalize_time_by_token: false
 # time_scale_base_key: tau_mean
-predict_b: false
+predict_b: true
 use_ssm_filter: false
 B_range: [1e-4, 1e-2]
 
-use_b_updater: false
+use_b_updater: true
 b_updater_cfg:
   delta: 0.98
   a0: 1.0
   init_b_target: 0.7
-
-loss_weights:
-  time_weight: 1.2
-  mag_weight: 0.8
-  b_weight: 0.8

@@ -1,4 +1,6 @@
-Gamma分布对填充和掩码的处理
+bayes软标签
+mixer_tpp无ssm激活函数由sigmoid调整为tanh
+损失函数参数配置
 
 
 问题
@@ -15,6 +17,7 @@ scale rope的center只对数值产生影响，因为不改变相对位置
 mamba模块使用小卷积核，大核容易过拟合，使得测试集性能不好
 Rope使用的时间尺度对结果影响很大, 注意根据时间尺度调整scale_base
 SCEDC有效的时间输入会导致过拟合
+？：bayes软标签是否提升点过程似然
 
 
 mini

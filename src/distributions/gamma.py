@@ -31,8 +31,8 @@ class Gamma(Distribution):
         assert not torch.any(concentration_mask & ~rate_mask), "concentration 和 rate 的 PAD 位置必须一致"
 
         # 原地 clamp，确保 > 0
-        concentration.clamp_min_(1e-10)
-        rate.clamp_min_(1e-10)
+        concentration.clamp_min_(1e-3)
+        rate.clamp_min_(1e-3)
 
         # 广播并保存
         self.concentration, self.rate = broadcast_all(concentration, rate)

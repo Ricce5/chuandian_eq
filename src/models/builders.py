@@ -650,7 +650,7 @@ class MixerTPPBuilder(ModelBuilder):
         adapter = Mixer_BatchInputAdapter(args)
         hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
         hypernet_mag = nn.Linear(args.d_model, 1).to(device)
-        if getattr(args, 'use_ssm_filter', False):
+        if getattr(args, 'use_ssm_filter', True):
             # ssm_filter = BoundedSelectiveScanWrapper(d_model=1, d_state=1, device=device, 
             # B_range=getattr(args,'B_range',(1e-6, 1e-3)), output_range=getattr(args,'b_range',(0.5,2))).to(device) 
             ssm_filter = BoundedDiscreteSSM(device=device,B_range=getattr(args,'B_range',(1e-6, 1e-3)),
@@ -659,7 +659,11 @@ class MixerTPPBuilder(ModelBuilder):
             ssm_filter = None
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
         predict_b = getattr(args, 'predict_b', False)
-        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,predict_b=predict_b, ssm_filter=ssm_filter)
+        use_b_updater = getattr(args, 'use_b_updater', False)
+        loss_weights = getattr(args, 'loss_weights', None)
+        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
+                        predict_b=predict_b, ssm_filter=ssm_filter,use_b_updater=use_b_updater,
+                        loss_weights=loss_weights)
 
 
 @ModelBuilder.register("reg_attnpl")
