@@ -61,6 +61,9 @@ class SCEDC(Catalog):
         self.metadata["train_start_ts"] = pd.Timestamp(train_start_ts)
         self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
         self.metadata["test_start_ts"] = pd.Timestamp(test_start_ts)
+        self._split_datasets()
+
+    def _split_datasets(self):
         seq_train, seq_val, seq_test = train_val_test_split_sequence(
             seq=self.full_sequence,
             start_ts=self.metadata["start_ts"],
@@ -71,7 +74,7 @@ class SCEDC(Catalog):
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
-
+    
     @property
     def required_files(self):
         return ["full_sequence.pt", "metadata.pt"]

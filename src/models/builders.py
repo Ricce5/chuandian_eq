@@ -661,9 +661,11 @@ class MixerTPPBuilder(ModelBuilder):
         predict_b = getattr(args, 'predict_b', False)
         use_b_updater = getattr(args, 'use_b_updater', False)
         loss_weights = getattr(args, 'loss_weights', None)
+        loss_reduction = getattr(args, 'loss_reduction', None)
+        b_range = getattr(args, 'b_range', None)
         return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
                         predict_b=predict_b, ssm_filter=ssm_filter,use_b_updater=use_b_updater,
-                        loss_weights=loss_weights)
+                        loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range)
 
 
 @ModelBuilder.register("reg_attnpl")

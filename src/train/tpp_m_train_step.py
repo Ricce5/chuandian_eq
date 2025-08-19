@@ -29,7 +29,7 @@ def train(
     """
     if nll_kwargs is None:
         nll_kwargs = {}
-    nll_kwargs.setdefault('reduction', 'per_time')
+    nll_kwargs.setdefault('reduction', None)
 
     model.train()
     step_in_accum = 0
@@ -84,7 +84,7 @@ def train(
                 torch.cuda.synchronize()
 
     # epoch 平均指标
-    metrics = {f'avg_{key}': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
+    metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Training")
     return metrics.get(f'avg_{loss_key}', 0.0), metrics
 
@@ -101,7 +101,7 @@ def validate(
         return float('nan'), {}
     if nll_kwargs is None:
         nll_kwargs = {}
-    nll_kwargs.setdefault('reduction', 'per_time')
+    nll_kwargs.setdefault('reduction', None)
 
     model.eval()
     sum_metrics = {}
@@ -118,7 +118,7 @@ def validate(
                 sum_metrics[key] += value
             num_steps += 1
 
-    metrics = {f'avg_{key}': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
+    metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Validation")
     return metrics.get(f'avg_{loss_key}', 0.0), metrics
 
@@ -135,7 +135,6 @@ def test(
         nll_kwargs = {}
         nll_kwargs.setdefault('reduction', 'per_time')
         nll_kwargs.setdefault('predict_b', None)
-        nll_kwargs.setdefault('mag_weight', 1)
 
     def compute(loader, name):
         if loader is None:

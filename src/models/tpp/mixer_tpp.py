@@ -37,7 +37,9 @@ class MixerTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, predict_b, ssm_filter=None, use_b_updater=False,loss_weights=None):
+    def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, 
+                 predict_b, ssm_filter=None, use_b_updater=False,
+                 loss_weights=None, loss_reduction=None,b_range=None):
         super().__init__()
 
         device = next(base_model.parameters()).device
@@ -74,8 +76,11 @@ class MixerTPP(TPPModel):
             self.weights.setdefault("time_weight", 1.0)
             self.weights.setdefault("mag_weight", 1.0)
             self.weights.setdefault("b_weight", 1.0)
-        
-       
+        self.reduction = loss_reduction if loss_reduction is not None else "sum"
+        if b_range is not None:
+            self.b_min,self.b_max = b_range
+        else:
+            self.b_min, self.b_max = 0.5, 2.0
 
     def get_context(self, batch, inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
@@ -128,8 +133,7 @@ class MixerTPP(TPPModel):
             if self.ssm_filter is not None:
                 b_pred = self.ssm_filter(b_delta)
             else:
-                b_min, b_max = 0.5, 2.0
-                b_pred = b_min + (b_max - b_min) * 0.5 * (torch.tanh(b_delta) + 1)
+                b_pred = self.b_min + (self.b_max - self.b_min) * 0.5 * (torch.tanh(b_delta) + 1)
                 b_pred = b_pred
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
@@ -160,7 +164,7 @@ class MixerTPP(TPPModel):
         predict_b: Optional[bool] = None,      # True=预测 b，False=常数 b（仍计算震级似然）
         use_b_updater: Optional[bool] = None,  # 是否使用b的更新器
         weights: dict = None,                   # 字典化配置各部分权重
-        reduction: str = "per_time",           # "sum" | "mean" | "per_event" | "per_time" | "none"
+        reduction: str = None,           # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
     ):
         """
@@ -172,25 +176,25 @@ class MixerTPP(TPPModel):
         weights = self.weights if weights is None else weights
         predict_b = self.predict_b if predict_b is None else predict_b
         use_b_updater = self.use_b_updater if use_b_updater is None else use_b_updater
-
+        reduction = self.reduction if reduction is None else reduction
         device = batch.inter_times.device
 
-        def _reduce(x, reduction: str):
+        def _reduce(x, mode: str):
             # x: (B,)
-            if reduction == "sum":
+            if mode == "sum":
                 return x.sum()
-            elif reduction == "mean":
+            elif mode == "mean":
                 return x.mean()
-            elif reduction == "per_event":
+            elif mode == "per_event":
                 num_events = batch.nll_event_mask.sum(-1)  # (B,)
                 return (x / num_events.clamp_min(1)).to(x.dtype)
-            elif reduction == "per_time":
+            elif mode == "per_time":
                 span = (batch.t_end - batch.t_nll_start)  # (B,)
                 return (x / span.clamp_min(eps)).to(x.dtype)
-            elif reduction == "none":
+            elif mode == "none":
                 return x  # (B,)
             else:
-                raise ValueError(f"Unknown reduction: {reduction}")
+                raise ValueError(f"Unknown mode: {mode}")
 
         # ---------- Context ----------
         context = self.get_context(batch)  # (B, L, C)
@@ -228,7 +232,6 @@ class MixerTPP(TPPModel):
 
         # ---------- Combine ----------
         nll_total = weights["time_weight"] * nll_time + weights["mag_weight"] * nll_mag   # (B,)
-
         # ---------- b part ----------
         if use_b_updater:
             b_updater_dist = self.get_updater_b_distribution(batch)
@@ -261,11 +264,7 @@ class MixerTPP(TPPModel):
         predict_b: Optional[bool] = None,
     ) -> Union[src.data.Batch, List[src.data.Sequence]]:
 
-        if predict_b is None:
-            predict_b = self.predict_b
-        if self.num_extra_features is not None:
-            raise ValueError("Sampling is not currently supported for extra features")
-
+        predict_b = self.predict_b if predict_b is None else predict_b  
         past_seq_len = len(past_seq)
         max_sample_len = 2000
         max_seqlen = past_seq_len + max_sample_len

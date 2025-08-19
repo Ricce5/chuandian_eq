@@ -129,13 +129,7 @@ class ChuanDianStandard(ChuanDianBase):
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
 
-    def set_b_updater(self, b_updater):
-        self.b_updater = b_updater
-
-    def estimate_gr_b(self):
-        if self.b_updater is not None:
-            self.b_updater.fit(self.full_sequence)
-        self._split_datasets()
+   
 
 
 @Catalog.register(name="ChuanDian-SlidingWindow")

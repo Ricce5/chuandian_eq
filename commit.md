@@ -1,7 +1,5 @@
-bayes软标签
-mixer_tpp无ssm激活函数由sigmoid调整为tanh
-损失函数参数配置
-
+调整forecast的模型和数据的加载顺序
+SCEDC上bayesian软标签实现
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -18,6 +16,8 @@ mamba模块使用小卷积核，大核容易过拟合，使得测试集性能不
 Rope使用的时间尺度对结果影响很大, 注意根据时间尺度调整scale_base
 SCEDC有效的时间输入会导致过拟合
 ？：bayes软标签是否提升点过程似然
+
+调试
 
 
 mini

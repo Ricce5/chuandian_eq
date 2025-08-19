@@ -95,7 +95,7 @@ def validate(data_loader, model, criterion, device, accumulation_steps=2):
 
 
 
-def test(train_loader=None, val_loader=None, test_loader=None, model=None, criterion=None, device=None, save_dir=None):
+def test(train_loader=None, val_loader=None, test_loader=None, model=None, criterion=None, device=None, save_dir=None, **kwargs):
     """
     Evaluate model on any subset of [train, val, test].
     Returns:

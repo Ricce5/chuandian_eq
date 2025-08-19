@@ -54,7 +54,16 @@ class Catalog(Registrable):
                     "isn't implemented correctly."
                 )
     
-    
+    def set_b_updater(self, b_updater):
+        self.b_updater = b_updater
+
+    def estimate_gr_b(self):
+        if self.b_updater is not None:
+            self.b_updater.fit(self.full_sequence)
+        self._split_datasets()
+
+    def _split_datasets(self):
+        raise NotImplemented
         
 
     def generate_catalog(self):
