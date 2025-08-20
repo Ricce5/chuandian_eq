@@ -305,7 +305,7 @@ class MixerTPP(TPPModel):
             inter_time_list.append(next_inter_times)
 
 
-            if self.ssm_filter is not None:
+            if self.ssm_filter is None:
                 mag_dist = self.get_magnitude_dist(context= current_state,predict_b= predict_b)
             else:
                 raise NotImplemented

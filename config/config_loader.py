@@ -41,7 +41,6 @@ def load_args_from_yaml(path='config.yaml'):
             cfg.B_range = tuple(map(float, cfg.B_range))  # 转换成浮动范围
             if len(cfg.B_range) != 2 or cfg.B_range[0] >= cfg.B_range[1]:
                 raise ValueError(f"B_range should be a tuple of (min, max), got {cfg.B_range}")
-            print(f"Processed B_range: {cfg.B_range}")
         except Exception as e:
             print(f"Error processing B_range: {e}")
             raise

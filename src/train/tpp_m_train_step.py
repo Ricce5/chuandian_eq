@@ -120,7 +120,7 @@ def validate(
 
     metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Validation")
-    return metrics.get(f'avg_{loss_key}', 0.0), metrics
+    return metrics.get(f'avg_{loss_key}_nll', 0.0), metrics
 
 
 def test(

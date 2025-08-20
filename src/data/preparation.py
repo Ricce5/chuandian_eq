@@ -165,7 +165,7 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
 
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
     print(f"Using catalog dataset class: {catalog_ds_class}")
-
+    
     catalog_ds = catalog_ds_class(root_dir=root_dir,catalog_file=file_path,)
     args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
     args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
@@ -195,8 +195,9 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
         )
         catalog_ds.set_b_updater(b_updater)
         catalog_ds.estimate_gr_b()
-        print(f"Using Bayesian GR b-value updater with delta={b_updater.delta}, a0={b_updater.a0}, init b={b_updater.init_b_target:.4f}")
-    
+        print(f"Using Bayesian GR b-value updater with delta={b_updater.delta}, a0={b_updater.a0}, init b={b_updater.init_b_target:.4f}, "
+              f"mag_completeness={b_updater.Mc}")
+
     if use_double_precision:
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
             for seq in cat:

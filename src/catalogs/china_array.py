@@ -71,7 +71,7 @@ class ChinaArrayBase(Catalog):
         
 
         fields = {
-            "magnitude": df["Magnitude"].values,
+            # "magnitude": df["Magnitude"].values,
             "latitude": df["Latitude"].values,
             "longitude": df["Longitude"].values,
             "depth": df["Depth"].values,
@@ -89,8 +89,8 @@ class ChinaArrayBase(Catalog):
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
             t_start=t_start,
-            mag=fields["magnitude"],
-            loc =fields["loc"],
+            mag=torch.tensor(df["Magnitude"].values, dtype=torch.float32),
+            loc=fields["loc"],
             depth=fields["depth"],
         )
 

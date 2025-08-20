@@ -3,7 +3,7 @@ import src
 from src.data.preparation import prepare_data_tpp
 from config.config_loader import load_args_from_yaml 
 args= load_args_from_yaml("../config/mixer_tpp.yaml")
-args.dataset = 'SCEDC'
+# args.dataset = 'SCEDC'
 base_dir = f"../data/{args.dataset}"
 # %%
 seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data_tpp(base_dir=base_dir, args=args,)
@@ -243,7 +243,7 @@ class BayesianGRBUpdater:
 
 # ---------------- 使用示例 ----------------
 # %%
-updater = BayesianGRBUpdater(Mc=3, delta=0.999, a0=5, init_b_target=0.8, mag_key="mag", write_back=True)
+updater = BayesianGRBUpdater(Mc=4.5, delta=0.99, a0=20, init_b_target=1, mag_key="mag", write_back=True)
 results = updater.fit(seq)            # 逐事件更新；同时把结果字段写回0 seq
 BayesianGRBUpdater.plot(seq)          # 绘图（可选传入 truth_lines / switch_index）
 # 在线追加一个事件：
@@ -259,4 +259,15 @@ dist.log_likelihood(batch.mag,batch.nll_event_mask.bool())/batch.t_end - batch.t
 # %%
 dist_constant = GutenbergRichter(b= args.richter_b_mle, mag_min=3.0, mag_max=10.0)
 dist_constant.log_likelihood(batch.mag,batch.nll_event_mask.bool())/batch.t_end
+# %%
+from src.distributions import gamma
+dist_b = gamma.Gamma(batch.a_t, batch.s_t * torch.log(torch.tensor(10.0, device=batch.device)))
+# %%
+dist_b.mean
+# %%
+torch.max(dist_b.mean)
+# %%
+torch.min(dist_b.mean)
+# %%
+batch.a_t/(batch.s_t * torch.log(torch.tensor(10.0, device=batch.device)))
 # %%

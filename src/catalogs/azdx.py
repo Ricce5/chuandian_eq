@@ -22,6 +22,8 @@ class AZDXBase(Catalog):
         self.root_dir.mkdir(parents=True, exist_ok=True)
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
+        elif catalog_file is None:
+            self.catalog_file = self.root_dir / "size_3k_stress_0.6_dyn_0.8_mm_5.5_dm_0.5_b_0.4_yr_20k_EQ.dat"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
@@ -60,7 +62,7 @@ class AZDXBase(Catalog):
         
 
         fields = {
-            "magnitude": df["Magnitude"].values,
+            # "magnitude": df["Magnitude"].values,
             "latitude": df["Latitude"].values,
             "longitude": df["Longitude"].values,
             "depth": df["Depth"].values,
@@ -77,8 +79,8 @@ class AZDXBase(Catalog):
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
             t_start=t_start,
-            mag=fields["magnitude"],
-            loc =fields["loc"],
+            mag=torch.tensor(df["Magnitude"].values, dtype=torch.float32),
+            loc=fields["loc"],
             depth=fields["depth"],
         )
 
@@ -90,7 +92,7 @@ class AZDXStandard(AZDXBase):
         self,
         root_dir: Union[str, Path],
         catalog_file: Union[str, Path] = None,
-        mag_completeness: float = 3.0,
+        mag_completeness: float = 4.5,
         train_start_ts: float = 2000,
         val_start_ts:   float = 10000,
         test_start_ts: float = 15000,
@@ -119,7 +121,7 @@ class AZDXSlidingWindow(AZDXBase):
         self,
         root_dir: Union[str, Path],
         catalog_file: Union[str, Path] = None,
-        mag_completeness: float = 3.0,
+        mag_completeness: float = 4.5,
         window_size_days: int = 365,
         step_size_days: int = 30,
         train_ratio: float = 0.7,
