@@ -67,6 +67,7 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         rotary_emb_center_mode="fixed",  # 'auto' | 'fixed' | 'dynamic'
         device=None,
         dtype=None,
+        use_conv=True,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -93,8 +94,8 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         self.dt_limit = dt_limit
         self.activation = "silu"
         self.chunk_size = chunk_size
-        self.use_mem_eff_path = False
         self.layer_idx = layer_idx
+        self.use_conv = use_conv
 
         # Order: [z, x, B, C, dt]
         d_in_proj = 2 * self.d_inner + 2 * self.ngroups * self.d_state + self.nheads
@@ -104,19 +105,21 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
             self.in_proj = ColumnParallelLinear(self.d_model, d_in_proj * self.world_size, bias=bias,
                                                 process_group=self.process_group, sequence_parallel=self.sequence_parallel,
                                                 **factory_kwargs)
-
-        conv_dim = self.d_ssm + 2 * self.ngroups * self.d_state
-        self.conv1d = nn.Conv1d(
-            in_channels=conv_dim,
-            out_channels=conv_dim,
-            bias=conv_bias,
-            kernel_size=d_conv,
-            groups=conv_dim,
-            padding=d_conv - 1,
-            **factory_kwargs,
-        )
-        if self.conv_init is not None:
-            nn.init.uniform_(self.conv1d.weight, -self.conv_init, self.conv_init)
+        if self.use_conv:
+            conv_dim = self.d_ssm + 2 * self.ngroups * self.d_state
+            self.conv1d = nn.Conv1d(
+                in_channels=conv_dim,
+                out_channels=conv_dim,
+                bias=conv_bias,
+                kernel_size=d_conv,
+                groups=conv_dim,
+                padding=d_conv - 1,
+                **factory_kwargs,
+            )
+            if self.conv_init is not None:
+                nn.init.uniform_(self.conv1d.weight, -self.conv_init, self.conv_init)
+        else:
+            self.conv1d = None
 
         self.act = nn.SiLU()
 
@@ -198,38 +201,14 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         # If the model is loaded in fp16, without the .float() here, A might be -inf
         A = -torch.exp(self.A_log.float())  # (nheads) or (d_inner, d_state)
         dt_limit_kwargs = {} if self.dt_limit == (0.0, float("inf")) else dict(dt_limit=self.dt_limit)
-        if self.use_mem_eff_path and inference_params is None:
-            out = mamba_split_conv1d_scan_combined(
-                zxbcdt,
-                rearrange(self.conv1d.weight, "d 1 w -> d w"),
-                self.conv1d.bias,
-                self.dt_bias,
-                A,
-                D=rearrange(self.D, "(h p) -> h p", p=self.headdim) if self.D_has_hdim else self.D,
-                chunk_size=self.chunk_size,
-                seq_idx=seq_idx,
-                activation=self.activation,
-                rmsnorm_weight=self.norm.weight if self.rmsnorm else None,
-                rmsnorm_eps=self.norm.eps if self.rmsnorm else 1e-6,
-                outproj_weight=self.out_proj.weight,
-                outproj_bias=self.out_proj.bias,
-                headdim=None if self.D_has_hdim else self.headdim,
-                ngroups=self.ngroups,
-                norm_before_gate=self.norm_before_gate,
-                **dt_limit_kwargs,
-            )
-            if seqlen_og is not None:
-                out = rearrange(out, "b l d -> (b l) d")
-            if self.process_group is not None:
-                reduce_fn = reduce_scatter if self.sequence_parallel else all_reduce
-                out = reduce_fn(out, self.process_group)
-        else:
-            d_mlp = (zxbcdt.shape[-1] - 2 * self.d_ssm - 2 * self.ngroups * self.d_state - self.nheads) // 2
-            z0, x0, z, xBC, dt = torch.split(
-                zxbcdt,
-                [d_mlp, d_mlp, self.d_ssm, self.d_ssm + 2 * self.ngroups * self.d_state, self.nheads],
-                dim=-1
-            )
+       
+        d_mlp = (zxbcdt.shape[-1] - 2 * self.d_ssm - 2 * self.ngroups * self.d_state - self.nheads) // 2
+        z0, x0, z, xBC, dt = torch.split(
+            zxbcdt,
+            [d_mlp, d_mlp, self.d_ssm, self.d_ssm + 2 * self.ngroups * self.d_state, self.nheads],
+            dim=-1
+        )
+        if self.use_conv:
             if conv_state is not None:
                 if cu_seqlens is None:
                     # If we just take xBC[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
@@ -257,45 +236,48 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
                     activation=self.activation,
                     seq_idx=seq_idx,
                 ).transpose(1, 2)
-            x, B, C = torch.split(xBC, [self.d_ssm, self.ngroups * self.d_state, self.ngroups * self.d_state], dim=-1)
-            B =  rearrange(B, "b l (g n) -> b l g n", g=self.ngroups)
-            C =  rearrange(C, "b l (g n) -> b l g n", g=self.ngroups)
-            if self.rotary_emb_dim > 0:
-                B, C = self.rotary_emb(
-                    B, C, times=times
-                )
-            y = mamba_chunk_scan_combined(
-                rearrange(x, "b l (h p) -> b l h p", p=self.headdim),
-                dt,
-                A,
-                B,
-                C,
-                chunk_size=self.chunk_size,
-                D=rearrange(self.D, "(h p) -> h p", p=self.headdim) if self.D_has_hdim else self.D,
-                z=rearrange(z, "b l (h p) -> b l h p", p=self.headdim) if not self.rmsnorm else None,
-                dt_bias=self.dt_bias,
-                dt_softplus=True,
-                seq_idx=seq_idx,
-                cu_seqlens=cu_seqlens,
-                **dt_limit_kwargs,
-                return_final_states=ssm_state is not None,
-                return_varlen_states=cu_seqlens is not None and inference_params is not None,
+        else:
+            xBC = self.act(xBC)        
+        
+        x, B, C = torch.split(xBC, [self.d_ssm, self.ngroups * self.d_state, self.ngroups * self.d_state], dim=-1)
+        B =  rearrange(B, "b l (g n) -> b l g n", g=self.ngroups)
+        C =  rearrange(C, "b l (g n) -> b l g n", g=self.ngroups)
+        if self.rotary_emb_dim > 0:
+            B, C = self.rotary_emb(
+                B, C, times=times
             )
-            if ssm_state is not None:
-                y, last_state, *rest = y
-                if cu_seqlens is None:
-                    ssm_state.copy_(last_state)
-                else:
-                    varlen_states = rest[0]
-                    ssm_state.copy_(varlen_states)
-            y = rearrange(y, "b l h p -> b l (h p)")
-            if self.rmsnorm:
-                y = self.norm(y, z)
-            if d_mlp > 0:
-                y = torch.cat([F.silu(z0) * x0, y], dim=-1)
-            if seqlen_og is not None:
-                y = rearrange(y, "b l d -> (b l) d")
-            out = self.out_proj(y)
+        y = mamba_chunk_scan_combined(
+            rearrange(x, "b l (h p) -> b l h p", p=self.headdim),
+            dt,
+            A,
+            B,
+            C,
+            chunk_size=self.chunk_size,
+            D=rearrange(self.D, "(h p) -> h p", p=self.headdim) if self.D_has_hdim else self.D,
+            z=rearrange(z, "b l (h p) -> b l h p", p=self.headdim) if not self.rmsnorm else None,
+            dt_bias=self.dt_bias,
+            dt_softplus=True,
+            seq_idx=seq_idx,
+            cu_seqlens=cu_seqlens,
+            **dt_limit_kwargs,
+            return_final_states=ssm_state is not None,
+            return_varlen_states=cu_seqlens is not None and inference_params is not None,
+        )
+        if ssm_state is not None:
+            y, last_state, *rest = y
+            if cu_seqlens is None:
+                ssm_state.copy_(last_state)
+            else:
+                varlen_states = rest[0]
+                ssm_state.copy_(varlen_states)
+        y = rearrange(y, "b l h p -> b l (h p)")
+        if self.rmsnorm:
+            y = self.norm(y, z)
+        if d_mlp > 0:
+            y = torch.cat([F.silu(z0) * x0, y], dim=-1)
+        if seqlen_og is not None:
+            y = rearrange(y, "b l d -> (b l) d")
+        out = self.out_proj(y)
         return out
 
     def step(self, hidden_states, conv_state, ssm_state, times):
@@ -310,21 +292,24 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         )
 
         # Conv step
-        if causal_conv1d_update is None:
-            conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # Update state (B D W)
-            conv_state[:, :, -1] = xBC
-            xBC = torch.sum(conv_state * rearrange(self.conv1d.weight, "d 1 w -> d w"), dim=-1)  # (B D)
-            if self.conv1d.bias is not None:
-                xBC = xBC + self.conv1d.bias
-            xBC = self.act(xBC).to(dtype=dtype)
+        if self.use_conv:
+            if causal_conv1d_update is None:
+                conv_state.copy_(torch.roll(conv_state, shifts=-1, dims=-1))  # Update state (B D W)
+                conv_state[:, :, -1] = xBC
+                xBC = torch.sum(conv_state * rearrange(self.conv1d.weight, "d 1 w -> d w"), dim=-1)  # (B D)
+                if self.conv1d.bias is not None:
+                    xBC = xBC + self.conv1d.bias
+                xBC = self.act(xBC).to(dtype=dtype)
+            else:
+                xBC = causal_conv1d_update(
+                    xBC,
+                    conv_state,
+                    rearrange(self.conv1d.weight, "d 1 w -> d w"),
+                    self.conv1d.bias,
+                    self.activation,
+                )
         else:
-            xBC = causal_conv1d_update(
-                xBC,
-                conv_state,
-                rearrange(self.conv1d.weight, "d 1 w -> d w"),
-                self.conv1d.bias,
-                self.activation,
-            )
+            xBC = self.act(xBC).to(dtype=dtype)
 
         x, B, C = torch.split(xBC, [self.d_ssm, self.ngroups * self.d_state, self.ngroups * self.d_state], dim=-1)
         A = -torch.exp(self.A_log.float())  # (nheads,)
@@ -373,10 +358,13 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
         device = self.out_proj.weight.device
-        conv_dtype = self.conv1d.weight.dtype if dtype is None else dtype
-        conv_state = torch.zeros(
-            batch_size, self.d_conv, self.conv1d.weight.shape[0], device=device, dtype=conv_dtype
-        ).transpose(1, 2)
+        if self.use_conv:
+            conv_dtype = self.conv1d.weight.dtype if dtype is None else dtype
+            conv_state = torch.zeros(
+                batch_size, self.d_conv, self.conv1d.weight.shape[0], device=device, dtype=conv_dtype
+            ).transpose(1, 2)
+        else:
+            conv_state = None
         ssm_dtype = self.in_proj.weight.dtype if dtype is None else dtype
         ssm_state = torch.zeros(
             batch_size, self.nheads, self.headdim, self.d_state, device=device, dtype=ssm_dtype
@@ -387,13 +375,16 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         assert self.layer_idx is not None
         if self.layer_idx not in inference_params.key_value_memory_dict:
             batch_shape = (batch_size,)
-            conv_state = torch.zeros(
-                batch_size,
-                self.d_conv,
-                self.conv1d.weight.shape[0],
-                device=self.conv1d.weight.device,
-                dtype=self.conv1d.weight.dtype,
-            ).transpose(1, 2)
+            if self.use_conv:
+                conv_state = torch.zeros(
+                    batch_size,
+                    self.d_conv,
+                    self.conv1d.weight.shape[0],
+                    device=self.conv1d.weight.device,
+                    dtype=self.conv1d.weight.dtype,
+                ).transpose(1, 2)
+            else:
+                conv_state = None
             ssm_state = torch.zeros(
                 batch_size,
                 self.nheads,
