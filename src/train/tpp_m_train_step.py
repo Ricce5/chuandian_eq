@@ -86,7 +86,7 @@ def train(
     # epoch 平均指标
     metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Training")
-    return metrics.get(f'avg_{loss_key}', 0.0), metrics
+    return metrics.get(f'avg_{loss_key}_nll', 0.0), metrics
 
 
 

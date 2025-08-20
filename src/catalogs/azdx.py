@@ -95,23 +95,23 @@ class AZDXStandard(AZDXBase):
         val_start_ts:   float = 10000,
         test_start_ts: float = 15000,
     ):
-        super().__init__(root_dir, catalog_file, mag_completeness)  # 传给父类的初始化参数
-
+        super().__init__(root_dir, catalog_file, mag_completeness)
         self.metadata["train_start_ts"] = train_start_ts
         self.metadata["val_start_ts"] = val_start_ts
         self.metadata["test_start_ts"] = test_start_ts
+        self._split_datasets()
 
+    def _split_datasets(self):
         seq_train, seq_val, seq_test = train_val_test_split_sequence_float(
             seq=self.full_sequence,
             start_ts=self.metadata["start_ts"],
-            train_start_ts=train_start_ts,
-            val_start_ts=val_start_ts,
-            test_start_ts=test_start_ts,
+            train_start_ts=self.metadata["train_start_ts"],
+            val_start_ts=self.metadata["val_start_ts"],
+            test_start_ts=self.metadata["test_start_ts"],
         )
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
-
 
 @Catalog.register(name="AZDX-SlidingWindow")
 class AZDXSlidingWindow(AZDXBase):

@@ -1,5 +1,6 @@
-调整forecast的模型和数据的加载顺序
-SCEDC上bayesian软标签实现
+AZDX支持updator
+
+
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -14,8 +15,9 @@ scale rope的center只对数值产生影响，因为不改变相对位置
 使用fused_add_norm会导致测试集性能下降
 mamba模块使用小卷积核，大核容易过拟合，使得测试集性能不好
 Rope使用的时间尺度对结果影响很大, 注意根据时间尺度调整scale_base
-SCEDC有效的时间输入会导致过拟合
+SCEDC有效的时间输入会导致过拟合(时间信息编码处理有问题？)
 ？：bayes软标签是否提升点过程似然
+? : 位置编码变基提升尺度范围
 
 调试
 
