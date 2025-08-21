@@ -1,5 +1,5 @@
-resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
-load_specific_parts: ['encoder']
+# resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
+# load_specific_parts: ['encoder']
 model: clf_mixer_attnpl_t
 # 训练参数
 use_ema: false
@@ -27,7 +27,7 @@ mixer_model_config:
   ssm_cfg:
       layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
       use_conv: true
-      d_conv: 4
+      d_conv: 2
       rotary_emb_scale_base: 16384
       rotary_emb_center_mode: dynamic
 
