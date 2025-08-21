@@ -347,6 +347,7 @@ class MixerInputAdapterWithTime:
         """
         scale = self.time_scale_base if self.normalize_time else torch.tensor(1.0, dtype=torch.float32)
         return arrival_times_nl * self.Twindow / scale
+        # return arrival_times_nl
 
     # =========================
     # PUBLIC UTILS（可选）

@@ -5,8 +5,8 @@ python main.py --model classifier_se --mode train
 python main.py --model classifier_stm --mode train
 python main.py --model classifier_tm_s --mode train
 python main.py --model clf_tm_attnpl --mode train
-python main.py --model clf_tm_attnpl_t --mode train
-python main.py --model clf_mixer_attnpl_t --mode test --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250820-163418
+python main.py --model clf_tm_attnpl_t --mode test  --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/clf_tm_attnpl_t_20250726-135710
+python main.py --model clf_mixer_attnpl_t --mode test --checkpoint checkpoints/clf_mixer_attnpl_t_20250821-094231
 python main.py --model thp --mode train
 python main.py --model rtpp --mode train
 python main.py --model btpp --mode train

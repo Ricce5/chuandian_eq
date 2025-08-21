@@ -100,6 +100,9 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')
+    parser.add_argument('--ckpt_select', type=str, choices=['best', 'last'], default='best',
+                    help='Which checkpoint to use in test mode (best or last)')
+
 
     args_cli = parser.parse_args()
     if args_cli.config is None:
@@ -159,7 +162,7 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/last_model_{args_cli.trial_index}.pth"  #  last/best
+        checkpoint_path = f"{args.save_dir}/{args_cli.ckpt_select}_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.minibatch_training = False
@@ -196,8 +199,8 @@ if __name__ == "__main__":
             metrics["num_events_train"] = args.num_events_train
             metrics["num_events_val"] = args.num_events_val
         
-
-        with open(os.path.join(args.save_dir, "metrics.json"), "w") as f:
+        metrics_name = f"metrics_test_{args_cli.ckpt_select}.json"
+        with open(os.path.join(args.save_dir, metrics_name), "w") as f:
             json.dump(metrics, f, indent=2)
 
         print("Metrics:", metrics)
