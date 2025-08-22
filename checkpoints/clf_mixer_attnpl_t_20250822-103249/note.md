@@ -1,0 +1,1 @@
+更换/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250821-135630中的加载权重，由模拟数据预训练改为SCEDC
