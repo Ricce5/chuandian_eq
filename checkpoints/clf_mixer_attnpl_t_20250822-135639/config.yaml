@@ -1,5 +1,5 @@
-# resume_path: ./checkpoints/mixer_tpp_20250821-223034/best_model_1.pth
-# load_specific_parts: ['encoder']
+resume_path: ./checkpoints/mixer_tpp_20250821-223034/best_model_1.pth
+load_specific_parts: ['encoder']
 model: clf_mixer_attnpl_t
 # 训练参数
 use_ema: false
@@ -73,4 +73,4 @@ split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]
 features_input_keys : ['mag'] #  'log_inter_times'
-normalize_time_by_token: tau_unfiltered
+normalize_time_by_token: q025
