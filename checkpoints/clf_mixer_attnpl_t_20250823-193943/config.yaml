@@ -25,11 +25,11 @@ mixer_model_config:
   d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
   attn_layer_idx: []
   ssm_cfg:
-      layer: Mamba2   # 必须存在，用于选择使用 Mamba1
+      layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
       d_conv: 4
-      # use_conv: true
-      # rotary_emb_scale_base: 1024
-      # rotary_emb_center_mode: dynamic
+      use_conv: true
+      rotary_emb_scale_base: 1024
+      rotary_emb_center_mode: dynamic
 
   attn_cfg:
     layer: MHATime

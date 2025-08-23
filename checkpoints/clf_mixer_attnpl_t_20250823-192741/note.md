@@ -1,0 +1,1 @@
+更换目录为SCEDC，batch_size 128改64*2

@@ -1,0 +1,2 @@
+对齐/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250823-161935
+修正没有正确设置时间归一化的错误

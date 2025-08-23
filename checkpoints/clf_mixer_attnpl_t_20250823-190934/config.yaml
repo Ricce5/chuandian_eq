@@ -3,8 +3,8 @@
 model: clf_mixer_attnpl_t
 # 训练参数
 use_ema: false
-batch_size: 64
-accumulation_steps: 2
+batch_size: 128
+accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 1e-3  #6e-4 # 5e-4
 weight_decay: 1e-5
@@ -21,15 +21,15 @@ mixer_model_config:
   input_dim: 1
   dropout_prob: 0.1
   d_model: 64
-  n_layer: 1             
+  n_layer: 2             
   d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
   attn_layer_idx: []
   ssm_cfg:
-      layer: Mamba2   # 必须存在，用于选择使用 Mamba1
-      d_conv: 4
-      # use_conv: true
-      # rotary_emb_scale_base: 1024
-      # rotary_emb_center_mode: dynamic
+      layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
+      # d_conv: 4
+      use_conv: false
+      rotary_emb_scale_base: 1024
+      rotary_emb_center_mode: dynamic
 
   attn_cfg:
     layer: MHATime
@@ -64,12 +64,12 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-dataset: SCEDC
+dataset:  ChinaArray
 seed: 0
-Mc: 2 # 4.5
-Mf: 5
-Twindow: 300
-Tfore: 150
+Mc: 3 # 4.5
+Mf: 6
+Twindow: 200
+Tfore: 20
 dt: 10
 context_len: 1
 split_by_time: true
