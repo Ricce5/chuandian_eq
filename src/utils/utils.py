@@ -15,7 +15,7 @@ def set_seed(seed: int = 42):
 
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(True)
+    # torch.use_deterministic_algorithms(True)
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
     torch.set_float32_matmul_precision("high")

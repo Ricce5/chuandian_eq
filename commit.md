@@ -1,6 +1,5 @@
 
-
-
+添加attn_time_biased，效果明显
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -21,7 +20,9 @@ SCEDC有效的时间输入会导致过拟合(时间信息编码处理有问题�
 卷积层和RoPe时间分辨率耦合，大卷积核不适合适合小时间分辨率
 scedc不加卷积效果会很差, 使用2不如4的卷积
 SCEDC加载预训练效果变差
-
+处理# torch.use_deterministic_algorithms(True)结果差异问题：
+   增大batch_size
+   调低学习率
 
 
 PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混叠

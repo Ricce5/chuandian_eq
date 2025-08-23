@@ -508,7 +508,9 @@ class ClfAttnPlTBuilder(ModelBuilder):
 class ClfMixerAttnPlTBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.input_adapters import MixerInputAdapterWithTime
+        from src.models.extractors import RepresentationExtractor
         from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
+        from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
         from src.models.task_model import TaskModel
         from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
         from src.models.heads import TaskHead
@@ -518,13 +520,15 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         adapter = MixerInputAdapterWithTime(args)
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
 
-        extractor = AttentionPoolingWithTimeExtractor(
-            input_dim=args.d_model + 1,
-            hidden_dim=args.d_model,
-            device=device
-        )
-
-        head = TaskHead(
+        extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
+        print('using extractor:', extractor_name)
+        if extractor_name == 'attn_time':
+            extractor = AttentionPoolingWithTimeExtractor(
+                input_dim=args.d_model + 1,
+                hidden_dim=args.d_model,
+                device=device
+            )
+            head = TaskHead(
             input_dim=args.d_model + 1,
             output_dim=args.mlp_out,
             head_type="mlp",
@@ -532,6 +536,23 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             dropout=args.mlp_dropout,
             device=device
         )
+        elif extractor_name == 'attn_time_biased':
+            extractor = TimeAwareAttnPool(
+                d_model=args.d_model,
+                d_hidden=args.d_model,
+                bias_type=getattr(args, 'time_bias_type', 'linear'),
+                device=device
+            )
+            head = TaskHead(
+            input_dim=args.d_model,
+            output_dim=args.mlp_out,
+            head_type="mlp",
+            hidden_layers=args.mlp_hdw,
+            dropout=args.mlp_dropout,
+            device=device
+        )
+        else:
+            raise ValueError(f"Unknown extractor_name: {extractor_name}")
 
         return TaskModel(
             base_model=base_model,

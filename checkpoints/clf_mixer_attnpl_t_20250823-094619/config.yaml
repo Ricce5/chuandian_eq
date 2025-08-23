@@ -34,7 +34,7 @@ mixer_model_config:
     layer: MHATime
     num_heads: 4
     rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
-    rotary_emb_scale_base: 4096
+    rotary_emb_scale_base: 1024
     rotary_emb_center_mode: dynamic
     # rotary_emb_time_center: 666
     causal: true
@@ -48,8 +48,6 @@ mixer_model_config:
   fused_add_norm: false      # 是否使用 Triton 融合Norm（需支持）
 
   residual_in_fp32: true     # 更稳定的残差精度
-
-extractor_name: attn_time_biased
 
 # MLP 参数
 mlp_out: 1

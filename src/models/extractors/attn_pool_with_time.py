@@ -3,6 +3,7 @@ from ..layers.attention_pooling import AttentionPooling
 import torch
 
 
+
 @RepresentationExtractor.register("attn_time")
 class AttentionPoolingWithTimeExtractor(RepresentationExtractor):
     def __init__(self, input_dim, hidden_dim,device=None):
@@ -24,3 +25,7 @@ class AttentionPoolingWithTimeExtractor(RepresentationExtractor):
 
         pooled, _ = self.pool(pooling_input, mask)
         return pooled
+
+
+
+
