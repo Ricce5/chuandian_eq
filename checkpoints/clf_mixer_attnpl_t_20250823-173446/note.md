@@ -1,0 +1,3 @@
+加载权重
+第2层换注意力层
+/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250823-154620加载权重

@@ -1,0 +1,1 @@
+在/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250823-160204基础上加载权重

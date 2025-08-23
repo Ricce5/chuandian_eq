@@ -1,5 +1,5 @@
-resume_path: ./checkpoints/mixer_tpp_20250821-223034/best_model_1.pth
-load_specific_parts: ['encoder']
+# resume_path: ./checkpoints/mixer_tpp_20250821-223034/best_model_1.pth
+# load_specific_parts: ['encoder']
 model: clf_mixer_attnpl_t
 # 训练参数
 use_ema: false
@@ -23,7 +23,7 @@ mixer_model_config:
   d_model: 64
   n_layer: 2             
   d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
-  attn_layer_idx: [1]
+  attn_layer_idx: []
   ssm_cfg:
       layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
       # d_conv: 4
