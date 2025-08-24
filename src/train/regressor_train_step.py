@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device, accumulation_steps=2):
+def train(data_loader, model, criterion, optimizer,scheduler, device, accumulation_steps=2,ema_model=None):
     model.train()
     total_loss = 0
     all_node_preds = []  # 存储所有预测值
@@ -25,6 +25,8 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
             optimizer.step()  # 更新参数
             optimizer.zero_grad()  # 清空梯度
             step_scheduler(scheduler, event='batch')  # 更新调度器
+            if ema_model is not None:
+                ema_model.update_parameters(model)
 
         total_loss += loss.item()*accumulation_steps
 

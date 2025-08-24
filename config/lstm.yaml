@@ -1,11 +1,7 @@
 # resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250624-104548/last_model_1.pth
 model: lstm
 task_type: regression
-dataset: SCEDC
-feature_cols: ['Num', 'Mag_max', 'Mag_mean', 'b_lsq', 'a_lsq',
-       'b_std_lsq', 'std_gr_lsq', 'b_mlk', 'a_mlk', 'b_std_mlk', 'std_gr_mlk',
-       'dM_lsq', 'dM_mlk', 'Energy_sqrt', 'prob_x7_lsq', 'prob_x7_mlk',
-       'beta','zvalue' ]
+
 
 
 batch_size: 128
@@ -28,8 +24,12 @@ epochs: 200
 save_dir: null
 cuda_id: "0"
 
-Mc: 3
-Mf: 5.0
+
+
+dataset: ChuanDian
+seed: 0
+Mc: 3 # 4.5
+Mf: 3
 Mag_elaps: [6, 6.5, 7, 7.5]
 Twindow: 600 # 200
 Tfore: 300   # 100
@@ -38,3 +38,7 @@ context_len: 0
 dMag: 0.1
 split_by_time: true
 time_step: 5
+feature_cols: ['Num', 'Mag_max', 'Mag_mean', 'b_lsq', 'a_lsq',
+       'b_std_lsq', 'std_gr_lsq', 'b_mlk', 'a_mlk', 'b_std_mlk', 'std_gr_mlk',
+       'dM_lsq', 'dM_mlk', 'Energy_sqrt', 'prob_x7_lsq', 'prob_x7_mlk',
+       'beta','zvalue' ]

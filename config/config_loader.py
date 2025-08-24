@@ -5,15 +5,15 @@ def load_args_from_yaml(path='config.yaml'):
     cfg = OmegaConf.load(path)
 
     # 类型解析（如果是 string 类型）
-    cfg.learning_rate = float(cfg.learning_rate)
-    cfg.weight_decay = float(cfg.weight_decay)
-    cfg.scheduler_min_lr = float(cfg.scheduler_min_lr)
-    if cfg.scheduler_type == "plateau":
-        cfg.scheduler_factor = float(cfg.scheduler_factor)
-        cfg.scheduler_patience = int(cfg.scheduler_patience)
-        cfg.scheduler_threshold = float(cfg.scheduler_threshold)
-    cfg.batch_size = int(cfg.batch_size)
-    cfg.cuda_id = int(cfg.cuda_id)
+    # cfg.learning_rate = float(cfg.learning_rate)
+    # cfg.weight_decay = float(cfg.weight_decay)
+    # cfg.scheduler_min_lr = float(cfg.scheduler_min_lr)
+    # if cfg.scheduler_type == "plateau":
+    #     cfg.scheduler_factor = float(cfg.scheduler_factor)
+    #     cfg.scheduler_patience = int(cfg.scheduler_patience)
+    #     cfg.scheduler_threshold = float(cfg.scheduler_threshold)
+    # cfg.batch_size = int(cfg.batch_size)
+    # cfg.cuda_id = int(cfg.cuda_id)
 
     # 解析 time_order
     if "time_order" in cfg:

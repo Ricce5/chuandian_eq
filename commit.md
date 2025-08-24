@@ -1,4 +1,5 @@
-
+加入rf.yaml
+load_args_from_yaml调整
 
 
 问题
@@ -23,7 +24,8 @@ SCEDC加载预训练效果变差
 处理# torch.use_deterministic_algorithms(True)结果差异问题：
    增大batch_size
    调低学习率
-
+   更换extractor后效果显著改善，模型结构的问题
+scedc不适合做分类
 
 PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混叠
 
