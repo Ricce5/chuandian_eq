@@ -54,7 +54,7 @@ def prepare_data(args, base_dir):
         time_order=getattr(args, 'time_order', ('train', 'val', 'test')),
         task_type=args.task_type
     )
-    if args.use_sampler and args.task_type == "classification":
+    if  getattr(args, 'use_sampler', False) and args.task_type == "classification":
         sampler = loader.get_balanced_sampler(train_set)
     else:
         sampler = None

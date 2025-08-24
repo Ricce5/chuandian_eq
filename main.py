@@ -35,6 +35,7 @@ def get_model_and_data(args, base_path, device):
         "clf_attnpl_t": ("src.train.classifier_train_step", prepare_data),
         "clf_mixer_attnpl_t": ("src.train.classifier_train_step", prepare_data),
         "reg_attnpl": ("src.train.regressor_train_step", prepare_data),
+        "reg_mixer_attnpl_t": ("src.train.regressor_train_step", prepare_data),
         "lstm": ("src.train.regressor_train_step", prepare_data_lstm),
         "thp": ("src.train.tpp_train_step", prepare_data_tpp),
         "thp_deltat": ("src.train.tpp_train_step", prepare_data_tpp),
