@@ -16,8 +16,8 @@ scheduler_min_lr: 0.000001
 scheduler_type: none
 
 
-lstm_hidden_size: 512
-lstm_num_layers: 6
+lstm_hidden_size: 256
+lstm_num_layers: 4
 lstm_dropout: 0.3
 
 epochs: 200
@@ -25,16 +25,16 @@ save_dir: null
 cuda_id: "0"
 
 
-
-dataset: ChinaArray
+dataset: AZDX
 seed: 0
-Mc: 3 # 4.5
-Mf: 3
-Mag_elaps: [6, 6.5, 7, 7.5]
-Twindow: 600 # 200
-Tfore: 300   # 100
+Mc: 4.5 # 4.5
+Mf: 5.5
+Twindow: 100
+Tfore: 50
 dt: 10
-context_len: 0
+context_len: 1
+time_order:  [train, val, test]
+Mag_elaps : [6,6.5,7,7.5]
 dMag: 0.1
 split_by_time: true
 time_step: 5

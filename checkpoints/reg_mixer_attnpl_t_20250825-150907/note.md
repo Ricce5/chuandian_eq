@@ -1,0 +1,1 @@
+相对checkpoints/reg_mixer_attnpl_t_20250824-143444 加载./checkpoints/mixer_tpp_20250825-114639/last_model_1.pth

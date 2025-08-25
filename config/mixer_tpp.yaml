@@ -26,12 +26,13 @@ mixer_model_config:
   input_dim: 1
   dropout_prob: 0.1
   d_model: 64
-  n_layer: 1              
+  n_layer: 2              
   d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
   attn_layer_idx: []
   ssm_cfg:
       layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
       d_conv: 4
+      use_conv: false
       rotary_emb_scale_base: 512
       rotary_emb_center_mode: dynamic
 
@@ -66,28 +67,28 @@ cuda_id: "0"
 
 
 # 数据与控制参数
-dataset: SCEDC
+dataset: ChinaArray
 seed: 0
 minibatch_training: true
 split_by_time: true
 time_order:  [train, val, test]
-features_input_keys : ['mag']  # "log_inter_times" 
-normalize_time_by_token: false
-# time_scale_base_key: tau_mean
-predict_b:  true
+features_input_keys : ['mag']  # 
+normalize_time_by_token: true
+time_scale_base_key: tau_mean
+predict_b:  false
 use_ssm_filter: false
 B_range: [1e-4, 1e-2]
 
-use_b_updater: true
+use_b_updater: false
 b_updater_cfg:
   delta: 0.98
-  a0: 50
+  a0: 20
   init_b_target: 1
 
 loss_weights:
-  time_weight: 1.2
-  mag_weight: 0.8
-  b_weight: 0.8
+  time_weight: 1
+  mag_weight: 0
+  b_weight: 0
 
 loss_reduction: 'per_time'
 b_range: [0.2,2]

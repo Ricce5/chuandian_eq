@@ -22,6 +22,8 @@ class ChinaArrayBase(Catalog):
         self.root_dir.mkdir(parents=True, exist_ok=True)
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
+        elif catalog_file is None:
+            self.catalog_file = self.root_dir / "ChinaArray.dat"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize

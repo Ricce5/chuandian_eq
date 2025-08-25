@@ -1,5 +1,4 @@
-加入rf.yaml
-load_args_from_yaml调整
+
 
 
 问题
@@ -29,6 +28,8 @@ scedc不适合做分类
 震级预测任务最后一层必须使为类RNN结构，否则last的性能会很差
 
 PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混叠
+attn相对ssm在长序列tpp没有表现出优势
+
 
 调试
 
