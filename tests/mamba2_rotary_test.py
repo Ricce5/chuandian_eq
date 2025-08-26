@@ -1,7 +1,7 @@
 import torch
 from src.models.mamba.mamba2_rotary import Mamba2Rotary
 
-B, S, D = 2, 6, 64
+B, S, D = 2, 6000, 64
 T = torch.arange(S).unsqueeze(0).expand(B, -1).float()
 
 model = Mamba2Rotary(

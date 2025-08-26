@@ -31,7 +31,7 @@ class MHATime(nn.Module):
         qkv_proj_bias=True,
         out_proj_bias=True,
         softmax_scale=None,
-        causal=False,
+        causal=True,
         layer_idx=None,
         d_conv=0,
         rotary_emb_dim=0,
@@ -108,45 +108,6 @@ class MHATime(nn.Module):
         """kv: (batch_size, seqlen, 2, nheads, head_dim) or (batch_size, 1, 2, nheads, head_dim)"""
         assert self.layer_idx is not None, "Generation requires layer_idx in the constructor"
         return _update_kv_cache(kv, inference_params, self.layer_idx)
-
-    def _apply_rotary_update_kvcache_attention(self, q, kv, inference_params):
-        """
-        Fast path that combine 3 steps: apply rotary to Q and K, update kv cache, and apply attention.
-        q: (batch_size, seqlen_q, nheads, head_dim)
-        kv: (batch_size, seqlen_k, 2, nheads_kv, head_dim)
-        """
-        orig_dtype = q.dtype
-        assert inference_params is not None and inference_params.seqlen_offset > 0
-        if self.rotary_emb_dim > 0:
-            self.rotary_emb._update_cos_sin_cache(
-                inference_params.max_seqlen, device=q.device, dtype=q.dtype
-            )
-            rotary_cos, rotary_sin = self.rotary_emb._cos_cached, self.rotary_emb._sin_cached
-        else:
-            rotary_cos, rotary_sin = None, None
-        batch = q.shape[0]
-        kv_cache, _ = inference_params.key_value_memory_dict[self.layer_idx]
-        kv_cache = kv_cache[:batch]
-        cache_seqlens = (
-            inference_params.lengths_per_sample[:batch]
-            if inference_params.lengths_per_sample is not None
-            else inference_params.seqlen_offset
-        )
-        assert flash_attn_with_kvcache is not None, "flash_attn must be installed"
-        context = flash_attn_with_kvcache(
-            q.to(dtype=torch.float16),
-            kv_cache[:, :, 0].to(dtype=torch.float16),
-            kv_cache[:, :, 1].to(dtype=torch.float16),
-            kv[:, :, 0].to(dtype=torch.float16),
-            kv[:, :, 1].to(dtype=torch.float16),
-            rotary_cos=rotary_cos.to(dtype=torch.float16) if rotary_cos is not None else None,
-            rotary_sin=rotary_sin.to(dtype=torch.float16) if rotary_sin is not None else None,
-            cache_seqlens=cache_seqlens,
-            softmax_scale=self.softmax_scale,
-            causal=self.causal,
-            rotary_interleaved=self.rotary_emb.interleaved if self.rotary_emb_dim > 0 else False,
-        )
-        return context.to(dtype=orig_dtype)
 
     def _update_kvcache_attention(self, q, kv, inference_params):
         """Write kv to inference_params, then do attention"""
@@ -253,26 +214,21 @@ class MHATime(nn.Module):
         q, kv = qkv.split([self.num_heads * self.head_dim, self.num_heads_kv * 2 * self.head_dim], dim=-1)
         q = rearrange(q, "... (h d) -> ... h d", d=self.head_dim)
         kv = rearrange(kv, "... (two hkv d) -> ... two hkv d", two=2, d=self.head_dim)
-        if (
-            inference_params is None
-            or inference_params.seqlen_offset == 0
-            or (self.rotary_emb_dim == 0 or self.rotary_emb_dim % 16 != 0)
-        ):
-            if self.rotary_emb_dim > 0:
-                q, kv = self.rotary_emb(
-                    q, kv, times=times
-                )
-            if inference_params is None:
-                k, v = kv.unbind(dim=-3)
-                k = torch.repeat_interleave(k, dim=2, repeats=self.num_heads // self.num_heads_kv)
-                v = torch.repeat_interleave(v, dim=2, repeats=self.num_heads // self.num_heads_kv)
-                context = F.scaled_dot_product_attention(
-                    q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), is_causal=self.causal, scale=self.softmax_scale
-                ).transpose(1, 2)
-            else:
-                context = self._update_kvcache_attention(q, kv, inference_params)
+       
+        if self.rotary_emb_dim > 0:
+            q, kv = self.rotary_emb(
+                q, kv, times=times
+            )
+        if inference_params is None:
+            k, v = kv.unbind(dim=-3)
+            k = torch.repeat_interleave(k, dim=2, repeats=self.num_heads // self.num_heads_kv)
+            v = torch.repeat_interleave(v, dim=2, repeats=self.num_heads // self.num_heads_kv)
+            context = F.scaled_dot_product_attention(
+                q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), is_causal=self.causal, scale=self.softmax_scale
+            ).transpose(1, 2)
         else:
-            context = self._apply_rotary_update_kvcache_attention(q, kv,times, inference_params)
+            context = self._update_kvcache_attention(q, kv, inference_params)
+
         context = rearrange(context, "... h d -> ... (h d)")
         if self.mlp_dim > 0:
             context = torch.cat([context, x_mlp], dim=-1)

@@ -68,7 +68,6 @@ def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "midpoint
         # 若某一行全是0，min=inf, max=-inf，此时结果为 nan，需要额外处理
         all_zero_mask = non_zero_mask.sum(dim=1) == 0
         center[all_zero_mask] = 0  # 或者设为 nan、-1、其他默认值
-
     return center
 
 
@@ -126,11 +125,13 @@ class RotaryEmbeddingTime(nn.Module):
             self._sin_k_cached = torch.sin(freqs).to(dtype)
         else:
             if self.center_mode == "fixed":
+                # print(f"Using fixed center: {self._center_cached}")
                 assert self._center_cached is not None, "Fixed center mode requires `time_center`."
                 center = self._center_cached
 
             elif self.center_mode == "dynamic":
                 center =compute_nonzero_center_per_sample(times,'midpoint')[:, None] 
+                print(f"[RotaryEmbeddingTime] Dynamic-inferred center: {center}")
             elif self.center_mode == "auto":
                 if self._center_cached is None:
                     self._center_cached = compute_nonzero_center_per_sample(times)[:, None] 
@@ -150,11 +151,6 @@ class RotaryEmbeddingTime(nn.Module):
             center = torch.tensor(center, dtype=torch.float32)
         assert center.dim() == 0, f"Fixed center must be scalar, got shape: {center.shape}"
         self._center_cached = center
-
-
-
-        
-
 
     def forward(
         self,

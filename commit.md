@@ -1,4 +1,4 @@
-
+修正mixer_tpp 中b的形状问题
 
 
 问题
@@ -29,6 +29,8 @@ scedc不适合做分类
 
 PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混叠
 attn相对ssm在长序列tpp没有表现出优势
+
+加入RoPe后采样会崩，time_center
 
 
 调试

@@ -108,8 +108,8 @@ class MixerTPP(TPPModel):
         """Get the distribution over the inter-event times given the context."""
         params = self.hypernet_time(context)
         # Very small params may lead to numerical problems, clamp to avoid this
-        # params = clamp_preserve_gradients(params, -6.0, np.inf)
-        # params = clamp_preserve_gradients(params, -6.0, 6.0)
+        params = clamp_preserve_gradients(params, -6.0, np.inf)
+        params = clamp_preserve_gradients(params, -6.0, 6.0)
         num_components = params.shape[-1] // 3
         scale, shape, weight_logits = torch.split(params, [num_components, num_components, num_components], dim=-1)
 
@@ -135,9 +135,10 @@ class MixerTPP(TPPModel):
             else:
                 b_pred = self.b_min + (self.b_max - self.b_min) * 0.5 * (torch.tanh(b_delta) + 1)
                 b_pred = b_pred
+            b_pred = b_pred.squeeze(-1)
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
-        return b_pred.squeeze(-1) 
+        return b_pred
 
     def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
         b_pred = self._get_b_pred(context, predict_b)
