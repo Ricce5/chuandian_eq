@@ -1,13 +1,13 @@
 import torch
 from src.models.mamba.mamba2_rotary import Mamba2Rotary
 
-B, S, D = 2, 6000, 64
+B, S, D = 2, 10000, 64
 T = torch.arange(S).unsqueeze(0).expand(B, -1).float()
 
 model = Mamba2Rotary(
     d_model=D,
-    rotary_emb_scale_base=512,
-    rotary_emb_center_mode='dynamic',
+    rotary_emb_scale_base=4096,
+    rotary_emb_center_mode='auto',
     layer_idx=0
 ).to(dtype=torch.float16, device="cuda")
 
@@ -29,4 +29,6 @@ out_step = torch.cat(out_tokens, dim=1)
 
 # ===== 对比差异 =====
 diff = (out_full - out_step).abs().max()
+print(out_full[0,:,0])
+print(out_step[0,:,0])
 print(f"Max difference between forward and step: {diff.item()}")

@@ -278,7 +278,7 @@ class MixerTPP(TPPModel):
         if past_seq is not None:
             t_start = past_seq.t_end
             buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
-            sample_batch = buffer_batch.get_tmp_batch()
+            sample_batch = buffer_batch.get_sample_batch()
             current_state = self.get_current_state(sample_batch)
             inference_params.seqlen_offset += 1
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
@@ -299,8 +299,8 @@ class MixerTPP(TPPModel):
                 next_inter_times = inter_time_dist.sample()
             else:
                 next_inter_times = inter_time_dist.sample_conditional(lower_bound=time_remaining)
-                next_inter_times -= time_remaining
-                time_remaining = None
+                # next_inter_times -= time_remaining
+                # time_remaining = None
 
             next_inter_times.clamp_max_(t_end - t_start)
             inter_time_list.append(next_inter_times)
@@ -314,9 +314,13 @@ class MixerTPP(TPPModel):
             mag_list.append(next_mag)
 
             buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag )
-            sample_batch = buffer_batch.get_tmp_batch()  
+            tmp_batch = buffer_batch.get_tmp_batch() 
+            if time_remaining is not None:
+                tmp_batch.inter_times -= time_remaining
+                assert tmp_batch.inter_times.min() >= 0
+                time_remaining = None
 
-            current_state = self.get_current_state(sample_batch, inference_params=inference_params)
+            current_state = self.get_current_state(tmp_batch, inference_params=inference_params)
             inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)
             current_state = current_state.detach()
@@ -342,15 +346,14 @@ class MixerTPP(TPPModel):
         batch = src.data.Batch(
             inter_times=inter_times,
             arrival_times=inter_times.cumsum(-1),
-            t_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float16),
-            t_end=torch.full([batch_size], t_end, device=self.device, dtype=torch.float16),
-            t_nll_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float16),
+            t_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float32),
+            t_end=torch.full([batch_size], t_end, device=self.device, dtype=torch.float32),
+            t_nll_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float32),
             mask=padding_mask.float(),
             start_idx=torch.zeros(batch_size, device=self.device).long(),
             end_idx=end_idx,
             mag=magnitudes,
         )
-
         return batch.to_list() if return_sequences else batch
 
 

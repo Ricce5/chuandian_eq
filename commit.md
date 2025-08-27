@@ -1,4 +1,6 @@
-修正mixer_tpp 中b的形状问题
+修正normalize_arrival_times在tpp采样阶段错误减去低一个时间的问题
+修正采样阶段时间计算存在问题
+
 
 
 问题
@@ -31,7 +33,7 @@ PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混�
 attn相对ssm在长序列tpp没有表现出优势
 
 加入RoPe后采样会崩，time_center
-
+ normalize_arrival_times存在问题
 
 调试
 
@@ -49,3 +51,8 @@ mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
 
 注意8.12前clf tau_mean 取0.026 ,因为dt没有在Mc过滤后计算
+
+
+
+第一步时间更新
+状态污染

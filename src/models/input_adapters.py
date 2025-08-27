@@ -141,6 +141,7 @@ class Mixer_BatchInputAdapter:
             self.time_scale_base = to_t(base)
             print(f"tau mean: {self.tau_mean}")
 
+
     # =========================
     # PIPELINE
     # =========================
@@ -222,9 +223,9 @@ class Mixer_BatchInputAdapter:
     def normalize_arrival_times(self, arrival_times: torch.Tensor, normalize_time: bool = False) -> torch.Tensor:
         device = arrival_times.device
         if normalize_time:
-            return (arrival_times - arrival_times[:, 0:1]) / self.time_scale_base.to(device) 
+            return arrival_times / self.time_scale_base.to(device) 
         else:
-            return arrival_times - arrival_times[:, 0:1]
+            return arrival_times 
 
 
 
