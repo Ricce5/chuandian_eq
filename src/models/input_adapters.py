@@ -147,10 +147,14 @@ class Mixer_BatchInputAdapter:
     # =========================
     def __call__(self, batch: 'src.data.Batch') -> Dict[str, torch.Tensor]:
         arrival_times, inter_times, mag, loc = self._extract_fields(batch)
-        non_pad_mask = self._make_non_pad_mask(arrival_times)
-        features = self._build_features(mag, loc, inter_times, non_pad_mask)
-        extras = self._build_extras(arrival_times, inter_times, non_pad_mask)
-        return {"features": features, "input_mask": non_pad_mask.squeeze(-1).float(), **extras}
+        if not hasattr(batch, 'input_mask'):
+            input_mask = self._make_non_pad_mask(inter_times).squeeze(-1).float()
+            # 相对直接使用生存时间没有被掩码
+        else:
+            input_mask = batch.input_mask.float()
+        features = self._build_features(mag, loc, inter_times, input_mask.unsqueeze(-1))
+        extras = self._build_extras(arrival_times, inter_times, input_mask.unsqueeze(-1))
+        return {"features": features, "input_mask": input_mask, **extras}
 
     # ---------- step 1: parse ----------
     def _extract_fields(self, batch: 'src.data.Batch') -> Tuple[torch.Tensor, ...]:
@@ -162,8 +166,8 @@ class Mixer_BatchInputAdapter:
         return arrival_times, inter_times, mag, loc
 
     # ---------- step 2: mask ----------
-    def _make_non_pad_mask(self, arrival_times: torch.Tensor) -> torch.Tensor:
-        return arrival_times.ne(0).float().unsqueeze(-1)
+    def _make_non_pad_mask(self, inter_times: torch.Tensor) -> torch.Tensor:
+        return get_non_pad_mask(inter_times)  
 
     # ---------- step 3: features ----------
     def _build_features(

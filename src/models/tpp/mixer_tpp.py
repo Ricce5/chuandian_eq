@@ -102,6 +102,8 @@ class MixerTPP(TPPModel):
             ):
         """Get the current state of the model for inference."""
         current_state = self.base_model(batch, inference_params=inference_params)
+        if inference_params is not None:
+            inference_params.seqlen_offset += 1
         return current_state[:, -1:, :]
     
 
@@ -279,9 +281,9 @@ class MixerTPP(TPPModel):
         if past_seq is not None:
             t_start = past_seq.t_end
             buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
-            sample_batch = buffer_batch.get_sample_batch()
-            current_state = self.get_current_state(sample_batch,inference_params=inference_params)
-            inference_params.seqlen_offset += 1
+            # sample_batch = buffer_batch.get_sample_batch()
+            # current_state = self.get_current_state(sample_batch,inference_params=inference_params)
+            current_state = self.get_current_state(src.data.Batch.from_list([past_seq])[:,:-1],inference_params=inference_params)
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
         else:
@@ -294,6 +296,7 @@ class MixerTPP(TPPModel):
 
         t_end = t_start + duration
         inter_time_list = []
+        running_time = torch.zeros(batch_size, device=self.device, dtype=torch.float32)
         mag_list = []
 
         generated = False
@@ -303,12 +306,17 @@ class MixerTPP(TPPModel):
                 next_inter_times = inter_time_dist.sample()
             else:
                 next_inter_times = inter_time_dist.sample_conditional(lower_bound=time_remaining)
-                # next_inter_times -= time_remaining
-                # time_remaining = None
 
             next_inter_times.clamp_max_(t_end - t_start)
-            inter_time_list.append(next_inter_times)
+            if time_remaining is not None:
+                delta = next_inter_times-time_remaining
+                inter_time_list.append(delta)
+                assert (delta).min() >= 0
+                time_remaining = None
+            else:
+                inter_time_list.append(next_inter_times)
 
+            running_time += inter_time_list[-1].squeeze(-1)
 
             if self.ssm_filter is None:
                 mag_dist = self.get_magnitude_dist(context= current_state,predict_b= predict_b)
@@ -317,20 +325,11 @@ class MixerTPP(TPPModel):
             next_mag = mag_dist.sample()
             mag_list.append(next_mag)
 
-            buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag )
-            tmp_batch = buffer_batch.get_tmp_batch() 
-            if time_remaining is not None:
-                tmp_batch.inter_times -= time_remaining
-                assert tmp_batch.inter_times.min() >= 0
-                time_remaining = None
+            buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag)
+            tmp_batch = buffer_batch.get_tmp_batch()
 
             current_state = self.get_current_state(tmp_batch, inference_params=inference_params)
-            inference_params.seqlen_offset += 1
-            current_state = self.dropout(current_state)
-            current_state = current_state.detach()
-
-            total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
-            generated = total_time >= (t_end - t_start)-1e-6
+            generated = running_time.min() >= (t_end - t_start)-1e-6
 
         inter_times = torch.cat(inter_time_list, dim=1)
         magnitudes = torch.cat(mag_list, dim=1)

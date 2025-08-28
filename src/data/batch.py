@@ -161,7 +161,6 @@ class Batch(DotDict):
         valid_len = (self.end_idx.max().item() + 1)
         start_idx= valid_len-2
         end_idx = valid_len-1
-        
         core_fields = dict(
             inter_times   = self.inter_times[:, start_idx:end_idx],
             arrival_times = self.arrival_times[:, start_idx:end_idx],

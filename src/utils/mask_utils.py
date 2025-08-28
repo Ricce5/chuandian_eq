@@ -32,6 +32,9 @@ def get_non_pad_mask(seq,pad=PAD):
     """ Get the non-padding positions. """
 
     assert seq.dim() == 2
+    print(pad)
+    print(seq[0,:])
+    print(seq.ne(pad)[0,:])
     non_pad_mask = seq.ne(pad).type(torch.float).unsqueeze(-1)
     non_pad_mask[:,0,:] = 1.0  # ensure the first dimension is 1.0
     return non_pad_mask

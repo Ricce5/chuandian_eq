@@ -1,6 +1,6 @@
-修复inference params没有正确保存的问题
-修正做了两次log_softmax的错误
 
+修正mixer_batch_input_adapter的掩码处理
+mixer_tpp采样过程优化
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -35,6 +35,13 @@ attn相对ssm在长序列tpp没有表现出优势
  normalize_arrival_times存在问题
 
 调试
+修正做了两次log_softmax的错误，会导致之前mixer_tpp的checkpoint存在问题
+
+to do
+1. rotarty_time的模式处理
+3. mhatime的旋转处理
+
+
 
 
 mini
