@@ -18,13 +18,13 @@ def parse_args(args=None):
     parser = argparse.ArgumentParser(description="Run forecast visualization using trained model.")
     parser.add_argument('--dataset', type=str, default='ChuanDian', help='Dataset name')
     parser.add_argument('--t_start', type=int, default=0, help='Forecast start time for past sequence')
-    parser.add_argument('--t_forecast', type=int, default=17800, help='Forecast start time')
+    parser.add_argument('--t_forecast', type=int, default=18000, help='Forecast start time')
     parser.add_argument('--duration', type=int, default=30, help='Forecast duration')
     parser.add_argument('--num_samples', type=int, default=1000, help='Total number of samples')
-    parser.add_argument('--samples_per_batch', type=int, default=50, help='Samples per batch during sampling')
+    parser.add_argument('--samples_per_batch', type=int, default=100, help='Samples per batch during sampling')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--checkpoint_dir', type=str,
-                        default="./checkpoints/mixer_tpp_20250827-104434",
+                        default="./checkpoints/mixer_tpp_20250828-102630",
                         help='Path to checkpoint directory')
     # "./checkpoints/mixer_tpp_20250826-210727"
     # If args is None, decide based on environment
@@ -39,7 +39,7 @@ def parse_args(args=None):
 # %%
 args = parse_args()
 set_seed(args.seed)
-checkpoint_path = Path(args.checkpoint_dir) / "best_model_1.pth"
+checkpoint_path = Path(args.checkpoint_dir) / "last_model_1.pth"
 check_point = torch.load(checkpoint_path, weights_only=False)
 ckpt_args = load_args_from_checkpoint(None, check_point)
 print(f"Loaded checkpoint with args: {ckpt_args}")

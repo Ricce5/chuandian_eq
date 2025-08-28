@@ -44,6 +44,7 @@ class MixerTPP(TPPModel):
 
         device = next(base_model.parameters()).device
         dtype = next(base_model.parameters()).dtype
+        self.context_size = getattr(base_model, "d_model", None)
         self.num_extra_features = None
         self.input_magnitude = True
         self.base_model = base_model
@@ -108,14 +109,14 @@ class MixerTPP(TPPModel):
         """Get the distribution over the inter-event times given the context."""
         params = self.hypernet_time(context)
         # Very small params may lead to numerical problems, clamp to avoid this
-        params = clamp_preserve_gradients(params, -6.0, np.inf)
-        params = clamp_preserve_gradients(params, -6.0, 6.0)
+        # params = clamp_preserve_gradients(params, -6.0, np.inf)
+        # params = clamp_preserve_gradients(params, -6.0, 6.0)
         num_components = params.shape[-1] // 3
         scale, shape, weight_logits = torch.split(params, [num_components, num_components, num_components], dim=-1)
 
         scale = F.softplus(scale.clamp_min(-5.0))
         shape = F.softplus(shape.clamp_min(-5.0))
-        weight_logits = F.log_softmax(weight_logits, dim=-1)
+        # weight_logits = F.log_softmax(weight_logits, dim=-1)
         component_dist = dist.Weibull(scale=scale, shape=shape)
         mixture_dist = Categorical(logits=weight_logits)
         return dist.MixtureSameFamily(
@@ -266,7 +267,7 @@ class MixerTPP(TPPModel):
     ) -> Union[src.data.Batch, List[src.data.Sequence]]:
 
         predict_b = self.predict_b if predict_b is None else predict_b  
-        past_seq_len = len(past_seq)
+        past_seq_len = len(past_seq) if past_seq is not None else 0
         max_sample_len = 2000
         max_seqlen = past_seq_len + max_sample_len
 
@@ -279,13 +280,16 @@ class MixerTPP(TPPModel):
             t_start = past_seq.t_end
             buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
             sample_batch = buffer_batch.get_sample_batch()
-            current_state = self.get_current_state(sample_batch)
+            current_state = self.get_current_state(sample_batch,inference_params=inference_params)
             inference_params.seqlen_offset += 1
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
         else:
             dtype = next(self.parameters()).dtype
             current_state = torch.zeros(batch_size, 1, self.context_size, device=self.device, dtype=dtype)
+            buffer_batch = src.data.Batch.init_sample_batch(
+                past_seq=None, batch_size=batch_size, max_sample_len=max_sample_len
+            )
             time_remaining = None
 
         t_end = t_start + duration
@@ -326,10 +330,11 @@ class MixerTPP(TPPModel):
             current_state = current_state.detach()
 
             total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
-            generated = total_time >= (t_end - t_start)
+            generated = total_time >= (t_end - t_start)-1e-6
 
         inter_times = torch.cat(inter_time_list, dim=1)
         magnitudes = torch.cat(mag_list, dim=1)
+
 
         duration = t_end - t_start
         unclipped_arrival_times = inter_times.cumsum(-1)

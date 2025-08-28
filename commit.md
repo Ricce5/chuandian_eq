@@ -1,6 +1,5 @@
-修正normalize_arrival_times在tpp采样阶段错误减去低一个时间的问题
-修正采样阶段时间计算存在问题
-
+修复inference params没有正确保存的问题
+修正做了两次log_softmax的错误
 
 
 问题
