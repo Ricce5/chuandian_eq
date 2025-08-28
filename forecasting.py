@@ -26,6 +26,8 @@ def parse_args(args=None):
     parser.add_argument('--checkpoint_dir', type=str,
                         default="./checkpoints/mixer_tpp_20250828-102630",
                         help='Path to checkpoint directory')
+    parser.add_argument('--ckpt_select', type=str, choices=['best', 'last'], default='last',
+                    help='Which checkpoint to use in test mode (best or last)')
     # "./checkpoints/mixer_tpp_20250826-210727"
     # If args is None, decide based on environment
     if args is None:
@@ -39,7 +41,7 @@ def parse_args(args=None):
 # %%
 args = parse_args()
 set_seed(args.seed)
-checkpoint_path = Path(args.checkpoint_dir) / "last_model_1.pth"
+checkpoint_path = Path(args.checkpoint_dir) / f"{args.ckpt_select}_model_1.pth"
 check_point = torch.load(checkpoint_path, weights_only=False)
 ckpt_args = load_args_from_checkpoint(None, check_point)
 print(f"Loaded checkpoint with args: {ckpt_args}")

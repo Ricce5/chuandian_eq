@@ -179,6 +179,19 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
             (in case batch is small).
         Returns: same shape as u
         """
+        seqlen_offset = (
+            0
+            if inference_params is None
+            else (
+                inference_params.lengths_per_sample
+                if inference_params.lengths_per_sample is not None
+                else inference_params.seqlen_offset
+            )
+        )
+        rotary_max_seqlen = inference_params.max_seqlen if inference_params is not None else None   
+        # print(f"seqlen_offset {seqlen_offset}, rotary_max_seqlen {rotary_max_seqlen}")
+    
+            
         seqlen_og = seqlen
         if seqlen is None:
             batch, seqlen, dim = u.shape
@@ -192,9 +205,9 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
             conv_state, ssm_state = self._get_states_from_cache(inference_params, inference_batch)
             if inference_params.seqlen_offset > 0:
                 # The states are updated inplace
-                out, _, _ = self.step(u, conv_state, ssm_state, times)
+                out, _, _ = self.step(u, conv_state, ssm_state, times,rotary_max_seqlen=rotary_max_seqlen, seqlen_offset=seqlen_offset)
                 return out
-
+            
         zxbcdt = self.in_proj(u)  # (B, L, d_in_proj) or (B * L, d_in_proj)
         if seqlen_og is not None:
             zxbcdt = rearrange(zxbcdt, "(b l) d -> b l d", l=seqlen)
@@ -244,7 +257,7 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         C =  rearrange(C, "b l (g n) -> b l g n", g=self.ngroups)
         if self.rotary_emb_dim > 0:
             B, C = self.rotary_emb(
-                B, C, times=times
+                B, C, times=times, seqlen_offset=seqlen_offset, max_seqlen=rotary_max_seqlen
             )
         y = mamba_chunk_scan_combined(
             rearrange(x, "b l (h p) -> b l h p", p=self.headdim),
@@ -280,7 +293,7 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         out = self.out_proj(y)
         return out
 
-    def step(self, hidden_states, conv_state, ssm_state, times):
+    def step(self, hidden_states, conv_state, ssm_state, times, rotary_max_seqlen, seqlen_offset):
         dtype = hidden_states.dtype
         assert hidden_states.shape[1] == 1, "Only support decoding with 1 token at a time for now"
         zxbcdt = self.in_proj(hidden_states.squeeze(1))  # (B 2D)
@@ -337,7 +350,7 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
             C = rearrange(C, "b (g n) -> b g n", g=self.ngroups)
             if self.rotary_emb_dim > 0:
                 B, C = self.rotary_emb(
-                    B.unsqueeze(2), C.unsqueeze(2), times=times
+                    B.unsqueeze(2), C.unsqueeze(2), times=times, max_seqlen=rotary_max_seqlen, seqlen_offset=seqlen_offset
                 )
                 B = B.squeeze(2)
                 C = C.squeeze(2)

@@ -81,8 +81,9 @@ class RotaryEmbeddingTime(nn.Module):
         interleaved: bool = False,
         scale_base: Optional[float] = None,
         time_center: Optional[float] = None,
-        center_mode:str = "dynamic",  #  'auto' | 'fixed' | 'dynamic'
+        # center_mode:str = "dynamic",  #  'auto' | 'fixed' | 'dynamic'
         device=None,
+        **kwargs,
     ):
         super().__init__()
         self.dim = dim
@@ -103,7 +104,6 @@ class RotaryEmbeddingTime(nn.Module):
         self._cos_k_cached = None
         self._sin_k_cached = None
         self._center_cached = time_center if time_center is not None else None
-        self.center_mode = center_mode
 
 
     def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device, update_center: bool = False):
@@ -124,21 +124,7 @@ class RotaryEmbeddingTime(nn.Module):
             self._cos_k_cached = torch.cos(freqs).to(dtype)
             self._sin_k_cached = torch.sin(freqs).to(dtype)
         else:
-            if self.center_mode == "fixed":
-                # print(f"Using fixed center: {self._center_cached}")
-                assert self._center_cached is not None, "Fixed center mode requires `time_center`."
-                center = self._center_cached
-
-            elif self.center_mode == "dynamic":
-                center =compute_nonzero_center_per_sample(times,'midpoint')[:, None] 
-                print(f"[RotaryEmbeddingTime] Dynamic-inferred center: {center}")
-            elif self.center_mode == "auto":
-                if self._center_cached is None:
-                    self._center_cached = compute_nonzero_center_per_sample(times)[:, None] 
-                    print(f"[RotaryEmbeddingTime] Auto-inferred center: {self._center_cached}")
-                center = self._center_cached
-            else:
-                raise ValueError(f"Unsupported center_mode: {self.center_mode}")
+            center = self._center_cached
             power = (times - center) / self.scale_base
             scale = self.scale.to(device=power.device) ** rearrange(power, "... -> ... 1")
             self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
@@ -146,17 +132,14 @@ class RotaryEmbeddingTime(nn.Module):
             self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
             self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
-    def set_fixed_center(self, center: Union[float, torch.Tensor]):
-        if not isinstance(center, torch.Tensor):
-            center = torch.tensor(center, dtype=torch.float32)
-        assert center.dim() == 0, f"Fixed center must be scalar, got shape: {center.shape}"
-        self._center_cached = center
 
     def forward(
         self,
         qkv: torch.Tensor,
         kv: Optional[torch.Tensor] = None,
         times: Optional[torch.Tensor] = None,
+        seqlen_offset: Union[int, torch.Tensor] = 0,
+        max_seqlen: Optional[int] = None,
         num_heads_q: Optional[int] = None,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
@@ -164,8 +147,18 @@ class RotaryEmbeddingTime(nn.Module):
              or just (batch, seqlen, nheads, headdim) if kv is provided (i.e., this is Q)
         kv: optional, (batch, seqlen, 2, nheads, headdim)
         """
+        # print(f"seqlen_offset {seqlen_offset} max_seqlen {max_seqlen}")
+        if times.ndim == 1:
+            times = times[None, :] 
         device = qkv.device
         dtype = qkv.dtype
+        seq_len = times.shape[1]
+        if seqlen_offset == 0:
+            self._center_cached = compute_nonzero_center_per_sample(times, 'midpoint')[:, None]
+            if max_seqlen is not None:
+                t_min = times[:, [0]]
+                scale = (max_seqlen + seq_len) / seq_len
+                self._center_cached = (self._center_cached - t_min) * scale + t_min
 
         assert times is not None, "times must be provided for rotary embedding"
         self._update_cos_sin_cache(times, dtype, device)

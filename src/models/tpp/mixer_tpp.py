@@ -281,9 +281,9 @@ class MixerTPP(TPPModel):
         if past_seq is not None:
             t_start = past_seq.t_end
             buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
-            # sample_batch = buffer_batch.get_sample_batch()
-            # current_state = self.get_current_state(sample_batch,inference_params=inference_params)
-            current_state = self.get_current_state(src.data.Batch.from_list([past_seq])[:,:-1],inference_params=inference_params)
+            sample_batch = buffer_batch.get_sample_batch()
+            current_state = self.get_current_state(sample_batch,inference_params=inference_params)
+            # current_state = self.get_current_state(src.data.Batch.from_list([past_seq])[:,:-1],inference_params=inference_params)
             current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
         else:

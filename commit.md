@@ -1,6 +1,6 @@
+rotary_embedding_time自动化处理
+mamba2_rotary对rotary_embedding_time的处理完善
 
-修正mixer_batch_input_adapter的掩码处理
-mixer_tpp采样过程优化
 
 问题
 tmp_batch 的pad与现有版本不兼容

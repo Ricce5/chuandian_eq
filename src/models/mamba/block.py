@@ -71,7 +71,6 @@ class Block(nn.Module):
             k: v for k, v in mixer_kwargs.items()
             if k in sig.parameters
         }
-
         hidden_states = self.mixer(hidden_states, inference_params=inference_params, **accepted_kwargs)
         hidden_states = self.dropout(hidden_states) 
 

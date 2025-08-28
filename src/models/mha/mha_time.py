@@ -217,7 +217,7 @@ class MHATime(nn.Module):
        
         if self.rotary_emb_dim > 0:
             q, kv = self.rotary_emb(
-                q, kv, times=times
+                q, kv, times=times,seqlen_offset=seqlen_offset, max_seqlen=rotary_max_seqlen,
             )
         if inference_params is None:
             k, v = kv.unbind(dim=-3)
