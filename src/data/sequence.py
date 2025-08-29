@@ -160,6 +160,13 @@ class Sequence(DotDict):
             **other_attr,
         )
 
+    def init_sample_sequence(self) -> "Sequence":
+        """Initialize a sample sequence for training."""
+        last_event_time = self.arrival_times[-1]
+        print(last_event_time)
+        return self.get_subsequence(last_event_time, last_event_time)
+
+
     def state_dict(self) -> dict:
         # These attributes are computed from inter_times and t_start, no need to save them to disk
         inferred_attributes = ["arrival_times", "t_end"]

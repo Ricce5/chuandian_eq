@@ -1,5 +1,6 @@
-rotary_embedding_time自动化处理
-mamba2_rotary对rotary_embedding_time的处理完善
+修正buffer_batch在past_seq长度为0时的arrival_time更新错误
+补充sequence方法init_sample_sequence
+mixer_tpp采样过程优化
 
 
 问题
