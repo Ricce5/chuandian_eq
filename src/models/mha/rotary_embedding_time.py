@@ -58,11 +58,9 @@ def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "midpoint
         times_with_inf = times_float.clone()
         times_with_inf[~non_zero_mask] = float('inf')
         min_vals, _ = torch.min(times_with_inf, dim=1)
-        # print(min_vals)
         times_with_ninf = times_float.clone()
         times_with_ninf[~non_zero_mask] = float('-inf')
         max_vals, _ = torch.max(times_with_ninf, dim=1)
-        # print(max_vals)
         center = (min_vals + max_vals) / 2
 
         # 若某一行全是0，min=inf, max=-inf，此时结果为 nan，需要额外处理

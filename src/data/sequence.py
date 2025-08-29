@@ -163,7 +163,6 @@ class Sequence(DotDict):
     def init_sample_sequence(self) -> "Sequence":
         """Initialize a sample sequence for training."""
         last_event_time = self.arrival_times[-1]
-        print(last_event_time)
         return self.get_subsequence(last_event_time, last_event_time)
 
 

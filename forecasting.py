@@ -24,9 +24,9 @@ def parse_args(args=None):
     parser.add_argument('--samples_per_batch', type=int, default=100, help='Samples per batch during sampling')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
     parser.add_argument('--checkpoint_dir', type=str,
-                        default="./checkpoints/mixer_tpp_20250828-102630",
+                        default="./checkpoints/mixer_tpp_20250829-192639",
                         help='Path to checkpoint directory')
-    parser.add_argument('--ckpt_select', type=str, choices=['best', 'last'], default='last',
+    parser.add_argument('--ckpt_select', type=str, choices=['best', 'last'], default='best',
                     help='Which checkpoint to use in test mode (best or last)')
     # "./checkpoints/mixer_tpp_20250826-210727"
     # If args is None, decide based on environment

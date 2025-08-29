@@ -1,6 +1,3 @@
-修正buffer_batch在past_seq长度为0时的arrival_time更新错误
-补充sequence方法init_sample_sequence
-mixer_tpp采样过程优化
 
 
 问题
@@ -32,14 +29,12 @@ scedc不适合做分类
 PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混叠
 attn相对ssm在长序列tpp没有表现出优势
 
-加入RoPe后采样会崩，time_center
- normalize_arrival_times存在问题
+mhatime在采样阶段只能使用float16
 
 调试
 修正做了两次log_softmax的错误，会导致之前mixer_tpp的checkpoint存在问题
 
 to do
-1. rotarty_time的模式处理
 3. mhatime的旋转处理
 
 

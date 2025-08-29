@@ -23,7 +23,7 @@ class ChinaArrayBase(Catalog):
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
         elif catalog_file is None:
-            self.catalog_file = self.root_dir / "ChinaArray.dat"
+            self.catalog_file = self.root_dir / "ChinaArray.csv"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
@@ -45,9 +45,7 @@ class ChinaArrayBase(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def generate_catalog(self):
-        column_names = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second',
-                        'Latitude', 'Longitude', 'Depth', 'Magnitude']
-        df = pd.read_csv(self.catalog_file, header=None, names=column_names, sep=r"\s+")
+        df = pd.read_csv(self.catalog_file)
         df['time'] = pd.to_datetime(df[['Year', 'Month', 'Day', 'Hour', 'Minute']], errors='coerce') + pd.to_timedelta(df['Second'], unit='s')
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()

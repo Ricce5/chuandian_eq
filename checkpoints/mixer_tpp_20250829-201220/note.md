@@ -1,0 +1,1 @@
+minibatch_training 不使用
