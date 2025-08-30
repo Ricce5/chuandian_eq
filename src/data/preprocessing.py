@@ -54,6 +54,7 @@ def load_and_filter_catalog(base_dir, Mc):
         if len(processed_files) != 1:
             raise ValueError(f"Expected exactly one 'processed_' CSV file among multiple files, found {len(processed_files)}: {processed_files}")
         chosen_file = processed_files[0]
+        print(f"Multiple CSV files found. Using processed file: {chosen_file}")
     else:
         raise ValueError("No CSV files found in the 'raw' directory.")
 

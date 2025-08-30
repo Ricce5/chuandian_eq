@@ -156,17 +156,17 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
 
     # Earthquake datasets
     root_dir = os.path.join(base_dir, 'raw')
-    dat_files = [f for f in os.listdir(root_dir) if f.endswith('.dat')]
+    # dat_files = [f for f in os.listdir(root_dir) if f.endswith('.dat')]
 
-    if len(dat_files) == 1:
-        file_path = os.path.join(root_dir, dat_files[0])
-    else:
-        file_path = None
+    # if len(dat_files) == 1:
+    #     file_path = os.path.join(root_dir, dat_files[0])
+    # else:
+    #     file_path = None
 
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
     print(f"Using catalog dataset class: {catalog_ds_class}")
     
-    catalog_ds = catalog_ds_class(root_dir=root_dir,catalog_file=file_path,)
+    catalog_ds = catalog_ds_class(root_dir=root_dir)
     args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
     args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
     args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()

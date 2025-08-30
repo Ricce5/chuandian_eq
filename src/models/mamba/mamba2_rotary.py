@@ -63,11 +63,10 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
         rotary_emb_base=10000.0,
         rotary_emb_interleaved=False,
         rotary_emb_scale_base=None,
-        rotary_emb_time_center=None,
-        rotary_emb_center_mode="fixed",  # 'auto' | 'fixed' | 'dynamic'
         device=None,
         dtype=None,
         use_conv=True,
+        **kwargs,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -167,8 +166,6 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
                 interleaved=rotary_emb_interleaved,
                 device=device,
                 scale_base=rotary_emb_scale_base,
-                time_center=rotary_emb_time_center,
-                center_mode=rotary_emb_center_mode,
             )
 
     def forward(self, u, times, seqlen=None, seq_idx=None, cu_seqlens=None, inference_params=None):

@@ -29,15 +29,12 @@ mixer_model_config:
       # d_conv: 4
       use_conv: false
       rotary_emb_scale_base: 1024
-      rotary_emb_center_mode: dynamic
 
   attn_cfg:
     layer: MHATime
     num_heads: 4
     rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
     rotary_emb_scale_base: 1024
-    rotary_emb_center_mode: dynamic
-    # rotary_emb_time_center: 666
     causal: true
 
   norm_epsilon: 1e-5
@@ -64,13 +61,13 @@ save_dir: null
 cuda_id: "0"
 
 # 数据与控制参数
-dataset: QTMSaltonSea
+dataset:  ChinaArray
 seed: 0
-Mc: 0.6 # 4.5
-Mf: 3.8
-Twindow: 150
-Tfore: 75
-dt: 5
+Mc: 3 # 4.5
+Mf: 6
+Twindow: 200
+Tfore: 60
+dt: 10
 context_len: 1
 split_by_time: true
 use_sampler: true # true

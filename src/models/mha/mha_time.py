@@ -38,10 +38,9 @@ class MHATime(nn.Module):
         rotary_emb_base=10000.0,
         rotary_emb_interleaved=False,
         rotary_emb_scale_base=None,
-        rotary_emb_time_center=None,
-        rotary_emb_center_mode="fixed",  # 'auto' | 'fixed' | 'dynamic'
         device=None,
         dtype=None,
+        **kwargs
     ) -> None:
         """
         num_heads_kv: can be used to toggle MQA / GQA. If None, use num_heads.
@@ -78,8 +77,6 @@ class MHATime(nn.Module):
                 interleaved=rotary_emb_interleaved,
                 device=device,
                 scale_base=rotary_emb_scale_base,
-                time_center=rotary_emb_time_center,
-                center_mode=rotary_emb_center_mode,
             )
 
         self.in_proj = nn.Linear(embed_dim, qkv_dim + self.mlp_dim, bias=qkv_proj_bias, **factory_kwargs)
