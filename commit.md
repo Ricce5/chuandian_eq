@@ -60,22 +60,25 @@ mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 第一步时间更新
 状态污染
 
-dataset 	Twindow	Tfore	dt	Mf	context_len	rf val	rf test	p/n	
-ChinaArray	180	60	10	6.5	1	0.69	0.6		
-ChinaArray	180	30	10	6.5	1	0.61	0.53		
-ChinaArray	180	90	10	6.5	1	0.61	0.53	0.1	
-ChinaArray	180	90	10	6.5	2	0.82	0.88	1	 ~
-ChinaArray	180	90	10	6	1	0.76	0.79	2	~
-ChinaArray	180	90	10	6	2	0.93	0.93	5	
-ChinaArray	180	60	10	6	1	0.8	0.69	1	~
-ChinaArray	180	30	10	6	1	0.72	0.5	0.3	
-ChinaArray	180	90	10	5.5	1	0.92	0.64	100	
-ChinaArray	180	30	10	5.5	1	0.73	0.76	1	~
-ChuanDian	200	20	10	4.5	1	0.64	0.8	1	
-ChuanDian	180	30	10	4.5	1	0.65	0.85	1.5	~
-ChuanDian	180	30	10	5	1	0.63	0.8	0.5	
-ChuanDian	180	60	10	5	1	0.88	0.86	1	~*
-ChuanDian	180	60	10	5.5	1	0.8	0.69	0.25	
-ChuanDian	180	60	10	5.5	2	0.95	0.67	0.25	
-ChuanDian	180	90	10	5.5	1	0.88	0.67	0.5	~
-ChuanDian	180	90	10	5.5	2	0.96	0.9	1	
+dataset 	Twindow	Tfore	dt	Mf	context_len	rf val rf test	p/n	
+ChinaArray	180	60	   10	6.5	1	      0.69	0.6		
+ChinaArray	180	30	   10	6.5	1	      0.61	0.53		
+ChinaArray	180	90	   10	6.5	1	      0.61	0.53	  0.1	
+ChinaArray	180	90	   10	6.5	2	      0.82	0.88   	1	 ~
+ChinaArray	180	90	   10	6	   1	      0.76	0.79	   2	~
+ChinaArray	180	90	   10	6	   2	      0.93	0.93	   5	
+ChinaArray	180	60	   10	6	   1	      0.8	0.69	   1	~
+ChinaArray	180	30	   10	6	   1	      0.72	0.5	  0.3	
+ChinaArray	180	90	   10	5.5	1	      0.92	0.64	  100	
+ChinaArray	180	30	   10	5.5	1	      0.73	0.76	  1	~
+ChuanDian	200	20	   10	4.5	1	      0.64	0.8	  1	
+ChuanDian	180	20	   10	4.5	1	      0.61	0.85	  1
+ChuanDian	180	10	   10	4  	1	      0.61	0.67	  1
+ChuanDian	180	30	   10	4.5	1	      0.65	0.85	  1.5	~
+ChuanDian	180	30	   10	5	   1	      0.63	0.8	  0.5	
+ChuanDian	180	60	   10	5	   1	      0.88	0.86	  1	~*
+ChuanDian	180	60	   10	5.5	1	      0.8	0.69	  0.25	
+ChuanDian	180	60	   10	5.5	2	      0.95	0.67	  0.25	
+ChuanDian	180	90	   10	5.5	1	      0.88	0.67	  0.5	~
+ChuanDian	180	90	   10	5.5	2	      0.96	0.9	  1	
+	

@@ -1,5 +1,5 @@
-# resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
-# load_specific_parts: ['encoder']
+resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
+load_specific_parts: ['encoder']
 model: clf_mixer_attnpl_t
 # 训练参数
 use_ema: false
@@ -28,13 +28,13 @@ mixer_model_config:
       layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
       # d_conv: 2
       use_conv: false
-      rotary_emb_scale_base: 1024
+      rotary_emb_scale_base: 16834
 
   attn_cfg:
     layer: MHATime
     num_heads: 4
     rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
-    rotary_emb_scale_base: 1024
+    rotary_emb_scale_base: 16834
     causal: true
 
   norm_epsilon: 1e-5
@@ -62,9 +62,9 @@ cuda_id: "0"
 dataset: ChuanDian
 seed: 0
 Mc: 3 # 4.5
-Mf: 4
+Mf: 5
 Twindow: 180
-Tfore: 10
+Tfore: 60
 dt: 10
 context_len: 1
 split_by_time: true
@@ -72,4 +72,4 @@ use_sampler: true # true
 time_order:  [train, val, test]
 features_input_keys : ['mag'] #  'log_inter_times'
 normalize_time_by_token:  true
-time_scale_base_key: tau_mean
+time_scale_base_key: tau_q025
