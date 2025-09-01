@@ -510,9 +510,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         from src.models.input_adapters import MixerInputAdapterWithTime
         from src.models.extractors import RepresentationExtractor
         from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
-        from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
         from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
-        from src.models.extractors.pma_time_biased import TimeBiasedPMA
         from src.models.task_model import TaskModel
         from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
         from src.models.heads import TaskHead
@@ -530,7 +528,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
                 hidden_dim=args.d_model,
                 device=device
             )
-            head_input_dim = args.d_model + 1
+            head_input_dim = 
 
         elif extractor_name == 'attn_time_biased':
             extractor = TimeAwareAttnPool(
@@ -539,40 +537,19 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
                 bias_type=getattr(args, 'time_bias_type', 'linear'),
                 device=device
             )
-            head_input_dim = args.d_model
-
-        elif extractor_name == 'attn_time_biased_mh':
-            n_heads = getattr(args, 'n_heads', 4)
-
-            extractor = TimeAwareAttnPoolMH(
-                d_model=args.d_model,
-                d_hidden=args.d_model,
-                bias_type=getattr(args, 'time_bias_type', 'linear'),
-                n_heads=n_heads,
-                agg=getattr(args, 'agg', 'concat'),
-                device=device
-            )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
-
-        elif extractor_name == 'pma_time_biased':
-            n_heads = getattr(args, 'n_heads', 4)
-
-            extractor = TimeBiasedPMA(
-            d_model=args.d_model,
-            n_heads= n_heads,
-            r=getattr(args, 'pma_r', 2),
-            agg=getattr(args, 'agg', 'mean'),
-            use_film=getattr(args, 'use_film', True),
-            bias_type=getattr(args, 'time_bias_type', 'linear'),
-            alpha0=getattr(args, 'alpha0', 10.0),
+            head = TaskHead(
+            input_dim=args.d_model,
+            output_dim=args.mlp_out,
+            head_type="mlp",
+            hidden_layers=args.mlp_hdw,
+            dropout=args.mlp_dropout,
             device=device
-            )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+        )
         else:
             raise ValueError(f"Unknown extractor_name: {extractor_name}")
         
         head = TaskHead(
-            input_dim=head_input_dim,
+            input_dim=args.d_model + 1,
             output_dim=args.mlp_out,
             head_type="mlp",
             hidden_layers=args.mlp_hdw,

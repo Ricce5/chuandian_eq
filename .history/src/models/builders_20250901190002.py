@@ -512,7 +512,6 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
         from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
         from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
-        from src.models.extractors.pma_time_biased import TimeBiasedPMA
         from src.models.task_model import TaskModel
         from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
         from src.models.heads import TaskHead
@@ -542,32 +541,15 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             head_input_dim = args.d_model
 
         elif extractor_name == 'attn_time_biased_mh':
-            n_heads = getattr(args, 'n_heads', 4)
-
+            
             extractor = TimeAwareAttnPoolMH(
                 d_model=args.d_model,
                 d_hidden=args.d_model,
                 bias_type=getattr(args, 'time_bias_type', 'linear'),
-                n_heads=n_heads,
-                agg=getattr(args, 'agg', 'concat'),
                 device=device
             )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+            head_input_dim = args.d_model * getattr(args, 'n_heads', 4)
 
-        elif extractor_name == 'pma_time_biased':
-            n_heads = getattr(args, 'n_heads', 4)
-
-            extractor = TimeBiasedPMA(
-            d_model=args.d_model,
-            n_heads= n_heads,
-            r=getattr(args, 'pma_r', 2),
-            agg=getattr(args, 'agg', 'mean'),
-            use_film=getattr(args, 'use_film', True),
-            bias_type=getattr(args, 'time_bias_type', 'linear'),
-            alpha0=getattr(args, 'alpha0', 10.0),
-            device=device
-            )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
         else:
             raise ValueError(f"Unknown extractor_name: {extractor_name}")
         

@@ -542,20 +542,19 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             head_input_dim = args.d_model
 
         elif extractor_name == 'attn_time_biased_mh':
-            n_heads = getattr(args, 'n_heads', 4)
-
+            
             extractor = TimeAwareAttnPoolMH(
                 d_model=args.d_model,
                 d_hidden=args.d_model,
                 bias_type=getattr(args, 'time_bias_type', 'linear'),
-                n_heads=n_heads,
+                n_heads=getattr(args, 'n_heads', 4),
                 agg=getattr(args, 'agg', 'concat'),
                 device=device
             )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * getattr(args, 'n_heads', 4)
 
         elif extractor_name == 'pma_time_biased':
-            n_heads = getattr(args, 'n_heads', 4)
+            n_heads = getattr(args, 'n_heads', 4),
 
             extractor = TimeBiasedPMA(
             d_model=args.d_model,
@@ -563,7 +562,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             r=getattr(args, 'pma_r', 2),
             agg=getattr(args, 'agg', 'mean'),
             use_film=getattr(args, 'use_film', True),
-            bias_type=getattr(args, 'time_bias_type', 'linear'),
+            bias_type=getattr(args, 'time_bias_type', 'log'),
             alpha0=getattr(args, 'alpha0', 10.0),
             device=device
             )

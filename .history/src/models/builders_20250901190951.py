@@ -563,7 +563,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             r=getattr(args, 'pma_r', 2),
             agg=getattr(args, 'agg', 'mean'),
             use_film=getattr(args, 'use_film', True),
-            bias_type=getattr(args, 'time_bias_type', 'linear'),
+            bias_type=getattr(args, 'time_bias_type', 'log'),
             alpha0=getattr(args, 'alpha0', 10.0),
             device=device
             )
