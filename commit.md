@@ -57,8 +57,6 @@ mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
 
 
-第一步时间更新
-状态污染
 
 dataset 	Twindow	Tfore	dt	Mf	context_len	rf val rf test	p/n	
 ChinaArray	180	60	   10	6.5	1	      0.69	0.6		
