@@ -175,6 +175,7 @@ class MixerModel(nn.Module):
                     residual_in_fp32=residual_in_fp32,
                     fused_add_norm=fused_add_norm,
                     layer_idx=i,
+                    dropout_prob=dropout_prob,
                     **factory_kwargs,
                 )
                 for i in range(n_layer)

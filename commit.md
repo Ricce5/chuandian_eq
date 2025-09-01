@@ -1,3 +1,7 @@
+回归改HuberLoss
+test前先做inverse
+修复mixer内部没有加dropout的错误
+限定g为正值
 
 
 
@@ -31,9 +35,12 @@ PE的周期为2pi-2pi *base, 由于有xPos的存在，不会出现表示的混�
 attn相对ssm在长序列tpp没有表现出优势
 
 mhatime在采样阶段只能使用float16
+pma效果不如加性注意力
+
 
 调试
 修正做了两次log_softmax的错误，会导致之前mixer_tpp的checkpoint存在问题
+限定g为正值
 
 to do
 3. mhatime的旋转处理

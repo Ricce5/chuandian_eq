@@ -152,7 +152,9 @@ def plot_classification_distribution(preds, labels, title="Prediction Distributi
 
 def regression_metrics(y_true, y_pred):
     import numpy as np
-
+    import torch
+    torch.save(y_pred, 'y_pred.pt')
+    torch.save(y_true, 'y_true.pt')
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 

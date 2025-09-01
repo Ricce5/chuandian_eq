@@ -147,7 +147,8 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     if args.task_type == "classification":
         criterion = nn.BCEWithLogitsLoss()
     elif args.task_type == "regression":
-        criterion = nn.MSELoss()
+        # criterion = nn.MSELoss()
+        criterion = nn.HuberLoss(delta=0.5)
     elif args.task_type == "count":
         criterion = nn.PoissonNLLLoss(log_input=False, full=False)
     elif args.task_type == "tpp":

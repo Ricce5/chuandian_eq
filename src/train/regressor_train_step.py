@@ -100,13 +100,20 @@ def test(data_loader, model, criterion, device, save_dir=None):
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
-
+    dataset = get_root_dataset(data_loader)
     # Calculate evaluation metrics
-    metrics = regression_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(dataset.inverse_normalize_label(all_node_targets), dataset.inverse_normalize_label(all_node_preds))
     log_metrics(metrics, prefix="Test")
     avg_test_loss = test_loss / len(data_loader)
 
     return avg_test_loss, metrics
+
+
+def get_root_dataset(loader):
+        dataset = loader.dataset
+        while isinstance(dataset, torch.utils.data.Subset):
+            dataset = dataset.dataset
+        return dataset
 
 
 def visualize_results(model, train_loader, val_loader, test_loader, device, save_dir):
@@ -117,11 +124,7 @@ def visualize_results(model, train_loader, val_loader, test_loader, device, save
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
 
-    def get_root_dataset(loader):
-        dataset = loader.dataset
-        while isinstance(dataset, torch.utils.data.Subset):
-            dataset = dataset.dataset
-        return dataset
+
 
     def collect_predictions(loader):
         y_true, y_pred = [], []

@@ -523,7 +523,8 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
 
         extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
-        print('using extractor:', extractor_name)
+        time_bias_type = getattr(args, 'time_bias_type', 'linear') if hasattr(args, 'time_bias_type') else 'linear'
+        print('using extractor:', extractor_name, "time_bias_type:", time_bias_type)
         if extractor_name == 'attn_time':
             extractor = AttentionPoolingWithTimeExtractor(
                 input_dim=args.d_model + 1,
@@ -536,7 +537,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             extractor = TimeAwareAttnPool(
                 d_model=args.d_model,
                 d_hidden=args.d_model,
-                bias_type=getattr(args, 'time_bias_type', 'linear'),
+                bias_type= time_bias_type,
                 device=device
             )
             head_input_dim = args.d_model
@@ -547,12 +548,12 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             extractor = TimeAwareAttnPoolMH(
                 d_model=args.d_model,
                 d_hidden=args.d_model,
-                bias_type=getattr(args, 'time_bias_type', 'linear'),
+                bias_type=time_bias_type,
                 n_heads=n_heads,
                 agg=getattr(args, 'agg', 'concat'),
                 device=device
             )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+            head_input_dim = args.d_model if getattr(args, 'agg', 'concat') == 'mean' else args.d_model * n_heads
 
         elif extractor_name == 'pma_time_biased':
             n_heads = getattr(args, 'n_heads', 4)
@@ -560,10 +561,10 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             extractor = TimeBiasedPMA(
             d_model=args.d_model,
             n_heads= n_heads,
-            r=getattr(args, 'pma_r', 2),
+            r=getattr(args, 'pma_r', 4),
             agg=getattr(args, 'agg', 'mean'),
             use_film=getattr(args, 'use_film', True),
-            bias_type=getattr(args, 'time_bias_type', 'linear'),
+            bias_type=time_bias_type,
             alpha0=getattr(args, 'alpha0', 10.0),
             device=device
             )

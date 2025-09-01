@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from .base import RepresentationExtractor
 
 
@@ -18,7 +19,7 @@ class TimeBiasedPMA(nn.Module):
       4) 精简 _masked_softmax 的 mask 扩维逻辑。
     """
 
-    def __init__(self, d_model: int, n_heads: int = 4, r: int = 2,
+    def __init__(self, d_model: int, n_heads: int = 4, r: int = 4,
                  agg: str = "concat",
                  use_film: bool = True, t_dim: int = 16,
                  bias_type: str = "log",         # 'linear' or 'log'
@@ -145,13 +146,14 @@ class TimeBiasedPMA(nn.Module):
 
         logits = torch.matmul(Q, K.transpose(-1, -2)) / math.sqrt(dh)      # (B,H,r,L)
 
+        g_pos = F.softplus(self.g) 
         # --- 计算时间偏置并加到 logits ---
         if self.bias_type == "linear":
             phi = self._time_bias(t01, mask)                               # (B,L)
-            bias = phi[:, None, None, :] * self.g[None, :, None, None]     # (B,H,1,L)
+            bias = phi[:, None, None, :] * g_pos[None, :, None, None]     # (B,H,1,L)
         else:
             phi_h = self._time_bias(t01, mask)                             # (B,H,L)
-            bias = phi_h[:, :, None, :] * self.g[None, :, None, None]      # (B,H,1,L)
+            bias = phi_h[:, :, None, :] * g_pos[None, :, None, None]      # (B,H,1,L)
 
         logits = logits + bias                                             # (B,H,r,L)
 
