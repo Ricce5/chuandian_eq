@@ -107,5 +107,5 @@ def test_event_time_shape_handling():
 if __name__ == "__main__":
     # 允许直接运行该测试文件： python tests/attn_pl_biased_test.py
     # pytest.main([__file__, "-q"])
-    pytest.main([__file__, "-s"])
+    pytest.main([__file__])
 

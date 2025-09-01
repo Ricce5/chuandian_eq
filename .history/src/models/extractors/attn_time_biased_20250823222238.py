@@ -14,7 +14,7 @@ class TimeAwareAttnPool(nn.Module):
         self.W = nn.Linear(d_model, d_hidden)
         self.v = nn.Linear(d_hidden, 1)
         self.g = nn.Parameter(torch.tensor(0.0))           # 衰减强度门
-        self.bias_type = bias_type  
+        self.bias_type = bias_type
         self.log_alpha = nn.Parameter(torch.log(torch.tensor(alpha0)))  # for "log" 类型
         self.device = device 
         self.to(device) if self.device is not None else None
@@ -32,7 +32,7 @@ class TimeAwareAttnPool(nn.Module):
 
     def forward(self, x, mask,  extra_inputs=None ,return_score=False):
         if extra_inputs is None or 'event_time' not in extra_inputs:
-            raise ValueError("Missing 'event_time' in extra_inputs for  TimeAwareAttnPool")
+            raise ValueError("Missing 'event_time' in extra_inputs for AttentionPoolingWithTimeExtractor")
         t = extra_inputs['event_time'] if extra_inputs['event_time'].dim() == 3 else extra_inputs['event_time'].unsqueeze(-1)
         if mask.dim() == 3: mask = mask.squeeze(-1)
         mask =mask.bool()  # [B,L]
@@ -50,10 +50,8 @@ class TimeAwareAttnPool(nn.Module):
         e = e + self.g * phi
 
         # masked softmax
-        e = e.masked_fill(~mask,  -torch.inf)
+        e = e.masked_fill(~mask, torch.finfo(e.dtype).min)
         alpha = torch.softmax(e, dim=1)
-        alpha = alpha * mask.float()
-        alpha = alpha / (alpha.sum(dim=1, keepdim=True) + 1e-9)
         pooled = torch.einsum('bl,bld->bd', alpha, x_t)
         if return_score:
             return pooled, alpha

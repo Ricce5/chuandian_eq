@@ -38,6 +38,7 @@ class TimeAwareAttnPool(nn.Module):
         mask =mask.bool()  # [B,L]
        
         # FiLM：直接用 t（已在[0,1]）
+        print(f"t{t}")
         gamma, beta = self.t_mlp(t).chunk(2, dim=-1)       # [B,L,D]
         x_t = gamma * x + beta
 

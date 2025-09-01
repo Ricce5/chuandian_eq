@@ -50,7 +50,7 @@ class TimeAwareAttnPool(nn.Module):
         e = e + self.g * phi
 
         # masked softmax
-        e = e.masked_fill(~mask,  -torch.inf)
+        e = e.masked_fill(~mask, torch.finfo(e.dtype).min)
         alpha = torch.softmax(e, dim=1)
         alpha = alpha * mask.float()
         alpha = alpha / (alpha.sum(dim=1, keepdim=True) + 1e-9)

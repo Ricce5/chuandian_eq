@@ -54,6 +54,7 @@ class TimeAwareAttnPool(nn.Module):
         alpha = torch.softmax(e, dim=1)
         alpha = alpha * mask.float()
         alpha = alpha / (alpha.sum(dim=1, keepdim=True) + 1e-9)
+        print(f"alpha {alpha}")
         pooled = torch.einsum('bl,bld->bd', alpha, x_t)
         if return_score:
             return pooled, alpha
