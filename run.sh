@@ -15,5 +15,5 @@ python main.py --model mhp --mode train
 python main.py --model mixer_tpp --mode train
 python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train
-python main.py --model reg_mixer_attnpl_t --mode train
+python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/reg_mixer_attnpl_t_20250824-145355
 python main.py --model lstm --mode train

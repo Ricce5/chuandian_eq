@@ -504,89 +504,6 @@ class ClfAttnPlTBuilder(ModelBuilder):
         )
     
 
-@ModelBuilder.register("clf_mixer_attnpl_t")
-class ClfMixerAttnPlTBuilder(ModelBuilder):
-    def __call__(self, args, device):
-        from src.models.input_adapters import MixerInputAdapterWithTime
-        from src.models.extractors import RepresentationExtractor
-        from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
-        from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
-        from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
-        from src.models.extractors.pma_time_biased import TimeBiasedPMA
-        from src.models.task_model import TaskModel
-        from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
-        from src.models.heads import TaskHead
-        import torch
-
-        encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
-        adapter = MixerInputAdapterWithTime(args)
-        base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
-
-        extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
-        time_bias_type = getattr(args, 'time_bias_type', 'linear') if hasattr(args, 'time_bias_type') else 'linear'
-        print('using extractor:', extractor_name, "time_bias_type:", time_bias_type)
-        if extractor_name == 'attn_time':
-            extractor = AttentionPoolingWithTimeExtractor(
-                input_dim=args.d_model + 1,
-                hidden_dim=args.d_model,
-                device=device
-            )
-            head_input_dim = args.d_model + 1
-
-        elif extractor_name == 'attn_time_biased':
-            extractor = TimeAwareAttnPool(
-                d_model=args.d_model,
-                d_hidden=args.d_model,
-                bias_type= time_bias_type,
-                device=device
-            )
-            head_input_dim = args.d_model
-
-        elif extractor_name == 'attn_time_biased_mh':
-            n_heads = getattr(args, 'n_heads', 4)
-
-            extractor = TimeAwareAttnPoolMH(
-                d_model=args.d_model,
-                d_hidden=args.d_model,
-                bias_type=time_bias_type,
-                n_heads=n_heads,
-                agg=getattr(args, 'agg', 'concat'),
-                device=device
-            )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'concat') == 'mean' else args.d_model * n_heads
-
-        elif extractor_name == 'pma_time_biased':
-            n_heads = getattr(args, 'n_heads', 4)
-
-            extractor = TimeBiasedPMA(
-            d_model=args.d_model,
-            n_heads= n_heads,
-            r=getattr(args, 'pma_r', 4),
-            agg=getattr(args, 'agg', 'mean'),
-            use_film=getattr(args, 'use_film', True),
-            bias_type=time_bias_type,
-            alpha0=getattr(args, 'alpha0', 10.0),
-            device=device
-            )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
-        else:
-            raise ValueError(f"Unknown extractor_name: {extractor_name}")
-        
-        head = TaskHead(
-            input_dim=head_input_dim,
-            output_dim=args.mlp_out,
-            head_type="mlp",
-            hidden_layers=args.mlp_hdw,
-            dropout=args.mlp_dropout,
-            device=device
-        )
-
-        return TaskModel(
-            base_model=base_model,
-            extractor=extractor,
-            head=head,
-            final_activation=None
-        )
 
 @ModelBuilder.register("lstm")
 class LSTMBuilder(ModelBuilder):
@@ -683,39 +600,6 @@ class BTTPBuilder(ModelBuilder):
     
 
 
-@ModelBuilder.register("mixer_tpp")
-class MixerTPPBuilder(ModelBuilder):
-    def __call__(self, args, device):
-        from src.models.tpp.mixer_tpp import MixerTPP
-        from src.models.input_adapters import Mixer_BatchInputAdapter
-        from src.models.heads import TaskHead
-        from src.models.base_model import BaseModel
-        from src.models.mamba.mixer_seq import MixerModel,MixerModelWrapper
-        from src.models.mamba.scan_wrapper import BoundedSelectiveScanWrapper,BoundedDiscreteSSM
-        import torch
-        import torch.nn as nn   
-        encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
-        adapter = Mixer_BatchInputAdapter(args)
-        hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
-        hypernet_mag = nn.Linear(args.d_model, 1).to(device)
-        if getattr(args, 'use_ssm_filter', True):
-            # ssm_filter = BoundedSelectiveScanWrapper(d_model=1, d_state=1, device=device, 
-            # B_range=getattr(args,'B_range',(1e-6, 1e-3)), output_range=getattr(args,'b_range',(0.5,2))).to(device) 
-            ssm_filter = BoundedDiscreteSSM(device=device,B_range=getattr(args,'B_range',(1e-6, 1e-3)),
-                         output_range=getattr(args,'b_range',(0.5,2)),output_init=args.richter_b_mle).to(device) 
-        else:
-            ssm_filter = None
-        base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
-        predict_b = getattr(args, 'predict_b', False)
-        use_b_updater = getattr(args, 'use_b_updater', False)
-        loss_weights = getattr(args, 'loss_weights', None)
-        loss_reduction = getattr(args, 'loss_reduction', None)
-        b_range = getattr(args, 'b_range', None)
-        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
-                        predict_b=predict_b, ssm_filter=ssm_filter,use_b_updater=use_b_updater,
-                        loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range)
-
-
 @ModelBuilder.register("reg_attnpl")
 class RegressorAttnPlBuilder(ModelBuilder):
     def __call__(self, args, device):
@@ -766,13 +650,49 @@ class RegressorAttnPlBuilder(ModelBuilder):
             final_activation=None  # No activation for regression output (just raw value)
         )
 
-@ModelBuilder.register("reg_mixer_attnpl_t")
+@ModelBuilder.register("mixer_tpp")
+class MixerTPPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.mixer_tpp import MixerTPP
+        from src.models.input_adapters import Mixer_BatchInputAdapter
+        from src.models.heads import TaskHead
+        from src.models.base_model import BaseModel
+        from src.models.mamba.mixer_seq import MixerModel,MixerModelWrapper
+        from src.models.mamba.scan_wrapper import BoundedSelectiveScanWrapper,BoundedDiscreteSSM
+        import torch
+        import torch.nn as nn   
+        encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
+        adapter = Mixer_BatchInputAdapter(args)
+        hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
+        hypernet_mag = nn.Linear(args.d_model, 1).to(device)
+        if getattr(args, 'use_ssm_filter', True):
+            # ssm_filter = BoundedSelectiveScanWrapper(d_model=1, d_state=1, device=device, 
+            # B_range=getattr(args,'B_range',(1e-6, 1e-3)), output_range=getattr(args,'b_range',(0.5,2))).to(device) 
+            ssm_filter = BoundedDiscreteSSM(device=device,B_range=getattr(args,'B_range',(1e-6, 1e-3)),
+                         output_range=getattr(args,'b_range',(0.5,2)),output_init=args.richter_b_mle).to(device) 
+        else:
+            ssm_filter = None
+        base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
+        predict_b = getattr(args, 'predict_b', False)
+        use_b_updater = getattr(args, 'use_b_updater', False)
+        loss_weights = getattr(args, 'loss_weights', None)
+        loss_reduction = getattr(args, 'loss_reduction', None)
+        b_range = getattr(args, 'b_range', None)
+        return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
+                        predict_b=predict_b, ssm_filter=ssm_filter,use_b_updater=use_b_updater,
+                        loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range)
+
+
+
+@ModelBuilder.register("clf_mixer_attnpl_t")
 class ClfMixerAttnPlTBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.input_adapters import MixerInputAdapterWithTime
         from src.models.extractors import RepresentationExtractor
         from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
+        from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
         from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
+        from src.models.extractors.pma_time_biased import TimeBiasedPMA
         from src.models.task_model import TaskModel
         from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
         from src.models.heads import TaskHead
@@ -783,38 +703,153 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
 
         extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
-        print('using extractor:', extractor_name)
+        time_bias_type = getattr(args, 'time_bias_type', 'linear') if hasattr(args, 'time_bias_type') else 'linear'
+        extractor_cfg = getattr(args, 'extractor_cfg', {})
+        print('using extractor:', extractor_name, "time_bias_type:", time_bias_type, "extractor_config:", extractor_cfg)
         if extractor_name == 'attn_time':
             extractor = AttentionPoolingWithTimeExtractor(
                 input_dim=args.d_model + 1,
                 hidden_dim=args.d_model,
                 device=device
             )
-            head = TaskHead(
-            input_dim=args.d_model + 1,
-            output_dim=args.mlp_out,
-            head_type="mlp",
-            hidden_layers=args.mlp_hdw,
-            dropout=args.mlp_dropout,
-            device=device
-        )
+            head_input_dim = args.d_model + 1
+
         elif extractor_name == 'attn_time_biased':
             extractor = TimeAwareAttnPool(
                 d_model=args.d_model,
                 d_hidden=args.d_model,
-                bias_type=getattr(args, 'time_bias_type', 'linear'),
-                device=device
+                bias_type= time_bias_type,
+                device=device,
+                **extractor_cfg,
             )
-            head = TaskHead(
-            input_dim=args.d_model,
+            head_input_dim = args.d_model
+
+        elif extractor_name == 'attn_time_biased_mh':
+            n_heads = getattr(args, 'n_heads', 4)
+
+            extractor = TimeAwareAttnPoolMH(
+                d_model=args.d_model,
+                d_hidden=args.d_model,
+                bias_type=time_bias_type,
+                n_heads=n_heads,
+                agg=getattr(args, 'agg', 'concat'),
+                device=device,
+                **extractor_cfg
+            )
+            head_input_dim = args.d_model if getattr(args, 'agg', 'concat') == 'mean' else args.d_model * n_heads
+
+        elif extractor_name == 'pma_time_biased':
+            n_heads = getattr(args, 'n_heads', 4)
+
+            extractor = TimeBiasedPMA(
+            d_model=args.d_model,
+            n_heads= n_heads,
+            r=getattr(args, 'pma_r', 4),
+            agg=getattr(args, 'agg', 'mean'),
+            use_film=getattr(args, 'use_film', True),
+            bias_type=time_bias_type,
+            alpha0=getattr(args, 'alpha0', 10.0),
+            device=device
+            )
+            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+        else:
+            raise ValueError(f"Unknown extractor_name: {extractor_name}")
+        
+        head = TaskHead(
+            input_dim=head_input_dim,
             output_dim=args.mlp_out,
             head_type="mlp",
             hidden_layers=args.mlp_hdw,
             dropout=args.mlp_dropout,
             device=device
         )
+
+        return TaskModel(
+            base_model=base_model,
+            extractor=extractor,
+            head=head,
+            final_activation=None
+        )
+
+@ModelBuilder.register("reg_mixer_attnpl_t")
+class ClfMixerAttnPlTBuilder(ModelBuilder):
+     def __call__(self, args, device):
+        from src.models.input_adapters import MixerInputAdapterWithTime
+        from src.models.extractors import RepresentationExtractor
+        from src.models.extractors.attn_pool_with_time import AttentionPoolingWithTimeExtractor
+        from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
+        from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
+        from src.models.extractors.pma_time_biased import TimeBiasedPMA
+        from src.models.task_model import TaskModel
+        from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
+        from src.models.heads import TaskHead
+        import torch
+
+        encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
+        adapter = MixerInputAdapterWithTime(args)
+        base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
+
+        extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
+        time_bias_type = getattr(args, 'time_bias_type', 'linear') if hasattr(args, 'time_bias_type') else 'linear'
+        extractor_cfg = getattr(args, 'extractor_cfg', {})
+        print('using extractor:', extractor_name, "time_bias_type:", time_bias_type, "extractor_config:", extractor_cfg)
+        if extractor_name == 'attn_time':
+            extractor = AttentionPoolingWithTimeExtractor(
+                input_dim=args.d_model + 1,
+                hidden_dim=args.d_model,
+                device=device
+            )
+            head_input_dim = args.d_model + 1
+
+        elif extractor_name == 'attn_time_biased':
+            extractor = TimeAwareAttnPool(
+                d_model=args.d_model,
+                d_hidden=args.d_model,
+                bias_type= time_bias_type,
+                device=device,
+                **extractor_cfg,
+            )
+            head_input_dim = args.d_model
+
+        elif extractor_name == 'attn_time_biased_mh':
+            n_heads = getattr(args, 'n_heads', 4)
+
+            extractor = TimeAwareAttnPoolMH(
+                d_model=args.d_model,
+                d_hidden=args.d_model,
+                bias_type=time_bias_type,
+                n_heads=n_heads,
+                agg=getattr(args, 'agg', 'concat'),
+                device=device,
+                **extractor_cfg
+            )
+            head_input_dim = args.d_model if getattr(args, 'agg', 'concat') == 'mean' else args.d_model * n_heads
+
+        elif extractor_name == 'pma_time_biased':
+            n_heads = getattr(args, 'n_heads', 4)
+
+            extractor = TimeBiasedPMA(
+            d_model=args.d_model,
+            n_heads= n_heads,
+            r=getattr(args, 'pma_r', 4),
+            agg=getattr(args, 'agg', 'mean'),
+            use_film=getattr(args, 'use_film', True),
+            bias_type=time_bias_type,
+            alpha0=getattr(args, 'alpha0', 10.0),
+            device=device
+            )
+            head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
         else:
             raise ValueError(f"Unknown extractor_name: {extractor_name}")
+        
+        head = TaskHead(
+            input_dim=head_input_dim,
+            output_dim=args.mlp_out,
+            head_type="mlp",
+            hidden_layers=args.mlp_hdw,
+            dropout=args.mlp_dropout,
+            device=device
+        )
 
         return TaskModel(
             base_model=base_model,

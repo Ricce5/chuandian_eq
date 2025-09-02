@@ -1,5 +1,4 @@
-改分类损失为focal loss
-criterion初始化设置
+
 
 
 问题
