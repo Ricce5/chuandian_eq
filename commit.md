@@ -1,8 +1,5 @@
-回归改HuberLoss
-test前先做inverse
-修复mixer内部没有加dropout的错误
-限定g为正值
-
+改分类损失为focal loss
+criterion初始化设置
 
 
 问题

@@ -9,6 +9,7 @@ from argparse import Namespace
 import os
 from omegaconf import DictConfig, ListConfig, OmegaConf
 import typing
+from src.utils.binary_focal_loss import BinaryFocalLoss, FocalLossWrapper
 
 def _prune_to_schema(src, schema):
     """
@@ -143,19 +144,44 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             model, checkpoint, freeze_parts=getattr(args, 'freeze_parts', None) ,load_specific_parts=getattr(args, 'load_specific_parts', None)
         )
 
-    # 损失函数
+
+    criterion_name = getattr(args, 'criterion_name', None)
+    criterion_cfg = getattr(args, 'criterion_cfg', {})
+
     if args.task_type == "classification":
-        criterion = nn.BCEWithLogitsLoss()
+        if criterion_name is None:
+            criterion_name = 'bce'
+        if criterion_name == 'bce':
+            criterion = nn.BCEWithLogitsLoss(**criterion_cfg)
+        elif criterion_name == 'focal':
+            criterion = FocalLossWrapper(**criterion_cfg)
+        else:
+            raise ValueError(f"Unsupported criterion_name for classification: {criterion_name}")
+        print(f"Using classification criterion: {criterion_name}")
+        print(f"Criterion config: {criterion_cfg}")
+
     elif args.task_type == "regression":
-        # criterion = nn.MSELoss()
-        criterion = nn.HuberLoss(delta=0.5)
+        if criterion_name is None:
+            criterion_name = 'mse'
+        if criterion_name == 'mse':
+            criterion = nn.MSELoss(**criterion_cfg)
+        elif criterion_name == 'mae':
+            criterion = nn.L1Loss(**criterion_cfg)
+        elif criterion_name == 'huber':
+            criterion = nn.HuberLoss(**criterion_cfg)
+        else:
+            raise ValueError(f"Unsupported criterion_name for regression: {criterion_name}")
+        print(f"Using regression criterion: {criterion_name}")
+        print(f"Criterion config: {criterion_cfg}")
     elif args.task_type == "count":
-        criterion = nn.PoissonNLLLoss(log_input=False, full=False)
+        # 支持自定义 PoissonNLLLoss 配置
+        criterion = nn.PoissonNLLLoss(**criterion_cfg)
+        print(f"Using count criterion: PoissonNLLLoss")
+        print(f"Criterion config: {criterion_cfg}")
     elif args.task_type == "tpp":
         criterion = None
     else:
         raise ValueError(f"Unsupported task_type: {args.task_type}")
-
 
     optimizer = torch.optim.AdamW(
         filter(lambda p: p.requires_grad, model.parameters()),
