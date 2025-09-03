@@ -79,8 +79,9 @@ class TimeAwareAttnPoolMH(nn.Module):
         return attn
 
     def _time_bias(self, t, mask):
-        t_star = torch.where(mask, t.squeeze(-1), torch.tensor(0., device=t.device)) \
-                    .max(dim=1, keepdim=True).values        # [B,1]
+        # t_star = torch.where(mask, t.squeeze(-1), torch.tensor(0., device=t.device)) \
+        #             .max(dim=1, keepdim=True).values        # [B,1]
+        t_star = torch.ones((t.size(0), 1), device=t.device)  # [B,1]
         dt = (t_star - t.squeeze(-1)).clamp(0.0, 1.0)       # [B,L]
         if self.bias_type == "linear":
             return -dt                                      # [B,L]
