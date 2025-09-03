@@ -50,64 +50,78 @@ def load_args_from_checkpoint(cfg, checkpoint):
     return final_cfg
 
 
-
-def freeze_model_parts(model, freeze_keywords=None):
+def freeze_model_parts(model, freeze_keywords=None, allowed_names=None, exclude_keywords=None):
+    """
+    只冻结满足关键字匹配、且在 allowed_names (已加载的参数集合) 内的参数。
+    可选 exclude_keywords 用于排除某些子模块（如 'linear', 'fc1', 'fc2' 等）。
+    """
     if freeze_keywords is None:
         freeze_keywords = []
+    if exclude_keywords is None:
+        exclude_keywords = []
+
+    # 将 None 处理为不受限
+    allowed_names = set(allowed_names) if allowed_names is not None else None
 
     for name, param in model.named_parameters():
-        if any(keyword in name for keyword in freeze_keywords):
+        # 若提供了 allowed_names，则必须在其中
+        if allowed_names is not None and name not in allowed_names:
+            continue
+
+        # 关键字命中且未命中排除关键字才冻结
+        if any(k in name for k in freeze_keywords) and not any(e in name for e in exclude_keywords):
             param.requires_grad = False
             print(f"Froze parameter: {name}")
 
 def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
     """
-    加载模型权重
-    
-    参数:
-        model (nn.Module): 目标模型
-        checkpoint_state_dict (dict): 从检查点加载的权重
-        load_specific_parts (list, optional): 需要加载的部分权重的关键字列表。默认为None，加载整个模型。
-    
-    返回:
-        None
+    加载模型权重；返回 loaded_names: Set[str]，表示这次真正加载到 model_state_dict 的参数名
     """
-    model_state_dict = model.state_dict()  # 获取模型当前的state_dict
-    print(f"load_specific_parts: {load_specific_parts}")  # 调试信息
+    model_state_dict = model.state_dict()
+    loaded_names = set()
+
+    print(f"load_specific_parts: {load_specific_parts}")
     if load_specific_parts is not None:
-        # 选择性加载权重到指定部分
+        # 选择性加载
         for name, param in checkpoint_state_dict.items():
             if any(keyword in name for keyword in load_specific_parts) and name in model_state_dict:
-                # 检查形状是否匹配
                 if model_state_dict[name].shape == param.shape:
                     model_state_dict[name] = param
+                    loaded_names.add(name)  # 记录已加载
                     print(f"Loaded part: {name}")
                 else:
                     print(f"Warning: Shape mismatch for {name} (checkpoint: {param.shape}, model: {model_state_dict[name].shape})")
             elif name not in model_state_dict:
                 print(f"Warning: {name} not found in model!")
     else:
-        # 默认加载整个模型
+        # 整体加载（先用 strict=False 得到 missing/unexpected）
         load_result = model.load_state_dict(checkpoint_state_dict, strict=False)
         print(f"Checkpoint loaded: {load_result}")
 
-        # 检查哪些权重没有被加载
         if load_result.missing_keys:
             print(f"Warning: Missing keys (not loaded in the model): {load_result.missing_keys}")
         if load_result.unexpected_keys:
             print(f"Warning: Unexpected keys (present in checkpoint but not in model): {load_result.unexpected_keys}")
 
-    # 最终赋值模型的state_dict
+        # 计算哪些键是“成功加载”的：当前模型 keys 去掉 missing_keys
+        loaded_names = set(model_state_dict.keys()) - set(load_result.missing_keys)
+
+        # 回到你的最终赋值逻辑：用当前 model_state_dict 再 load 一次（与你原代码兼容）
+        # 注：这里不改变 loaded_names
+        # （若不需要两次 load，可直接用上面的 load_result 即可）
+    
+    # 最终赋值模型的state_dict（保持你的原始写法）
     model.load_state_dict(model_state_dict)
 
+    return loaded_names  # <—— 新增返回值
 
 
-
-def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specific_parts=None):
+def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specific_parts=None,
+                               exclude_freeze_parts=None):
     """
-    从 checkpoint 中加载模型权重和参数，返回加载后的模型及辅助信息
+    从 checkpoint 中加载模型权重并（可选）冻结：只冻结这次“已加载”的部分
     """
-    load_model_weights(model, checkpoint['model_state_dict'], load_specific_parts=load_specific_parts)
+    loaded_names = load_model_weights(model, checkpoint['model_state_dict'], load_specific_parts=load_specific_parts)
 
     if 'hyperparameters' in checkpoint:
         print("hyperparameters:", checkpoint['hyperparameters'])
@@ -117,11 +131,16 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specif
         print("val_metrics:", checkpoint['val_metrics'])
 
     if freeze_parts:
-        freeze_model_parts(model, freeze_keywords=freeze_parts)
+        # 只冻结 loaded_names ∩ freeze_keywords，且可排除某些子模块
+        freeze_model_parts(
+            model,
+            freeze_keywords=freeze_parts,
+            allowed_names=loaded_names,                # 关键：只能冻结已加载的那部分
+            exclude_keywords=exclude_freeze_parts or []
+        )
 
     start_epoch = checkpoint.get('epoch', 0)
     best_val_loss = checkpoint.get('val_loss', float('inf'))
-
     return model, start_epoch, best_val_loss
 
 
@@ -141,7 +160,8 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
 
     if restore_weights and checkpoint is not None:
         model, args.start_epoch, args.best_val_loss = load_model_from_checkpoint(
-            model, checkpoint, freeze_parts=getattr(args, 'freeze_parts', None) ,load_specific_parts=getattr(args, 'load_specific_parts', None)
+            model, checkpoint, freeze_parts=getattr(args, 'freeze_parts', None) ,load_specific_parts=getattr(args, 'load_specific_parts', None),
+            exclude_freeze_parts=getattr(args, 'exclude_freeze_parts', None)
         )
 
 

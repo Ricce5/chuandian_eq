@@ -1,7 +1,7 @@
 resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
 load_specific_parts: ['encoder']
-# freeze_parts: ['encoder']
-# exclude_freeze_parts: ['input_linear']
+freeze_parts: ['encoder']
+exclude_freeze_parts: ['input_linear']
 
 model: clf_mixer_attnpl_t
 # 训练参数
@@ -76,15 +76,15 @@ cuda_id: "0"
 dataset: ChuanDian
 criterion_name: focal
 criterion_cfg:
-  alpha: 0.5
+  alpha: 0.75
   gamma: 2.0
 seed: 0
 Mc: 3 # 4.5
-Mf: 4
+Mf: 5
 Twindow: 180
-Tfore: 10
+Tfore: 60
 dt: 10
-context_len: 1
+context_len: 2
 split_by_time: true
 use_sampler: true # true
 time_order:  [train, val, test]
