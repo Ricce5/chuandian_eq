@@ -96,6 +96,8 @@ def calculate_catalog_statistics(df):
         'time_max': float(df['t'].max()),
         'time_mean': float(df['t'].mean()),
         'mag_completeness': float(df['Magnitude'].min()),
-        'mag_mean': float(df['Magnitude'].mean())
+        'mag_mean': float(df['Magnitude'].mean()),
+        'mag_max': float(df['Magnitude'].max()),
+        'mag_min': float(df['Magnitude'].min())
     }
     return stats
