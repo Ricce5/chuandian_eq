@@ -51,22 +51,27 @@ class TimeAwareAttnPoolMH(nn.Module):
             raise ValueError(f"Unknown bias_type: {bias_type}")
 
         # ---- 新增：融合需要的层 ----
+        pooled_dim = d_model if self.agg == "mean" else (n_heads * d_model)
         if self.fuse_mode in ("add", "concat", "gate") and self.use_ln:
             self.ln_last = nn.LayerNorm(d_model)
             # pooled 的维度取决于 agg
-            pooled_dim = d_model if self.agg == "mean" else (n_heads * d_model)
             self.ln_attn = nn.LayerNorm(pooled_dim)
             self.ln_out  = nn.LayerNorm(self.repr_dim)
 
         if self.fuse_mode == "concat":
-            pooled_dim = d_model if self.agg == "mean" else (n_heads * d_model)
             self.fuse_proj = nn.Linear(d_model + pooled_dim, self.repr_dim)
         elif self.fuse_mode == "gate":
-            pooled_dim = d_model if self.agg == "mean" else (n_heads * d_model)
             self.gate_proj = nn.Linear(d_model + pooled_dim, 1)
 
         if self.device is not None:
             self.to(self.device)
+
+        if self.fuse_mode == "none":
+            self.output_dim = pooled_dim
+        else:
+            self.output_dim = self.repr_dim
+
+
 
     @staticmethod
     def _masked_softmax(scores, mask, dim=-1, eps=1e-9):

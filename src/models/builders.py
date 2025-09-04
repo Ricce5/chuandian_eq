@@ -677,10 +677,12 @@ class MixerTPPBuilder(ModelBuilder):
         use_b_updater = getattr(args, 'use_b_updater', False)
         loss_weights = getattr(args, 'loss_weights', None)
         loss_reduction = getattr(args, 'loss_reduction', None)
+        use_adaptive_loss_weights = getattr(args, 'use_adaptive_loss_weights', False)
         b_range = getattr(args, 'b_range', None)
         return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
                         predict_b=predict_b, ssm_filter=ssm_filter,use_b_updater=use_b_updater,
-                        loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range)
+                        loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range,
+                        use_adaptive_loss_weights=use_adaptive_loss_weights)
 
 
 
@@ -736,7 +738,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
                 device=device,
                 **extractor_cfg
             )
-            head_input_dim = args.d_model if getattr(args, 'agg', 'concat') == 'mean' else args.d_model * n_heads
+            head_input_dim = extractor.output_dim
 
         elif extractor_name == 'pma_time_biased':
             n_heads = getattr(args, 'n_heads', 4)
@@ -823,7 +825,7 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
                     device=device,
                     **extractor_cfg
                 )
-                head_input_dim = args.d_model if getattr(args, 'agg', 'concat') == 'mean' else args.d_model * n_heads
+                head_input_dim = extractor.output_dim
 
             elif extractor_name == 'pma_time_biased':
                 n_heads = getattr(args, 'n_heads', 4)

@@ -1,0 +1,1 @@
+extractor聚合方式全部改concat

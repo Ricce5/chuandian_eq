@@ -82,7 +82,6 @@ def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
 
     print(f"load_specific_parts: {load_specific_parts}")
     if load_specific_parts is not None:
-        # 选择性加载
         for name, param in checkpoint_state_dict.items():
             if any(keyword in name for keyword in load_specific_parts) and name in model_state_dict:
                 if model_state_dict[name].shape == param.shape:
@@ -94,7 +93,6 @@ def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
             elif name not in model_state_dict:
                 print(f"Warning: {name} not found in model!")
     else:
-        # 整体加载（先用 strict=False 得到 missing/unexpected）
         load_result = model.load_state_dict(checkpoint_state_dict, strict=False)
         print(f"Checkpoint loaded: {load_result}")
 

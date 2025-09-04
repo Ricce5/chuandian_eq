@@ -1,0 +1,1 @@
+对齐/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250828-102630，加震级预测

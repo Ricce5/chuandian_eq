@@ -39,7 +39,8 @@ class MixerTPP(TPPModel):
 
     def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, 
                  predict_b, ssm_filter=None, use_b_updater=False,
-                 loss_weights=None, loss_reduction=None,b_range=None):
+                 loss_weights=None, loss_reduction=None,b_range=None,
+                 use_adaptive_loss_weights=False):
         super().__init__()
 
         device = next(base_model.parameters()).device
@@ -77,6 +78,9 @@ class MixerTPP(TPPModel):
             self.weights.setdefault("time_weight", 1.0)
             self.weights.setdefault("mag_weight", 1.0)
             self.weights.setdefault("b_weight", 1.0)
+        if use_adaptive_loss_weights:
+            print("Using adaptive loss weights")
+            self.log_sigma2_b = nn.Parameter(torch.zeros(()))
         self.reduction = loss_reduction if loss_reduction is not None else "sum"
         if b_range is not None:
             self.b_min,self.b_max = b_range
@@ -241,7 +245,11 @@ class MixerTPP(TPPModel):
             b_updater_dist = self.get_updater_b_distribution(batch)
             log_like_b = b_updater_dist.log_likelihood(b_pred, batch.nll_event_mask.bool())
             nll_b = -log_like_b
-            nll_total += weights["b_weight"] * nll_b
+            if hasattr(self, "log_sigma2_b"):
+                nll_b_all = nll_b * torch.exp(-self.log_sigma2_b) + self.log_sigma2_b
+            else:
+                nll_b_all = weights["b_weight"] *nll_b
+            nll_total += nll_b_all
 
         # ---------- Reductions (same rule for all) ---------
         out = {
