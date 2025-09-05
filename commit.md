@@ -36,6 +36,8 @@ pma效果不如加性注意力
 chuandian地区震级预测任务的网络深度不应当超过4层
 
 点过程任务经过预训练修改不好
+
+qtmsaltonsea对震级设置非常敏感，震级设置不好会导致标签变化的频率太低
 <!-- 回归任务log优于linear -->
 
 
@@ -80,12 +82,12 @@ ChinaArray	180	90	   10	5.5	1	      0.92	0.64	  100
 ChinaArray	180	30	   10	5.5	1	      0.73	0.76	  1	~
 ChuanDian	180	10	   10	4  	1	      0.61	0.67	  1          checkpoints/rf_dfae9b13  ./checkpoints/clf_mixer_attnpl_t_20250903-192439
 ChuanDian	200	20	   10	4.5	1	      0.64	0.8	  1	
-ChuanDian	180	20	   10	4.5	1	      0.61	0.85	  1          checkpoints/rf_847e64da  
+ChuanDian	180	20	   10	4.5	1	      0.61	0.85	  1          checkpoints/rf_847e64da   ./checkpoints/clf_mixer_attnpl_t_20250905-163434
 ChuanDian	180	30	   10	4.5	1	      0.65	0.85	  1.5	~      checkpoints/rf_ba2359e6  ./checkpoints/clf_mixer_attnpl_t_20250901-210440
 ChuanDian	180	30	   10	5	   1	      0.63	0.8	  0.5	
 ChuanDian	180	60	   10	5	   1	      0.88	0.86	  1	~*     checkpoints/rf_9ffe46be  ./checkpoints/clf_mixer_attnpl_t_20250903-103320
 ChuanDian	180	60	   10	5.5	1	      0.8	0.69	  0.25	    
 ChuanDian	180	60	   10	5.5	2	      0.95	0.67	  0.25	
-ChuanDian	180	90	   10	5.5	1	      0.88	0.67	  0.5	~      checkpoints/rf_af684ff4
+ChuanDian	180	90	   10	5.5	1	      0.88	0.67	  0.5	~      checkpoints/rf_af684ff4  ./checkpoints/clf_mixer_attnpl_t_20250905-163239
 ChuanDian	180	90	   10	5.5	2	      0.96	0.9	  1	
 	
