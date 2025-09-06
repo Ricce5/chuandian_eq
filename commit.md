@@ -47,6 +47,8 @@ mha_time层自回归是正确的
 修正做了两次log_softmax的错误，会导致之前mixer_tpp的checkpoint存在问题
 限定g为正值
 
+
+
 to do
 3. mhatime的旋转处理
 
@@ -95,4 +97,5 @@ ChuanDian	180	90	   10	5.5	2	      0.96	0.9	  1
 
 
 600 300
-lstm
+lstm /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250906-152053
+* /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250906-194042

@@ -161,7 +161,7 @@ class Mixer_BatchInputAdapter:
         """Extract relevant fields from the batch object."""
         arrival_times = batch.arrival_times
         inter_times = batch.inter_times
-        mag = batch.mag
+        mag = batch.mag- 0.5
         loc = getattr(batch, 'loc', None) # loc might be optional
         return arrival_times, inter_times, mag, loc
 

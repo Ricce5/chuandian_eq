@@ -704,6 +704,7 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
         from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
         from src.models.extractors.pma_time_biased import TimeBiasedPMA
+        from src.models.extractors.last_step import LastStepExtractor
         from src.models.task_model import TaskModel
         from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
         from src.models.heads import TaskHead
@@ -763,6 +764,10 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             device=device
             )
             head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+
+        elif extractor_name == 'last':
+            extractor = LastStepExtractor()
+            head_input_dim = args.d_model
         else:
             raise ValueError(f"Unknown extractor_name: {extractor_name}")
         
@@ -791,6 +796,7 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
             from src.models.extractors.attn_time_biased_mh import TimeAwareAttnPoolMH   
             from src.models.extractors.attn_time_biased import  TimeAwareAttnPool
             from src.models.extractors.pma_time_biased import TimeBiasedPMA
+            from src.models.extractors.last_step import LastStepExtractor
             from src.models.task_model import TaskModel
             from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
             from src.models.heads import TaskHead
@@ -850,6 +856,9 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
                 device=device
                 )
                 head_input_dim = args.d_model if getattr(args, 'agg', 'mean') == 'mean' else args.d_model * n_heads
+            elif extractor_name == 'last':
+                extractor = LastStepExtractor()
+                head_input_dim = args.d_model
             else:
                 raise ValueError(f"Unknown extractor_name: {extractor_name}")
             

@@ -1,5 +1,5 @@
-resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
-load_specific_parts: ['encoder']
+# resume_path: ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth
+# load_specific_parts: ['encoder']
 model: reg_mixer_attnpl_t
 # 训练参数
 
@@ -49,13 +49,13 @@ mixer_model_config:
 
   residual_in_fp32: true     # 更稳定的残差精度
 
-extractor_name: last # attn_time_biased_mh
-# time_bias_type: log
-# agg: concat
-# extractor_cfg:
-#   fuse_mode: concat
-#   use_ln: true
-#   use_var_scale: true
+extractor_name: attn_time_biased_mh
+time_bias_type: log
+agg: concat
+extractor_cfg:
+  fuse_mode: concat
+  use_ln: true
+  use_var_scale: true
 
 # MLP 参数
 mlp_out: 1

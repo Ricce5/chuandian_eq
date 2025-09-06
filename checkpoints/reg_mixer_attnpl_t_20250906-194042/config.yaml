@@ -49,13 +49,13 @@ mixer_model_config:
 
   residual_in_fp32: true     # 更稳定的残差精度
 
-extractor_name: last # attn_time_biased_mh
-# time_bias_type: log
-# agg: concat
-# extractor_cfg:
-#   fuse_mode: concat
-#   use_ln: true
-#   use_var_scale: true
+extractor_name: attn_time_biased_mh
+time_bias_type: log
+agg: concat
+extractor_cfg:
+  fuse_mode: concat
+  use_ln: true
+  use_var_scale: true
 
 # MLP 参数
 mlp_out: 1
