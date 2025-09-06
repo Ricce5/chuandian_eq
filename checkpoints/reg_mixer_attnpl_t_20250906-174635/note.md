@@ -1,0 +1,1 @@
+fused mode改none

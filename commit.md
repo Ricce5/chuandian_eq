@@ -37,6 +37,8 @@ chuandian地区震级预测任务的网络深度不应当超过4层
 点过程任务经过预训练修改不好
 
 qtmsaltonsea对震级设置非常敏感，震级设置不好会导致标签变化的频率太低
+
+mha_time层自回归是正确的
 <!-- 回归任务log优于linear -->
 
 
@@ -90,3 +92,7 @@ ChuanDian	180	60	   10	5.5	2	      0.95	0.67	  0.25
 ChuanDian	180	90	   10	5.5	1	      0.88	0.67	  0.5	~      checkpoints/rf_af684ff4  ./checkpoints/clf_mixer_attnpl_t_20250905-163239
 ChuanDian	180	90	   10	5.5	2	      0.96	0.9	  1	
 	
+
+
+600 300
+lstm

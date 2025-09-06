@@ -162,43 +162,75 @@ def pick_median_pred(preds, taus):
     idx = int(np.where(taus == mid)[0][0])
     return preds[:, idx]
 
-def regression_metrics(y_true, y_preds, taus=None):
-
-    y_pred = pick_median_pred(y_preds, taus)
+def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
     import numpy as np
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
+    try:
+        from scipy.stats import spearmanr
+        _HAS_SCIPY = True
+    except Exception:
+        _HAS_SCIPY = False
 
-    RMSE = np.sqrt(np.mean(np.square(y_true - y_pred)))
-    MAE = np.mean(np.abs(y_true - y_pred))
-    MSE = np.mean(np.square(y_true - y_pred))
+    # 取预测
+    y_pred = pick_median_pred(y_preds, taus)
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
 
-    # 避免除以0的问题
-    nonzero_real = y_true != 0
-    if np.any(nonzero_real):
-        MAPE = np.mean(np.abs((y_true[nonzero_real] - y_pred[nonzero_real]) / y_true[nonzero_real])) * 100
+    # —— 误差类（越低越好）——
+    err = y_true - y_pred
+    MSE  = float(np.mean(err**2))
+    RMSE = float(np.sqrt(MSE))
+    MAE  = float(np.mean(np.abs(err)))
+
+    nz = y_true != 0
+    MAPE = float(np.mean(np.abs(err[nz] / y_true[nz])) * 100) if np.any(nz) else np.nan
+
+    # R2
+    SS_res = float(np.sum(err**2))
+    SS_tot = float(np.sum((y_true - y_true.mean())**2))
+    R2 = float(1 - SS_res / SS_tot) if SS_tot != 0 else np.nan
+
+    # —— 趋势类（越高越好）——
+    def _pearson(a, b):
+        # np.corrcoef 常量向量会给 nan，这里直接返回
+        r = np.corrcoef(a, b)[0, 1]
+        return float(r)
+
+    PearsonR = _pearson(y_true, y_pred)
+
+    dy_true = np.diff(y_true)
+    dy_pred = np.diff(y_pred)
+    if dy_true.size > 0:
+        PearsonR_diff = _pearson(dy_true, dy_pred)
+        # 方向一致率（排除两边都不变的平局）
+        s_true, s_pred = np.sign(dy_true), np.sign(dy_pred)
+        mask = ~((s_true == 0) & (s_pred == 0))
+        DA = float(np.mean(s_true[mask] == s_pred[mask])) if np.any(mask) else np.nan
     else:
-        MAPE = np.nan
+        PearsonR_diff = np.nan
+        DA = np.nan
 
-    SS_res = np.sum((y_true - y_pred) ** 2)
-    SS_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    R2 = 1 - SS_res / SS_tot if SS_tot != 0 else np.nan
+    # 可选：Spearman（单调趋势），只有在 include_rank=True 且装了 scipy 时计算
+    if include_rank and _HAS_SCIPY:
+        SpearmanR = float(spearmanr(y_true, y_pred).statistic)
+        SpearmanR_diff = float(spearmanr(dy_true, dy_pred).statistic) if dy_true.size > 0 else np.nan
+    else:
+        SpearmanR = np.nan
+        SpearmanR_diff = np.nan
 
-
-    metrics_dict = {
-        k: (float(v) if isinstance(v, (np.floating, np.float32, np.float64))
-        else int(v) if isinstance(v, (np.integer,))
-        else v)
-        for k, v in {
+    return {
         "RMSE": RMSE,
         "MAE": MAE,
         "MSE": MSE,
         "MAPE": MAPE,
-        "R2": R2    
-      }.items()
+        "R2": R2,
+        "PearsonR": PearsonR,
+        "PearsonR_diff": PearsonR_diff,
+        "DA": DA,
+        "SpearmanR": SpearmanR,
+        "SpearmanR_diff": SpearmanR_diff,
     }
 
-    return metrics_dict
+
 
 def count_metrics(y_true, y_pred):
     y_pred = np.round(np.exp(y_pred))  # 从 log(λ) 转换为 λ，并四舍五入
