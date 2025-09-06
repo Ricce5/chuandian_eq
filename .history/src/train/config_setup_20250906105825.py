@@ -198,6 +198,7 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             huber_k=criterion_cfg.get('huber_k', None),      # e.g. 0.05 -> Quantile Huber
             non_crossing=criterion_cfg.get('non_crossing', False)
          )
+              
         else:
             raise ValueError(f"Unsupported criterion_name for regression: {criterion_name}")
         print(f"Using regression criterion: {criterion_name}")

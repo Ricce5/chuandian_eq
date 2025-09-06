@@ -1,16 +1,16 @@
 import torch.nn as nn
 
 class LSTM(nn.Module):
-    def __init__(self, feature_size, hidden_size, output_size, num_layers, lstm_dropout, device):
+    def __init__(self, args,device):
         super().__init__()
         self.device = device
-        self.feature_size = feature_size
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.output_size = output_size
+        self.hidden_size = args.lstm_hidden_size
+        self.output_size = getattr(args, 'output_size', 1) 
+        self.num_layers = args.lstm_num_layers
+        self.feature_size =  len(args.feature_cols)
         self.lstm = nn.LSTM(self.feature_size, self.hidden_size, self.num_layers, batch_first=True).to(self.device)
-        self.fc = nn.Linear(self.hidden_size, self.output_size).to(self.device)
-        self.dropout = nn.Dropout(p=lstm_dropout)
+        self.fc = nn.Linear(self.hidden_size,1).to(self.device)
+        self.dropout = nn.Dropout(p=args.lstm_dropout)
 
     def forward(self, x, hidden=None):
         batch_size = x.shape[0]

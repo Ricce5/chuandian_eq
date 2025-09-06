@@ -10,7 +10,6 @@ import os
 from omegaconf import DictConfig, ListConfig, OmegaConf
 import typing
 from src.utils.binary_focal_loss import BinaryFocalLoss, FocalLossWrapper
-from src.utils.pinball_loss import PinballLoss
 
 def _prune_to_schema(src, schema):
     """
@@ -188,16 +187,8 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             criterion = nn.L1Loss(**criterion_cfg)
         elif criterion_name == 'huber':
             criterion = nn.HuberLoss(**criterion_cfg)
-        elif criterion_name == 'smooth_l1':
+        elif criterion_name == 'pinball':
             criterion = nn.SmoothL1Loss(**criterion_cfg)
-        elif criterion_name == 'Pinball':
-              criterion = PinballLoss(
-            tau=criterion_cfg.get('tau', 0.5),
-            taus=criterion_cfg.get('taus', None),            # e.g. [0.1, 0.5, 0.9, 0.95]
-            reduction=criterion_cfg.get('reduction', 'mean'),
-            huber_k=criterion_cfg.get('huber_k', None),      # e.g. 0.05 -> Quantile Huber
-            non_crossing=criterion_cfg.get('non_crossing', False)
-         )
         else:
             raise ValueError(f"Unsupported criterion_name for regression: {criterion_name}")
         print(f"Using regression criterion: {criterion_name}")
