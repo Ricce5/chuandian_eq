@@ -27,16 +27,16 @@ cuda_id: "0"
 
 
 dataset: ChuanDian
-# criterion_name: huber
-# criterion_cfg:
-#   delta: 0.05
+criterion_name: smooth_l1
+criterion_cfg:
+   beta: 0.1
 seed: 0
 Mc: 3 # 4.5
 Mf: 3
 Mag_elaps: [6, 6.5, 7, 7.5]
 Twindow: 360 # 200
 Tfore: 180   # 100
-dt: 5
+dt: 10
 context_len: 0
 dMag: 0.1
 split_by_time: true

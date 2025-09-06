@@ -96,12 +96,13 @@ def test(data_loader, model, criterion, device, save_dir=None):
             all_node_preds.extend(pred.cpu().detach().numpy())
             all_node_targets.extend(y.cpu().detach().numpy())
 
+
     # Convert predictions and targets to numpy arrays
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
     dataset = get_root_dataset(data_loader)
-    # Calculate evaluation metrics
+    # Calculate evaluation metrics)
     metrics = regression_metrics(dataset.inverse_normalize_label(all_node_targets), dataset.inverse_normalize_label(all_node_preds))
     log_metrics(metrics, prefix="Test")
     avg_test_loss = test_loss / len(data_loader)

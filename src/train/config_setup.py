@@ -190,7 +190,7 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             criterion = nn.HuberLoss(**criterion_cfg)
         elif criterion_name == 'smooth_l1':
             criterion = nn.SmoothL1Loss(**criterion_cfg)
-        elif criterion_name == 'Pinball':
+        elif criterion_name == 'pinball':
               criterion = PinballLoss(
             tau=criterion_cfg.get('tau', 0.5),
             taus=criterion_cfg.get('taus', None),            # e.g. [0.1, 0.5, 0.9, 0.95]

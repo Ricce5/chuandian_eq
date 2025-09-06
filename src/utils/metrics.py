@@ -150,7 +150,21 @@ def plot_classification_distribution(preds, labels, title="Prediction Distributi
         plt.savefig(save_path,dpi=100)
     plt.show()
 
-def regression_metrics(y_true, y_pred):
+def pick_median_pred(preds, taus):
+    """preds: [N, Tq] or [N,] ; taus: list/array length Tq or None"""
+    if preds.ndim == 1:
+        return preds  # 已是单值
+    if taus is None or len(taus) == 0:
+        # 没提供分位数标签，就取中间列
+        return preds[:, preds.shape[1]//2]
+    taus = np.asarray(taus, dtype=float).ravel()
+    mid = float(taus[np.argmin(np.abs(taus-0.5))])  # 找最接近 0.5 的 τ
+    idx = int(np.where(taus == mid)[0][0])
+    return preds[:, idx]
+
+def regression_metrics(y_true, y_preds, taus=None):
+
+    y_pred = pick_median_pred(y_preds, taus)
     import numpy as np
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
@@ -196,9 +210,11 @@ def count_metrics(y_true, y_pred):
 
 
 
-def plot_regression_scatter(data_dict, save_path=None,verbose=False):
+def plot_regression_scatter(data_dict, save_path=None, verbose=False, taus=None):
     """
     Scatter plot of predicted vs true values for regression.
+    Supports pred_values of shape (B, F) and true_values of shape (B).
+    Uses the median (or middle) of pred_values along axis 1 if needed.
     data_dict: {
         "Train": (true_values, pred_values),
         "Validation": (true_values, pred_values),
@@ -209,21 +225,25 @@ def plot_regression_scatter(data_dict, save_path=None,verbose=False):
     markers = {"Train": "x", "Validation": "^", "Test": "o"}
 
     plt.figure(figsize=(10, 8))
-
     for label, (true_vals, pred_vals) in data_dict.items():
+        true_vals = np.array(true_vals)
+        pred_vals = np.array(pred_vals)
+        pred_vals = pick_median_pred(pred_vals, taus)
         plt.scatter(true_vals, pred_vals, 
                     color=colors.get(label, "gray"), 
                     marker=markers.get(label, "o"), 
                     s=15, label=f"{label} Set")
 
     # 参考线
-    x = np.linspace(4, 8.5, 100)
+    x_min = min([np.min(np.array(v[0])) for v in data_dict.values()])
+    x_max = max([np.max(np.array(v[0])) for v in data_dict.values()])
+    x = np.linspace(x_min, x_max, 100)
     plt.plot(x, x, 'r-', label='Ideal: y = x')
     plt.plot(x, x + 0.5, 'gray', linestyle='--', label='y = x + 0.5')
     plt.plot(x, x - 0.5, 'gray', linestyle='--', label='y = x - 0.5')
 
-    plt.xlim(4, 8.5)
-    plt.ylim(4, 8.5)
+    plt.xlim(x_min, x_max)
+    plt.ylim(x_min, x_max)
     plt.xlabel("True Magnitude", fontsize=14)
     plt.ylabel("Predicted Magnitude", fontsize=14)
     plt.legend(fontsize=12)

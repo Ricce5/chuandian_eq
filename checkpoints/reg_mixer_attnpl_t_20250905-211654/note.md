@@ -1,0 +1,1 @@
+禁用卷积 对齐 /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250904-165339

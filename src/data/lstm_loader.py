@@ -31,17 +31,20 @@ class LSTMDataset(Dataset):
     
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
-    
     def inverse_normalize_label(self, norm_value):
         """
         使用提供的缩放器进行标签的逆归一化。
-        :param norm_value: 归一化后的值
-        :return: 逆归一化后的值
+        支持 (B, F) 或 (B,) 输入，输出与输入形状相同。
+        :param norm_value: 归一化后的值 (B, F) 或 (B,)
+        :return: 逆归一化后的值，形状与 norm_value 相同
         """
-        # 检查是否包含标签的归一化器（scalars 字典中是否有标签列）
         if 'Mag_max_obs' in self.scalars:
             scalar = self.scalars['Mag_max_obs']
-            value = scalar.inverse_transform(norm_value.reshape(-1, 1)).squeeze(1)
+            norm_value_np = np.array(norm_value)
+            orig_shape = norm_value_np.shape
+            norm_value_2d = norm_value_np.reshape(-1, 1) if norm_value_np.ndim == 1 else norm_value_np
+            value = scalar.inverse_transform(norm_value_2d)
+            value = value.reshape(orig_shape)
             return torch.tensor(value, dtype=torch.float32)
         else:
             raise ValueError("未找到标签列的归一化缩放器。")

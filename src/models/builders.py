@@ -513,8 +513,10 @@ class LSTMBuilder(ModelBuilder):
         num_layers = args.lstm_num_layers
         feature_size =  len(args.feature_cols)
         lstm_dropout = args.lstm_dropout
-        if args.criterion_name == 'Pinball':
+        if hasattr(args,'criterion_name') :
             output_size = len(args.criterion_cfg.taus) if args.criterion_cfg.get('taus', None) is not None else 1
+        else:
+            output_size = 1
         return LSTM(feature_size=feature_size, hidden_size=hidden_size, output_size=output_size,
                     num_layers=num_layers, lstm_dropout=lstm_dropout, device=device)
 

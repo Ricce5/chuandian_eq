@@ -1,5 +1,3 @@
-lstm构造解耦
-支持pinball
 
 
 问题
