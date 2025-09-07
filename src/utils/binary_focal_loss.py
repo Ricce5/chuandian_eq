@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.ops import sigmoid_focal_loss
+# from torchvision.ops import sigmoid_focal_loss
 
 class BinaryFocalLoss(nn.Module):
     def __init__(self, gamma=2.0, reduction="mean"):

@@ -100,3 +100,10 @@ ChuanDian	180	90	   10	5.5	2	      0.96	0.9	  1
 600 300
 lstm /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250906-152053
 * /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250906-194042
+
+
+消融实验结束
+/root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250907-133839
+
+SCEDC
+无log两层 /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212136-/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212748
