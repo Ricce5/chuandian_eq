@@ -8,7 +8,7 @@ python main.py --model clf_tm_attnpl --mode train
 python main.py --model clf_tm_attnpl_t --mode test  --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/clf_tm_attnpl_t_20250726-135710
 python main.py --model clf_mixer_attnpl_t --mode test --checkpoint checkpoints/clf_mixer_attnpl_t_20250902-112802
 python main.py --model thp --mode train
-python main.py --model rtpp --mode train
+python main.py --model rtpp --mode test --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/rtpp_20250907-144043
 python main.py --model etas --mode train
 python main.py --model btpp --mode train
 python main.py --model mtpp --mode train
@@ -18,3 +18,5 @@ python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train
 python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/reg_mixer_attnpl_t_20250824-145355
 python main.py --model lstm --mode test --checkpoint /checkpoints/lstm_20250902-145944
+
+diff /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250821-125414/config.yaml  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-112659/config.yaml
