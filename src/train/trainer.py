@@ -65,7 +65,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
         "clf_tm_cv_attnpl_t", "clf_mixer_attnpl_t"
     ]
     regressor_models = ["regressor", "lstm", "reg_attnpl", "reg_mixer_attnpl_t"]
-    tpp_models = ["thp", "rtpp", "mtpp", "thp_deltat", "mhp", "btpp"]
+    tpp_models = ["thp", "rtpp", "mtpp", "thp_deltat", "mhp", "btpp","etas"]
     tpp_m_models = ["mixer_tpp"]
     print(args.model)
     if args.model in classifier_models:

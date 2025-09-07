@@ -8,8 +8,9 @@ from joblib import Parallel, delayed
 from scipy.stats import poisson
 from tqdm.auto import trange
 
-import eq
-from eq.data.batch import get_mask, pad_sequence
+import src
+from src.data.batch import get_mask, pad_sequence,Batch
+from src.data.sequence import Sequence
 
 from .tpp_model import TPPModel
 
@@ -94,6 +95,7 @@ class ETAS(TPPModel):
         mag_completeness: float = 2.0,
         report_params: bool = True,
         learning_rate: float = 5e-2,
+        device: Optional[torch.device] = None,
     ):
         super().__init__()
         self.log_p = nn.Parameter(torch.tensor(math.log(omori_p_init)))
@@ -105,6 +107,8 @@ class ETAS(TPPModel):
         self.register_buffer("b", torch.tensor(richter_b))
         self.report_params = report_params
         self.learning_rate = learning_rate
+        self.device = device
+        self.to(device)
 
     @property
     def p(self):
@@ -126,7 +130,7 @@ class ETAS(TPPModel):
     def alpha(self):
         return torch.exp(self.log_alpha)
 
-    def nll_loss(self, batch: eq.data.Batch) -> torch.Tensor:
+    def nll_loss(self, batch: Batch) -> torch.Tensor:
         """
         Compute negative log-likelihood (NLL) for a batch of event sequences.
 
@@ -201,13 +205,13 @@ class ETAS(TPPModel):
         batch_size: int,
         duration: float,
         t_start: float = 0.0,
-        past_seq: Optional[eq.data.Sequence] = None,
+        past_seq: Optional[Sequence] = None,
         random_state: int = 123,
         max_length: int = 50_000,
         n_jobs: int = -1,
         return_sequences: bool = False,
         verbose: bool = False,         # 是否打印采样过程的详细信息
-    ) -> Union[eq.data.Batch, List[eq.data.Sequence]]:
+    ) -> Union[Batch, List[Sequence]]:
         """Generate a sample from the model (conditional or unconditional).
 
         Uses the thinning algorithm, which can be much slower than the default branching
@@ -222,8 +226,8 @@ class ETAS(TPPModel):
             max_length: if not none, discards samples with more than this many events.
                 prevents runaway explosive sequences.
             n_jobs: Number of jobs that run sampling in parallel. -1 uses all cores.
-            return_sequences: if true, returns samples as list[eq.data.sequence].
-                if false, returns samples as eq.data.batch.
+            return_sequences: if true, returns samples as list[Sequence].
+                if false, returns samples as Batch.
         """
         p, c, mu, k, alpha = [
             param.cpu().detach().numpy()
@@ -313,27 +317,27 @@ class ETAS(TPPModel):
                 for seed in trange(random_state, num_seq_to_generate + random_state)
             )
             filtered = [
-                eq.data.Sequence(**seq) for seq in new_sequences if seq is not None
+                Sequence(**seq) for seq in new_sequences if seq is not None
             ]
             sequences.extend(filtered)
 
         if return_sequences:
             return sequences
         else:
-            return eq.data.Batch.from_list(sequences)
+            return Batch.from_list(sequences)
 
     def sample(   # 基于分支过程模拟
         self,
         batch_size: int,
         duration: float,
         t_start: float = 0.0,
-        past_seq: Optional[eq.data.Sequence] = None,
+        past_seq: Optional[Sequence] = None,
         random_state: int = 123,
         max_length: Optional[int] = 50_000,
         t_max: float = 1e10,  # maximum duration of the aftershock sequence. Important for p close to 1.
         n_jobs: int = -1,     # Number of jobs that run sampling in parallel. -1 uses all cores.
         return_sequences: bool = False,
-    ) -> Union[eq.data.Batch, List[eq.data.Sequence]]:
+    ) -> Union[Batch, List[Sequence]]:
         """Generate a sample from the model (conditional or unconditional).
 
         Args:
@@ -346,8 +350,8 @@ class ETAS(TPPModel):
                 Prevents runaway explosive sequences.
             t_max: Maximum time since parent at which an aftershock can be produced.
             n_jobs: Number of jobs that run sampling in parallel. -1 uses all cores.
-            return_sequences: If True, returns samples as List[eq.data.Sequence].
-                If False, returns samples as eq.data.Batch.
+            return_sequences: If True, returns samples as List[Sequence].
+                If False, returns samples as Batch.
 
         Returns:
             batch: Sequences generated from the model.
@@ -484,7 +488,7 @@ class ETAS(TPPModel):
             fc_magnitudes = magnitudes[valid_idx]
 
             inter_times = np.diff(fc_arrival_times, prepend=t_start, append=t_end)
-            return eq.data.Sequence(
+            return Sequence(
                 inter_times=inter_times,
                 t_start=t_start,
                 mag=fc_magnitudes,
@@ -509,7 +513,7 @@ class ETAS(TPPModel):
         if return_sequences:
             return sequences
         else:
-            return eq.data.Batch.from_list(sequences)
+            return Batch.from_list(sequences)
 
 
 def masked_select_per_row(matrix, mask):

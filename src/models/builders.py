@@ -586,6 +586,22 @@ class RTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.recurrent import RecurrentTPP
         return RecurrentTPP(args, device)
+    
+@ModelBuilder.register("etas")
+class ETASBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        import torch
+        from src.models.tpp.etas import ETAS
+        tau_mean = torch.tensor(args.tau_mean, dtype=torch.float32)
+        richter_b =  torch.tensor(args.richter_b_mle, dtype=torch.float32)
+        base_rate_init=1 / tau_mean
+        mag_completeness = torch.tensor(args.mag_completeness, dtype=torch.float32)
+        return ETAS(
+            base_rate_init=base_rate_init,
+            richter_b=richter_b,
+            mag_completeness=mag_completeness,
+            device=device
+        )
 
 
 @ModelBuilder.register("mtpp")

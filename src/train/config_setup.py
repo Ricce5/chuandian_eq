@@ -151,7 +151,8 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     from src.models.builders import ModelBuilder
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
- 
+    if args.model == "etas":
+        model.double()
 
     # 默认值
     args.start_epoch = 0

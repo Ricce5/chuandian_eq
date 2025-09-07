@@ -145,7 +145,7 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
     return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], dataset
 
 
-def prepare_data_tpp(args, base_dir,use_double_precision=False):
+def prepare_data_tpp(args, base_dir):
     import os
     import torch
 
@@ -198,7 +198,7 @@ def prepare_data_tpp(args, base_dir,use_double_precision=False):
         print(f"Using Bayesian GR b-value updater with delta={b_updater.delta}, a0={b_updater.a0}, init b={b_updater.init_b_target:.4f}, "
               f"mag_completeness={b_updater.Mc}")
 
-    if use_double_precision:
+    if getattr(args, 'use_double_precision:', False):
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
             for seq in cat:
                 seq.double()
