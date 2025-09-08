@@ -162,7 +162,14 @@ def pick_median_pred(preds, taus):
     idx = int(np.where(taus == mid)[0][0])
     return preds[:, idx]
 
-def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
+def regression_metrics(
+    y_true, y_preds, taus=None, *, include_rank=True,
+    include_dtw=True, dtw_radius=5
+):
+    """
+    include_dtw : 是否计算 DTW（默认 False）
+    dtw_radius  : fastdtw 的搜索半径，半径越大越精确但计算更慢
+    """
     import numpy as np
     try:
         from scipy.stats import spearmanr
@@ -176,12 +183,11 @@ def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
     y_pred = np.asarray(y_pred, dtype=float)
 
     # —— 误差类（越低越好）——
-    err = y_true - y_pred
+    err  = y_true - y_pred
     MSE  = float(np.mean(err**2))
     RMSE = float(np.sqrt(MSE))
     MAE  = float(np.mean(np.abs(err)))
-
-    nz = y_true != 0
+    nz   = y_true != 0
     MAPE = float(np.mean(np.abs(err[nz] / y_true[nz])) * 100) if np.any(nz) else np.nan
 
     # R2
@@ -191,7 +197,6 @@ def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
 
     # —— 趋势类（越高越好）——
     def _pearson(a, b):
-        # np.corrcoef 常量向量会给 nan，这里直接返回
         r = np.corrcoef(a, b)[0, 1]
         return float(r)
 
@@ -201,7 +206,6 @@ def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
     dy_pred = np.diff(y_pred)
     if dy_true.size > 0:
         PearsonR_diff = _pearson(dy_true, dy_pred)
-        # 方向一致率（排除两边都不变的平局）
         s_true, s_pred = np.sign(dy_true), np.sign(dy_pred)
         mask = ~((s_true == 0) & (s_pred == 0))
         DA = float(np.mean(s_true[mask] == s_pred[mask])) if np.any(mask) else np.nan
@@ -209,13 +213,23 @@ def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
         PearsonR_diff = np.nan
         DA = np.nan
 
-    # 可选：Spearman（单调趋势），只有在 include_rank=True 且装了 scipy 时计算
     if include_rank and _HAS_SCIPY:
         SpearmanR = float(spearmanr(y_true, y_pred).statistic)
         SpearmanR_diff = float(spearmanr(dy_true, dy_pred).statistic) if dy_true.size > 0 else np.nan
     else:
         SpearmanR = np.nan
         SpearmanR_diff = np.nan
+
+    # —— 可选：DTW —— 
+    DTW = np.nan
+    DTW_normalized = np.nan
+    if include_dtw:
+        from fastdtw import fastdtw
+        from scipy.spatial.distance import euclidean
+        dist, _ = fastdtw(y_true, y_pred, radius=1, dist=lambda a, b: abs(a - b))
+        DTW = float(dist)
+        L = (len(y_true) + len(y_pred)) / 2.0
+        DTW_normalized = float(DTW / L) if L > 0 else np.nan
 
     return {
         "RMSE": RMSE,
@@ -228,6 +242,8 @@ def regression_metrics(y_true, y_preds, taus=None, *, include_rank=True):
         "DA": DA,
         "SpearmanR": SpearmanR,
         "SpearmanR_diff": SpearmanR_diff,
+        "DTW": DTW,
+        "DTW_normalized": DTW_normalized,
     }
 
 
