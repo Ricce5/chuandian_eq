@@ -9,23 +9,27 @@ from .sched_floor import CosineWithWarmupFloor, LinearWithWarmupFloor
 def step_scheduler(scheduler, event: str, *, val_loss=None):
     from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 
-    if event in ('step', 'update'):
-        mode = 'step'
-    elif event in ('epoch', 'epoch_end'):
-        mode = 'epoch'
-    else:
+    mode_map = {
+        'step': 'step', 'update': 'step',
+        'epoch': 'epoch', 'epoch_end': 'epoch'
+    }
+    if event not in mode_map:
         raise ValueError("event must be one of {'step','update','epoch','epoch_end'}")
+    mode = mode_map[event]
 
     if isinstance(scheduler, ReduceLROnPlateau):
-        if mode != 'epoch':
-            return
-        if val_loss is None:
-            raise ValueError("ReduceLROnPlateau requires a validation loss at epoch end.")
-        scheduler.step(val_loss)
-        return
-    if isinstance(scheduler, LRScheduler):
+        if mode == 'epoch':
+            if val_loss is None:
+                raise ValueError("ReduceLROnPlateau requires a validation loss at epoch end.")
+            scheduler.step(val_loss)
+    elif isinstance(scheduler, LRScheduler) or hasattr(scheduler, 'step'):
+        # 对普通调度器，允许 step 和 epoch 调用
         scheduler.step()
-        return
+    else:
+        raise ValueError(f"Unsupported scheduler type: {type(scheduler)}")
+
+
+
 
 
 
