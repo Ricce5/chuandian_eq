@@ -2,35 +2,30 @@ import os
 import torch
 from omegaconf import OmegaConf
 from torch.optim.swa_utils import AveragedModel
+from .sched_floor import CosineWithWarmupFloor, LinearWithWarmupFloor
 
 
 
-
-def step_scheduler(scheduler, event='epoch', val_loss=None):
+def step_scheduler(scheduler, event: str, *, val_loss=None):
     from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 
-    # 只在每个 epoch 时，传入 val_loss
-    if event == 'epoch':
-        if isinstance(scheduler, ReduceLROnPlateau):
-            if val_loss is None:
-                raise ValueError("ReduceLROnPlateau scheduler requires val_loss at epoch end.")
-            scheduler.step(val_loss)
-        elif isinstance(scheduler, LRScheduler):
-            scheduler.step()
-    # 每个 step 时调用
-    elif event == 'batch':
-        if isinstance(scheduler, LRScheduler) and isinstance(scheduler, (
-            torch.optim.lr_scheduler.LambdaLR, 
-            torch.optim.lr_scheduler.CyclicLR, 
-            torch.optim.lr_scheduler.OneCycleLR,
-            torch.optim.lr_scheduler.MultiplicativeLR,
-            torch.optim.lr_scheduler.LinearLR,
-            torch.optim.lr_scheduler.ConstantLR,
-            torch.optim.lr_scheduler.SequentialLR)):
-            scheduler.step()
-        elif not isinstance(scheduler, LRScheduler) and hasattr(scheduler, 'step'):
-            # 对非 _LRScheduler 的调度器，如 Hugging Face 的 schedulers
-            scheduler.step()
+    if event in ('step', 'update'):
+        mode = 'step'
+    elif event in ('epoch', 'epoch_end'):
+        mode = 'epoch'
+    else:
+        raise ValueError("event must be one of {'step','update','epoch','epoch_end'}")
+
+    if isinstance(scheduler, ReduceLROnPlateau):
+        if mode != 'epoch':
+            return
+        if val_loss is None:
+            raise ValueError("ReduceLROnPlateau requires a validation loss at epoch end.")
+        scheduler.step(val_loss)
+        return
+    if isinstance(scheduler, LRScheduler):
+        scheduler.step()
+        return
 
 
 
@@ -119,6 +114,8 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
             if writer:
                 writer.add_scalar("Loss/train", train_loss, epoch)
                 writer.add_scalar("Loss/val", val_loss, epoch)
+                current_lr = optimizer.param_groups[0]['lr']
+                writer.add_scalar("LR", current_lr, epoch)
                 for k, v in train_metrics.items():
                     writer.add_scalar(f"Metric/train/{k}", v, epoch)
                 for k, v in val_metrics.items():

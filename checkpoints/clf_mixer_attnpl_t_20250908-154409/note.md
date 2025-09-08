@@ -1,0 +1,1 @@
+更换加载路径resume_path: ./checkpoints/mixer_tpp_20250908-152958/best_model_1.pth SCEDC版本

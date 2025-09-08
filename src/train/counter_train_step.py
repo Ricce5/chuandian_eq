@@ -22,7 +22,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
         
         optimizer.step()
-        step_scheduler(scheduler, event='batch')
+        step_scheduler(scheduler, event='step')
         total_loss += loss.item()
 
         # 收集所有预测和目标值

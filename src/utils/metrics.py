@@ -164,7 +164,7 @@ def pick_median_pred(preds, taus):
 
 def regression_metrics(
     y_true, y_preds, taus=None, *, include_rank=True,
-    include_dtw=True, dtw_radius=5
+    include_dtw=True,
 ):
     """
     include_dtw : 是否计算 DTW（默认 False）

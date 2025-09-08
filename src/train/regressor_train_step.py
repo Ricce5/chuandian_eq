@@ -24,7 +24,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
             optimizer.step()  # 更新参数
             optimizer.zero_grad()  # 清空梯度
-            step_scheduler(scheduler, event='batch')  # 更新调度器
+            step_scheduler(scheduler, event='step')  # 更新调度器
             if ema_model is not None:
                 ema_model.update_parameters(model)
 
@@ -42,7 +42,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
     all_node_targets = np.concatenate(all_node_targets, axis=0)
 
 
-    metrics = regression_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds, include_dtw=False, include_rank=False)
     log_metrics(metrics, prefix="Training")
     avg_train_loss = total_loss / len(data_loader)
     
@@ -70,7 +70,7 @@ def validate(data_loader, model, criterion, device):
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
-    metrics = regression_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds,include_dtw=False, include_rank=False)
     log_metrics(metrics, prefix="Validation")
 
     avg_val_loss = val_loss / len(data_loader)

@@ -27,7 +27,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
             optimizer.step()  # 更新参数
             optimizer.zero_grad()  # 清空梯度
-            step_scheduler(scheduler, event='batch')  # 更新调度器
+            step_scheduler(scheduler, event='step')  # 更新调度器
             if ema_model is not None:
                 ema_model.update_parameters(model)
 

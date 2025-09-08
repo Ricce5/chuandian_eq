@@ -1,5 +1,8 @@
 
 DRW支持
+修改hf相关调度器加下限
+调度器更新全部错误，已经修正
+writer添加学习率
 
 问题
 tmp_batch 的pad与现有版本不兼容
@@ -107,3 +110,6 @@ lstm /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250906-152053
 
 SCEDC
 无log两层 /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212136-/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212748
+
+clf权重加载实验
+checkpoints/clf_mixer_attnpl_t_20250908-142508-checkpoints/clf_mixer_attnpl_t_20250908-143146

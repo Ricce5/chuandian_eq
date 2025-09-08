@@ -11,6 +11,7 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 import typing
 from src.utils.binary_focal_loss import BinaryFocalLoss, FocalLossWrapper
 from src.utils.pinball_loss import PinballLoss
+from .sched_floor import CosineWithWarmupFloor, LinearWithWarmupFloor
 
 def _prune_to_schema(src, schema):
     """
@@ -204,7 +205,6 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
         print(f"Using regression criterion: {criterion_name}")
         print(f"Criterion config: {criterion_cfg}")
     elif args.task_type == "count":
-        # 支持自定义 PoissonNLLLoss 配置
         criterion = nn.PoissonNLLLoss(**criterion_cfg)
         print(f"Using count criterion: PoissonNLLLoss")
         print(f"Criterion config: {criterion_cfg}")
@@ -257,16 +257,18 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
             eta_min=args.scheduler_min_lr
         )
     elif scheduler_type == "hf_cosine":
-        return get_cosine_schedule_with_warmup(
+        return CosineWithWarmupFloor(
             optimizer,
             num_warmup_steps=warmup_steps,
-            num_training_steps=total_steps
+            num_training_steps=total_steps,
+            min_lr=args.scheduler_min_lr
         )
     elif scheduler_type == "hf_linear":
-        return get_linear_schedule_with_warmup(
+        return LinearWithWarmupFloor(
             optimizer,
             num_warmup_steps=warmup_steps,
-            num_training_steps=total_steps
+            num_training_steps=total_steps,
+            min_lr=args.scheduler_min_lr
         )
     elif scheduler_type == "hf_constant":
         return get_constant_schedule_with_warmup(

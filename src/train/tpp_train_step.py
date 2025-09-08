@@ -49,7 +49,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device,
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad(set_to_none=True)  # 下一轮前清梯度。:contentReference[oaicite:5]{index=5}
-            step_scheduler(scheduler, event='batch')
+            step_scheduler(scheduler, event='step')
 
             if ema_model is not None:
                 ema_model.update_parameters(model)
