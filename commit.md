@@ -1,4 +1,7 @@
 
+
+
+
 问题
 tmp_batch 的pad与现有版本不兼容
 新增加数据集序列长度过长
@@ -108,3 +111,26 @@ SCEDC
 
 clf权重加载实验
 checkpoints/clf_mixer_attnpl_t_20250908-142508-checkpoints/clf_mixer_attnpl_t_20250908-143146
+
+
+AZDX无b：/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250909-102301
+AZDX有b: /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250908-182617
+SCEDC无b: /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250908-202537
+SCEDCb: /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250908-183612
+
+
+SCEDC
+tpp: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212619
+tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212748
+tpp+log+b:/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-190042
+tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-184838
+tpp-txpos: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-121137
+
+ChuanDian
+tpp+log+b:/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-193135
+tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-192418
+tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-115653
+tpp-txpos: checkpoints/mixer_tpp_20250909-123136
+
+reg
+-txpos /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250907-133839

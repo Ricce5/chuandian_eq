@@ -23,8 +23,8 @@ def step_scheduler(scheduler, event: str, *, val_loss=None):
                 raise ValueError("ReduceLROnPlateau requires a validation loss at epoch end.")
             scheduler.step(val_loss)
     elif isinstance(scheduler, LRScheduler) or hasattr(scheduler, 'step'):
-        # 对普通调度器，允许 step 和 epoch 调用
-        scheduler.step()
+        if mode == 'step':
+            scheduler.step()
     else:
         raise ValueError(f"Unsupported scheduler type: {type(scheduler)}")
 
