@@ -129,5 +129,9 @@ tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-192418
 tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-115653
 tpp-txpos: checkpoints/mixer_tpp_20250909-123136
 
-reg
--txpos /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250907-133839
+reg     checkpoints/reg_mixer_attnpl_t_20250907-183220
+lstm    checkpoints/lstm_20250906-152053
++log    checkpoints/reg_mixer_attnpl_t_20250907-133839
+-txpos  checkpoints/reg_mixer_attnpl_t_20250906-205258
+-TMAP   checkpoints/reg_mixer_attnpl_t_20250906-211115
+-pretrain checkpoints/reg_mixer_attnpl_t_20250906-204638

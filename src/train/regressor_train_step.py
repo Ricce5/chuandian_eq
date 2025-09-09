@@ -117,28 +117,34 @@ def get_root_dataset(loader):
         return dataset
 
 @torch.no_grad()
-def _predict_on_loader(model, loader, device):
-    model.eval()
+def collect_predictions(loader,model,device):
     y_true, y_pred = [], []
     dataset = get_root_dataset(loader)
-    for x, y in loader:
-        x = x.to(device)
-        p = model(x).detach().cpu().numpy()
-        t = y.detach().cpu().numpy()
-        if hasattr(dataset, "inverse_normalize_label"):
-            p = dataset.inverse_normalize_label(p)
-            t = dataset.inverse_normalize_label(t)
-        y_true.append(t); y_pred.append(p)
-    return np.concatenate(y_true), np.concatenate(y_pred)
 
-def _collect_all_splits(model, loaders, device):
-    return {
-        "Train": _predict_on_loader(model, loaders["Train"], device),
-        "Validation": _predict_on_loader(model, loaders["Validation"], device),
-        "Test": _predict_on_loader(model, loaders["Test"], device),
-    }
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            preds = model(x).cpu().numpy()
+            labels = y.cpu().numpy()
+
+            # 如果 Dataset 有 inverse_normalize_label 方法
+            if hasattr(dataset, "inverse_normalize_label"):
+                preds = dataset.inverse_normalize_label(preds)
+                labels = dataset.inverse_normalize_label(labels)
+
+            y_true.extend(labels)
+            y_pred.extend(preds)
+
+    return np.array(y_true), np.array(y_pred)
 
 
+def get_data_dict(loaders, model, device):
+        split_names = ["Train", "Validation", "Test"]
+        data_dict = {}
+        for name, loader in zip(split_names, loaders):
+            true, pred = collect_predictions(loader, model, device)
+            data_dict[name] = (true, pred)
+        return data_dict
 
 def visualize_results(model, train_loader, val_loader, test_loader, device, save_dir):
     """
@@ -147,41 +153,8 @@ def visualize_results(model, train_loader, val_loader, test_loader, device, save
     """
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
+    data_dict = get_data_dict([train_loader, val_loader, test_loader], model, device)
 
-
-
-    def collect_predictions(loader):
-        y_true, y_pred = [], []
-        dataset = get_root_dataset(loader)
-
-        with torch.no_grad():
-            for x, y in loader:
-                x = x.to(device)
-                preds = model(x).cpu().numpy()
-                labels = y.cpu().numpy()
-
-                # 如果 Dataset 有 inverse_normalize_label 方法
-                if hasattr(dataset, "inverse_normalize_label"):
-                    preds = dataset.inverse_normalize_label(preds)
-                    labels = dataset.inverse_normalize_label(labels)
-
-                y_true.extend(labels)
-                y_pred.extend(preds)
-
-        return np.array(y_true), np.array(y_pred)
-
-    # 收集（已反归一化的）数据
-    train_true, train_pred = collect_predictions(train_loader)
-    val_true, val_pred = collect_predictions(val_loader)
-    test_true, test_pred = collect_predictions(test_loader)
-
-    data_dict = {
-        "Train": (train_true, train_pred),
-        "Validation": (val_true, val_pred),
-        "Test": (test_true, test_pred),
-    }
-
-    # 可视化
     plot_regression_scatter(data_dict, save_path=os.path.join(save_dir, "regression_scatter.png"))
     plot_regression_series(data_dict, save_path=os.path.join(save_dir, "regression_series.png"))
 

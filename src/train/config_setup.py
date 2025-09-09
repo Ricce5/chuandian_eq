@@ -12,6 +12,7 @@ import typing
 from src.utils.binary_focal_loss import BinaryFocalLoss, FocalLossWrapper
 from src.utils.pinball_loss import PinballLoss
 from .sched_floor import CosineWithWarmupFloor, LinearWithWarmupFloor
+from src.models.builders import ModelBuilder
 
 def _prune_to_schema(src, schema):
     """
@@ -300,3 +301,13 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
          return NoOpScheduler(optimizer)
     else:
         raise ValueError("Invalid scheduler type. Choose from 'plateau', 'cosine', 'hf_cosine', 'hf_linear', 'hf_constant'.")
+
+def load_and_prepare_model(checkpoint_path, device):
+    check_point = torch.load(checkpoint_path, weights_only=False)
+    args = load_args_from_checkpoint(None, check_point)
+    model_builder = ModelBuilder.by_name(args.model.lower())()
+    model = model_builder(args, device)
+    model, _, _ = load_model_from_checkpoint(model, check_point)
+    model = torch.compile(model)
+    model.eval()
+    return model, args
