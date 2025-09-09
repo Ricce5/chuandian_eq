@@ -6,25 +6,29 @@ import matplotlib.pyplot as plt
 from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device):
+def train(data_loader, model, criterion, optimizer,scheduler, device, accumulation_steps=2,ema_model=None):
     model.train()
     total_loss = 0
     all_node_preds = []  # 存储所有预测值
     all_node_targets = []  # 存储所有目标值
-
+    optimizer.zero_grad()
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
+        
         pred = model(x)
         loss = criterion(pred, y)
-        print(criterion)
+        loss = loss/accumulation_steps  
         loss.backward()
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
         
-        optimizer.step()
-        step_scheduler(scheduler, event='batch')
-        total_loss += loss.item()
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
+            optimizer.step()  # 更新参数
+            optimizer.zero_grad()  # 清空梯度
+            step_scheduler(scheduler, event='step')  # 更新调度器
+            if ema_model is not None:
+                ema_model.update_parameters(model)
+
+        total_loss += loss.item()*accumulation_steps
 
         # 收集所有预测和目标值
         all_node_preds.append(pred.cpu().detach().numpy())
@@ -38,7 +42,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
     all_node_targets = np.concatenate(all_node_targets, axis=0)
 
 
-    metrics = regression_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds, include_dtw=False, include_rank=False)
     log_metrics(metrics, prefix="Training")
     avg_train_loss = total_loss / len(data_loader)
     
@@ -66,7 +70,7 @@ def validate(data_loader, model, criterion, device):
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
-    metrics = regression_metrics(all_node_targets, all_node_preds)
+    metrics = regression_metrics(all_node_targets, all_node_preds,include_dtw=False, include_rank=False)
     log_metrics(metrics, prefix="Validation")
 
     avg_val_loss = val_loss / len(data_loader)
@@ -92,17 +96,41 @@ def test(data_loader, model, criterion, device, save_dir=None):
             all_node_preds.extend(pred.cpu().detach().numpy())
             all_node_targets.extend(y.cpu().detach().numpy())
 
+
     # Convert predictions and targets to numpy arrays
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
-
-    # Calculate evaluation metrics
-    metrics = regression_metrics(all_node_targets, all_node_preds)
+    dataset = get_root_dataset(data_loader)
+    # Calculate evaluation metrics)
+    metrics = regression_metrics(dataset.inverse_normalize_label(all_node_targets), dataset.inverse_normalize_label(all_node_preds))
     log_metrics(metrics, prefix="Test")
     avg_test_loss = test_loss / len(data_loader)
 
     return avg_test_loss, metrics
+
+
+def get_root_dataset(loader):
+        dataset = loader.dataset
+        while isinstance(dataset, torch.utils.data.Subset):
+            dataset = dataset.dataset
+        return dataset
+
+@torch.no_grad()
+def _predict_on_loader(model, loader, device):
+    model.eval()
+    y_true, y_pred = [], []
+    dataset = get_root_dataset(loader)
+    for x, y in loader:
+        x = x.to(device)
+        p = model(x).detach().cpu().numpy()
+        t = y.detach().cpu().numpy()
+        if hasattr(dataset, "inverse_normalize_label"):
+            p = dataset.inverse_normalize_label(p)
+            t = dataset.inverse_normalize_label(t)
+        y_true.append(t); y_pred.append(p)
+    return np.concatenate(y_true), np.concatenate(y_pred)
+
 
 
 def visualize_results(model, train_loader, val_loader, test_loader, device, save_dir):
@@ -113,11 +141,7 @@ def visualize_results(model, train_loader, val_loader, test_loader, device, save
     model.eval()
     os.makedirs(save_dir, exist_ok=True)
 
-    def get_root_dataset(loader):
-        dataset = loader.dataset
-        while isinstance(dataset, torch.utils.data.Subset):
-            dataset = dataset.dataset
-        return dataset
+
 
     def collect_predictions(loader):
         y_true, y_pred = [], []

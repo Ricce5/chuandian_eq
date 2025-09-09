@@ -116,6 +116,29 @@ def get_root_dataset(loader):
             dataset = dataset.dataset
         return dataset
 
+@torch.no_grad()
+def _predict_on_loader(model, loader, device):
+    model.eval()
+    y_true, y_pred = [], []
+    dataset = get_root_dataset(loader)
+    for x, y in loader:
+        x = x.to(device)
+        p = model(x).detach().cpu().numpy()
+        t = y.detach().cpu().numpy()
+        if hasattr(dataset, "inverse_normalize_label"):
+            p = dataset.inverse_normalize_label(p)
+            t = dataset.inverse_normalize_label(t)
+        y_true.append(t); y_pred.append(p)
+    return np.concatenate(y_true), np.concatenate(y_pred)
+
+def _collect_all_splits(model, loaders, device):
+    return {
+        "Train": _predict_on_loader(model, loaders["Train"], device),
+        "Validation": _predict_on_loader(model, loaders["Validation"], device),
+        "Test": _predict_on_loader(model, loaders["Test"], device),
+    }
+
+
 
 def visualize_results(model, train_loader, val_loader, test_loader, device, save_dir):
     """
