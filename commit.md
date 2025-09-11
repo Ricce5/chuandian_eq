@@ -66,6 +66,7 @@ mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
 
 
+
 注意8.12前clf tau_mean 取0.026 ,因为dt没有在Mc过滤后计算
 
 
@@ -126,8 +127,9 @@ tpp-txpos: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-121137
 ChuanDian
 tpp+log+b:/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-193135
 tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-192418
-tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-115653
+tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-115653          用于test
 tpp-txpos: checkpoints/mixer_tpp_20250909-123136
+tpp /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-112722
 
 reg     checkpoints/reg_mixer_attnpl_t_20250907-183220
 lstm    checkpoints/lstm_20250906-152053
