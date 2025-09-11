@@ -10,6 +10,33 @@ def _safe_log10(x: np.ndarray) -> np.ndarray:
         return np.log10(x)
 
 
+def compute_magnitude_distribution(mag, min_mw, max_mw=10, dmw=0.1):
+    """
+    Compute the magnitude distribution for a given forecast.
+
+    Args:
+        mag (array-like): Magnitudes to compute the distribution for.
+        min_mw (float): Minimum magnitude to consider.
+        max_mw (float): Maximum magnitude to consider.
+        dmw (float): Magnitude bin width.
+
+    Returns:
+        tuple: A tuple containing the magnitude bins and the computed distribution.
+    """
+    from csep.utils.calc import bin1d_vec
+    from csep.core import regions
+
+    # Generate magnitude bins
+    magnitude_bins = regions.magnitude_bins(min_mw, max_mw, dmw)
+    mag = np.asarray(mag)
+
+    # Compute the histogram
+    distribution = np.zeros(len(magnitude_bins))
+    idx = bin1d_vec(mag, magnitude_bins, tol=None, right_continuous=True)
+    np.add.at(distribution, idx, 1)
+
+    return magnitude_bins, distribution
+
 def magnitude_test_from_counts(
     forecast_catalogs: Iterable[Any],
     observed_catalog: Any,
@@ -31,7 +58,7 @@ def magnitude_test_from_counts(
         }
     """
     # ---- 观测直方图 ----
-    obs_hist = np.asarray(observed_catalog.magnitude_counts(), dtype=float)
+    obs_hist = np.asarray(get_counts(observed_catalog), dtype=float)
     n_obs = float(np.sum(obs_hist))
     if n_obs == 0:
         if verbose:
