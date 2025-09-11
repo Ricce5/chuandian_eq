@@ -34,6 +34,3 @@ print("Scaled union histogram:", result_dict["scaled_union_histogram"])
 print("Quantiles (delta_1, delta_2):", result_dict["delta_1"], result_dict["delta_2"])
 
 # %%
-from src.utils.catalog_tests import run_magnitude_test_result
-run_magnitude_test_result(result_dict, plot=True)
-# %%
