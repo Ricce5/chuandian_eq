@@ -161,7 +161,7 @@ class Mixer_BatchInputAdapter:
         """Extract relevant fields from the batch object."""
         arrival_times = batch.arrival_times
         inter_times = batch.inter_times
-        mag = batch.mag- 0.5
+        mag = batch.mag
         loc = getattr(batch, 'loc', None) # loc might be optional
         return arrival_times, inter_times, mag, loc
 
@@ -351,8 +351,8 @@ class MixerInputAdapterWithTime:
         以 pipeline 风格简化：通过 scale 统一控制是否 token 归一化。
         """
         scale = self.time_scale_base if self.normalize_time else torch.tensor(1.0, dtype=torch.float32)
-        return arrival_times_nl * self.Twindow / scale
-        # return arrival_times_nl
+        # return arrival_times_nl * self.Twindow / scale
+        return arrival_times_nl
 
     # =========================
     # PUBLIC UTILS（可选）

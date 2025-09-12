@@ -1,4 +1,4 @@
-
+mag = batch.mag-0.5去除
 
 
 
@@ -48,7 +48,7 @@ mha_time层自回归是正确的
 调试
 修正做了两次log_softmax的错误，会导致之前mixer_tpp的checkpoint存在问题
 限定g为正值
-
+mag = batch.mag-0.5去除，导致9.6 17664f3 -9.12105d897c512e49f39a294c7bca569240bed5aa11  存在问题 (指标全部有问题)
 
 
 to do
@@ -127,7 +127,7 @@ tpp-txpos: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-121137
 ChuanDian
 tpp+log+b:/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-193135
 tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-192418
-tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-115653          用于test
+tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-114545        用于test
 tpp-txpos: checkpoints/mixer_tpp_20250909-123136
 tpp /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-112722
 
@@ -143,3 +143,8 @@ mixer_tpp 采样成功/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_202508
 
 rope xpos 消融实验： 
 /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-125450
+
+
+
+SCEDC采样绘图：/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-202304
+ChuanDian采样绘图 :/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-205124
