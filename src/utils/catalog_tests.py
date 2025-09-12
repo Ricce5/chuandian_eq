@@ -31,11 +31,10 @@ class CatalogMagnitudeTestResult(EvaluationResult):
         defaults.update(plot_args)  # 用户参数覆盖默认
 
         # 选择目标轴
-        if ax is None:
-            ax = plt.gca()
-
-        # 把 ax 传给底层绘图函数（注意这里也要改 plot_magnitude_test 支持 ax 参数）
-        ax = plot_magnitude_test(self, ax=ax, show=show, plot_args=defaults)
+        # if ax is None:
+        #     ax = plt.gca()
+        # ax = plot_magnitude_test(self, ax=ax, show=show, plot_args=defaults)
+        ax = plots.plot_magnitude_test(self, show=show, plot_args=defaults)
         return ax
 
 class CatalogNumberTestResult(EvaluationResult):
@@ -75,11 +74,10 @@ class CatalogNumberTestResult(EvaluationResult):
         defaults.update(plot_args)  # 用户参数覆盖默认
 
         # 选择目标轴
-        if ax is None:
-            ax = plt.gca()
-
-        # 把 ax 传给底层绘图函数（需要 plots.plot_number_test 支持 ax=...）
-        ax = plot_number_test(self, ax=ax, show=show, plot_args=defaults)
+        # if ax is None:
+        #     ax = plt.gca()
+        # ax = plot_number_test(self, ax=ax, show=show, plot_args=defaults)
+        ax = plots.plot_number_test(self, show=show, plot_args=defaults)
         return ax
 
 

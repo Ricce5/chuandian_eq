@@ -1,4 +1,4 @@
-
+t-xpos消融实验
 
 
 
@@ -137,3 +137,9 @@ lstm    checkpoints/lstm_20250906-152053
 -txpos  checkpoints/reg_mixer_attnpl_t_20250906-205258
 -TMAP   checkpoints/reg_mixer_attnpl_t_20250906-211115
 -pretrain checkpoints/reg_mixer_attnpl_t_20250906-204638
+
+
+mixer_tpp 采样成功/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250828-102630
+
+rope xpos 消融实验： 
+/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-125450
