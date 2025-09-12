@@ -274,11 +274,11 @@ class MixerTPP(TPPModel):
         past_seq: Optional[src.data.Sequence] = None,
         return_sequences: bool = False,
         predict_b: Optional[bool] = None,
+        max_sample_len: int = 1000,
     ) -> Union[src.data.Batch, List[src.data.Sequence]]:
 
         predict_b = self.predict_b if predict_b is None else predict_b  
         past_seq_len = len(past_seq) if past_seq is not None else 0
-        max_sample_len = 1000
         max_seqlen = past_seq_len + max_sample_len
 
         inference_params = InferenceParams(
