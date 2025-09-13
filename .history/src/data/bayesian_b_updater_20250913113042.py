@@ -61,8 +61,6 @@ class BayesianGRBUpdater:
             if s0 is not None:
                 raise ValueError("不能同时设定 s0 和 init_b_target")
             s0 = a0 / (init_b_target * LN10)
-        elif s0 is None:
-            s0 = 1e-3 
         if a0 <= 0 or s0 <= 0:
             raise ValueError("a0, s0 must be positive.")
         self.init_b_target = init_b_target
@@ -79,7 +77,8 @@ class BayesianGRBUpdater:
         self._s = None
 
     # ---------- 核心：对整个 Sequence 逐事件更新 ----------
-    def fit(self, seq: Sequence,prefix: str = "") -> Dict[str, torch.Tensor]:
+    def fit(self, seq: Sequence
+            ) -> Dict[str, torch.Tensor]:
         if self.mag_key not in seq:
             raise KeyError(f"Sequence 缺少震级属性 '{self.mag_key}'。已有键：{list(seq.keys())}")
 
@@ -138,15 +137,9 @@ class BayesianGRBUpdater:
         self._a = a
         self._s = s
 
-        out = {
-        f"{prefix}a_t": a_t,
-        f"{prefix}s_t": s_t,
-        f"{prefix}b_mean": b_mean,
-        f"{prefix}b_sd": b_sd,
-        f"{prefix}b_lo": b_lo,
-        f"{prefix}b_hi": b_hi,
-        f"{prefix}used_mask": used_mask,
-    }
+        out = dict(
+            a_t=a_t, s_t=s_t, b_mean=b_mean, b_sd=b_sd, b_lo=b_lo, b_hi=b_hi, used_mask=used_mask
+        )
 
         if self.write_back:
             for k, v in out.items():
@@ -199,21 +192,19 @@ class BayesianGRBUpdater:
     @staticmethod
     def plot(
         seq,
-        prefix: str = "",  
         field_mean: str = "b_mean",
         field_lo: str = "b_lo",
         field_hi: str = "b_hi",
-        truth_lines: Optional[Dict[str, float]] = None,
+        truth_lines: Optional[Dict[str, float]] = None,  # e.g., {"phase1": 1.0, "phase2": 0.8}
         switch_index: Optional[int] = None,
-        title: str = "Dynamic Bayesian b-value",
+        title: str = "Dynamic Bayesian b-value (event-by-event)",
         ax: Optional[plt.Axes] = None,
-        x_axis: str = "event",   # 新增参数
-        time_key: str = "arrival_times",  # 若选择时间轴，使用哪个字段
-        show: bool = True, 
+        x_axis: str = "event",
+        time_key: str = "arrival_times",
     ):
-        field_mean = prefix + field_mean
-        field_lo = prefix + field_lo
-        field_hi = prefix + field_hi
+        """
+        直接从 seq（已写回结果）画出逐事件 b 的后验均值与置信带。
+        """
         if field_mean not in seq or field_lo not in seq or field_hi not in seq:
             raise KeyError("Sequence 未包含绘图所需字段，请先调用 fit() 完成更新并写回。")
 
@@ -222,35 +213,23 @@ class BayesianGRBUpdater:
         b_hi = seq[field_hi].detach().cpu().numpy()
         n = len(b_mean)
 
-        # 横轴选择
-        if x_axis == "event":
-            xs = range(n)
-            xlabel = "Event index"
-        elif x_axis == "time":
-            if time_key not in seq:
-                raise KeyError(f"Sequence 缺少时间字段 '{time_key}'，无法绘制时间横轴")
-            xs = seq[time_key].detach().cpu().numpy()
-            xlabel = "Time(days)"
-        else:
-            raise ValueError("x_axis 必须是 'event' 或 'time'")
-
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 4.5))
 
+        xs = range(n)
         ax.plot(xs, b_mean, label="Posterior mean b")
         ax.fill_between(xs, b_lo, b_hi, alpha=0.3, label="~95% credible band")
 
-        if switch_index is not None and x_axis == "event":
+        if switch_index is not None:
             ax.axvline(switch_index, linestyle="--", label="Switch index")
 
         if truth_lines:
             for lab, val in truth_lines.items():
                 ax.axhline(val, linestyle=":", label=f"Truth {lab}")
 
-        ax.set_xlabel(xlabel)
+        ax.set_xlabel("Event index")
         ax.set_ylabel("b-value")
         ax.set_title(title)
         ax.legend(loc="best")
-        if show:
-            plt.tight_layout()
-            plt.show()
+        plt.tight_layout()
+        plt.show()

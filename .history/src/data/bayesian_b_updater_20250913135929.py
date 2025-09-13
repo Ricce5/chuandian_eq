@@ -61,8 +61,6 @@ class BayesianGRBUpdater:
             if s0 is not None:
                 raise ValueError("不能同时设定 s0 和 init_b_target")
             s0 = a0 / (init_b_target * LN10)
-        elif s0 is None:
-            s0 = 1e-3 
         if a0 <= 0 or s0 <= 0:
             raise ValueError("a0, s0 must be positive.")
         self.init_b_target = init_b_target
@@ -211,12 +209,9 @@ class BayesianGRBUpdater:
         time_key: str = "arrival_times",  # 若选择时间轴，使用哪个字段
         show: bool = True, 
     ):
-        field_mean = prefix + field_mean
-        field_lo = prefix + field_lo
-        field_hi = prefix + field_hi
         if field_mean not in seq or field_lo not in seq or field_hi not in seq:
             raise KeyError("Sequence 未包含绘图所需字段，请先调用 fit() 完成更新并写回。")
-
+        field_mean = prefix + field_mean
         b_mean = seq[field_mean].detach().cpu().numpy()
         b_lo = seq[field_lo].detach().cpu().numpy()
         b_hi = seq[field_hi].detach().cpu().numpy()

@@ -61,8 +61,6 @@ class BayesianGRBUpdater:
             if s0 is not None:
                 raise ValueError("不能同时设定 s0 和 init_b_target")
             s0 = a0 / (init_b_target * LN10)
-        elif s0 is None:
-            s0 = 1e-3 
         if a0 <= 0 or s0 <= 0:
             raise ValueError("a0, s0 must be positive.")
         self.init_b_target = init_b_target

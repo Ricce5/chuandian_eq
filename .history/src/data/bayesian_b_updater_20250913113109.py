@@ -61,8 +61,6 @@ class BayesianGRBUpdater:
             if s0 is not None:
                 raise ValueError("不能同时设定 s0 和 init_b_target")
             s0 = a0 / (init_b_target * LN10)
-        elif s0 is None:
-            s0 = 1e-3 
         if a0 <= 0 or s0 <= 0:
             raise ValueError("a0, s0 must be positive.")
         self.init_b_target = init_b_target
@@ -79,7 +77,8 @@ class BayesianGRBUpdater:
         self._s = None
 
     # ---------- 核心：对整个 Sequence 逐事件更新 ----------
-    def fit(self, seq: Sequence,prefix: str = "") -> Dict[str, torch.Tensor]:
+    def fit(self, seq: Sequence
+            ) -> Dict[str, torch.Tensor]:
         if self.mag_key not in seq:
             raise KeyError(f"Sequence 缺少震级属性 '{self.mag_key}'。已有键：{list(seq.keys())}")
 
@@ -138,15 +137,9 @@ class BayesianGRBUpdater:
         self._a = a
         self._s = s
 
-        out = {
-        f"{prefix}a_t": a_t,
-        f"{prefix}s_t": s_t,
-        f"{prefix}b_mean": b_mean,
-        f"{prefix}b_sd": b_sd,
-        f"{prefix}b_lo": b_lo,
-        f"{prefix}b_hi": b_hi,
-        f"{prefix}used_mask": used_mask,
-    }
+        out = dict(
+            a_t=a_t, s_t=s_t, b_mean=b_mean, b_sd=b_sd, b_lo=b_lo, b_hi=b_hi, used_mask=used_mask
+        )
 
         if self.write_back:
             for k, v in out.items():
@@ -199,7 +192,6 @@ class BayesianGRBUpdater:
     @staticmethod
     def plot(
         seq,
-        prefix: str = "",  
         field_mean: str = "b_mean",
         field_lo: str = "b_lo",
         field_hi: str = "b_hi",
@@ -209,11 +201,7 @@ class BayesianGRBUpdater:
         ax: Optional[plt.Axes] = None,
         x_axis: str = "event",   # 新增参数
         time_key: str = "arrival_times",  # 若选择时间轴，使用哪个字段
-        show: bool = True, 
     ):
-        field_mean = prefix + field_mean
-        field_lo = prefix + field_lo
-        field_hi = prefix + field_hi
         if field_mean not in seq or field_lo not in seq or field_hi not in seq:
             raise KeyError("Sequence 未包含绘图所需字段，请先调用 fit() 完成更新并写回。")
 
@@ -230,7 +218,7 @@ class BayesianGRBUpdater:
             if time_key not in seq:
                 raise KeyError(f"Sequence 缺少时间字段 '{time_key}'，无法绘制时间横轴")
             xs = seq[time_key].detach().cpu().numpy()
-            xlabel = "Time(days)"
+            xlabel = "Time"
         else:
             raise ValueError("x_axis 必须是 'event' 或 'time'")
 
@@ -251,6 +239,5 @@ class BayesianGRBUpdater:
         ax.set_ylabel("b-value")
         ax.set_title(title)
         ax.legend(loc="best")
-        if show:
-            plt.tight_layout()
-            plt.show()
+        plt.tight_layout()
+        plt.show()
