@@ -147,4 +147,4 @@ rope xpos 消融实验：
 
 
 SCEDC采样绘图：/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-202304
-ChuanDian采样绘图 :/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-205124
+ChuanDian采样绘图，b值预测 :/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-205124
