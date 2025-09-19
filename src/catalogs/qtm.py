@@ -53,6 +53,7 @@ class QTM(Catalog):
             "start_ts": pd.Timestamp("2008-01-01"),
             "end_ts": pd.Timestamp("2018-01-01"),
         }
+        print(f"root_dir: {root_dir}, metadata: {metadata}")
         super().__init__(root_dir=root_dir, metadata=metadata)
 
         # Load the full sequence
@@ -124,7 +125,7 @@ class QTM(Catalog):
         full_sequence = TppDataset(sequences=[seq])
         full_sequence.save_to_disk(self.root_dir / "full_sequence.pt")
 
-
+@Catalog.register(name="QTMSanJacinto-Standard")
 class QTMSanJacinto(QTM):
     def __init__(
         self,
@@ -141,7 +142,7 @@ class QTMSanJacinto(QTM):
             test_start_ts=test_start_ts,
         )
 
-
+@Catalog.register(name="QTMSaltonSea-Standard")
 class QTMSaltonSea(QTM):
     def __init__(
         self,

@@ -4,6 +4,7 @@ import torch
 from src.data.preparation import prepare_data
 from config.config_loader import load_args_from_yaml 
 args= load_args_from_yaml("../config/clf_mixer_attnpl_t.yaml")
+args.dataset = "QTMSaltonSea"
 base_dir = f"../data/{args.dataset}"
 # %%
 df, train_loader, val_loader, test_loader, catalog_ds = prepare_data(base_dir=base_dir, args=args,)

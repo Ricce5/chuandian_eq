@@ -18,9 +18,11 @@ class Catalog(Registrable):
 
     def __init__(self, root_dir: Union[str, Path], metadata: Dict[str, Any]): # Union: 可以是多种类型中的一种
         self.norm_stats = {}
+        self.root_dir = Path(root_dir)
         norm_path = self.root_dir / "norm_stats.pt"
         if norm_path.exists():
             self.norm_stats = torch.load(norm_path,weights_only=False)
+
 
         self.root_dir = Path(root_dir).expanduser().resolve() # expanduser波浪号 (~) 扩展为当前用户的主目录路径 resolve：返回绝对路径
         self.metadata = metadata
@@ -53,7 +55,17 @@ class Catalog(Registrable):
                     "\nOne of the methods `generate_catalog` or `required_files` "
                     "isn't implemented correctly."
                 )
-            
+    
+    def set_b_updater(self, b_updater):
+        self.b_updater = b_updater
+
+    def estimate_gr_b(self):
+        if self.b_updater is not None:
+            self.b_updater.fit(self.full_sequence)
+        self._split_datasets()
+
+    def _split_datasets(self):
+        raise NotImplemented
         
 
     def generate_catalog(self):

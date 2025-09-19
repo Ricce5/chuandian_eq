@@ -1,24 +1,38 @@
 # %%
 import src
-from src.data.preparation import prepare_data_tpp
+import torch
+from src.data.preparation import prepare_data
 from config.config_loader import load_args_from_yaml 
-args= load_args_from_yaml("../config/mixer_tpp.yaml")
+args= load_args_from_yaml("../config/clf_mixer_attnpl_t.yaml")
+args.dataset = "QTMSaltonSea"
 base_dir = f"../data/{args.dataset}"
 # %%
-seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data_tpp(base_dir=base_dir, args=args,)
+df, train_loader, val_loader, test_loader, catalog_ds = prepare_data(base_dir=base_dir, args=args,)
 # %%
-seq.inter_times
+for x,y in train_loader:
+    break
+# %%
+x[0,:,:]
+torch.max(x[0,:,0])
+torch.min(x[0,:,0])
+# %%
+for x,y in train_loader:
+    print(x[0,:,-1])
+# %%
+for x,y in train_loader:
+    print(x[0,:,0])
+# %%   
+for x,y in train_loader:
+    print(x[0,:,0])
+    print(x[0,:,-1])
+    diff = torch.diff(x[0, :, 0])
+    print(diff)
 # %%
 seq.arrival_times
 # %%
-import torch
 for batch in train_loader:
-    print(batch.arrival_times[:,0])
-    print(torch.max(batch.arrival_times,dim=1)[0])
-# %%
-import math
-from src.distributions.gamma import Gamma
-dist = Gamma(batch.a_t, batch.s_t * math.log(10.0))
+    print(batch)
+    break
 # %%
 batch.input_mask.shape
 # %%

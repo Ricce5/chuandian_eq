@@ -2,7 +2,8 @@
 import src
 from src.data.preparation import prepare_data_tpp
 from config.config_loader import load_args_from_yaml 
-args= load_args_from_yaml("../config/mixer_tpp.yaml")
+args= load_args_from_yaml("/home/yzzhang/pjt/chuandian_eq/config/mixer_tpp.yaml")
+args.dataset = "QTMSaltonSea"
 base_dir = f"../data/{args.dataset}"
 # %%
 seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data_tpp(base_dir=base_dir, args=args,)
@@ -19,7 +20,7 @@ for batch in train_loader:
 import math
 from src.distributions.gamma import Gamma
 dist = Gamma(batch.a_t, batch.s_t * math.log(10.0))
-dist.log_prob(batch.b)
+dist.log_prob(batch.b_mean)
 # %%
 batch.input_mask.shape
 # %%

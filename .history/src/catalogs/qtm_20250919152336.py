@@ -53,6 +53,7 @@ class QTM(Catalog):
             "start_ts": pd.Timestamp("2008-01-01"),
             "end_ts": pd.Timestamp("2018-01-01"),
         }
+        print(f"root_dir: {root_dir}, metadata: {metadata}")
         super().__init__(root_dir=root_dir, metadata=metadata)
 
         # Load the full sequence
@@ -64,6 +65,9 @@ class QTM(Catalog):
         self.metadata["train_start_ts"] = pd.Timestamp(train_start_ts)
         self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
         self.metadata["test_start_ts"] = pd.Timestamp(test_start_ts)
+        self._split_datasets()
+
+    def _split_datasets(self):
         seq_train, seq_val, seq_test = train_val_test_split_sequence(
             seq=self.full_sequence,
             start_ts=self.metadata["start_ts"],
@@ -74,7 +78,7 @@ class QTM(Catalog):
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
-
+    
     @property
     def required_files(self):
         return ["full_sequence.pt", "metadata.pt"]
@@ -121,7 +125,7 @@ class QTM(Catalog):
         full_sequence = TppDataset(sequences=[seq])
         full_sequence.save_to_disk(self.root_dir / "full_sequence.pt")
 
-
+@Catalog.register(name="QTMSanJacinto-Standard")
 class QTMSanJacinto(QTM):
     def __init__(
         self,
@@ -138,7 +142,7 @@ class QTMSanJacinto(QTM):
             test_start_ts=test_start_ts,
         )
 
-
+@Catalog.register(name="QTMSaltonSea-Standard")
 class QTMSaltonSea(QTM):
     def __init__(
         self,
