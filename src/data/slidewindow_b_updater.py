@@ -3,6 +3,8 @@ from typing import Dict, Optional, Literal
 import torch
 import matplotlib.pyplot as plt
 
+from  src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime
+import matplotlib.dates as mdates
 LN10 = math.log(10.0)
 
 class FixedTimeWindowGRB:
@@ -172,6 +174,7 @@ class FixedTimeWindowGRB:
         ax: Optional[plt.Axes] = None,
         show_counts: bool = False, counts_key: str = "n_used",
         show: bool = True,  
+        start_time = None,      # 起始时间（决定第0天的日历日期）
     ):
         field_b = prefix + field_b
         field_win_len = prefix + field_win_len
@@ -183,8 +186,16 @@ class FixedTimeWindowGRB:
         if x_axis == "time":
             if time_key not in seq:
                 raise KeyError(f"Sequence 缺少时间字段 '{time_key}'")
-            xs = seq[time_key].detach().cpu().numpy()
-            xlabel = "Time (days)"
+            days = seq[time_key].detach().cpu().numpy()  # 天数偏移
+
+            if start_time is None:
+                # 不给起始时间 => 继续用天数坐标
+                xs = days
+                xlabel = "Time (days)"
+            else:
+                t0_np = _to_np_datetime64_seconds(start_time)
+                xs = t0_np + days.astype('timedelta64[D]')  # 转换为日历日期
+                xlabel = "Year"
         elif x_axis == "event":
             xs = range(len(b))
             xlabel = "Event index"
@@ -204,5 +215,20 @@ class FixedTimeWindowGRB:
             ax2.plot(xs, counts, alpha=0.35, label="#events in window")
             ax2.set_ylabel("Count in window")
             ax2.legend(loc="upper right")
+        
+        if x_axis == "time" and start_time is not None:
+            # 将 np.datetime64 起点转成 python datetime 以读取 month/day
+            t0_py = _to_py_datetime(_to_np_datetime64_seconds(start_time))
+
+            # 主刻度：从起始时间所在的“年-月-日”对齐，每5年一个刻度
+            ax.xaxis.set_major_locator(
+                mdates.YearLocator(base=5, month=t0_py.month, day=t0_py.day)
+            )
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+            # （可选）次刻度：季度定位，便于读图
+            ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 4, 7, 10)))
+            ax.tick_params(axis='x', which='minor', bottom=False)  # 不画次刻度
+
         if show:
             plt.tight_layout(); plt.show()

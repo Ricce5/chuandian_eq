@@ -3,8 +3,14 @@ from typing import Dict, Optional, Union
 import torch
 import matplotlib.pyplot as plt
 from .sequence import Sequence
+import numpy as np
+
+from  src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime
+import matplotlib.dates as mdates
 
 LN10 = math.log(10.0)
+
+    
 class BayesianGRBUpdater:
     """
     Event-by-event Bayesian updater for GR b-value with time-variation
@@ -199,7 +205,7 @@ class BayesianGRBUpdater:
     @staticmethod
     def plot(
         seq,
-        prefix: str = "",  
+        prefix: str = "",
         field_mean: str = "b_mean",
         field_lo: str = "b_lo",
         field_hi: str = "b_hi",
@@ -207,50 +213,81 @@ class BayesianGRBUpdater:
         switch_index: Optional[int] = None,
         title: str = "Dynamic Bayesian b-value",
         ax: Optional[plt.Axes] = None,
-        x_axis: str = "event",   # 新增参数
-        time_key: str = "arrival_times",  # 若选择时间轴，使用哪个字段
-        show: bool = True, 
+        x_axis: str = "event",
+        time_key: str = "arrival_days",  # 以“天”为单位的偏移量
+        start_time=None,                 # 起始时间（决定第0天的日历日期）
+        show: bool = True,
     ):
+        # 字段名拼接与校验
         field_mean = prefix + field_mean
-        field_lo = prefix + field_lo
-        field_hi = prefix + field_hi
+        field_lo   = prefix + field_lo
+        field_hi   = prefix + field_hi
         if field_mean not in seq or field_lo not in seq or field_hi not in seq:
-            raise KeyError("Sequence 未包含绘图所需字段，请先调用 fit() 完成更新并写回。")
+            raise KeyError("Sequence 未包含绘图所需字段，请先 fit() 写回。")
 
         b_mean = seq[field_mean].detach().cpu().numpy()
-        b_lo = seq[field_lo].detach().cpu().numpy()
-        b_hi = seq[field_hi].detach().cpu().numpy()
+        b_lo   = seq[field_lo].detach().cpu().numpy()
+        b_hi   = seq[field_hi].detach().cpu().numpy()
         n = len(b_mean)
 
-        # 横轴选择
+        # ===== 横轴选择 =====
         if x_axis == "event":
-            xs = range(n)
+            xs = np.arange(n)
             xlabel = "Event index"
         elif x_axis == "time":
             if time_key not in seq:
-                raise KeyError(f"Sequence 缺少时间字段 '{time_key}'，无法绘制时间横轴")
-            xs = seq[time_key].detach().cpu().numpy()
-            xlabel = "Time(days)"
+                raise KeyError(f"Sequence 缺少时间字段 '{time_key}'")
+            days = seq[time_key].detach().cpu().numpy()  # 天数偏移
+
+            if start_time is None:
+                # 不给起始时间 => 继续用天数坐标
+                xs = days
+                xlabel = "Time (days)"
+            else:
+                t0_np = _to_np_datetime64_seconds(start_time)
+                xs = t0_np + days.astype('timedelta64[D]')  # 转换为日历日期
+                xlabel = "Year"
         else:
             raise ValueError("x_axis 必须是 'event' 或 'time'")
 
+        # 画布
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 4.5))
+        else:
+            fig = ax.figure
 
+        # 主曲线与区间
         ax.plot(xs, b_mean, label="Posterior mean b")
         ax.fill_between(xs, b_lo, b_hi, alpha=0.3, label="~95% credible band")
 
+        # 垂线和真值参考
         if switch_index is not None and x_axis == "event":
             ax.axvline(switch_index, linestyle="--", label="Switch index")
-
         if truth_lines:
             for lab, val in truth_lines.items():
                 ax.axhline(val, linestyle=":", label=f"Truth {lab}")
 
-        ax.set_xlabel(xlabel)
         ax.set_ylabel("b-value")
+        ax.set_xlabel(xlabel)
         ax.set_title(title)
         ax.legend(loc="best")
+
+        # ===== 把横轴按“5年一刻度，从起始时间开始标” =====
+        if x_axis == "time" and start_time is not None:
+            # 将 np.datetime64 起点转成 python datetime 以读取 month/day
+            t0_py = _to_py_datetime(_to_np_datetime64_seconds(start_time))
+
+            # 主刻度：从起始时间所在的“年-月-日”对齐，每5年一个刻度
+            ax.xaxis.set_major_locator(
+                mdates.YearLocator(base=5, month=t0_py.month, day=t0_py.day)
+            )
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+
+            # （可选）次刻度：季度定位，便于读图
+            ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 4, 7, 10)))
+            ax.tick_params(axis='x', which='minor', bottom=False)  # 不画次刻度
+
+
         if show:
             plt.tight_layout()
             plt.show()

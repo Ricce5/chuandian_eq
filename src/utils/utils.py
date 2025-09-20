@@ -3,6 +3,7 @@ import random
 import numpy as np
 import torch
 import math
+from datetime import datetime, timezone
 
 def set_seed(seed: int = 42):
     """为所有可能的随机源设置种子以确保可复现性。"""
@@ -44,3 +45,23 @@ def cal2jd(date):
     JDN = math.floor(365.25 * (year + 4716)) + math.floor(30.6001 * (month + 1)) + day + B - 1524.5
     jd = JDN + (hour - 12) / 24 + minute / 1440 + second / 86400
     return jd
+
+
+def _to_np_datetime64_seconds(t0) -> np.datetime64:
+    """把多种输入形式统一成 numpy.datetime64(秒)"""
+    if isinstance(t0, np.datetime64):
+        return t0.astype('datetime64[s]')
+    if isinstance(t0, datetime):
+        return np.datetime64(t0).astype('datetime64[s]')
+    if isinstance(t0, (int, float)):  # 认为是UNIX秒级时间戳
+        return np.datetime64(int(t0), 's')
+    if isinstance(t0, str):  # ISO字符串，如 '2000-01-01' 或 '2000-01-01T00:00:00'
+        return np.datetime64(t0).astype('datetime64[s]')
+    raise TypeError("start_time 需要是 datetime / np.datetime64 / ISO字符串 / 秒级UNIX时间戳")
+
+
+def _to_py_datetime(t64: np.datetime64) -> datetime:
+    """np.datetime64 -> python datetime（秒精度, tz-aware UTC）"""
+    ts = (t64 - np.datetime64('1970-01-01T00:00:00', 's')) / np.timedelta64(1, 's')
+    return datetime.fromtimestamp(float(ts), tz=timezone.utc)
+
