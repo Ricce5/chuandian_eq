@@ -269,8 +269,9 @@ def run_number_test_result(
     obs_count,
     min_mw=2.0,
     obs_catalog_repr="obs",
-    obs_name='oberved',
+    obs_name='observed',
     sim_name='Simulated',
+    plot_args=None,
     plot=True
 ):
     # 确保是 1D 序列（不强制转 float，保留整数更安全）
@@ -288,7 +289,7 @@ def run_number_test_result(
             obs_name=obs_name,
         )
         if plot:
-            result.plot()
+            result.plot(plot_args=plot_args)
         return result
 
     # 计算分位数
