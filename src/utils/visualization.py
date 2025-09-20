@@ -76,6 +76,7 @@ def visualize_sequence(
     t_end: Optional[float] = None,
     show_legend: bool = True,
     time_transform = lambda x: x,
+    xlabel: str = "Arrival time (days)"
 ):
     if t_start is None:
         t_start = seq.t_start
@@ -104,7 +105,7 @@ def visualize_sequence(
                 label="Interval on which NLL is computed",
             )
         )
-    ax.set_xlabel("Arrival time (days)")
+    ax.set_xlabel(f"{xlabel}")
     ax.set_xlim(t_start, t_end)
     ax.set_ylim(mag_completeness, y_max)
     ax.set_ylabel("Magnitude")
@@ -137,6 +138,7 @@ def visualize_trajectories(
     t_before: Optional[float] = None,
     num_examples: int = 10,               # number of example trajectories to plot
     save_path: Optional[str] = None,
+    xlabel: str = "Arrival time (days)"
 ):
     """Show an example visualization of simulated catalog continuations"""
     if (t_start is None) and (t_end is None):
@@ -186,7 +188,7 @@ def visualize_trajectories(
         "Forecast interval", (0.75, 0.9), xycoords="axes fraction", c="k", ha="center"
     )
 
-    visualize_sequence(seq=s_viz, ax=axA, event_color=event_color, show_legend=False)
+    visualize_sequence(seq=s_viz, ax=axA, event_color=event_color, show_legend=False,xlabel=xlabel)
 
     plot_counting_process(s_obs, axAA, "k", T0=t_start, T=t_start + duration)
     [

@@ -146,5 +146,5 @@ rope xpos 消融实验：
 
 
 
-SCEDC采样绘图，b值预测 ：
+SCEDC采样绘图，b值预测 ：checkpoints/mixer_tpp_20250912-202038
 ChuanDian采样绘图，b值预测 : checkpoints/mixer_tpp_20250912-205124

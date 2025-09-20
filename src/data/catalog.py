@@ -18,7 +18,7 @@ class Catalog(Registrable):
 
     def __init__(self, root_dir: Union[str, Path], metadata: Dict[str, Any]): # Union: 可以是多种类型中的一种
         self.norm_stats = {}
-        self.root_dir = Path(root_dir)
+        # self.root_dir = Path(root_dir)
         norm_path = self.root_dir / "norm_stats.pt"
         if norm_path.exists():
             self.norm_stats = torch.load(norm_path,weights_only=False)
