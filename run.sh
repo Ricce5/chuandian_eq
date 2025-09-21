@@ -16,7 +16,7 @@ python main.py --model mhp --mode train
 python main.py --model mixer_tpp --mode train  
 python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train
-python main.py --model reg_mixer_attnpl_t --mode test --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250907-133839
+python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/reg_mixer_attnpl_t_20250907-183220
 python main.py --model lstm --mode test --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250906-152053
 
 diff /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250821-125414/config.yaml  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-112659/config.yaml

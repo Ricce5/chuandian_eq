@@ -1,0 +1,1 @@
+对齐checkpoints/reg_mixer_attnpl_t_20250907-183220/last_model_1.pth, 加载AZDX无b值预测的权重

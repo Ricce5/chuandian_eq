@@ -213,25 +213,8 @@ def regression_metrics(
         PearsonR_diff = np.nan
         DA = np.nan
 
-    if include_rank and _HAS_SCIPY:
-        SpearmanR = float(spearmanr(y_true, y_pred).statistic)
-        SpearmanR_diff = float(spearmanr(dy_true, dy_pred).statistic) if dy_true.size > 0 else np.nan
-    else:
-        SpearmanR = np.nan
-        SpearmanR_diff = np.nan
-
-    # —— 可选：DTW —— 
-    DTW = np.nan
-    DTW_normalized = np.nan
-    if include_dtw:
-        from fastdtw import fastdtw
-        from scipy.spatial.distance import euclidean
-        dist, _ = fastdtw(y_true, y_pred, radius=1, dist=lambda a, b: abs(a - b))
-        DTW = float(dist)
-        L = (len(y_true) + len(y_pred)) / 2.0
-        DTW_normalized = float(DTW / L) if L > 0 else np.nan
-
-    return {
+    # Initialize the result dictionary
+    results = {
         "RMSE": RMSE,
         "MAE": MAE,
         "MSE": MSE,
@@ -239,12 +222,29 @@ def regression_metrics(
         "R2": R2,
         "PearsonR": PearsonR,
         "PearsonR_diff": PearsonR_diff,
-        "DA": DA,
-        "SpearmanR": SpearmanR,
-        "SpearmanR_diff": SpearmanR_diff,
-        "DTW": DTW,
-        "DTW_normalized": DTW_normalized,
+        "DA": DA
     }
+
+    # Include rank metrics if requested
+    if include_rank and _HAS_SCIPY:
+        SpearmanR = float(spearmanr(y_true, y_pred).statistic)
+        SpearmanR_diff = float(spearmanr(dy_true, dy_pred).statistic) if dy_true.size > 0 else np.nan
+        results["SpearmanR"] = SpearmanR
+        results["SpearmanR_diff"] = SpearmanR_diff
+
+    # Include DTW metrics if requested
+    if include_dtw:
+        from fastdtw import fastdtw
+        from scipy.spatial.distance import euclidean
+        dist, _ = fastdtw(y_true, y_pred, radius=1, dist=lambda a, b: abs(a - b))
+        DTW = float(dist)
+        L = (len(y_true) + len(y_pred)) / 2.0
+        DTW_normalized = float(DTW / L) if L > 0 else np.nan
+        results["DTW"] = DTW
+        results["DTW_normalized"] = DTW_normalized
+
+    return results
+
 
 
 
