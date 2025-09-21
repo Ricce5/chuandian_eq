@@ -351,8 +351,8 @@ class MixerInputAdapterWithTime:
         以 pipeline 风格简化：通过 scale 统一控制是否 token 归一化。
         """
         scale = self.time_scale_base if self.normalize_time else torch.tensor(1.0, dtype=torch.float32)
-        # return arrival_times_nl * self.Twindow / scale
-        return arrival_times_nl
+        return arrival_times_nl * self.Twindow / scale
+
 
     # =========================
     # PUBLIC UTILS（可选）
