@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from .sequence import Sequence
 import numpy as np
 
-from  src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime
+from  src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime,set_xaxis_time_locator
 import matplotlib.dates as mdates
 
 LN10 = math.log(10.0)
@@ -16,28 +16,28 @@ class BayesianGRBUpdater:
     Event-by-event Bayesian updater for GR b-value with time-variation
     using discounted conjugate Gamma prior on alpha = b * ln(10).
 
-    更新逻辑（逐事件）：
-      1) 折扣先验: (a, s) <- (delta*a, delta*s)
-      2) 若 m_i >= Mc: a <- a + 1; s <- s + (m_i - Mc)
-      3) 后验在 b 上的摘要：
+    Update logic (event-by-event):
+      1) Discount prior: (a, s) <- (delta*a, delta*s)
+      2) If m_i >= Mc: a <- a + 1; s <- s + (m_i - Mc)
+      3) Posterior summary for b:
          E[b] = a / (s * ln 10)
          SD[b] = sqrt(a) / (s * ln 10)
-         95% 区间使用正态近似（也可自行改为分位数法）
+         95% interval uses normal approximation (can be modified to use quantiles)
         b∼Gamma(a,s⋅ln(10)).
-    参数
+    Parameters
     ----
     Mc : float
-        完备震级阈值
+        Completeness magnitude threshold
     delta : float in (0,1]
-        遗忘系数/折扣，越小越快适应 b 的时变
+        Forgetting factor/discount, smaller values adapt faster to time-varying b
     a0, s0 : float
-        Gamma(a0, s0) 先验（shape, rate）
+        Gamma(a0, s0) prior (shape, rate)
     mag_key : str
-        Sequence 中震级字段名
+        Magnitude field name in the Sequence
     write_back : bool
-        是否把结果字段写回到传入的 seq（DotDict/自定义对象）
+        Whether to write the result fields back to the input seq (DotDict/custom object)
 
-    结果字段（长度 = num_events）
+    Result fields (length = num_events)
     ----
     a_t, s_t, b_mean, b_sd, b_lo, b_hi, used_mask
     """
@@ -47,7 +47,7 @@ class BayesianGRBUpdater:
         Mc: float = 3,
         delta: float = 0.97,
         a0: float = 1e-3,
-        s0: Optional[float] = None, # rate 可以自动算
+        s0: Optional[float] = None,
         init_b_target: Optional[float] = None,
         mag_key: str = "mag",
         write_back: bool = True,
@@ -61,11 +61,11 @@ class BayesianGRBUpdater:
         self.delta = float(delta)
         
         if init_b_target is not None:
-            # 根据目标 b 期望，重算 s0
+            # Recalculate s0 based on the target b expectation
             if init_b_target <= 0:
-                raise ValueError("init_b_target 必须为正数")
+                raise ValueError("init_b_target must be positive")
             if s0 is not None:
-                raise ValueError("不能同时设定 s0 和 init_b_target")
+                raise ValueError("Cannot set both s0 and init_b_target simultaneously")
             s0 = a0 / (init_b_target * LN10)
         elif s0 is None:
             s0 = 1e-3 
@@ -80,14 +80,14 @@ class BayesianGRBUpdater:
         self.dtype = dtype
         self.device = device
 
-        # 在线状态（标量）
+
         self._a = None
         self._s = None
 
-    # ---------- 核心：对整个 Sequence 逐事件更新 ----------
+
     def fit(self, seq: Sequence,prefix: str = "") -> Dict[str, torch.Tensor]:
         if self.mag_key not in seq:
-            raise KeyError(f"Sequence 缺少震级属性 '{self.mag_key}'。已有键：{list(seq.keys())}")
+            raise KeyError(f"Sequence is missing the magnitude attribute '{self.mag_key}'. Available keys: {list(seq.keys())}")
 
         mags: torch.Tensor = seq[self.mag_key]
         if self.dtype is not None:
@@ -100,7 +100,6 @@ class BayesianGRBUpdater:
         device = mags.device
         n = mags.shape[0]
 
-        # 创建结果容器
         a_t = torch.empty(n, dtype=mags.dtype, device=device)
         s_t = torch.empty(n, dtype=mags.dtype, device=device)
         b_mean = torch.empty(n, dtype=mags.dtype, device=device)
@@ -109,14 +108,11 @@ class BayesianGRBUpdater:
         b_hi = torch.empty(n, dtype=mags.dtype, device=device)
         used_mask = torch.zeros(n, dtype=torch.int64, device=device)
 
-        # 状态初始化（标量）
         a = torch.tensor(self.a0, dtype=mags.dtype, device=device)
         s = torch.tensor(self.s0, dtype=mags.dtype, device=device)
         z = torch.tensor(self.ci_z, dtype=mags.dtype, device=device)
 
-        # 逐事件递推
         for i in range(n):
-            # 折扣
             a = a * self.delta
             s = s * self.delta
 
@@ -127,7 +123,6 @@ class BayesianGRBUpdater:
                 s = s + x_i
                 used_mask[i] = 1
 
-            # 后验到 b 的摘要
             bm = a / (s * LN10)
             bstd = torch.sqrt(a) / (s * LN10)
             blo = torch.clamp(bm - z * bstd, min=0.0)
@@ -140,7 +135,6 @@ class BayesianGRBUpdater:
             b_lo[i] = blo
             b_hi[i] = bhi
 
-        # 保存最终标量状态（便于继续在线更新）
         self._a = a
         self._s = s
 
@@ -160,20 +154,18 @@ class BayesianGRBUpdater:
 
         return out
 
-    # ---------- 继续在线：添加一个新事件（可选） ----------
     def update_one(self, m: Union[float, torch.Tensor]) -> Dict[str, float]:
         """
-        若你想在 fit 之后继续在线更新，可调用本方法。
-        返回该事件后的 (a, s, b_mean, b_sd, b_lo, b_hi)
+        If you want to continue updating online after calling fit, 
+        you can use this method. 
+        Returns (a, s, b_mean, b_sd, b_lo, b_hi) after processing the event.
         """
         if self._a is None or self._s is None:
-            # 首次单步更新：初始化
             dtype = self.dtype or (m.dtype if isinstance(m, torch.Tensor) else torch.get_default_dtype())
             device = self.device or (m.device if isinstance(m, torch.Tensor) else None)
             self._a = torch.tensor(self.a0, dtype=dtype, device=device)
             self._s = torch.tensor(self.s0, dtype=dtype, device=device)
 
-        # 折扣
         self._a = self._a * self.delta
         self._s = self._s * self.delta
 
@@ -201,7 +193,6 @@ class BayesianGRBUpdater:
             b_hi=float(bhi.item()),
         )
 
-    # ---------- 绘图 ----------
     @staticmethod
     def plot(
         seq,
@@ -214,53 +205,49 @@ class BayesianGRBUpdater:
         title: str = "Dynamic Bayesian b-value",
         ax: Optional[plt.Axes] = None,
         x_axis: str = "event",
-        time_key: str = "arrival_days",  # 以“天”为单位的偏移量
-        start_time=None,                 # 起始时间（决定第0天的日历日期）
+        time_key: str = "arrival_days", 
+        start_time=None,                 
         show: bool = True,
     ):
-        # 字段名拼接与校验
+
         field_mean = prefix + field_mean
         field_lo   = prefix + field_lo
         field_hi   = prefix + field_hi
         if field_mean not in seq or field_lo not in seq or field_hi not in seq:
-            raise KeyError("Sequence 未包含绘图所需字段，请先 fit() 写回。")
+            raise KeyError("Sequence does not contain the required fields for plotting. Please run fit() to write them back.")
 
         b_mean = seq[field_mean].detach().cpu().numpy()
         b_lo   = seq[field_lo].detach().cpu().numpy()
         b_hi   = seq[field_hi].detach().cpu().numpy()
         n = len(b_mean)
 
-        # ===== 横轴选择 =====
         if x_axis == "event":
             xs = np.arange(n)
             xlabel = "Event index"
         elif x_axis == "time":
             if time_key not in seq:
-                raise KeyError(f"Sequence 缺少时间字段 '{time_key}'")
-            days = seq[time_key].detach().cpu().numpy()  # 天数偏移
+                raise KeyError(f"Sequence is missing the time field '{time_key}'")
+            days = seq[time_key].detach().cpu().numpy() 
 
             if start_time is None:
-                # 不给起始时间 => 继续用天数坐标
                 xs = days
                 xlabel = "Time (days)"
             else:
                 t0_np = _to_np_datetime64_seconds(start_time)
-                xs = t0_np + days.astype('timedelta64[D]')  # 转换为日历日期
+                xs = t0_np + days.astype('timedelta64[D]')  
                 xlabel = "Year"
         else:
-            raise ValueError("x_axis 必须是 'event' 或 'time'")
+            raise ValueError("x_axis must be either 'event' or 'time'")
 
-        # 画布
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 4.5))
         else:
             fig = ax.figure
 
-        # 主曲线与区间
+
         ax.plot(xs, b_mean, label="Posterior mean b")
         ax.fill_between(xs, b_lo, b_hi, alpha=0.3, label="~95% credible band")
 
-        # 垂线和真值参考
         if switch_index is not None and x_axis == "event":
             ax.axvline(switch_index, linestyle="--", label="Switch index")
         if truth_lines:
@@ -272,20 +259,8 @@ class BayesianGRBUpdater:
         ax.set_title(title)
         ax.legend(loc="best")
 
-        # ===== 把横轴按“5年一刻度，从起始时间开始标” =====
         if x_axis == "time" and start_time is not None:
-            # 将 np.datetime64 起点转成 python datetime 以读取 month/day
-            t0_py = _to_py_datetime(_to_np_datetime64_seconds(start_time))
-
-            # 主刻度：从起始时间所在的“年-月-日”对齐，每5年一个刻度
-            ax.xaxis.set_major_locator(
-                mdates.YearLocator(base=5, month=t0_py.month, day=t0_py.day)
-            )
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-
-            # （可选）次刻度：季度定位，便于读图
-            ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 4, 7, 10)))
-            ax.tick_params(axis='x', which='minor', bottom=False)  # 不画次刻度
+            set_xaxis_time_locator(ax, start_time)
 
 
         if show:

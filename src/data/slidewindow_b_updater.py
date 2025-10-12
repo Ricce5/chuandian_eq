@@ -3,47 +3,50 @@ from typing import Dict, Optional, Literal
 import torch
 import matplotlib.pyplot as plt
 
-from  src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime
+from  src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime,set_xaxis_time_locator
 import matplotlib.dates as mdates
 LN10 = math.log(10.0)
 
 class FixedTimeWindowGRB:
     """
-    固定时间窗滑动估计 b 值（与最常用做法一致）：
-      对每个“评估时刻”（默认逐事件的到时），取 [t - window_len, t] 内所有满足 m>=Mc 的事件，
-      用 MLE（默认）或窗口内一次性共轭 Bayes 估计 b。
+    Fixed time-window sliding estimation of b-value (consistent with the most common approach):
+      For each "evaluation moment" (default is the arrival time of each event), take all events 
+      within [t - window_len, t] that satisfy m >= Mc, and estimate b using MLE (default) or 
+      one-time conjugate Bayes estimation within the window.
 
-    设窗方式：
-      - 直接传入 window_len（时间单位与 arrival_times 一致，建议 days）
-      - 或仅传 target_count：通过目录整体发生率 λ=N/T 估算固定窗长 Δt=target_count/λ
+    Window setup:
+      - Directly pass window_len (time unit consistent with arrival_times, recommended in days)
+      - Or pass only target_count: estimate the fixed window length Δt=target_count/λ using the 
+        overall occurrence rate λ=N/T of the catalog.
 
-    输出（与目录等长，对齐到每个事件时刻）：
-      - b_mean[i]  : 在以第 i 个事件时刻为“右端点”的固定时间窗估计 b（不足 min_count 则 NaN）
-      - n_used[i]  : 该窗内有效事件数
-      - win_len[i] : 固定窗长（常数向量，便于检查）
-      - used_mask  : 标注哪些事件满足 m>=Mc（与输入一致）
+    Output (aligned with the catalog, corresponding to each event moment):
+      - b_mean[i]  : Estimated b-value in the fixed time window with the i-th event as the 
+                     "right endpoint" (NaN if less than min_count)
+      - n_used[i]  : Number of valid events in the window
+      - win_len[i] : Fixed window length (constant vector for verification)
+      - used_mask  : Marks which events satisfy m >= Mc (consistent with input)
 
-    注：MLE 公式 b = log10(e) / (mean(M) - Mc)
+    Note: MLE formula b = log10(e) / (mean(M) - Mc)
     """
 
     def __init__(
         self,
         Mc: float = 3.0,
-        window_len: Optional[float] = None,     # 固定窗长（与 arrival_times 同单位；优先）
-        target_count: Optional[int] = None,     # 若未给 window_len，可用目标事件数估窗
-        min_count: int = 30,                    # 窗内最少有效事件数，否则返回 NaN
+        window_len: Optional[float] = None,   
+        target_count: Optional[int] = None,   
+        min_count: int = 30,                  
         mag_key: str = "mag",
         time_key: str = "arrival_times",
         method: Literal["mle", "bayes"] = "mle",
-        a0: float = 1e-3, s0: float = 1e-3,     # 仅 method="bayes" 时使用
+        a0: float = 1e-3, s0: float = 1e-3,     #  # Only used when method="bayes"
         dtype: Optional[torch.dtype] = None,
         device: Optional[torch.device] = None,
         write_back: bool = True,
     ):
         if window_len is None and (target_count is None or target_count <= 0):
-            raise ValueError("请提供 window_len，或提供正整数 target_count 以自动估算固定窗长。")
+            raise ValueError("Please provide window_len, or a positive integer target_count to automatically estimate the fixed window length.")
         if method == "bayes" and (a0 <= 0 or s0 <= 0):
-            raise ValueError("Bayes 模式需要正的先验 a0, s0")
+            raise ValueError("Bayesian mode requires positive prior values for a0 and s0")
         self.Mc = float(Mc)
         self.window_len = None if window_len is None else float(window_len)
         self.target_count = None if target_count is None else int(target_count)
@@ -56,7 +59,7 @@ class FixedTimeWindowGRB:
         self.write_back = write_back
 
     def _estimate_b_window(self, mags_win: torch.Tensor) -> float:
-        """在一个固定窗内估计 b（返回 float）"""
+        """Estimate b-value within a fixed window (returns float)."""
         n = mags_win.numel()
         if n == 0:
             return float("nan")
@@ -78,13 +81,14 @@ class FixedTimeWindowGRB:
 
     @torch.no_grad()
     def fit(self, seq, prefix: str = "") -> Dict[str, torch.Tensor]:
-        if self.mag_key not in seq:  raise KeyError(f"Sequence 缺少 '{self.mag_key}'")
-        if self.time_key not in seq: raise KeyError(f"Sequence 缺少 '{self.time_key}'")
+        if self.mag_key not in seq:
+            raise KeyError(f"Sequence is missing the key '{self.mag_key}'")
+        if self.time_key not in seq:
+            raise KeyError(f"Sequence is missing the key '{self.time_key}'")
 
         mags: torch.Tensor = seq[self.mag_key]
         times: torch.Tensor = seq[self.time_key]
 
-        # 统一 dtype / device
         if self.dtype is not None:
             mags = mags.to(self.dtype); times = times.to(self.dtype)
         else:
@@ -95,47 +99,41 @@ class FixedTimeWindowGRB:
 
         device = mags.device
         n = mags.shape[0]
-
-        # 仅标记有效事件
         used_mask = (mags >= self.Mc).to(torch.int64)
 
-        # 若未给 window_len，用总体速率估算固定窗长（单位与 times 相同）
+        # If window_len is not provided, estimate the fixed window length using the overall rate (unit consistent with times)
         win_len_val: float
         if self.window_len is None:
             used_idx = torch.nonzero(used_mask, as_tuple=False).flatten()
             if used_idx.numel() < max(self.min_count, 5):
-                raise ValueError("有效事件过少，无法根据 target_count 估算固定时间窗。")
+                raise ValueError("Too few valid events to estimate the fixed time window based on target_count.")
             t0 = times[used_idx[0]]
             t1 = times[used_idx[-1]]
             total_T = float((t1 - t0).abs().item())
             N = int(used_idx.numel())
             if total_T <= 0:
-                raise ValueError("时间跨度为 0，无法估算事件发生率。请直接指定 window_len。")
-            lam = N / total_T               # 事件率（每单位时间）
+                raise ValueError("Time span is 0, unable to estimate event rate. Please specify window_len directly.")
+            lam = N / total_T               
             win_len_val = self.target_count / lam
         else:
             win_len_val = float(self.window_len)
 
-        # 结果容器
         b_mean = torch.full((n,), float("nan"), dtype=times.dtype, device=device)
         n_used = torch.zeros(n, dtype=torch.int64, device=device)
         win_len_vec = torch.full((n,), win_len_val, dtype=times.dtype, device=device)
 
-        # 双指针法维护时间窗 [t - win_len, t]
+        # Use the two-pointer technique to maintain the time window [t - win_len, t]
         left = 0
-        # 为加速，预先把 times, mags 搬到 CPU numpy 不是必须；我们直接用 torch
         for i in range(n):
             t_right = times[i]
             t_left  = t_right - win_len_vec[i]
 
-            # 移动左指针，使 times[left] >= t_left（保持窗口内）
             while left < n and times[left] < t_left:
                 left += 1
 
-            # 当前窗口范围 [left, i]
+            # Current window range [left, i]
             if left <= i:
                 idx_slice = slice(left, i + 1)
-                # 窗内有效事件
                 mask_win = (mags[idx_slice] >= self.Mc)
                 n_in = int(mask_win.sum().item())
                 if n_in >= self.min_count:
@@ -144,10 +142,9 @@ class FixedTimeWindowGRB:
                     b_mean[i] = torch.tensor(b_hat, dtype=times.dtype, device=device)
                     n_used[i] = n_in
                 else:
-                    # 不足 min_count，返回 NaN（也可选择延续上一值，按需修改）
+                    # If less than min_count, return NaN (can also choose to carry forward the previous value, modify as needed)
                     n_used[i] = n_in
             else:
-                # 窗口为空
                 n_used[i] = 0
 
         out = {
@@ -161,7 +158,6 @@ class FixedTimeWindowGRB:
                 seq[k] = v
         return out
 
-    # 画图：横轴可选事件或时间；时间轴默认单位“天”
     @staticmethod
     def plot(
         seq,
@@ -169,38 +165,37 @@ class FixedTimeWindowGRB:
         field_b: str = "b_mean",
         field_win_len: str = "win_len",
         time_key: str = "arrival_times",
-        x_axis: str = "time",   # 与常用展示一致，默认时间轴
+        x_axis: str = "time", 
         title: str = "Fixed time-window b-value (MLE)",
         ax: Optional[plt.Axes] = None,
         show_counts: bool = False, counts_key: str = "n_used",
         show: bool = True,  
-        start_time = None,      # 起始时间（决定第0天的日历日期）
+        start_time = None,     
     ):
         field_b = prefix + field_b
         field_win_len = prefix + field_win_len
         counts_key = prefix + counts_key
         if field_b not in seq:
-            raise KeyError(f"Sequence 未包含字段 '{field_b}'，请先 fit()")
+            raise KeyError(f"Sequence does not contain the field '{field_b}', please run fit() first.")
         b = seq[field_b].detach().cpu().numpy()
 
         if x_axis == "time":
             if time_key not in seq:
-                raise KeyError(f"Sequence 缺少时间字段 '{time_key}'")
-            days = seq[time_key].detach().cpu().numpy()  # 天数偏移
+                raise KeyError(f"Sequence is missing the time field '{time_key}'")
+            days = seq[time_key].detach().cpu().numpy()  
 
             if start_time is None:
-                # 不给起始时间 => 继续用天数坐标
                 xs = days
                 xlabel = "Time (days)"
             else:
                 t0_np = _to_np_datetime64_seconds(start_time)
-                xs = t0_np + days.astype('timedelta64[D]')  # 转换为日历日期
+                xs = t0_np + days.astype('timedelta64[D]')  # Convert to calendar dates
                 xlabel = "Year"
         elif x_axis == "event":
             xs = range(len(b))
             xlabel = "Event index"
         else:
-            raise ValueError("x_axis 必须是 'event' 或 'time'")
+            raise ValueError("x_axis must be either 'event' or 'time'")
 
         if ax is None:
             fig, ax = plt.subplots(figsize=(9, 4.6))
@@ -217,18 +212,6 @@ class FixedTimeWindowGRB:
             ax2.legend(loc="upper right")
         
         if x_axis == "time" and start_time is not None:
-            # 将 np.datetime64 起点转成 python datetime 以读取 month/day
-            t0_py = _to_py_datetime(_to_np_datetime64_seconds(start_time))
-
-            # 主刻度：从起始时间所在的“年-月-日”对齐，每5年一个刻度
-            ax.xaxis.set_major_locator(
-                mdates.YearLocator(base=5, month=t0_py.month, day=t0_py.day)
-            )
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-
-            # （可选）次刻度：季度定位，便于读图
-            ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 4, 7, 10)))
-            ax.tick_params(axis='x', which='minor', bottom=False)  # 不画次刻度
-
+            set_xaxis_time_locator(ax, start_time)
         if show:
             plt.tight_layout(); plt.show()

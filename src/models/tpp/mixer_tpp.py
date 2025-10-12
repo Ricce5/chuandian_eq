@@ -20,20 +20,20 @@ from mamba_ssm.utils.generation import InferenceParams
 
 
 class MixerTPP(TPPModel):
-    """Neural TPP model with a mixer architecture.
+    """MixerTPP: Neural Temporal Point Process model with a mixer architecture.
 
     Args:
-        input_magnitude: Should magnitude be used as model input?
-        num_extra_features: Number of extra features to use as input.
-        context_size: Size of the RNN hidden state.
-        num_components: Number of mixture components in the output distribution.
-        rnn_type: Type of the RNN. Possible choices {'GRU', 'RNN'}
-        dropout_proba: Dropout probability.
-        tau_mean: Mean inter-event times in the dataset.
-        mag_mean: Mean earthquake magnitude in the dataset.
-        richter_b: Fixed b value of the Gutenberg-Richter distribution for magnitudes.
-        mag_completeness: Magnitude of completeness of the catalog.
-        learning_rate: Learning rate used in optimization.
+        base_model: The backbone mixer model for sequence encoding.
+        hypernet_time: Hypernetwork for time distribution parameters.
+        hypernet_mag: Hypernetwork for magnitude distribution parameters.
+        dropout: Dropout probability.
+        predict_b: Whether to predict the Gutenberg-Richter b-value.
+        ssm_filter: Optional state-space model filter for b-value.
+        use_b_updater: Whether to use b-value updater distribution.
+        loss_weights: Dictionary of loss weights for time, magnitude, and b-value.
+        loss_reduction: Reduction method for loss ('sum', 'mean', etc.).
+        b_range: Tuple specifying min and max b-value.
+        use_adaptive_loss_weights: Whether to use adaptive weighting for b loss.
     """
 
     def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, 
