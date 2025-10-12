@@ -1,3 +1,4 @@
+# Reference: EasyTemporalPointProcess (https://github.com/ant-research/EasyTemporalPointProcess)
 from collections import defaultdict
 
 

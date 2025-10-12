@@ -1,3 +1,5 @@
+#  pytorch implementation of the ETAS model
+# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import math
 from typing import List, Optional, Union
 

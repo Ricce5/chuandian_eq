@@ -1,4 +1,5 @@
-# Copyright (c) 2023, Albert Gu, Tri Dao.
+# Modify  MambaLMHeadModel into MambaModel to handle tpp tasks instead of lm tasks
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/models/mixer_seq_simple.py
 
 import math
 from functools import partial

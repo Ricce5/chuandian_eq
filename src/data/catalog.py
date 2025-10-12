@@ -1,3 +1,5 @@
+# Enhanced Catalog class to include normalization and GR/B value estimation.
+# Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
 from pathlib import Path
 from typing import Any, Dict, Union
 from src.utils.registrable import Registrable
@@ -16,7 +18,7 @@ class Catalog(Registrable):
         metadata: Information about the catalog.
     """
 
-    def __init__(self, root_dir: Union[str, Path], metadata: Dict[str, Any]): # Union: 可以是多种类型中的一种
+    def __init__(self, root_dir: Union[str, Path], metadata: Dict[str, Any]): 
         self.norm_stats = {}
         # self.root_dir = Path(root_dir)
         norm_path = self.root_dir / "norm_stats.pt"
@@ -24,7 +26,7 @@ class Catalog(Registrable):
             self.norm_stats = torch.load(norm_path,weights_only=False)
 
 
-        self.root_dir = Path(root_dir).expanduser().resolve() # expanduser波浪号 (~) 扩展为当前用户的主目录路径 resolve：返回绝对路径
+        self.root_dir = Path(root_dir).expanduser().resolve() 
         self.metadata = metadata
         metadata_path = self.root_dir / "metadata.pt"
         if metadata_path.exists():
@@ -82,7 +84,7 @@ class Catalog(Registrable):
         return (data - min_val) / range_val
     
     def denormalize(self, name: str, data: torch.Tensor) -> torch.Tensor:
-        """Min-Max 反归一化"""
+        """Min-Max denormalization"""
         if name not in self.norm_stats:
             raise ValueError(f"No normalization stats for '{name}'")
         min_val = self.norm_stats[name]["min"]
@@ -91,17 +93,18 @@ class Catalog(Registrable):
 
     def normalize_fields(self, data_dict: Dict[str, Union[np.ndarray, torch.Tensor]]) -> Dict[str, torch.Tensor]:
         """
-        对传入的每个字段计算 min-max 并执行归一化。
+        Compute min-max normalization for each field in the input.
 
         Args:
-            data_dict: 字段名到原始值 (np.ndarray 或 torch.Tensor) 的映射
+            data_dict: A mapping from field names to their original values 
+                   (np.ndarray or torch.Tensor).
 
         Returns:
-            一个新的 dict，字段名到归一化后的 torch.Tensor 的映射
+            A new dictionary mapping field names to their normalized 
+            torch.Tensor values.
         """
         normed_data = {}
         for key, data in data_dict.items():
-            # 转为 Tensor
             if isinstance(data, np.ndarray):
                 data = torch.tensor(data, dtype=torch.float32)
             elif not isinstance(data, torch.Tensor):
@@ -112,7 +115,6 @@ class Catalog(Registrable):
                 "max": float(data.max())
             }
 
-            # 归一化
             normed_data[key] = (data - self.norm_stats[key]["min"]) / (self.norm_stats[key]["max"] - self.norm_stats[key]["min"] )
 
         torch.save(self.norm_stats, self.root_dir / "norm_stats.pt")

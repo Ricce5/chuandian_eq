@@ -20,7 +20,7 @@ python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/r
 python main.py --model lstm --mode test --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250906-152053
 
 diff /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250821-125414/config.yaml  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-112659/config.yaml
-``
+
 
 
 

@@ -1,3 +1,5 @@
+# Enhance transformers with building blocks
+# Reference: Spatio-temporal Diffusion Point Processes https://github.com/tsinghua-fib-lab/Spatio-temporal-Diffusion-Point-Processes
 import torch
 import torch.nn as nn
 from typing import List, Dict, Callable, Optional, Tuple, Union, Any
@@ -30,7 +32,6 @@ class BaseTransformer(nn.Module, Registrable):
         """
         stack_names = getattr(self.encoder, "stack_names", ["default"])
 
-        # 训练时或无 cache，返回空结构
         if self.training or caches is None:
             encoder_cache = {
                 name: None for name in stack_names
@@ -42,26 +43,23 @@ class BaseTransformer(nn.Module, Registrable):
             encoder_cache = caches.get("encoder", None)
             rnn_cache_dict = caches.get("rnn", {name: None for name in self.rnns})
 
-            # 检查 RNN cache 是否与定义一致
             if set(rnn_cache_dict.keys()) != set(self.rnns.keys()):
                 raise KeyError(
-                    f"caches['rnn'] keys 与 RNN 模块不一致：{list(rnn_cache_dict.keys())} vs {list(self.rnns.keys())}"
+                    f"The keys in caches['rnn'] do not match the RNN modules: {list(rnn_cache_dict.keys())} vs {list(self.rnns.keys())}"
                 )
 
             if encoder_cache is not None:
                 if isinstance(encoder_cache, list):
-                    # 说明是旧结构，只支持一个堆栈
                     if len(stack_names) != 1:
-                        raise ValueError(f"encoder_cache 是 List，但 encoder.stack_names 有多个：{stack_names}")
+                        raise ValueError(f"encoder_cache is a List, but encoder.stack_names has multiple entries: {stack_names}")
                     encoder_cache = {stack_names[0]: encoder_cache}
                 elif isinstance(encoder_cache, dict):
-                    # 多堆栈结构，校验键
                     if set(encoder_cache.keys()) != set(stack_names):
                         raise KeyError(
-                            f"encoder_cache.keys() 与 stack_names 不一致：{list(encoder_cache.keys())} vs {stack_names}"
+                            f"The keys in encoder_cache do not match the stack names: {list(encoder_cache.keys())} vs {stack_names}"
                         )
                 else:
-                    raise TypeError(f"encoder_cache 类型不合法，收到：{type(encoder_cache)}")
+                    raise TypeError(f"Invalid type for encoder_cache, received: {type(encoder_cache)}")
 
         return encoder_cache, rnn_cache_dict
 
@@ -72,17 +70,16 @@ class BaseTransformer(nn.Module, Registrable):
         caches: Optional[Dict[str, Any]] = None
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, Any]]:
 
-        # === 基本输入校验 ===
         if not isinstance(features_dict, dict):
-            raise TypeError(f"BaseTransformer 期望 dict 输入，但收到 {type(features_dict)}")
+            raise TypeError(f"BaseTransformer expects a dict as input, but received {type(features_dict)}")
 
         event_time = features_dict.get("event_time")
         if event_time is None:
-            raise ValueError("features_dict 中缺少 'event_time' 键")
+            raise ValueError("The 'features_dict' is missing the 'event_time' key")
 
         if event_time.dim() == 3 and event_time.size(-1) == 1:
             event_time = event_time.squeeze(-1)
-        assert event_time.dim() == 2, f"'event_time' 应为 [B, L]，当前为 {event_time.shape}"
+        assert event_time.dim() == 2, f"'event_time' should be of shape [B, L], but got {event_time.shape}"
 
         input_mask = features_dict.get("input_mask", None)
         if input_mask is None:
@@ -90,10 +87,8 @@ class BaseTransformer(nn.Module, Registrable):
         else:
             non_pad_mask = input_mask.unsqueeze(-1)
 
-        # === cache 提取 or 初始化 ===
         encoder_cache, rnn_cache_dict = self._init_or_extract_cache(caches)
 
-        # === encoder 输入准备 & 前向 ===
         encoder_inputs = {k: v for k, v in features_dict.items() if k not in ["event_time", "input_mask"]}
         try:
             encoder_outputs = self.encoder(
@@ -103,17 +98,16 @@ class BaseTransformer(nn.Module, Registrable):
                 caches=encoder_cache
             )
         except Exception as e:
-            raise RuntimeError(f"调用 encoder 时出错: {e}")
+            raise RuntimeError(f"Error occurred while calling the encoder: {e}")
         ## encoder_outputs = features_dict['event_mark'] 
 
         if isinstance(encoder_outputs, torch.Tensor):
             encoder_outputs = (encoder_outputs,)
         elif not isinstance(encoder_outputs, (tuple, list)):
-            raise TypeError(f"encoder 输出必须为 Tensor 或 Tuple，但收到 {type(encoder_outputs)}")
+            raise TypeError(f"encoder outputs must be a Tensor or a Tuple, but received {type(encoder_outputs)}")
 
         if len(encoder_outputs) != len(self.rnns):
-            raise ValueError(f"encoder 输出数量（{len(encoder_outputs)}）与 RNN 模块数量（{len(self.rnns)}）不一致")
-        # === RNN 分支处理 ===
+            raise ValueError(f"The number of encoder outputs ({len(encoder_outputs)}) does not match the number of RNN modules ({len(self.rnns)})")
         processed_outputs = []
         updated_rnn_cache = {}
 
@@ -122,7 +116,6 @@ class BaseTransformer(nn.Module, Registrable):
             rnn_out, new_cache = rnn_layer(enc_out, non_pad_mask, cache=rnn_cache)
             processed_outputs.append(self.dropout(rnn_out))
             updated_rnn_cache[name] = new_cache
-        # === 合并输出 ===
         final_output = (
             torch.cat(processed_outputs, dim=-1)
             if len(processed_outputs) > 1 else

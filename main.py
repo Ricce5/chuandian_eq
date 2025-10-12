@@ -3,7 +3,6 @@ import argparse
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import importlib
-import numpy as np
 from config import config_loader
 from src.utils.utils import set_seed
 from src.utils.file_utils import create_save_dir,find_latest_model_path
@@ -88,7 +87,6 @@ def objective(trial,args):
         writer=writer,
         )
     torch.cuda.empty_cache()
-    # 返回验证集的损失作为优化目标
     return val_loss
 
 
@@ -176,8 +174,6 @@ if __name__ == "__main__":
             args, device,train_loader,
             checkpoint=checkpoint, restore_weights=True
         )
-        # model.set_attn_dropout(0)
-        # model.set_attn_type("flash")
         if args.task_type != "tpp":
             test_loss, metrics = train_step.test(
                 model=model,

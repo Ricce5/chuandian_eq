@@ -1,3 +1,4 @@
+# Reference: https://github.com/ant-research/EasyTemporalPointProcess/blob/main/easy_tpp/preprocess/dataset.py
 from pathlib import Path
 from typing import List, Union
 
@@ -22,7 +23,7 @@ class TppDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.sequences)
 
-    def __repr__(self) -> str: # 返回字符串表示
+    def __repr__(self) -> str: 
         return f"{self.__class__.__name__}({len(self)})"
 
     def __add__(self, other: "TppDataset") -> "TppDataset":

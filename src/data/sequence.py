@@ -1,9 +1,10 @@
+# Enhanced sequence-to-event sequence conversion used in EasyTPP.
+# Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
+from typing import List, Optional
 import warnings
 from typing import Optional, Union
-
 import numpy as np
 import torch
-
 from .dot_dict import DotDict
 
 class EventSequence:

@@ -153,20 +153,20 @@ def visualize_trajectories(
 
     if ax is None:
         fig = plt.figure(figsize=figsize, dpi=dpi)
-        gs = fig.add_gridspec(     # grid spec: 网格布局
+        gs = fig.add_gridspec(    
             1,
-            2,                     # 列数
-            width_ratios=(3, 1.2), # 第一列宽度3，第二列宽度1.2
-            left=0.1,              # 左边距
+            2,                     
+            width_ratios=(3, 1.2), 
+            left=0.1,              
             right=0.85,
             bottom=0.2,
             top=0.9,
-            wspace=0.02,           # 子图间距
+            wspace=0.02,         
             hspace=0.1,
         )
 
         axA = fig.add_subplot(gs[0])
-        axAA = axA.twinx()        # 共享x轴
+        axAA = axA.twinx()       
         axB = fig.add_subplot(gs[1], sharey=axAA)
     else:
         print("Bold choice")

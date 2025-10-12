@@ -1,3 +1,5 @@
+# Enhance encoders with building blocks
+# Reference: Spatio-temporal Diffusion Point Processes https://github.com/tsinghua-fib-lab/Spatio-temporal-Diffusion-Point-Processes
 import torch
 import torch.nn as nn
 from typing import List, Dict, Callable, Optional, Tuple
@@ -160,8 +162,7 @@ class Encoder(BaseEncoder):
             print("❌ event_emb output contains NaN!")
             print("stats:", out.mean(), out.std(), out.min(), out.max())
             raise ValueError("event_emb 输出包含 NaN")
-        enc_output += tem_enc  # 注入时间偏置
-        # === 注入时间偏置进行注意力处理 ===
+        enc_output += tem_enc 
         outputs = self.forward_multi_stack(
             inputs_dict={
                 "default": enc_output,
@@ -215,8 +216,8 @@ class Encoder_Logdeltat(BaseEncoder):
             print("❌ event_emb output contains NaN!")
             print("stats:", out.mean(), out.std(), out.min(), out.max())
             raise ValueError("event_emb 输出包含 NaN")
-        enc_output += tem_enc  # 注入时间偏置
-        # === 注入时间偏置进行注意力处理 ===
+        enc_output += tem_enc 
+   
         outputs = self.forward_multi_stack(
             inputs_dict={
                 "default": enc_output,
@@ -272,11 +273,11 @@ class Encoder_Conv(BaseEncoder):
         if torch.isnan(out).any():
             print("❌ event_emb output contains NaN!")
             print("stats:", out.mean(), out.std(), out.min(), out.max())
-            raise ValueError("event_emb 输出包含 NaN")
+            raise ValueError("event_emb output contains NaN")
         mask = ~non_pad_mask.squeeze(-1).bool()
         enc_output = self.conv(enc_output, event_time,mask)
-        enc_output += tem_enc  # 注入时间偏置
-        # === 注入时间偏置进行注意力处理 ===
+        enc_output += tem_enc 
+   
         outputs = self.forward_multi_stack(
             inputs_dict={
                 "default": enc_output,

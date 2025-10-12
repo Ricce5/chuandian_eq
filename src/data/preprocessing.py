@@ -34,7 +34,6 @@ def process_synthetic_catlog(dat_file):
     df = pd.read_csv(dat_file, header=None, names=column_names, sep='\s+')
     df['dt'] = df['t'].diff().fillna(0)
     df = df[['t', 'Magnitude', 'Latitude', 'Longitude', 'Depth', 'dt']]
-    # 保存为同名csv文件
     csv_file = os.path.splitext(dat_file)[0] + '.csv'
     df.to_csv(csv_file, index=False)
     
@@ -46,10 +45,8 @@ def load_and_filter_catalog(base_dir, Mc):
     print("CSV files found:", csv_files)
 
     if len(csv_files) == 1:
-        # 只有一个文件，直接使用
         chosen_file = csv_files[0]
     elif len(csv_files) > 1:
-        # 多个文件，筛选 processed_ 前缀
         processed_files = [f for f in csv_files if f.startswith('processed_')]
         if len(processed_files) != 1:
             raise ValueError(f"Expected exactly one 'processed_' CSV file among multiple files, found {len(processed_files)}: {processed_files}")
@@ -57,8 +54,7 @@ def load_and_filter_catalog(base_dir, Mc):
         print(f"Multiple CSV files found. Using processed file: {chosen_file}")
     else:
         raise ValueError("No CSV files found in the 'raw' directory.")
-
-    # 读取并过滤地震目录
+    
     df = pd.read_csv(os.path.join(raw_dir, chosen_file))
     df = df[df['Magnitude'] >= Mc].reset_index(drop=True)
     df = df.sort_values(by='t').reset_index(drop=True)

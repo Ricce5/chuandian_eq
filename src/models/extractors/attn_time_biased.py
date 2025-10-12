@@ -5,6 +5,9 @@ from .base import RepresentationExtractor
 
 @RepresentationExtractor.register("attn_time_biased")
 class TimeAwareAttnPool(nn.Module):
+    """
+    attention pooling with time bias and FiLM conditioning on event times.
+    """
     def __init__(self, d_model, d_hidden, t_dim=16, bias_type="linear", alpha0=10.0,device=None):
         super().__init__()
         self.t_mlp = nn.Sequential(
@@ -13,9 +16,9 @@ class TimeAwareAttnPool(nn.Module):
         )
         self.W = nn.Linear(d_model, d_hidden)
         self.v = nn.Linear(d_hidden, 1)
-        self.g = nn.Parameter(torch.tensor(0.0))           # 衰减强度门
+        self.g = nn.Parameter(torch.tensor(0.0))   
         self.bias_type = bias_type  
-        self.log_alpha = nn.Parameter(torch.log(torch.tensor(alpha0)))  # for "log" 类型
+        self.log_alpha = nn.Parameter(torch.log(torch.tensor(alpha0)))  # for "log" bias
         self.device = device 
         self.to(device) if self.device is not None else None
 
@@ -37,15 +40,15 @@ class TimeAwareAttnPool(nn.Module):
         if mask.dim() == 3: mask = mask.squeeze(-1)
         mask =mask.bool()  # [B,L]
        
-        # FiLM：直接用 t（已在[0,1]）
+        # FiLM：t in [0,1]
         gamma, beta = self.t_mlp(t).chunk(2, dim=-1)       # [B,L,D]
         x_t = gamma * x + beta
 
-        # 内容打分
+        # addictional attention
         h = torch.tanh(self.W(x_t))                        # [B,L,H]
         e = self.v(h).squeeze(-1)                          # [B,L]
 
-        # 时间偏置
+        # time bias
         phi = self._time_bias(t, mask)                     # [B,L]
         e = e + self.g * phi
 

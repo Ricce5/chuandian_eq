@@ -1,3 +1,5 @@
+#  pytorch implementation of the RECAST model
+# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 from typing import List, Optional, Tuple, Union
 
 import torch

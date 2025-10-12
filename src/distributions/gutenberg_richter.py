@@ -1,3 +1,4 @@
+# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import torch
 import math
 from torch.distributions import constraints
@@ -16,7 +17,6 @@ class GutenbergRichter(Distribution):
         batch_shape = self.b.shape
         super().__init__(batch_shape, validate_args=False)
 
-        # 计算规范化常数，用于 CDF 和 PDF 的规范化
 
     def norm_denom(self, b:Optional[torch.Tensor]=None):
         if b is None:
@@ -31,7 +31,7 @@ class GutenbergRichter(Distribution):
     def support(self):
         return constraints.interval(self.mag_min, self.mag_max)
 
-    # -------- 核心：log pdf / cdf / survival / hazard --------
+    # -------- log pdf / cdf / survival / hazard --------
     def log_prob(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         # Expand b to match the shape of x
         b = self.b.expand_as(x)  # Shape (B, L)
@@ -46,7 +46,7 @@ class GutenbergRichter(Distribution):
 
     def log_survival(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         b = self.b.expand_as(x)  # Shape (B, L)
-        # log(1 - F(x))，用稳定形式
+        # log(1 - F(x))
         F = self.cdf(x)
         survival = torch.log1p(-F)
         
@@ -88,40 +88,63 @@ class GutenbergRichter(Distribution):
         return -2.0 * ll + k * torch.log(n)
     
     def ks_stat_pvalue(self, x: torch.Tensor, mask: torch.Tensor = None):
-        # 如果 mask 不为空，应用 mask 来过滤掉无效值
+        """
+        Compute the Kolmogorov-Smirnov (KS) statistic and its approximate p-value 
+        for a given set of samples and their corresponding theoretical cumulative 
+        distribution function (CDF).
+        Args:
+            x (torch.Tensor): A tensor of sample values.
+            mask (torch.Tensor, optional): A boolean mask tensor to filter valid 
+            samples and corresponding `b` values. If None, no filtering is applied.
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+            - D (torch.Tensor): The KS statistic, representing the maximum 
+              difference between the empirical CDF and the theoretical CDF.
+            - p (torch.Tensor): The approximate p-value for the KS statistic, 
+              computed using the Kolmogorov asymptotic formula.
+        Raises:
+            ValueError: If no samples fall within the range `[mag_min, mag_max]`.
+        Notes:
+            - The method filters out samples that are not within the range 
+              `[mag_min, mag_max]` before computing the KS statistic.
+            - The theoretical CDF is computed using the `self.cdf` method, which 
+              takes the sorted samples and their corresponding `b` values.
+            - The p-value is clamped to the range [0.0, 1.0] for numerical stability.
+        """
         if mask is not None:
-            x = x[mask]  # 应用 mask 来筛选有效的样本
-            b = self.b[mask]  # 同样应用 mask 来筛选 b 的有效值
+            x = x[mask]  # Apply mask to filter valid samples
+            b = self.b[mask]  # Similarly, filter valid `b` values
         else:
-            b = self.b  # 如果没有 mask，直接使用原始的 b
+            b = self.b  # Use original `b` if no mask is provided
 
-        # 过滤掉不在 mag_min 和 mag_max 范围内的样本
+        # Filter out samples outside the range [mag_min, mag_max]
         valid_mask = (x >= self.mag_min) & (x <= self.mag_max)
-        x = x[valid_mask]  # 筛选震级范围内的有效样本
-        b = b[valid_mask]  # 同步筛选 b 中对应的有效样本
+        x = x[valid_mask]  # Select valid samples within the magnitude range
+        b = b[valid_mask]  # Synchronize `b` with valid samples
 
         if x.numel() == 0:
             raise ValueError("No samples within [mag_min, mag_max].")
         
-        # 对有效样本排序
+        # Sort valid samples
         x_sorted, indices = torch.sort(x)
-        b_sorted = b[indices]  # 根据 x 排序的索引来排序 b
+        b_sorted = b[indices]  # Sort `b` based on the indices of sorted `x`
 
         n = x_sorted.numel()
 
-        # 计算每个排序样本的理论 CDF
+        # Compute the theoretical CDF for each sorted sample
         F = self.cdf(x_sorted, b_sorted)
 
-        # 计算经验 CDF：ecdf = [1/n, 2/n, ..., n/n]
+        # Compute the empirical CDF: ecdf = [1/n, 2/n, ..., n/n]
         ecdf = torch.arange(1, n + 1, device=x.device, dtype=x.dtype) / n
 
-        # 计算 Kolmogorov-Smirnov 统计量
+        # Compute the Kolmogorov-Smirnov statistic
         D_plus = torch.max(ecdf - F)
         D_minus = torch.max(F - (ecdf - 1.0 / n))
         D = torch.max(D_plus, D_minus)
 
-        # 近似 p 值（Kolmogorov 渐近式，保守）
+        # Approximate p-value (Kolmogorov asymptotic formula, conservative)
         p = 2.0 * torch.exp(-2.0 * n * D * D)
         p = torch.clamp(p, 0.0, 1.0)
 
         return D, p
+       

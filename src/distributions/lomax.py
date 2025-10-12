@@ -29,7 +29,7 @@ class Lomax(Distribution):
         super().__init__(batch_shape, validate_args=validate_args)
 
     def _one_plus_x_over_scale(self, x):
-        # t = 1 + x/λ，确保数值稳定且 x >= 0
+        # t = 1 + x/λ，
         x = torch.clamp_min(x, 0.0)
         return 1.0 + x / torch.clamp_min(self.scale, self.eps)
 
@@ -50,9 +50,9 @@ class Lomax(Distribution):
 
     @property
     def mean(self):
-        # E[X] = λ / (α - 1)  (α > 1)，否则为 +inf
+        # E[X] = λ / (α - 1)  (α > 1)
         out = self.scale / torch.clamp(self.shape - 1.0, min=self.eps)
-        # 对 α <= 1 的位置设为 +inf
+    
         mask = self.shape <= 1.0
         if mask.any():
             out = out.clone()
@@ -77,10 +77,9 @@ class Lomax(Distribution):
         So we can sample Y ~ Lomax(λ+L, α) and return X = L + Y.
         """
         L = torch.clamp_min(lower_bound, 0.0)
-        # 生成与 batch 对齐的形状
         shape = torch.Size(sample_shape) + torch.broadcast_shapes(L.shape, self.batch_shape)
 
-        # 采样 Y ~ Lomax(λ+L, α) 使用同样的 reparam 技巧
+        # Y ~ Lomax(λ + L, α)
         lam = (self.scale + L).expand(shape)
         alpha = self.shape.expand(shape)
         E = torch.empty(shape, device=lam.device, dtype=lam.dtype).exponential_(1.0)

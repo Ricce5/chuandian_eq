@@ -1,4 +1,5 @@
-# Copyright (c) 2024, Tri Dao, Albert Gu.
+# Modified Mamba2 to use temporal rotary embeddings as noted in our paper
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/modules/mamba2.py
 
 import math
 

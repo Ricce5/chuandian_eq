@@ -9,8 +9,8 @@ from .trainer import step_scheduler
 def train(data_loader, model, criterion, optimizer,scheduler, device, accumulation_steps=2,ema_model=None):
     model.train()
     total_loss = 0
-    all_node_preds = []  # 存储所有预测值
-    all_node_targets = []  # 存储所有目标值
+    all_node_preds = []  
+    all_node_targets = []  
     optimizer.zero_grad()
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
@@ -20,17 +20,16 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
         loss = loss/accumulation_steps  
         loss.backward()
         
-        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader): 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
-            optimizer.step()  # 更新参数
-            optimizer.zero_grad()  # 清空梯度
-            step_scheduler(scheduler, event='step')  # 更新调度器
+            optimizer.step()  
+            optimizer.zero_grad()
+            step_scheduler(scheduler, event='step')
             if ema_model is not None:
                 ema_model.update_parameters(model)
 
         total_loss += loss.item()*accumulation_steps
 
-        # 收集所有预测和目标值
         all_node_preds.append(pred.cpu().detach().numpy())
         all_node_targets.append(y.cpu().detach().numpy())
 
@@ -52,8 +51,8 @@ def validate(data_loader, model, criterion, device):
     model.eval()
     val_loss = 0
 
-    all_node_preds = []  # 存储所有区域的预测值
-    all_node_targets = []  # 存储所有区域的真实值
+    all_node_preds = [] 
+    all_node_targets = []  
 
     with torch.no_grad():
         for batch, (x, y) in enumerate(tqdm(data_loader, desc="Validating")):
@@ -62,11 +61,9 @@ def validate(data_loader, model, criterion, device):
             loss = criterion(pred, y)
             val_loss += loss.item()
 
-            # 将所有预测值和真实值添加到相应的列表中
             all_node_preds.extend(pred.cpu().detach().numpy())
             all_node_targets.extend(y.cpu().detach().numpy())
 
-    # 将所有预测值和真实值合并为一个大的数组
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
@@ -127,7 +124,6 @@ def collect_predictions(loader,model,device):
             preds = model(x).cpu().numpy()
             labels = y.cpu().numpy()
 
-            # 如果 Dataset 有 inverse_normalize_label 方法
             if hasattr(dataset, "inverse_normalize_label"):
                 preds = dataset.inverse_normalize_label(preds)
                 labels = dataset.inverse_normalize_label(labels)

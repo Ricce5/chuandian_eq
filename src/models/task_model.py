@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 
 class TaskModel(nn.Module):
+    """"
+    A generic model for different tasks (e.g., classification, regression) built on top of a base model.
+    """
     def __init__(self, base_model, extractor, head, final_activation=None):
         super().__init__()
         self.base_model = base_model

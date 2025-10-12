@@ -9,8 +9,8 @@ from .trainer import step_scheduler
 def train(data_loader, model, criterion, optimizer,scheduler, device):
     model.train()
     total_loss = 0
-    all_node_preds = []  # 存储所有预测值
-    all_node_targets = []  # 存储所有目标值
+    all_node_preds = []  
+    all_node_targets = []  
 
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
@@ -25,7 +25,6 @@ def train(data_loader, model, criterion, optimizer,scheduler, device):
         step_scheduler(scheduler, event='step')
         total_loss += loss.item()
 
-        # 收集所有预测和目标值
         all_node_preds.append(pred.cpu().detach().numpy())
         all_node_targets.append(y.cpu().detach().numpy())
 
@@ -47,8 +46,8 @@ def validate(data_loader, model, criterion, device):
     model.eval()
     val_loss = 0
 
-    all_node_preds = []  # 存储所有区域的预测值
-    all_node_targets = []  # 存储所有区域的真实值
+    all_node_preds = []  
+    all_node_targets = []
 
     with torch.no_grad():
         for batch, (x, y) in enumerate(tqdm(data_loader, desc="Validating")):
@@ -56,12 +55,9 @@ def validate(data_loader, model, criterion, device):
             pred = model(x)
             loss = criterion(pred, y)
             val_loss += loss.item()
-
-            # 将所有预测值和真实值添加到相应的列表中
             all_node_preds.extend(pred.cpu().detach().numpy())
             all_node_targets.extend(y.cpu().detach().numpy())
 
-    # 将所有预测值和真实值合并为一个大的数组
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
@@ -144,7 +140,6 @@ def visualize_results(model, train_loader, val_loader, test_loader, device, save
         "Test": (test_true, test_pred),
     }
 
-    # 可视化
     plot_count_scatter(data_dict, save_path=os.path.join(save_dir, "regression_scatter.png"))
     plot_count_series(data_dict, save_path=os.path.join(save_dir, "regression_series.png"))
 

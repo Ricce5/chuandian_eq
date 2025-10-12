@@ -13,9 +13,9 @@ class BaseModel(nn.Module):
 
     def forward(self,batch,caches):
         """
-        输入:
+        Input:
             batch: Tensor [B, L, F]
-        输出:
+        Output:
             encoder_out: [B, L, D]
             non_pad_mask: [B, L, 1]
         """

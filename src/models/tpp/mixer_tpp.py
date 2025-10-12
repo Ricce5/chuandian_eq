@@ -14,14 +14,13 @@ from functools import partial
 from src.models.mha.mha_time import MHATime
 from src.models.mamba.block import Block
 from src.models.mamba.mixer_seq import MixerModel
-from src.models.mamba.scan_wrapper import BoundedSelectiveScanWrapper
 from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 
 
 class MixerTPP(TPPModel):
-    """Neural TPP model with an recurrent encoder.
+    """Neural TPP model with a mixer architecture.
 
     Args:
         input_magnitude: Should magnitude be used as model input?

@@ -15,6 +15,13 @@ class TriangularCausalMask():
         return self._mask
 
 class ProbMask():
+    """ 
+    Mask for ProbSparse Attention
+    Reference:
+        Informer: Beyond Efficient Transformer for Long Sequence Time-Series Forecasting
+    This mask is used to filter out irrelevant keys for a given set of queries in the ProbSparse attention mechanism.
+    It ensures that only the top-k relevant keys (based on scores) are considered for each query.
+    """
     def __init__(self, B, H, L, index, scores, device="cpu"):
         _mask = torch.ones(L, scores.shape[-1], dtype=torch.bool).to(device).triu(1)   # [L_Q, L_K] ，use upper triangular matrix
         _mask_ex = _mask[None, None, :].expand(B, H, L, scores.shape[-1])
@@ -37,7 +44,7 @@ def get_non_pad_mask(seq,pad=PAD):
     return non_pad_mask
 
 
-def get_attn_key_pad_mask(seq_k, seq_q,pad=PAD):            # 兼容qk不等的情况
+def get_attn_key_pad_mask(seq_k, seq_q,pad=PAD):         
     """ For masking out the padding part of key sequence. """
     assert seq_k.dim() == 2 and seq_q.dim() == 2
     # expand to fit the shape of key query attention matrix
@@ -76,10 +83,10 @@ def remove_all_zero_rows(b_x, non_pad_mask, lengths):
     original_shape = b_x.shape
     rows_mask = torch.nonzero(lengths).squeeze(-1)
     if rows_mask.numel() == 0:
-        raise ValueError("All rows are zero-length, nothing to process.")  # 检查是否有有效行
+        raise ValueError("All rows are zero-length, nothing to process.")  
     valid_lengths = lengths[rows_mask]
-    valid_rows = b_x[rows_mask]  # 仅保留有效的行
-    valid_non_pad_mask = non_pad_mask[rows_mask]  # 仅保留有效行的 non_pad_mask
+    valid_rows = b_x[rows_mask] 
+    valid_non_pad_mask = non_pad_mask[rows_mask] 
     
     return valid_rows, valid_non_pad_mask, valid_lengths, rows_mask, original_shape
 
@@ -99,12 +106,12 @@ def get_self_attn_mask_from_non_pad_mask(
     use_query_mask: bool = False,
 ) -> Optional[torch.Tensor]:
     """
-    构造自注意力掩码（支持 padding 和 causal）。
+    Constructs a self-attention mask (supports padding and causal masking).
     Args:
-        non_pad_mask: (B, L), bool tensor，True 表示有效位置，False 为 PAD
-        causal: 是否添加下三角 causal mask（防止信息泄露）
+        non_pad_mask: (B, L), bool tensor, where True indicates valid positions and False indicates PAD.
+        causal: Whether to add a lower triangular causal mask (to prevent information leakage).
     Returns:
-        attn_mask: (B, L, L), bool tensor，True 表示该位置被 mask
+        attn_mask: (B, L, L), bool tensor, where True indicates the position is masked.
     """
     if non_pad_mask is None:
         if not causal:
@@ -115,12 +122,10 @@ def get_self_attn_mask_from_non_pad_mask(
     B, L = non_pad_mask.shape
     device = non_pad_mask.device
 
-    # key padding mask: mask key 的 PAD 位置
     key_pad_mask = ~non_pad_mask.bool().unsqueeze(1).expand(B, L, L)  # (B, L, L)
     query_pad_mask = ~non_pad_mask.bool().unsqueeze(2).expand(B, L, L) if use_query_mask else torch.zeros((B, L, L), dtype=torch.bool, device=device)
     pad_mask = key_pad_mask | query_pad_mask  
     if causal:
-        # causal mask：屏蔽未来位置
         causal_mask = torch.triu(torch.ones((L, L), device=device), diagonal=1).bool()
         causal_mask = causal_mask.unsqueeze(0).expand(B, L, L)
         return pad_mask | causal_mask
@@ -135,10 +140,10 @@ def get_attn_mask_with_cache(
     L_k: int,
 ) -> torch.Tensor:
     """
-    扩展self attention mask，兼容缓存KV时的L_k扩展。
+    Extend self-attention mask to be compatible with KV cache extension.
     Args:
-        self_attn_mask: (B, L_q, L_q) 或 None
-        L_k: 当前总的key长度（包含缓存）
+        self_attn_mask: (B, L_q, L_q) or None
+        L_k: Total key length (including cached keys)
     Returns:
         attn_mask: (B, L_q, L_k), bool tensor
     """
@@ -152,7 +157,6 @@ def get_attn_mask_with_cache(
 
     attn_mask = torch.zeros(B, L_q, L_k, dtype=dtype, device=device)
 
-    # 将self_attn_mask填充到最后L_q部分（当前query对应的key）
     attn_mask[:, :, -L_q:] = self_attn_mask
 
     return attn_mask
@@ -162,15 +166,15 @@ def get_attn_mask_with_cache(
 
 def masked_select_per_row(matrices, mask):
     """
-    扩展版本：支持多个矩阵共享同一个行级掩码。
+    Extended version: Supports multiple matrices sharing the same row-level mask.
 
     Args:
-        matrices: 一个 3D tensor 或一个 list of 2D tensors，形状为 [B, M, N] 或长度为 B，每个 [M, N]
-        mask: 布尔矩阵 [M, N]，表示哪些元素被选中
+        matrices: A 3D tensor or a list of 2D tensors, shaped [B, M, N] or of length B, each [M, N].
+        mask: A boolean matrix [M, N], indicating which elements are selected.
 
     Returns:
-        selected_matrices: list of 2D tensors，形状为 [B, max_len]（按行填充）
-        masks: list of 2D float tensors，与 selected_matrices 对应，表示实际值 vs padding
+        selected_matrices: A list of 2D tensors, shaped [B, max_len] (padded by rows).
+        masks: A list of 2D float tensors corresponding to selected_matrices, indicating actual values vs padding.
     """
     if isinstance(matrices, torch.Tensor):
         matrices = [matrices[i] for i in range(matrices.shape[0])]

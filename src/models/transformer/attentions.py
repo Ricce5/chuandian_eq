@@ -1,3 +1,5 @@
+#  support various attention mechanisms
+# Reference: Spatio-temporal Diffusion Point Processes https://github.com/tsinghua-fib-lab/Spatio-temporal-Diffusion-Point-Processes
 import numpy as np
 import torch
 import torch.nn as nn
@@ -198,6 +200,9 @@ class FullAttention(BaseAttention):
 
 @BaseAttention.register(name="prob")
 class ProbAttention(BaseAttention):
+    """
+    ProbSparse Attention as in "Informer: Beyond Efficient Transformer for Long Sequence Time-Series Forecasting" (https://arxiv.org/abs/2012.07436)
+    """
     def __init__(self, mask_flag=True, factor=10, scale=None, attn_dropout=0.1, output_attention=False):
         super().__init__(output_attention=output_attention)
         self.factor = factor
@@ -403,92 +408,3 @@ class FlashAttentionWrapper(BaseAttention):
 
 
 
-
-# @BaseAttention.register(name="flash")
-# class FlashAttentionWrapper(BaseAttention):
-#     def __init__(self, attn_dropout=0.1, causal=True, output_attention=False,precision="fp16",scale=None):
-#         super().__init__( output_attention= output_attention)
-#         self.dropout = attn_dropout
-    
-
-#     def forward(self, q, k, v, non_pad_mask=None, attn_mask=None, causal=True):
-#         # 没有使用 attn_mask，因为 FlashAttention 不支持
-#         """
-#         Args:
-#             q, k, v: [B, L, H, D]
-#             non_pad_mask: [B, L] where 1=True means valid, 0=False means padding
-#         Returns:
-#             out: [B, L, H, D]
-#         """
-#         B, L, H, D = q.shape
-#         device = q.device
-
-#         # Ensure float16 for FlashAttention
-#         q = q.to(torch.float16)
-#         k = k.to(torch.float16)
-#         v = v.to(torch.float16)
-
-#         # Use custom unpad_input: returns 5 values
-#         q_unpad, indices, cu_seqlens, max_seqlen, _ = unpad_input(q, non_pad_mask)
-#         k_unpad, _, _, _, _ = unpad_input(k, non_pad_mask)
-#         v_unpad, _, _, _, _ = unpad_input(v, non_pad_mask)
-
-#         # Stack QKV into shape [total, 3, H, D]
-#         qkv = torch.stack([q_unpad, k_unpad, v_unpad], dim=1)  # [total, 3, H, D]
-
-#         # Call varlen FlashAttention？
-#         out_unpad = flash_attn_varlen_qkvpacked_func(
-#             qkv,
-#             cu_seqlens=cu_seqlens,
-#             max_seqlen=max_seqlen,
-#             dropout_p=self.dropout,
-#             softmax_scale=None,
-#             causal=causal,
-#             window_size=(-1, -1),
-#             softcap=0.0,
-#             alibi_slopes=None,
-#             deterministic=False,
-#             return_attn_probs=False
-#         )
-
-#         # Recover [B, L, H, D]
-#         out = pad_input(out_unpad, indices, B, L)
-#         out = out.to(torch.float32)
-
-#         return (out, None) 
-
-# @BaseAttention.register(name="flash_kv")
-# class FlashKVAttentionWrapper(BaseAttention):
-#     def __init__(self, attn_dropout=0, output_attention=False):
-#         super().__init__(output_attention=output_attention)
-#         self.dropout = attn_dropout
-#     def forward(
-#         self,
-#         q: torch.Tensor,      # [B, L_q, H, D]
-#         k: torch.Tensor,      # [B, L_k, H, D]
-#         v: torch.Tensor,      # [B, L_k, H, D]
-#         non_pad_mask: torch.Tensor = None,
-#         attn_mask: torch.Tensor = None,
-#         causal: bool = True,
-#     ):
-#         B, L, H, D = q.shape
-
-
-#         # Ensure float16 for FlashAttention
-#         q = q.to(torch.float16)
-#         k = k.to(torch.float16)
-#         v = v.to(torch.float16)
-
-#         kv = torch.stack([k, v], dim=2)  # [B, L_k, 2, H, D]
-
-#         out = flash_attn_kvpacked_func(
-#             dropout_p=self.dropout,
-#             q=q,
-#             kv=kv,
-#             causal=causal,
-#             softmax_scale=None,
-#             return_attn_probs=False
-#         )  # [B, L_q, H, D]
-
-#         out = out.to(torch.float32)
-#         return out, None

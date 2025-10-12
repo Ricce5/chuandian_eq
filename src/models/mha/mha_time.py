@@ -1,5 +1,6 @@
+# Modify MHA to support temporal rotary embedding
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/modules/mha.py
 import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

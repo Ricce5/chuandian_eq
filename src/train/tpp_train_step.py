@@ -12,23 +12,22 @@ from torch import amp
 def train(data_loader, model, criterion, optimizer, scheduler, device,
           accumulation_steps=2, ema_model=None, use_amp=False, max_grad_norm=3.0, pbar_desc='Training'):
     """
-    兼容“batch是整体对象”的训练循环：
-      - 计算方式：loss = model.nll_loss(batch).mean()
-      - 支持 AMP（autocast + GradScaler）
-      - 支持梯度累积与最后一个尾步
-      - 每个优化步后可选 EMA 同步与 scheduler 的 batch 级步进
+    Compatible with training loops where "batch is a complete object":
+      - Calculation: loss = model.nll_loss(batch).mean()
+      - Supports AMP (autocast + GradScaler)
+      - Supports gradient accumulation and the final tail step
+      - Optional EMA synchronization and batch-level scheduler stepping after each optimization step
     """
 
     model.train()
     total_loss = 0.0
     step_in_accum = 0
-    backend = device.type  # “cuda” 或 “cpu”
+    backend = device.type  
     scaler = amp.GradScaler(backend, enabled=(backend == 'cuda' and use_amp))
     amp_ctx = (torch.autocast(device_type='cuda', dtype=torch.bfloat16)
                if (device.type == 'cuda' and use_amp) else nullcontext())
 
-    optimizer.zero_grad(set_to_none=True)  # 更省内存/更快；与官方建议一致。:contentReference[oaicite:2]{index=2}
-
+    optimizer.zero_grad(set_to_none=True)  
     for i, batch in enumerate(tqdm(data_loader, desc=pbar_desc)):
         batch = batch.to(device)
 
@@ -48,7 +47,7 @@ def train(data_loader, model, criterion, optimizer, scheduler, device,
 
             scaler.step(optimizer)
             scaler.update()
-            optimizer.zero_grad(set_to_none=True)  # 下一轮前清梯度。:contentReference[oaicite:5]{index=5}
+            optimizer.zero_grad(set_to_none=True) 
             step_scheduler(scheduler, event='step')
 
             if ema_model is not None:
@@ -71,15 +70,14 @@ def validate(data_loader, model, criterion, device, accumulation_steps=2):
 
     model.eval()
 
-    total_loss = 0  # 累积的损失
+    total_loss = 0 
 
-    step_count = 0  # 跟踪已处理的步骤数
+    step_count = 0  
     with torch.no_grad():
         for batch in tqdm(data_loader, desc='Validating'):
             batch = batch.to(device)
             loss= model.nll_loss(batch).mean()
 
-            # 累积损失和事件数量
             total_loss += loss.item()
 
             step_count += 1

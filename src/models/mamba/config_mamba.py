@@ -1,3 +1,4 @@
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/models/config_mamba.py
 from dataclasses import dataclass, field
 
 

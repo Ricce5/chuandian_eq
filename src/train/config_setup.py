@@ -2,26 +2,20 @@ import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, StepLR, LinearLR, SequentialLR
 from transformers import get_cosine_schedule_with_warmup,get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
-from .scheduler import WarmupLinearDecay, NoOpScheduler
+from .scheduler import WarmupLinearDecay, NoOpScheduler,CosineWithWarmupFloor, LinearWithWarmupFloor
 from torch import nn
-import argparse
-from argparse import Namespace
-import os
 from omegaconf import DictConfig, ListConfig, OmegaConf
-import typing
-from src.utils.binary_focal_loss import BinaryFocalLoss, FocalLossWrapper
-from src.utils.pinball_loss import PinballLoss
-from .sched_floor import CosineWithWarmupFloor, LinearWithWarmupFloor
+from src.utils.binary_focal_loss import  FocalLossWrapper
 from src.models.builders import ModelBuilder
 
 def _prune_to_schema(src, schema):
     """
-    递归裁剪 src，只保留 schema 中存在的键/结构。
-    - Dict：仅保留 schema 有的键，并对子项递归裁剪
-    - List：按 schema 的第 0 个元素作为模板递归裁剪；若 schema 为空列表，则直接返回空列表
-    - 原子值：直接返回 src
+    Recursively prune `src`, keeping only the keys/structure present in `schema`.
+    - Dict: Retain only the keys present in `schema` and recursively prune the sub-items.
+    - List: Use the 0th element of `schema` as a template for recursive pruning; if `schema` is an empty list, return an empty list directly.
+    - Atomic value: Return `src` as is.
     """
-    # Dict 匹配
+    # Dict matching
     if isinstance(schema, DictConfig) and isinstance(src, DictConfig):
         out = OmegaConf.create({})
         for k in schema.keys():
@@ -29,7 +23,7 @@ def _prune_to_schema(src, schema):
                 out[k] = _prune_to_schema(src[k], schema[k])
         return out
 
-    # List 匹配
+    # List matching
     if isinstance(schema, ListConfig) and isinstance(src, ListConfig):
         if len(schema) == 0:
             return OmegaConf.create([])
@@ -49,36 +43,36 @@ def load_args_from_checkpoint(cfg, checkpoint):
     else:
         final_cfg = restored_cfg
     # OmegaConf.set_struct(final_cfg, True)
-
     return final_cfg
 
 
 def freeze_model_parts(model, freeze_keywords=None, allowed_names=None, exclude_keywords=None):
     """
-    只冻结满足关键字匹配、且在 allowed_names (已加载的参数集合) 内的参数。
-    可选 exclude_keywords 用于排除某些子模块（如 'linear', 'fc1', 'fc2' 等）。
+    Freeze only the parameters that match the specified keywords and are within the allowed_names (the set of loaded parameters).
+    Optional exclude_keywords can be used to exclude certain submodules (e.g., 'linear', 'fc1', 'fc2', etc.).
+    input:
+        model: nn.Module
+        freeze_keywords: List[str]  # param names containing any of these keywords will be frozen
+        allowed_names: Optional[Set[str]]  # select from these parameter names only
+        exclude_keywords: List[str]  # parameters containing any of these keywords will not be frozen
     """
     if freeze_keywords is None:
         freeze_keywords = []
     if exclude_keywords is None:
         exclude_keywords = []
 
-    # 将 None 处理为不受限
     allowed_names = set(allowed_names) if allowed_names is not None else None
 
     for name, param in model.named_parameters():
-        # 若提供了 allowed_names，则必须在其中
         if allowed_names is not None and name not in allowed_names:
             continue
-
-        # 关键字命中且未命中排除关键字才冻结
         if any(k in name for k in freeze_keywords) and not any(e in name for e in exclude_keywords):
             param.requires_grad = False
             print(f"Froze parameter: {name}")
 
 def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
     """
-    加载模型权重；返回 loaded_names: Set[str]，表示这次真正加载到 model_state_dict 的参数名
+    Load model weights; return loaded_names: Set[str], indicating the parameter names that were actually loaded into model_state_dict.
     """
     model_state_dict = model.state_dict()
     loaded_names = set()
@@ -89,7 +83,7 @@ def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
             if any(keyword in name for keyword in load_specific_parts) and name in model_state_dict:
                 if model_state_dict[name].shape == param.shape:
                     model_state_dict[name] = param
-                    loaded_names.add(name)  # 记录已加载
+                    loaded_names.add(name)  
                     print(f"Loaded part: {name}")
                 else:
                     print(f"Warning: Shape mismatch for {name} (checkpoint: {param.shape}, model: {model_state_dict[name].shape})")
@@ -103,24 +97,16 @@ def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
             print(f"Warning: Missing keys (not loaded in the model): {load_result.missing_keys}")
         if load_result.unexpected_keys:
             print(f"Warning: Unexpected keys (present in checkpoint but not in model): {load_result.unexpected_keys}")
-
-        # 计算哪些键是“成功加载”的：当前模型 keys 去掉 missing_keys
         loaded_names = set(model_state_dict.keys()) - set(load_result.missing_keys)
 
-        # 回到你的最终赋值逻辑：用当前 model_state_dict 再 load 一次（与你原代码兼容）
-        # 注：这里不改变 loaded_names
-        # （若不需要两次 load，可直接用上面的 load_result 即可）
-    
-    # 最终赋值模型的state_dict（保持你的原始写法）
     model.load_state_dict(model_state_dict)
-
-    return loaded_names  # <—— 新增返回值
+    return loaded_names  
 
 
 def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specific_parts=None,
                                exclude_freeze_parts=None):
     """
-    从 checkpoint 中加载模型权重并（可选）冻结：只冻结这次“已加载”的部分
+    Load model weights from checkpoint and optionally freeze: only freeze the "loaded" parts this time
     """
     loaded_names = load_model_weights(model, checkpoint['model_state_dict'], load_specific_parts=load_specific_parts)
 
@@ -132,11 +118,10 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specif
         print("val_metrics:", checkpoint['val_metrics'])
 
     if freeze_parts:
-        # 只冻结 loaded_names ∩ freeze_keywords，且可排除某些子模块
         freeze_model_parts(
             model,
             freeze_keywords=freeze_parts,
-            allowed_names=loaded_names,                # 关键：只能冻结已加载的那部分
+            allowed_names=loaded_names,                # only freeze what was actually loaded
             exclude_keywords=exclude_freeze_parts or []
         )
 
@@ -147,7 +132,7 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specif
 
 def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_weights=True):
     """
-    初始化模型、优化器、调度器（支持从 checkpoint 加载训练或测试模型）
+    Initialize the model, optimizer, and scheduler (supports loading from a checkpoint for training or testing).
     """
     # model = model_class(args, device=device)
     from src.models.builders import ModelBuilder
@@ -156,7 +141,6 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     if args.model == "etas":
         model.double()
 
-    # 默认值
     args.start_epoch = 0
     args.best_val_loss = float('inf')
 
@@ -193,14 +177,6 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             criterion = nn.HuberLoss(**criterion_cfg)
         elif criterion_name == 'smooth_l1':
             criterion = nn.SmoothL1Loss(**criterion_cfg)
-        elif criterion_name == 'pinball':
-              criterion = PinballLoss(
-            tau=criterion_cfg.get('tau', 0.5),
-            taus=criterion_cfg.get('taus', None),            # e.g. [0.1, 0.5, 0.9, 0.95]
-            reduction=criterion_cfg.get('reduction', 'mean'),
-            huber_k=criterion_cfg.get('huber_k', None),      # e.g. 0.05 -> Quantile Huber
-            non_crossing=criterion_cfg.get('non_crossing', False)
-         )
         else:
             raise ValueError(f"Unsupported criterion_name for regression: {criterion_name}")
         print(f"Using regression criterion: {criterion_name}")
@@ -222,15 +198,13 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     )
 
     scheduler = get_scheduler(args.scheduler_type, optimizer, args, train_dataloader=train_dataloader)
-
     return model, criterion, optimizer, scheduler, args
 
 
 
 def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
     """
-    根据参数返回对应的学习率调度器
-    支持 PyTorch 和 Hugging Face 的调度器
+    return: lr_scheduler
     """
     warmup_ratio = getattr(args, 'warmup_ratio', 0.1) 
     try:
@@ -277,8 +251,8 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
             num_warmup_steps=warmup_steps
         )
     elif scheduler_type == "step_warmup":
-        step_size = int(args.step_lr_step_size_ratio * total_steps)  # 每N个步骤衰减一次
-        gamma = args.step_lr_gamma  # 衰减因子
+        step_size = int(args.step_lr_step_size_ratio * total_steps) 
+        gamma = args.step_lr_gamma  
 
         step_scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
         warmup_scheduler = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)

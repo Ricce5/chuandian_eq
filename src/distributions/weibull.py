@@ -1,3 +1,4 @@
+# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import torch
 from torch.distributions import constraints
 from torch.distributions.utils import broadcast_all
@@ -46,7 +47,7 @@ class Weibull(Distribution):
             shape, device=self.scale.device, dtype=self.scale.dtype
         ).uniform_()
         survival = self.log_survival(lower_bound).exp()   
-        u = u * survival                                  # u 小于 survival 
+        u = u * survival                                  # u < survival
         return (-u.log() * self.scale.reciprocal() + self.eps).pow(
-            self.shape.reciprocal()                       # x = S^(-1)(u)  S单调，需要采样大于 lower_bound 的 x  S^(-1)(u) = F^{-1}(1-u)
+            self.shape.reciprocal()                       # x = S^(-1)(u) 
         )

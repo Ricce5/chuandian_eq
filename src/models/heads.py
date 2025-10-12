@@ -3,19 +3,19 @@ from .layers.mlp import MLP
 
 class TaskHead(nn.Module):
     """
-    任务头模块，封装不同类型的输出层结构，如：
-    - MLP
-    - 单层 Linear
+    Task head module that encapsulates different types of output layer structures, such as:
+    - MLP (Multi-Layer Perceptron)
+    - Single-layer Linear
     """
 
     def __init__(self, input_dim, output_dim, head_type="mlp", hidden_layers=None, dropout=0.1,device=None):
         """
         Args:
-            input_dim: 输入维度（encoder + extractor 提供）
-            output_dim: 输出维度（通常为1，除非多分类）
-            head_type: 头类型，可选 'mlp', 'linear'
-            hidden_layers: 隐藏层列表（用于 MLP），如 [128, 64]
-            dropout: dropout 概率（MLP）
+            input_dim (int): Input dimension provided by encoder + extractor.
+            output_dim (int): Output dimension (usually 1, unless multi-class).
+            head_type (str): Type of head, options are 'mlp' or 'linear'.
+            hidden_layers (list, optional): List of hidden layer sizes for MLP, e.g., [128, 64].
+            dropout (float): Dropout probability for MLP.
         """
         super().__init__()
 
@@ -23,7 +23,7 @@ class TaskHead(nn.Module):
 
         if self.head_type == "mlp":
             if hidden_layers is None:
-                hidden_layers = [input_dim]  # 如果未指定则使用一层
+                hidden_layers = [input_dim]  
             self.head = MLP(
                 hidden_layers_width=hidden_layers,
                 input_size=input_dim,

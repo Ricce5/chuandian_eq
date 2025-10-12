@@ -1,3 +1,5 @@
+# Enhanced Batch to handle sample updates and convert to event batches used in EasyTPP.
+# Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
 from typing import List, Optional
 
 import numpy as np
@@ -59,7 +61,7 @@ class Batch(DotDict):
 
         inter_times = pad_sequence(
             [seq.inter_times for seq in sequences],
-            padding_value=pad,   # 用于填充的值是0
+            padding_value=pad,  
             max_len=padded_seq_len,
         )
 
@@ -96,7 +98,7 @@ class Batch(DotDict):
             )
 
         non_pad_mask = (inter_times != pad).float()
-        non_pad_mask[:, 0] = 1.  # 第一个时间为0的情况
+        non_pad_mask[:, 0] = 1. 
 
 
         if "type_event" in other_attr:
@@ -248,15 +250,14 @@ class Batch(DotDict):
         return [self.get_sequence(idx) for idx in range(self.batch_size)]
     
     def __getitem__(self, key):
-        # 支持 batch[:, slice] 形式
+        # batch[:, slice]
         if isinstance(key, tuple) and len(key) == 2 and key[0] == slice(None):
             return self._slice_sequences(key[1])
-        # 否则按普通 dict 行为
         return super().__getitem__(key)
     
     def _slice_sequences(self, seq_slice: slice) -> "Batch":
         sliced_data = {}
-        for k in self.__dict__['_data']:  # 直接访问底层字典，避免递归 __getitem__
+        for k in self.__dict__['_data']: 
             v = self.__dict__['_data'][k]
             if (
                 isinstance(v, torch.Tensor)
@@ -300,10 +301,10 @@ def pad_sequence(
     dtype = sequences[0].dtype
     device = sequences[0].device
     max_size = sequences[0].size()
-    trailing_dims = max_size[1:] # 特征维数
+    trailing_dims = max_size[1:] 
     if max_len is None:
         max_len = max([s.size(0) for s in sequences])
-    out_dims = (len(sequences), max_len) + trailing_dims # 元组的加表示拼接
+    out_dims = (len(sequences), max_len) + trailing_dims 
 
     out_tensor = torch.empty(*out_dims, dtype=dtype, device=device).fill_(padding_value)
     for i, tensor in enumerate(sequences):
@@ -383,14 +384,14 @@ class EventBatch(DotDict):
         )
     
     def __getitem__(self, key):
-        # 支持 batch[:, slice] 形式
+        # support batch[:, slice]
         if isinstance(key, tuple) and len(key) == 2 and key[0] == slice(None):
             return self._slice_sequences(key[1])
         return super().__getitem__(key)
     
     def _slice_sequences(self, seq_slice: slice) -> "EventBatch":
         sliced_data = {}
-        for k in self.__dict__['_data']:  # 直接访问底层字典，避免递归 __getitem__
+        for k in self.__dict__['_data']:  
             v = self.__dict__['_data'][k]
             if (
                 isinstance(v, torch.Tensor)

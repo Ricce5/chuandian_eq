@@ -1,3 +1,4 @@
+# Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
 import io
 from pathlib import Path
 from typing import Union

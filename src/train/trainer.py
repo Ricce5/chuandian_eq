@@ -2,7 +2,6 @@ import os
 import torch
 from omegaconf import OmegaConf
 from torch.optim.swa_utils import AveragedModel
-from .sched_floor import CosineWithWarmupFloor, LinearWithWarmupFloor
 
 
 
@@ -93,7 +92,7 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     ema_decay = getattr(args, 'ema_decay', 0.999)
    
     if use_ema:
-        def _ema_avg_fn(ema_p, p, n):  # 把超参透传进来
+        def _ema_avg_fn(ema_p, p, n): 
             return ema_p * ema_decay + p * (1.0 - ema_decay)
         ema_model = AveragedModel(model, avg_fn=_ema_avg_fn).to(device)
         print(f"Using EMA with decay {ema_decay}")

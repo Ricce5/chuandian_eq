@@ -15,7 +15,6 @@ class ClassifierBuilder(ModelBuilder):
         from src.models.extractors import RepresentationExtractor
         from src.models.base_model import BaseModel
 
-        # 构建 Transformer 编码器
         encoder = Transformer_ST(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -36,7 +35,6 @@ class ClassifierBuilder(ModelBuilder):
 
         extractor = RepresentationExtractor.by_name("last")()
 
-        # 输出 head（多层感知机）
         head = TaskHead(
             input_dim=3 * args.d_model,  
             output_dim=args.mlp_out,
@@ -65,7 +63,6 @@ class ClassifierTMSBuilder(ModelBuilder):
         from src.models.extractors import RepresentationExtractor
         from src.models.base_model import BaseModel
 
-        # 构建 Transformer 编码器
         encoder = Transformer(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -86,7 +83,6 @@ class ClassifierTMSBuilder(ModelBuilder):
 
         extractor = RepresentationExtractor.by_name("last")()
 
-        # 输出 head（多层感知机）
         head = TaskHead(
             input_dim= args.d_model,  
             output_dim=args.mlp_out,
@@ -113,7 +109,7 @@ class ClassifierTMSAttnPlBuilder(ModelBuilder):
         from src.models.extractors import RepresentationExtractor
         from src.models.base_model import BaseModel
 
-        # 构建 Transformer 编码器
+
         encoder = Transformer(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -137,7 +133,7 @@ class ClassifierTMSAttnPlBuilder(ModelBuilder):
             hidden_dim= 2*args.d_model,
             device=device)
 
-        # 输出 head（多层感知机）
+       
         head = TaskHead(
             input_dim= args.d_model,  
             output_dim=args.mlp_out,
@@ -166,7 +162,7 @@ class ClassifierTMSAttnPlTBuilder(ModelBuilder):
         from src.models.extractors import RepresentationExtractor
         from src.models.base_model import BaseModel
 
-        # 构建 Transformer 编码器
+        
         encoder = Transformer(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -190,7 +186,7 @@ class ClassifierTMSAttnPlTBuilder(ModelBuilder):
             hidden_dim= 2*args.d_model,
             device=device)
 
-        # 输出 head（多层感知机）
+       
         head = TaskHead(
             input_dim= args.d_model+1,  
             output_dim=args.mlp_out,
@@ -218,7 +214,7 @@ class ClassifierTMConvSAttnPlTBuilder(ModelBuilder):
         from src.models.extractors import RepresentationExtractor
         from src.models.base_model import BaseModel
 
-        # 构建 Transformer 编码器
+        
         encoder = Transformer_Conv(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -242,7 +238,7 @@ class ClassifierTMConvSAttnPlTBuilder(ModelBuilder):
             hidden_dim= 2*args.d_model,
             device=device)
 
-        # 输出 head（多层感知机）
+       
         head = TaskHead(
             input_dim= args.d_model+1,  
             output_dim=args.mlp_out,
@@ -269,7 +265,7 @@ class ClassifierTMSBuilder(ModelBuilder):
         from src.models.extractors import RepresentationExtractor
         from src.models.base_model import BaseModel
 
-        # 构建 Transformer 编码器
+        
         encoder = Transformer(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -291,7 +287,7 @@ class ClassifierTMSBuilder(ModelBuilder):
 
         extractor = RepresentationExtractor.by_name("last")()
 
-        # 输出 head（多层感知机）
+       
         head = TaskHead(
             input_dim= args.d_model,  
             output_dim=args.mlp_out,
@@ -652,7 +648,6 @@ class RegressorAttnPlBuilder(ModelBuilder):
         input_adapter = SM_T_InputAdapter()
         base_model = BaseModel(encoder=encoder, input_adapter=input_adapter, device=device)
 
-        # 注意这里 input_dim 不带时间：transformer 输出是 [B, L, 3*d_model]
         extractor = AttentionPoolingExtractor(
             input_dim=3 * args.d_model,
             hidden_dim=3 * args.d_model,

@@ -9,43 +9,36 @@ from .trainer import step_scheduler
 def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2, ema_model=None):
     model.train()
     total_loss = 0
-    all_node_preds = []  # 存储所有预测值
-    all_node_targets = []  # 存储所有目标值
-    optimizer.zero_grad()  # 初始化梯度
-
+    all_node_preds = []  
+    all_node_targets = []
+    optimizer.zero_grad()
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
 
-        # 计算预测值
         pred = model(x)
         loss = criterion(pred, y)
 
-        # 反向传播
         loss = loss/accumulation_steps  
         loss.backward()
-        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader):  # 达到累积批次后更新
+        if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader): 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
-            optimizer.step()  # 更新参数
-            optimizer.zero_grad()  # 清空梯度
-            step_scheduler(scheduler, event='step')  # 更新调度器
+            optimizer.step() 
+            optimizer.zero_grad()
+            step_scheduler(scheduler, event='step')
             if ema_model is not None:
                 ema_model.update_parameters(model)
 
-        # 累加损失
         total_loss += loss.item()*accumulation_steps
 
-        # 收集所有预测和目标值
         all_node_preds.append(pred.cpu().detach().numpy())
         all_node_targets.append(y.cpu().detach().numpy())
 
         if batch % 100 == 0:
             tqdm.write(f"Batch {batch:>5d}/{len(data_loader):>5d} | Loss: {loss.item():.6f}")
 
-    # 合并所有的预测和目标
     all_node_preds = np.concatenate(all_node_preds, axis=0)
     all_node_targets = np.concatenate(all_node_targets, axis=0)
 
-    # 计算指标
     metrics = classification_metrics(all_node_targets, all_node_preds)
     log_metrics(metrics, prefix="Training")
 
@@ -54,12 +47,12 @@ def train(data_loader, model, criterion, optimizer, scheduler, device, accumulat
     return avg_train_loss, metrics
 
 
-def validate(data_loader, model, criterion, device, threshold=0.5):
+def validate(data_loader, model, criterion, device):
     model.eval()
     val_loss = 0
 
-    all_node_preds = []  # 存储所有区域的预测值
-    all_node_targets = []  # 存储所有区域的真实值
+    all_node_preds = []
+    all_node_targets = []
 
     with torch.no_grad():
         for batch, (x, y) in enumerate(tqdm(data_loader, desc="Validating")):
@@ -68,11 +61,9 @@ def validate(data_loader, model, criterion, device, threshold=0.5):
             loss = criterion(pred, y)
             val_loss += loss.item()
 
-            # 将所有预测值和真实值添加到相应的列表中
             all_node_preds.extend(pred.cpu().detach().numpy())
             all_node_targets.extend(y.cpu().detach().numpy())
 
-    # 将所有预测值和真实值合并为一个大的数组
     all_node_preds = np.array(all_node_preds)
     all_node_targets = np.array(all_node_targets)
 
@@ -83,7 +74,7 @@ def validate(data_loader, model, criterion, device, threshold=0.5):
   
     return avg_val_loss, metrics
 
-def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
+def test(data_loader, model, criterion, device, save_dir=None):
     
     model.eval()
     test_loss = 0
@@ -109,9 +100,7 @@ def test(data_loader, model, criterion, device, threshold=0.5, save_dir=None):
     # Calculate evaluation metrics
     metrics = classification_metrics(all_node_targets, all_node_preds)
     log_metrics(metrics, prefix="Test")
-    # ==== 🔽 绘制 ROC 曲线 ====
     plot_and_save_roc_curve(all_node_targets, all_node_preds,metrics['auc'], save_dir, filename="roc_curve.png")
-    # ===========================
     avg_test_loss = test_loss / len(data_loader)
 
     return avg_test_loss, metrics
@@ -126,13 +115,7 @@ def visualize_results(model,train_loader, val_loader, test_loader, device, save_
 
 def visualize_predictions(model, data_loader, device, save_dir, title="Prediction Probability Distribution", filename="pred_distribution.png"):
     """
-    收集任意数据集预测结果并可视化分布图
-    :param model: 已加载的模型
-    :param data_loader: DataLoader（可以是train_loader、val_loader、test_loader等）
-    :param device: 当前设备
-    :param save_dir: 保存图像的目录
-    :param title: 图像标题
-    :param filename: 保存图像的文件名
+    Visualize the distribution of predicted probabilities for positive and negative classes.
     """
     model.eval()
     all_preds, all_labels = [], []
@@ -145,10 +128,8 @@ def visualize_predictions(model, data_loader, device, save_dir, title="Predictio
             all_preds.extend(probs.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
-    # 确保保存目录存在
     os.makedirs(save_dir, exist_ok=True)
     
-    # 画图
     save_path = os.path.join(save_dir, filename)
     plot_classification_distribution(
         preds=all_preds,
@@ -157,4 +138,4 @@ def visualize_predictions(model, data_loader, device, save_dir, title="Predictio
         save_path=save_path
     )
 
-    print(f"[✔] 预测分布图已保存至: {save_path}")
+    print(f"[✔] Prediction distribution plot has been saved to: {save_path}")

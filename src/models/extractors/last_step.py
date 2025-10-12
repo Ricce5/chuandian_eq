@@ -3,6 +3,9 @@ import torch
 
 @RepresentationExtractor.register("last")
 class LastStepExtractor(RepresentationExtractor):
+    """
+    Extract the representation at the last time step of each sequence in the batch.
+    """
     def forward(self, enc_out, non_pad_mask, extra_inputs=None):
         lengths = non_pad_mask.sum(dim=1).squeeze(-1).long()  # [B]
         idx = (lengths - 1).clamp(min=0)

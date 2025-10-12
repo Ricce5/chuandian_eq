@@ -1,4 +1,4 @@
-
+# transformer Hawkes Process (THP) model with intensity free implementation 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -95,7 +95,7 @@ class THP(TPPModel):
             mixture_distribution=mixture_dist,
             component_distribution=component_dist,
         )
-    # log_rate没有被使用
+
     def get_magnitude_dist(self, context):
         log_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
         b = self.richter_b * torch.ones_like(log_rate)
@@ -336,8 +336,7 @@ class THP(TPPModel):
             return batch.to_list()
         else:
             return batch
-        
-    # 时间变换定理，任何TPP可转化为单位泊松过程
+
     def evaluate_compensator(
         self, sequence: src.data.Sequence, num_grid_points: int = 50
     ) -> Tuple[torch.Tensor, torch.Tensor]:

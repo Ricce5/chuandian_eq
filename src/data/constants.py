@@ -1,2 +1,2 @@
-PAD_TOKEN_ID=10
-PAD =  10 #100000
+PAD_TOKEN_ID=10 # for type_seq
+PAD =  10 # pad value

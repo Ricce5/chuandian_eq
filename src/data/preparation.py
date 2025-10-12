@@ -64,14 +64,14 @@ def prepare_data(args, base_dir):
     return df, train_loader, val_loader, test_loader,dataset
 
 
-def prepare_data_lstm(args, base_dir="data/CD2021"):
+def prepare_data_lstm(args, base_dir):
     def create_lstm_data(features, target, timestep):
         """
-        划分数据集，生成特征数据和目标数据
-        :param features: 特征数据（二维数组），数据集的所有特征列（去除目标列）
-        :param target: 目标数据（数组），数据集的目标列
-        :param timestep: 时间步长，用于生成每个样本的特征序列长度
-        :return: 特征数据X和目标数据Y
+        Split the dataset into feature data and target data.
+        :param features: Feature data (2D array), containing all feature columns in the dataset (excluding the target column).
+        :param target: Target data (1D array), representing the target column in the dataset.
+        :param timestep: Time step length, used to generate the time series length for each sample.
+        :return: Feature data X and target data y, as 3D array and 1D array respectively.
         """
         X, y = [], []
         
@@ -79,14 +79,13 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
             X.append(features[index: index + timestep])
             y.append(target[index + timestep])
 
-        # 转换为NumPy数组
         X, y = np.array(X), np.array(y)
         return X, y
 
     import src.data.lstm_loader as loader
     import src.features.seismic_features as sf
     from src.data.preprocessing import load_and_filter_catalog
-    from src.data.data_utils import get_split_indices
+    from src.data.utils import get_split_indices
     from src.utils.file_utils import save_or_load_data
     from sklearn.preprocessing import MinMaxScaler
     import numpy as np
@@ -109,7 +108,7 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
             "features_df": features_df,
             "num_mag": num_mag
         }
-    # 加载或生成处理过的数据
+
     cached_data = save_or_load_data(
         base_path=base_dir,
         generate_fn=generate_seismic_data,
@@ -148,21 +147,11 @@ def prepare_data_lstm(args, base_dir="data/CD2021"):
 def prepare_data_tpp(args, base_dir):
     import os
     import torch
-
     from src.data.tpp_dataset import TppDataset
-    from src.data.sequence import EventSequence
     import src.data.catalog as catalog
-    import src.catalogs as catalogs
+    import src.catalogs as catalogs # ensure catalogs are registered
 
-    # Earthquake datasets
     root_dir = os.path.join(base_dir, 'raw')
-    # dat_files = [f for f in os.listdir(root_dir) if f.endswith('.dat')]
-
-    # if len(dat_files) == 1:
-    #     file_path = os.path.join(root_dir, dat_files[0])
-    # else:
-    #     file_path = None
-
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
     print(f"Using catalog dataset class: {catalog_ds_class}")
     

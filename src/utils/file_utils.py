@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+import pandas as pd
 import pickle
 import glob
 import yaml
@@ -15,13 +16,11 @@ def mkdirs(fn):
 
 def create_save_dir(base_dir, model_name='rf', args_dict=None):
     """
-    根据配置参数内容创建唯一目录。
-    相同配置 => 生成相同目录
+    Create a unique directory based on configuration parameters.
+    Same configuration => Same directory
     """
     if args_dict is not None:
-        # 将参数字典排序并转为字符串
         config_str = json.dumps(args_dict, sort_keys=True)
-        # 使用哈希生成唯一标识
         config_hash = hashlib.md5(config_str.encode('utf-8')).hexdigest()[:8]
         dir_name = f"{model_name}_{config_hash}".lower()
     else:
@@ -50,20 +49,20 @@ def build_filename(prefix="processed", ext="pkl", **kwargs):
 
 def save_or_load_data(base_path, generate_fn, args=None, filename=None, sub_dir="processed", ext="pkl", prefix="data", **kwargs):
     """
-    通用的数据缓存加载/保存函数。
+    General-purpose data caching load/save function.
 
-    参数:
-        base_path (str): 数据根目录路径。
-        generate_fn (callable): 当没有缓存时用于生成数据的函数。
-        args (tuple): 可选，传递给 generate_fn 的参数。
-        filename (str): 可选，保存的文件名。如果未提供，将使用 build_filename 构建。
-        sub_dir (str): 可选，子目录路径（相对于 base_path）。
-        ext (str): 可选，文件扩展名，默认 "pkl"。
-        prefix (str): 可选，生成文件名的前缀。
-        **kwargs: 若 filename 为 None，将用于构建文件名。
+    Parameters:
+        base_path (str): Root directory path for data.
+        generate_fn (callable): Function to generate data when no cache exists.
+        args (tuple): Optional, arguments to pass to generate_fn.
+        filename (str): Optional, name of the saved file. If not provided, build_filename will be used to construct it.
+        sub_dir (str): Optional, subdirectory path (relative to base_path).
+        ext (str): Optional, file extension, default is "pkl".
+        prefix (str): Optional, prefix for the generated filename.
+        **kwargs: If filename is None, these will be used to construct the filename.
     
-    返回:
-        加载或新生成的数据。
+    Returns:
+        Loaded or newly generated data.
     """
     if filename is None:
         filename = build_filename(prefix=prefix, ext=ext, **kwargs)
@@ -90,17 +89,17 @@ def save_or_load_data(base_path, generate_fn, args=None, filename=None, sub_dir=
 def find_latest_model_path(model_name, checkpoint_root="checkpoints"):
     pattern = re.compile(rf"{model_name.lower()}_\d{{8}}-\d{{6}}$")
     
-    # 找出所有匹配 model 名的子目录
+    # find all subdirectories matching the pattern
     all_subdirs = glob.glob(os.path.join(checkpoint_root, "*"))
     matched_subdirs = [
         d for d in all_subdirs
         if os.path.isdir(d) and pattern.search(os.path.basename(d))
     ]
 
-    # 按时间倒序排序（字符串排序即可）
+    # sort by modification time, newest first
     matched_subdirs.sort(reverse=True)
 
-    # 查找第一个包含模型文件的目录
+    # check for the existence of last_model_1.pth in each matched subdirectory
     for subdir in matched_subdirs:
         candidate = os.path.join(subdir, "last_model_1.pth")
         if os.path.isfile(candidate):
@@ -126,15 +125,15 @@ def create_unique_dir(base_path):
 
 def find_config_with_conditions(conditions, root_dir):
     """
-    根据给定的条件筛选 config.yaml 文件，并返回所有符合条件的文件夹绝对路径
+    Filter config.yaml files based on given conditions and return the absolute paths of all matching directories.
     
-    :param conditions: 字典，包含多个字段及其对应的值
-    :param root_dir: 根目录路径，所有的子目录将被遍历
-    :return: 返回符合条件的 config.yaml 文件所在的文件夹绝对路径列表
+    :param conditions: Dictionary containing multiple fields and their corresponding values.
+    :param root_dir: Root directory path, all subdirectories will be traversed.
+    :return: A list of absolute paths to directories containing config.yaml files that meet the conditions.
     """
-    matching_dirs = []  # 用于存储符合条件的文件夹路径
+    matching_dirs = []  
 
-    # 遍历 root_dir 目录下的所有子目录和文件
+    # Traverse all subdirectories and files under root_dir
     for subdir, dirs, files in os.walk(root_dir):
         if 'config.yaml' in files:
             config_path = os.path.join(subdir, 'config.yaml')
@@ -142,22 +141,38 @@ def find_config_with_conditions(conditions, root_dir):
                 with open(config_path, 'r') as f:
                     config = yaml.safe_load(f)
                     
-                    # 检查 config 中是否所有字段都匹配条件
                     if all(config.get(key) == value for key, value in conditions.items()):
-                        # 符合条件时，将文件夹的绝对路径加入列表
                         matching_dirs.append(os.path.abspath(subdir))
             except Exception as e:
-                print(f"读取 {config_path} 文件时发生错误: {e}")
-
-    # 返回符合条件的所有文件夹路径
+                print(f"Error reading {config_path}: {e}")
     return matching_dirs
 
+def load_csv_by_keyword(keyword, base_path):
+    """
+    Load a CSV file based on a keyword from the specified path and return it as a DataFrame.
+    
+    Parameters:
+        keyword (str): The keyword to match in the file name (without extension).
+        base_path (str): The folder path to search in.
+    
+    Returns:
+        pd.DataFrame: The loaded DataFrame, or None if no matching file is found.
+    """
+    file_list = glob.glob(f"{base_path}/*{keyword}.csv")
+    if file_list:
+        file_path = file_list[0]
+        df = pd.read_csv(file_path)
+        print(df.head())
+        return df
+    else:
+        print(f"No matching {keyword}.csv file found")
+        return None
 
 
 def save_args_to_json(args_dict, save_dir, filename="config.json"):
     os.makedirs(save_dir, exist_ok=True)
 
-    # 将 numpy 类型转为原生类型，避免 json 报错
+    # Convert numpy types to native types to avoid json errors
     def convert(o):
         if isinstance(o, (float, int, str, bool)) or o is None:
             return o

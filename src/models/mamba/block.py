@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Tri Dao, Albert Gu.
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/modules/block.py
 from typing import Optional
 
 import torch

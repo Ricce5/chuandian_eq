@@ -2,6 +2,9 @@ import torch.nn as nn
 from typing import List, Type
 
 class MLP(nn.Module):
+    """
+    Multi-Layer Perceptron (MLP) implementation with configurable hidden layers, activation functions, and dropout.
+    """
     def __init__(self,
                  hidden_layers_width: List[int] = [128, 64, 32],
                  input_size: int = 30,

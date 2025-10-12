@@ -10,7 +10,6 @@ from contextlib import nullcontext
 from torch import amp
 
 def _mean_if_tensor(x):
-    # 支持标量或 (B,) 张量
     return x.mean().item() if torch.is_tensor(x) else float(x)
 
 def _avg_from_out_dict(out_dict):
@@ -19,14 +18,9 @@ def _avg_from_out_dict(out_dict):
 def train(
     data_loader, model, criterion, optimizer, scheduler, device,
     accumulation_steps=2, ema_model=None, use_amp=False, max_grad_norm=3.0,
-    pbar_desc='Training', loss_key='total',  # 反传的目标：'total'|'time'|'mag' 或其他任意 key
-    nll_kwargs: dict | None = None           # 透传给 model.nll_loss 的参数（例如 predict_b / mag_weight / reduction）
+    pbar_desc='Training', loss_key='total',  # 'total'|'time'|'mag'
+    nll_kwargs: dict | None = None           # parameters for model.nll_loss (predict_b / mag_weight / reduction)
 ):
-    """
-    兼容“model.nll_loss 返回任意键的字典”的训练循环。
-    - 反传目标由 loss_key 决定；同时记录所有项的 batch 平均指标。
-    - 建议 nll_kwargs 至少包含 {'reduction': 'none'}，便于逐序列取 mean。
-    """
     if nll_kwargs is None:
         nll_kwargs = {}
     nll_kwargs.setdefault('reduction', None)
@@ -40,7 +34,6 @@ def train(
 
     optimizer.zero_grad(set_to_none=True)
 
-    # 统计指标（epoch 平均）
     sum_metrics = {}
     num_steps = 0
 
@@ -50,7 +43,7 @@ def train(
         with amp_ctx:
             out = model.nll_loss(batch, **nll_kwargs)
             if loss_key not in out:
-                raise KeyError(f"loss_key='{loss_key}' 不在 nll 输出中，可选项：{list(out.keys())}")
+                raise KeyError(f"loss_key='{loss_key}' is not in the nll output. Available options: {list(out.keys())}")
             loss = out[loss_key].mean()
 
 
@@ -83,7 +76,6 @@ def train(
             if device.type == 'cuda':
                 torch.cuda.synchronize()
 
-    # epoch 平均指标
     metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Training")
     return metrics.get(f'avg_{loss_key}_nll', 0.0), metrics
@@ -94,9 +86,6 @@ def validate(
     data_loader, model, criterion, device,
     loss_key='total', nll_kwargs: dict | None = None
 ):
-    """
-    验证阶段（无反传），返回所有键的平均 NLL。
-    """
     if data_loader is None:
         return float('nan'), {}
     if nll_kwargs is None:
@@ -110,7 +99,7 @@ def validate(
     with torch.no_grad():
         for batch in tqdm(data_loader, desc='Validating'):
             batch = batch.to(device)
-            out = model.nll_loss(batch, **nll_kwargs)  # 任意字典
+            out = model.nll_loss(batch, **nll_kwargs) 
             metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
             for key, value in metrics_now.items():
                 if key not in sum_metrics:
@@ -128,9 +117,6 @@ def test(
     model=None, criterion=None, device=None, save_dir=None,
     nll_kwargs: dict | None = None
 ):
-    """
-    在任意子集 {train, val, test} 上评估，分别返回所有键的平均 NLL。
-    """
     if nll_kwargs is None:
         nll_kwargs = {}
         nll_kwargs.setdefault('reduction', 'per_time')
@@ -152,7 +138,6 @@ def test(
                         sum_metrics[key] = 0.0
                     sum_metrics[key] += value
                 num_steps += 1
-        # 计算所有键的平均值
         avg = {key: sum_value / max(1, num_steps) for key, sum_value in sum_metrics.items()}
         return avg, sum_metrics
 

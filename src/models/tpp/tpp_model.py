@@ -1,3 +1,4 @@
+# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import torch
 import src.data
 from typing import Optional, Tuple

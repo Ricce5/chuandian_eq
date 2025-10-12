@@ -1,10 +1,10 @@
+# Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
 import warnings
 from typing import Any, Optional
 
 import numpy as np
 import torch
 
-# 根据变量类型，返回字符串表示
 def size_repr(key: str, value: Any, indent=0) -> str:
     """String containing the size / shape of an object (e.g. a tensor, array)."""
     if isinstance(value, torch.Tensor) and value.dim() == 0:
@@ -20,7 +20,7 @@ def size_repr(key: str, value: Any, indent=0) -> str:
 
     return f"{' ' * indent}{key}: {out}"
 
-# 对于torch的float类型，返回True
+
 def _is_float(tensor: torch.Tensor):
     """Check if torch.Tensor is of type torch.float32 or torch.float64."""
     return (
@@ -29,7 +29,7 @@ def _is_float(tensor: torch.Tensor):
         or tensor.dtype == torch.float16
     )
 
-# 点式字典
+
 class DotDict:
     """Dictionary where elements can be accessed as dict.entry."""
 

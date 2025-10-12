@@ -1,4 +1,5 @@
-# Copyright (c) 2024, Tri Dao, Albert Gu.
+# Modified Mamba2 to directly take inter-event times as input, similar to https://arxiv.org/abs/2407.05302.
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/modules/mamba2.py
 
 import math
 from typing import Optional

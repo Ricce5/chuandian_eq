@@ -12,7 +12,7 @@ __all__ = [
     "visualize_sequence",
     "visualize_trajectories",
     "visualize_catalog",
-]  # 控制从模块中导出内容
+]  
 
 def visualize_catalog(
     catalog: Catalog,

@@ -1,3 +1,4 @@
+# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import torch
 from torch.distributions import Categorical
 from torch.distributions import MixtureSameFamily as TorchMixtureSameFamily
@@ -5,7 +6,7 @@ from torch.distributions import MixtureSameFamily as TorchMixtureSameFamily
 from .distribution import Distribution
 
 
-class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  # 混合分布的概率密度函数等于各成分的概率密度函数的加权和
+class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  
     def __init__(
         self, mixture_distribution, component_distribution, validate_args=False
     ):
@@ -22,11 +23,11 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  # 混合分布�
         x = self._pad(x)
         log_sf_x = self.component_distribution.log_survival(x)
         mix_logits = self.mixture_distribution.logits
-        return torch.logsumexp(log_sf_x + mix_logits, dim=-1)  # 每个分量的生存函数和混合权重相乘后求和
+        return torch.logsumexp(log_sf_x + mix_logits, dim=-1)  # sum over mixture components
 
     def sample_conditional(self, lower_bound, sample_shape=torch.Size()):
         with torch.no_grad():
-            sample_len = len(sample_shape) # 注意是形状的长度不是长度
+            sample_len = len(sample_shape) 
             batch_len = len(self.batch_shape)
             gather_dim = sample_len + batch_len 
             es = self.event_shape
@@ -36,12 +37,12 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  # 混合分布�
             # mixture samples [n, B]
             conditional_mix_probs = (
                 self.mixture_distribution.probs
-                * self.component_distribution.log_survival(lower_bound).exp() # 隐变量满足条件的后验概率
+                * self.component_distribution.log_survival(lower_bound).exp() 
             )
             mix_sample = Categorical(probs=conditional_mix_probs).sample(sample_shape)
             mix_shape = mix_sample.shape  # [n, B]
 
-            # component samples [n, B, k, E] n:采样的数量 B:不同参数分布的个数 k:成分的个数 E:每个成分的事件形状
+            # component samples [n, B, k, E] n: number of samples, B: batch size, k: number of components, E: event shape
             comp_samples = self.component_distribution.sample_conditional(
                 lower_bound, sample_shape
             )
@@ -51,10 +52,10 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  # 混合分布�
                 mix_shape + torch.Size([1] * (len(es) + 1))  # 使得 mix_sample_r 的形状为 [n, B, 1, 1, ..., 1] (es 的长度+1个 1)
             )
             mix_sample_r = mix_sample_r.repeat(
-                torch.Size([1] * len(mix_shape)) + torch.Size([1]) + es # 扩展event shape对应的维度，使得mix_sample_r的形状[n,B,1,E]
+                torch.Size([1] * len(mix_shape)) + torch.Size([1]) + es # [n,B,1,E]
             )
 
-            samples = torch.gather(comp_samples, gather_dim, mix_sample_r) # torch.gather 在第 gather_dim 维度上按照 mix_sample_r 中的索引提取出我们想要的 component 的样本
+            samples = torch.gather(comp_samples, gather_dim, mix_sample_r) 
             return samples.squeeze(gather_dim)
 
     

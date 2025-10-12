@@ -1,30 +1,23 @@
-import pandas as pd
-import os
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-import torch.nn.functional as F
-from torch.utils.data import WeightedRandomSampler
+from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 plt.rcParams['axes.unicode_minus'] = False
-from scipy.spatial.distance import cdist
-from torch.utils.data import WeightedRandomSampler,Subset, Dataset
-from src.data.data_utils import get_split_indices
+from torch.utils.data import Subset, Dataset
+from src.data.utils import get_split_indices
 
 class LSTMDataset(Dataset):
     def __init__(self, X, y, scalars=None):
         """
-        初始化自定义数据集
-        :param X: 输入特征数据
-        :param y: 标签数据
-        :param scalars: 用于归一化的缩放器字典（例如 MinMaxScaler）
+        Initialize the custom dataset.
+        :param X: Input feature data.
+        :param y: Target label data.
+        :param scalars: Dictionary of scalers used for normalization (e.g., MinMaxScaler).
         """
         self.X = X
         self.y = y
-        self.scalars = scalars  # 存储用于逆归一化的缩放器
+        self.scalars = scalars 
     
     def __len__(self):
         return len(self.X)
@@ -33,10 +26,10 @@ class LSTMDataset(Dataset):
         return self.X[idx], self.y[idx]
     def inverse_normalize_label(self, norm_value):
         """
-        使用提供的缩放器进行标签的逆归一化。
-        支持 (B, F) 或 (B,) 输入，输出与输入形状相同。
-        :param norm_value: 归一化后的值 (B, F) 或 (B,)
-        :return: 逆归一化后的值，形状与 norm_value 相同
+        Perform inverse normalization of the label using the provided scaler.
+        Supports input shapes of (B, F) or (B,), and the output shape matches the input.
+        :param norm_value: Normalized value with shape (B, F) or (B,)
+        :return: Inverse normalized value with the same shape as norm_value
         """
         if 'Mag_max_obs' in self.scalars:
             scalar = self.scalars['Mag_max_obs']
@@ -47,7 +40,7 @@ class LSTMDataset(Dataset):
             value = value.reshape(orig_shape)
             return torch.tensor(value, dtype=torch.float32)
         else:
-            raise ValueError("未找到标签列的归一化缩放器。")
+            raise ValueError("Scaler for the label column not found.")
 
 
 def normalize_df(df):
@@ -64,35 +57,31 @@ def normalize_df(df):
 
 def clean_data(X, y, nan_value_for_x=0.0, verbose=True):
     """
-    清洗输入特征 X 和标签 y：
-    - 删除 y 为 NaN 的样本（以及对应的 X）
-    - 将 X 中的 NaN 替换为指定值（默认是 0.0）
+    Clean the input features X and labels y:
+    - Remove samples where y is NaN (and the corresponding X)
+    - Replace NaN values in X with a specified value (default is 0.0)
     
-    参数：
-        X (np.ndarray): 输入特征，二维数组 (n_samples, n_features)
-        y (np.ndarray): 目标变量，一维或二维数组
-        nan_value_for_x (float): 用于替换 X 中 NaN 的值，默认 0.0
-        verbose (bool): 是否打印处理日志
+    Parameters:
+        X (np.ndarray): Input features, a 2D array (n_samples, n_features)
+        y (np.ndarray): Target variable, a 1D or 2D array
+        nan_value_for_x (float): Value to replace NaN in X, default is 0.0
+        verbose (bool): Whether to print processing logs
 
-    返回：
-        X_clean (np.ndarray): 清洗后的 X
-        y_clean (np.ndarray): 清洗后的 y
+    Returns:
+        X_clean (np.ndarray): Cleaned X
+        y_clean (np.ndarray): Cleaned y
     """
-    # 转为 numpy 数组（如果不是的话）
     X = np.array(X)
     y = np.array(y)
 
-    # 1. 去除 y 为 NaN 的样本
     valid_mask = ~np.isnan(y).flatten()
     X_clean = X[valid_mask]
     y_clean = y[valid_mask]
 
-    # 2. 替换 X 中的 NaN 为指定值
     X_clean = np.nan_to_num(X_clean, nan=nan_value_for_x)
-
     if verbose:
-        print(f"   原始样本数: {len(y)}, 清洗后样本数: {len(y_clean)}")
-        print(f"   替换了 X 中的 NaN 为 {nan_value_for_x}")
+        print(f"   Original number of samples: {len(y)}, number of samples after cleaning: {len(y_clean)}")
+        print(f"   Replaced NaN values in X with {nan_value_for_x}")
 
     return X_clean, y_clean
 

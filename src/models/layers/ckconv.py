@@ -2,6 +2,7 @@ from torch import nn
 import torch
 from  torch.nn.utils.parametrizations import weight_norm
 
+
 class Sine(nn.Module):
     def __init__(self):
         super(Sine, self).__init__()
@@ -53,6 +54,9 @@ class SirenNet(nn.Module):
         return x
 
 class LocalConvLayer(nn.Module):
+    """Convolutional-Temporal-Point-Process
+        ref: https://github.com/AnthonyChouGit/Convolutional-Temporal-Point-Process
+    """
     def __init__(self, d_model: int, d_hid: int, hid_num: int, num_channel: int, horizon: list, omega: float=1):
         super(LocalConvLayer, self).__init__()
         self.siren = SirenNet(d_hid, hid_num, num_channel, omega)

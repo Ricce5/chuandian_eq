@@ -70,13 +70,13 @@ class M_T_InputAdapterWithTime:
     
 class THP_BatchInputAdapter:
     def __init__(self, model: Optional[nn.Module] = None):
-        self.model = model  # 引用 THP 模型实例
+        self.model = model 
 
     def __call__(self, bx: src.data.Batch) -> dict:
         log_inter_times = torch.log(torch.clamp_min(bx.inter_times, 1e-10)).unsqueeze(-1)
-        log_inter_times -= self.model.log_tau_mean  # 使用 buffer
+        log_inter_times -= self.model.log_tau_mean 
 
-        mag = bx.mag[:, :, None] - self.model.mag_mean  # 使用 buffer
+        mag = bx.mag[:, :, None] - self.model.mag_mean 
         # mark = torch.cat([log_inter_times, mag], dim=-1)
         mark = mag 
 
@@ -89,13 +89,13 @@ class THP_BatchInputAdapter:
     
 class THP_Logdeltat_BatchInputAdapter:
     def __init__(self, model: Optional[nn.Module] = None):
-        self.model = model  # 引用 THP 模型实例
+        self.model = model
 
     def __call__(self, bx: src.data.Batch) -> dict:
         log_inter_times = torch.log(torch.clamp_min(bx.inter_times, 1e-10)).unsqueeze(-1)
-        log_inter_times -= self.model.log_tau_mean  # 使用 buffer
+        log_inter_times -= self.model.log_tau_mean
 
-        mag = bx.mag[:, :, None] - self.model.mag_mean  # 使用 buffer
+        mag = bx.mag[:, :, None] - self.model.mag_mean 
         # mark = torch.cat([log_inter_times, mag], dim=-1)
         mark = mag 
 
@@ -109,6 +109,9 @@ class THP_Logdeltat_BatchInputAdapter:
 
 class Mixer_BatchInputAdapter:
     def __init__(self, args):
+        """
+        input adapter for mixer_tpp
+        """
         to_t = lambda x: torch.tensor(x, dtype=torch.float32)
 
         # ---- stats & constants
@@ -149,7 +152,6 @@ class Mixer_BatchInputAdapter:
         arrival_times, inter_times, mag, loc = self._extract_fields(batch)
         if not hasattr(batch, 'input_mask'):
             input_mask = self._make_non_pad_mask(inter_times).squeeze(-1).float()
-            # 相对直接使用生存时间没有被掩码
         else:
             input_mask = batch.input_mask.float()
         features = self._build_features(mag, loc, inter_times, input_mask.unsqueeze(-1))
@@ -235,6 +237,9 @@ class Mixer_BatchInputAdapter:
 
 
 class MixerInputAdapterWithTime:
+    """
+    input adapter of mixer for classification and regression tasks
+    """
     def __init__(self, args):
         stats = args.stats
         to_t = lambda x: torch.tensor(x, dtype=torch.float32)
@@ -281,7 +286,7 @@ class MixerInputAdapterWithTime:
     # ---------- step 1: parse ----------
     def _extract_fields(self, batch_tensor: torch.Tensor) -> Tuple[torch.Tensor, ...]:
         """
-        期望输入格式:
+        Expected input format:
         [:, :, 0] = arrival_times
         [:, :, 1] = arrival_times_nl
         [:, :, 2:3] = mag
@@ -297,7 +302,6 @@ class MixerInputAdapterWithTime:
 
     # ---------- step 2: mask ----------
     def _make_non_pad_mask(self, arrival_times: torch.Tensor) -> torch.Tensor:
-        # 保持与原项目一致：假设外部有 get_non_pad_mask
         return get_non_pad_mask(arrival_times)  # [B, T, 1]
 
     # ---------- step 3: features ----------
@@ -347,15 +351,10 @@ class MixerInputAdapterWithTime:
         return log_tau - self.log_tau_mean
 
     def normalize_arrival_times_nl(self, arrival_times_nl: torch.Tensor) -> torch.Tensor:
-        """
-        以 pipeline 风格简化：通过 scale 统一控制是否 token 归一化。
-        """
+        """normalize arrival times"""
         scale = self.time_scale_base if self.normalize_time else torch.tensor(1.0, dtype=torch.float32)
         return arrival_times_nl * self.Twindow / scale
 
 
-    # =========================
-    # PUBLIC UTILS（可选）
-    # =========================
     def get_extra_inputs(self, batch_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {"event_time": batch_tensor[:, :, 1]}

@@ -1,3 +1,4 @@
+# Reference: Spatio-temporal Diffusion Point Processes https://github.com/tsinghua-fib-lab/Spatio-temporal-Diffusion-Point-Processes
 import torch.nn as nn
 import torch
 import math
@@ -7,7 +8,6 @@ from typing import Optional, Tuple, Dict
 
 class EncoderLayer(nn.Module):
     """ Compose with two layers """
-    # non_pad_mask 是一个掩码张量，用于确保填充位置不会影响计算
     def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, normalize_before=True,attn_types=("full",  "flash")):
         super(EncoderLayer, self).__init__()
         self.slf_attn = MultiHeadAttention(
@@ -22,7 +22,7 @@ class EncoderLayer(nn.Module):
         self.slf_attn.set_dropout(p)
 
     def forward(self, enc_input, non_pad_mask=None, attn_mask=None, cache: Optional[Dict[str, torch.Tensor]] = None):
-        enc_output, enc_slf_attn = self.slf_attn(                         # 根据点积注意力，为0的填充部分计算后为0
+        enc_output, enc_slf_attn = self.slf_attn(                      
             enc_input, enc_input, enc_input, non_pad_mask=non_pad_mask.squeeze(-1),attn_mask=attn_mask, cache=cache)
         # print(f"encoder_layer: enc_output: {enc_output[0,:,0]},")
         enc_output *= non_pad_mask
@@ -153,11 +153,9 @@ class RNN_layers(nn.Module):
             out = out * non_pad_mask
             return out, cache
 
-        # 打包序列
         packed = nn.utils.rnn.pack_padded_sequence(data, lengths, batch_first=True, enforce_sorted=False)
         packed_out, cache = self.rnn(packed, cache)
 
-        # 解包序列
         if pad_seq_len:
             out = nn.utils.rnn.pad_packed_sequence(packed_out, batch_first=True, total_length=L)[0]
         else:

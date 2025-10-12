@@ -6,7 +6,6 @@ import math
 from datetime import datetime, timezone
 
 def set_seed(seed: int = 42):
-    """为所有可能的随机源设置种子以确保可复现性。"""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -28,13 +27,13 @@ def set_seed(seed: int = 42):
 
 def cal2jd(date):
     """
-    计算给定日期的儒略日 (Julian Date)
+    Calculate the Julian Date (JD) for a given date.
     
-    输入参数:
-    date - 日期格式：[year, month, day, hour, minute, second]
+    Parameters:
+    date - Date in the format: [year, month, day, hour, minute, second]
     
-    返回值:
-    jd - 对应的儒略日 (Julian Date)
+    Returns:
+    jd - The corresponding Julian Date (JD)
     """
     year, month, day, hour, minute, second = date
     if month <= 2:
@@ -48,20 +47,20 @@ def cal2jd(date):
 
 
 def _to_np_datetime64_seconds(t0) -> np.datetime64:
-    """把多种输入形式统一成 numpy.datetime64(秒)"""
+    """Convert various input formats to numpy.datetime64 (seconds precision)."""
     if isinstance(t0, np.datetime64):
         return t0.astype('datetime64[s]')
     if isinstance(t0, datetime):
         return np.datetime64(t0).astype('datetime64[s]')
-    if isinstance(t0, (int, float)):  # 认为是UNIX秒级时间戳
+    if isinstance(t0, (int, float)):  # Assume it is a UNIX timestamp in seconds.
         return np.datetime64(int(t0), 's')
-    if isinstance(t0, str):  # ISO字符串，如 '2000-01-01' 或 '2000-01-01T00:00:00'
+    if isinstance(t0, str):  # ISO string, e.g., '2000-01-01' or '2000-01-01T00:00:00'.
         return np.datetime64(t0).astype('datetime64[s]')
-    raise TypeError("start_time 需要是 datetime / np.datetime64 / ISO字符串 / 秒级UNIX时间戳")
+    raise TypeError("start_time must be datetime / np.datetime64 / ISO string / UNIX timestamp in seconds.")
 
 
 def _to_py_datetime(t64: np.datetime64) -> datetime:
-    """np.datetime64 -> python datetime（秒精度, tz-aware UTC）"""
+    """Convert np.datetime64 to Python datetime (second precision, tz-aware UTC)."""
     ts = (t64 - np.datetime64('1970-01-01T00:00:00', 's')) / np.timedelta64(1, 's')
     return datetime.fromtimestamp(float(ts), tz=timezone.utc)
 

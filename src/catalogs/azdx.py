@@ -7,7 +7,7 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
 from src.utils.catalog_utils import train_val_test_split_sequence_float
-from src.data.data_utils import get_split_indices
+from src.data.utils import get_split_indices
 
 
 def trim(x_min, x_max, p=0.05):

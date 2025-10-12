@@ -6,6 +6,9 @@ import torch
 
 @RepresentationExtractor.register("attn_time")
 class AttentionPoolingWithTimeExtractor(RepresentationExtractor):
+    """
+    Attention Pooling with Event Time as Additional Feature
+    """
     def __init__(self, input_dim, hidden_dim,device=None):
         super().__init__()
         self.pool = AttentionPooling(input_dim=input_dim, hidden_dim=hidden_dim).to(device)

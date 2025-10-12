@@ -1,3 +1,6 @@
+# Rotary Embedding for continuous time as noted in our paper
+# ref: https://github.com/Dao-AILab/flash-attention/blob/main/flash_attn/layers/rotary.py
+
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
@@ -51,10 +54,9 @@ def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "midpoint
 
     if mode == "mean":
         sums = (times_float * non_zero_mask).sum(dim=1)
-        counts = non_zero_mask.sum(dim=1).clamp(min=1)  # 避免除0
+        counts = non_zero_mask.sum(dim=1).clamp(min=1) 
         center = sums / counts
     elif mode == "midpoint":
-        # 将非零以外的地方设为 +inf / -inf 后取 min/max
         times_with_inf = times_float.clone()
         times_with_inf[~non_zero_mask] = float('inf')
         min_vals, _ = torch.min(times_with_inf, dim=1)
@@ -63,9 +65,9 @@ def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "midpoint
         max_vals, _ = torch.max(times_with_ninf, dim=1)
         center = (min_vals + max_vals) / 2
 
-        # 若某一行全是0，min=inf, max=-inf，此时结果为 nan，需要额外处理
+        # deal with all-zero case
         all_zero_mask = non_zero_mask.sum(dim=1) == 0
-        center[all_zero_mask] = 0  # 或者设为 nan、-1、其他默认值
+        center[all_zero_mask] = 0 
     return center
 
 

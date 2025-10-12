@@ -1,5 +1,5 @@
-# Copyright (c) 2024, Tri Dao, Albert Gu.
-# 推理阶段计算flash_attn强制使用float16
+# convert input into fp16 with kv cache support
+# ref: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/modules/mha.py
 import math
 
 import torch

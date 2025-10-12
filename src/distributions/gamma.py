@@ -6,10 +6,10 @@ import torch.nn.functional as F
 
 class Gamma(Distribution):
     """
-    Gamma(α, β)分布，其中α > 0（浓度参数），β > 0（速率参数）
+    Gamma(α, β) distribution, where α > 0 (concentration parameter) and β > 0 (rate parameter).
     PDF: f(x) = β^α / Γ(α) * x^(α-1) * exp(-β * x),  x > 0
-    均值 = α / β
-    方差 = α / β^2
+    Mean = α / β
+    Variance = α / β^2
     """
     arg_constraints = {
         "concentration": constraints.nonnegative,
@@ -18,28 +18,27 @@ class Gamma(Distribution):
     support = constraints.nonnegative
 
     def __init__(self, concentration: torch.Tensor, rate: torch.Tensor, validate_args=None):
-        # 先做拷贝，避免原地改动影响叶子结点/上游计算图
+        #  to avoid modifying the input tensors
         concentration = concentration.clone()
         rate = rate.clone()
 
-        # 如果 PAD 位置是 0，创建 mask：mask 为 True 的位置表示有效
-        concentration_mask = (concentration == 0)  # 0 是 PAD
+        # If PAD positions are 0, create masks: mask indicates valid positions
+        concentration_mask = (concentration == 0)  # 0 is PAD
         rate_mask = (rate == 0)
-        self.mask = (~rate_mask).bool()  # 只保留有效位置
+        self.mask = (~rate_mask).bool()  # Keep only valid positions
 
-        # 检查 concentration 和 rate 的 PAD 位置是否一致
-        assert not torch.any(concentration_mask & ~rate_mask), "concentration 和 rate 的 PAD 位置必须一致"
+        # Check if PAD positions of concentration and rate are consistent
+        if torch.any(concentration_mask != rate_mask):
+            raise ValueError("PAD positions of concentration and rate must be consistent.")
 
-        # 原地 clamp，确保 > 0
+
         concentration.clamp_min_(1e-3)
         rate.clamp_min_(1e-3)
 
-        # 广播并保存
         self.concentration, self.rate = broadcast_all(concentration, rate)
 
-        # 显式自检，确保无负值
-        assert torch.all(self.concentration > 0), "concentration 里存在非正数"
-        assert torch.all(self.rate > 0), "rate 里存在非正数"
+        assert torch.all(self.concentration > 0), "concentration contains non-positive values"
+        assert torch.all(self.rate > 0), "rate contains non-positive values"
 
         batch_shape = self.concentration.shape
         super().__init__(batch_shape, validate_args=validate_args)
@@ -64,9 +63,6 @@ class Gamma(Distribution):
 
 
     def rsample(self, sample_shape=torch.Size()):
-        """
-        使用重参数化技巧进行采样；要求α > 0（这里满足条件）。
-        """
         shape = torch.Size(sample_shape) + self.batch_shape
         alpha = self.concentration.expand(shape)
         beta = self.rate.expand(shape)
@@ -82,27 +78,17 @@ class Gamma(Distribution):
 
     @property
     def mode(self):
-        """
-        Gamma分布的众数。对于α > 1，众数 = (α - 1) / β。
-        对于α ≤ 1，众数为0（即分布会偏向0）。
-        """
+        # mode = (α - 1) / β, for α >= 1; mode = 0 for α < 1
         mode = torch.where(self.concentration > 1, (self.concentration - 1) / self.rate, torch.tensor(0.0))
         return mode
 
     def entropy(self):
-        """
-        计算Gamma分布的熵：
-        H(X) = α - log(β) + log(Γ(α)) + (1 - α) * ψ(α)
-        其中ψ(α)是Gamma函数的Digamma函数。
-        """
+        # calculate the entropy of the Gamma distribution
         alpha = self.concentration
         beta = self.rate
         return alpha - torch.log(beta) + torch.lgamma(alpha) + (1 - alpha) * torch.digamma(alpha)
 
     def cdf(self, value):
-        """
-        计算Gamma分布的累积分布函数（CDF）。
-        """
         alpha = self.concentration
         beta = self.rate
         return torch.special.gammainc(alpha, beta * value)

@@ -12,8 +12,7 @@ def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",
     targets = np.array(targets)
 
     if apply_sigmoid:
-        preds = expit(preds)  # sigmoid 函数
-    # 自动选阈值（默认基于 F1）
+        preds = expit(preds) 
     if threshold is None:
         fpr, tpr, thresholds = roc_curve(targets, preds)
         best_thresh = 0.5
@@ -44,7 +43,6 @@ def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",
 
         threshold = best_thresh
 
-    # 应用最终 threshold 进行评估
     preds_bin = (preds > threshold).astype(int)
     precision = precision_score(targets, preds_bin, zero_division=0)
     recall = recall_score(targets, preds_bin, zero_division=0)
@@ -63,7 +61,6 @@ def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",
     correct = np.sum(preds_bin == targets)
     conf = compute_confidence(total, correct, FPR)
 
-    # 转换所有值为原生 Python 类型，防止 json.dump 报错
     metrics_dict = {
         k: (float(v) if isinstance(v, (np.floating, np.float32, np.float64))
         else int(v) if isinstance(v, (np.integer,))
@@ -94,19 +91,19 @@ def log_metrics(metrics, prefix=""):
 
 
 def compute_confidence(N, m, b):
-    """二项分布置信度计算"""
+    """calculate the confidence of getting at least m correct predictions by chance in N trials with success probability b"""
     return binom.cdf(m - 1, N, b)
 
 def plot_and_save_roc_curve(targets, preds, auc_value, save_dir, filename="roc_curve.png"):
     """
-    绘制并保存 ROC 曲线图像。
+    Plot and save the ROC curve image.
 
-    参数:
-    - targets: numpy 数组，真实标签
-    - preds: numpy 数组，预测值（概率）
-    - auc_value: float，AUC 指标值
-    - save_dir: str，保存目录
-    - filename: str，图像文件名
+    Parameters:
+    - targets: numpy array, true labels
+    - preds: numpy array, predicted values (probabilities)
+    - auc_value: float, AUC metric value
+    - save_dir: str, directory to save the image
+    - filename: str, name of the image file
     """
     try:
         fpr, tpr, _ = roc_curve(targets, preds)
@@ -153,12 +150,11 @@ def plot_classification_distribution(preds, labels, title="Prediction Distributi
 def pick_median_pred(preds, taus):
     """preds: [N, Tq] or [N,] ; taus: list/array length Tq or None"""
     if preds.ndim == 1:
-        return preds  # 已是单值
+        return preds 
     if taus is None or len(taus) == 0:
-        # 没提供分位数标签，就取中间列
         return preds[:, preds.shape[1]//2]
     taus = np.asarray(taus, dtype=float).ravel()
-    mid = float(taus[np.argmin(np.abs(taus-0.5))])  # 找最接近 0.5 的 τ
+    mid = float(taus[np.argmin(np.abs(taus-0.5))])  
     idx = int(np.where(taus == mid)[0][0])
     return preds[:, idx]
 
@@ -166,23 +162,18 @@ def regression_metrics(
     y_true, y_preds, taus=None, *, include_rank=True,
     include_dtw=True,
 ):
-    """
-    include_dtw : 是否计算 DTW（默认 False）
-    dtw_radius  : fastdtw 的搜索半径，半径越大越精确但计算更慢
-    """
-    import numpy as np
     try:
         from scipy.stats import spearmanr
         _HAS_SCIPY = True
     except Exception:
         _HAS_SCIPY = False
 
-    # 取预测
+
     y_pred = pick_median_pred(y_preds, taus)
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
 
-    # —— 误差类（越低越好）——
+
     err  = y_true - y_pred
     MSE  = float(np.mean(err**2))
     RMSE = float(np.sqrt(MSE))
@@ -195,7 +186,7 @@ def regression_metrics(
     SS_tot = float(np.sum((y_true - y_true.mean())**2))
     R2 = float(1 - SS_res / SS_tot) if SS_tot != 0 else np.nan
 
-    # —— 趋势类（越高越好）——
+    # PearsonR
     def _pearson(a, b):
         r = np.corrcoef(a, b)[0, 1]
         return float(r)
@@ -249,7 +240,7 @@ def regression_metrics(
 
 
 def count_metrics(y_true, y_pred):
-    y_pred = np.round(np.exp(y_pred))  # 从 log(λ) 转换为 λ，并四舍五入
+    y_pred = np.round(np.exp(y_pred))  
     y_true = np.round(y_true)
 
     mae = np.mean(np.abs(y_true - y_pred))
@@ -282,7 +273,6 @@ def plot_regression_scatter(data_dict, save_path=None, verbose=False, taus=None)
                     marker=markers.get(label, "o"), 
                     s=15, label=f"{label} Set")
 
-    # 参考线
     x_min = min([np.min(np.array(v[0])) for v in data_dict.values()])
     x_max = max([np.max(np.array(v[0])) for v in data_dict.values()])
     x = np.linspace(x_min, x_max, 100)
@@ -352,7 +342,6 @@ def plot_count_scatter(data_dict, save_path=None, verbose=False):
                     marker=markers.get(label, "o"), 
                     s=15, label=f"{label} Set")
 
-    # 参考线
     x = np.linspace(0, 20, 100)
     plt.plot(x, x, 'r-', label='Ideal: y = x')
     plt.plot(x, x + 1, 'gray', linestyle='--', label='y = x + 1')

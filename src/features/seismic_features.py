@@ -1,4 +1,5 @@
-# 'b_std_mlk', 'std_gr_mlk' 'b_std_lsq', 'std_gr_lsq'与matlab程序计算结果有差异
+# Features for Small Earthquakes Can Help Predict Large Earthquakes: A Machine Learning Perspective
+# Reference: https://www.mdpi.com/2076-3417/13/11/6424
 import numpy as np
 import math
 import pandas as pd
@@ -27,29 +28,27 @@ def cal2jd(date):
 
 def calculate_magnitudes_and_features(Mag, Mc, dMag):
     """
-    计算每个时间窗口内地震数据的b值和a值，以及与地震震级相关的其他特征。
-    
-    输入参数:
-    Mag - 当前时间窗口的地震震级数据
-    Mc - 最小震级
-    dMag - 震级区间的步长
+    Calculate b-value and a-value for each time window, along with other features related to earthquake magnitudes.
 
-    返回值:
+    Parameters:
+    Mag - Earthquake magnitude data for the current time window
+    Mc - Minimum magnitude
+    dMag - Step size for magnitude intervals
+
+    Returns:
     b_lsq, a_lsq, std_gr_lsq, b_mlk, a_mlk, std_gr_mlk, dM_lsq, dM_mlk, b_std_lsq, b_std_mlk
     """
     if len(Mag) == 0:
-        # 如果没有地震数据，返回 NaN 或默认值
         return np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
 
     Mag_max = np.max(Mag)
     Mag_mean = np.mean(Mag)
 
-    # 震级区间及对应的地震事件数量
     Mag_int = np.arange(Mc, Mag_max + dMag, dMag)
-    Mag_int = np.round(Mag_int, 1)  # 保留一位小数
+    Mag_int = np.round(Mag_int, 1)  
     num_Mag_int = np.array([len(np.where(Mag >= m)[0]) for m in Mag_int])
 
-    log_NumM = np.log10(np.maximum(num_Mag_int, 1e-10))  # 替换0为一个很小的正数
+    log_NumM = np.log10(np.maximum(num_Mag_int, 1e-10))  
 
 
     # Calculate b_lsq (slope)
@@ -65,13 +64,13 @@ def calculate_magnitudes_and_features(Mag, Mc, dMag):
     else:
         a_lsq = np.nan
 
-    # 标准差计算 std_gr_lsq
+    # calculate std_gr_lsq 
     if len(Mag_int) > 1 and denominator_b_lsq != 0:
         std_gr_lsq = np.sum((log_NumM - a_lsq - b_lsq * Mag_int) ** 2) / (len(Mag_int) - 1)
     else:
         std_gr_lsq = np.nan
 
-    # 最大似然估计 (Maximum Likelihood)
+    # maximum likelihood estimation for b_mlk and a_mlk
     if Mag_mean > Mc:
         b_mlk = np.log10(np.exp(1)) / (Mag_mean - Mc)
         a_mlk = np.log10(len(Mag)) + b_mlk * Mc
@@ -79,13 +78,13 @@ def calculate_magnitudes_and_features(Mag, Mc, dMag):
         b_mlk = np.nan
         a_mlk = np.nan
 
-    # 最大似然的标准差计算 std_gr_mlk
+    # std_gr_mlk
     if len(Mag_int) > 1 and b_mlk != np.nan:
         std_gr_mlk = np.sum((log_NumM - a_mlk - b_mlk * Mag_int) ** 2) / (len(Mag_int) - 1)
     else:
         std_gr_mlk = np.nan
 
-    # 最大震级缺口
+    # max_magnitude_dificit
     if b_lsq != 0:
         dM_lsq = Mag_max - (a_lsq / b_lsq)
     else:
@@ -96,7 +95,7 @@ def calculate_magnitudes_and_features(Mag, Mc, dMag):
     else:
         dM_mlk = np.nan
 
-    # 计算标准差（用于误差估算）
+    # standard deviation of b-value
     if len(Mag_int) > 1:
         denominator_std = np.sum((Mag_int - Mag_mean) ** 2) / len(Mag_int) / (len(Mag_int) - 1)
         if denominator_std != 0:
@@ -115,16 +114,16 @@ def calculate_magnitudes_and_features(Mag, Mc, dMag):
 
 def calculate_elapsed_times(jd, t, mag, Mag_elaps=[6.0, 6.5, 7.0, 7.5]):
     """
-    计算自上次震级大于指定值的事件发生以来经过的时间。
-    
-    输入参数:
-    jd - 所有地震的 Julian 日期
-    t - 当前时间窗口的时间
-    mag - 当前所有地震的震级
-    Mag_elaps - 震级阈值列表（默认 [6.0, 6.5, 7.0, 7.5]）
-    
-    返回值:
-    T_elaps - 对应震级阈值的经过时间
+    Calculate the elapsed time since the last event with a magnitude greater than the specified thresholds.
+
+    Parameters:
+    jd - Julian dates of all earthquakes
+    t - Current time window
+    mag - Magnitudes of all earthquakes
+    Mag_elaps - List of magnitude thresholds (default [6.0, 6.5, 7.0, 7.5])
+
+    Returns:
+    T_elaps - Elapsed times corresponding to the magnitude thresholds
     """
     T_elaps = np.zeros(len(Mag_elaps))
     indexT_elaps = np.where(jd < t)[0]
@@ -138,98 +137,92 @@ def calculate_elapsed_times(jd, t, mag, Mag_elaps=[6.0, 6.5, 7.0, 7.5]):
 
 def calculate_seismic_change_rate(sub_jd, Twindow, t):
     """
-    计算地震性变化率，包括 zvalue 和 beta 值。
+    Calculate seismic change rates, including z-value and beta value.
 
-    输入参数:
-    sub_jd - 所有地震的 Julian 日期
-    Twindow - 时间窗口大小
-    t - 当前时间窗口的时间
+    Parameters:
+    sub_jd - Julian dates of all earthquakes
+    Twindow - Size of the time window
+    t - Current time window time
 
-    返回值:
-    zvalue - 地震性变化率的 z 值
-    beta - 地震性变化率的 beta 值
+    Returns:
+    zvalue - z-value of seismic change rate
+    beta - beta value of seismic change rate
     """
     def calculate_zvalue(R1, R2, S1, S2, N1, N2):
         try:
-            # 检查 N1 或 N2 是否为零
             if N1 == 0 or N2 == 0:
-                print(f"错误：检测到除以零！N1={N1}, N2={N2}, S1={S1}, S2={S2}")
+                print(f"Error: Division by zero detected! N1={N1}, N2={N2}, S1={S1}, S2={S2}")
                 print(t)
                 return np.nan
             
-            # 计算分母
             denominator = (S1 / N1) + (S2 / N2)
             
-            # 检查分母是否接近零
             if np.isclose(denominator, 0):
-                print(f"警告：分母接近零！Denominator={denominator}, S1={S1}, N1={N1}, S2={S2}, N2={N2}")
+                print(f"Warning: Denominator is close to zero! Denominator={denominator}, S1={S1}, N1={N1}, S2={S2}, N2={N2}")
                 zvalue = np.nan
             else:
                 zvalue = (R1 - R2) / np.sqrt(denominator)
-                # print(f"成功：zvalue={zvalue}, R1={R1}, R2={R2}, Denominator={denominator}, S1={S1}, N1={N1}, S2={S2}, N2={N2}")
             
             return zvalue
         
         except Exception as e:
-            print(f"发生异常：{e}, S1={S1}, N1={N1}, S2={S2}, N2={N2}")
+            print(f"Exception occurred: {e}, S1={S1}, N1={N1}, S2={S2}, N2={N2}")
             return np.nan
 
-    fTstart = t - Twindow  # 时间窗口开始时间
-    fT = t - 0.5 * Twindow  # 时间窗口中间时间
+    fTstart = t - Twindow  # start time of the window
+    fT = t - 0.5 * Twindow  # midpoint of the window
     fTw = 0.5 * Twindow  
-    Tbin = 0.05 * Twindow  # 时间窗口的分bin大小
+    Tbin = 0.05 * Twindow  # bin size for histogram
 
-    # 获取时间段内的地震事件索引
+    # get indices for the two time periods
     indexr1 = np.where((sub_jd >= fTstart) & (sub_jd < fT))[0]
     indexr2 = np.where((sub_jd >= fT) & (sub_jd < (fT + fTw)))[0]
 
-    # 计算每个时间段内地震事件的数量
+    # number of events in each period
     N1 = len(indexr1)
     N2 = len(indexr2)
 
-    # 计算震级比率
+    # calculate event rates
     R1 = N1 / (fT - fTstart)
     R2 = N2 / fTw
                                                                                                      
-    # 计算震级事件的分布
+    # calculate histograms for variance calculation
     nR1, _ = np.histogram(sub_jd[indexr1], bins=np.arange(fTstart, fT + 2 * Tbin, Tbin))
     nR2, _ = np.histogram(sub_jd[indexr2], bins=np.arange(fT, fT + fTw + 2 * Tbin, Tbin))
 
-    # 计算样本方差
-    S1 = np.var(nR1, ddof=1)  
+    # calculate sample variance
+    S1 = np.var(nR1, ddof=1)
     S2 = np.var(nR2, ddof=1)
 
-    # 计算地震发生频率
+    # calculate event frequency
     vR1, _ = np.histogram(sub_jd, bins=np.arange(fTstart, fT + fTw + 2 * Tbin, Tbin))
     nEq1 = np.sum(vR1)
     nBin1 = len(vR1)
 
-    # 计算变化率的参数
+    # calculate parameters for change rate  
     winlen_days = fTw / Tbin
     fNormInvalLength = winlen_days / nBin1
 
     zvalue = calculate_zvalue(R1, R2, S1, S2, N1, N2)
     beta = (N2 - nEq1 * fNormInvalLength) / np.sqrt(nEq1 * fNormInvalLength * (1 - fNormInvalLength))
 
-    return  beta,zvalue
+    return beta, zvalue
 
 def get_max_magnitude_in_forecast(jd, mag, t, Tfore):
     """
-    获取预测期（Tfore）内的最大震级。
+    Get the maximum magnitude within the forecast period (Tfore).
 
-    输入参数:
-    jd - 所有地震的 Julian 日期
-    mag - 所有地震的震级
-    t - 当前时间窗口结束时间
-    Tfore - 预测期（时间范围）
+    Parameters:
+    jd - Julian dates of all earthquakes
+    mag - Magnitudes of all earthquakes
+    t - End time of the current time window
+    Tfore - Forecast period (time range)
 
-    返回值:
-    max_mag - 预测期内的最大震级
+    Returns:
+    max_mag - Maximum magnitude within the forecast period
     """
-    # 获取预测期内的地震事件索引
     index_Max_mag_obs = np.where((jd >= t) & (jd < (t + Tfore)))[0]
     
-    # 如果有地震事件，返回最大震级
     if len(index_Max_mag_obs) > 0:
         return np.max(mag[index_Max_mag_obs])
     else:
@@ -237,58 +230,59 @@ def get_max_magnitude_in_forecast(jd, mag, t, Tfore):
 
 def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=30, dt=30, dMag=0.1, Mag_elaps=[6, 6.5], t_arrary=None,L_max=60,context_len=2):
     """
-    计算地震特征，包括 b值拟合、最大/平均震级、地震能量、发生时间等统计特征。
+    Calculate seismic features, including b-value fitting, maximum/average magnitude, seismic energy, occurrence times, and other statistical features.
 
-    参数:
+    Parameters:
     data_input : ndarray
-        地震数据数组，形如 [JD, mag, reg]
+        Earthquake data array in the form [JD, mag, reg]
     Mc : float
-        最小震级阈值
+        Minimum magnitude threshold
     Mf : float
-        用于判断主震后的最大震级阈值（用于标注 Negative）
+        Threshold for determining the maximum magnitude after the mainshock (used for marking Negative)
     Twindow : float
-        时间窗口长度（天）
+        Time window length (days)
     Tfore : float
-        预测期（天）
+        Forecast period (days)
     dt : float
-        时间步长
+        Time step
     dMag : float
-        用于震级分布的 bin 宽度
+        Bin width for magnitude distribution
     Mag_elaps : list of float
-        用于计算发生时间间隔的震级阈值
+        Magnitude thresholds for calculating elapsed times
     t_arrary : array-like or None
-        指定的时间节点（JD），若为 None 则自动生成
+        Specified time points (JD), if None, they are generated automatically
+    L_max : int
+        Maximum number of magnitude bins to consider (default is 60)
+    context_len : int
+        Context length multiplier for determining Negative samples (default is 2)
 
-    返回:
+    Returns:
     features_df : pd.DataFrame
-        各种统计特征组成的表格
+        Table of various statistical features
     num_mag : ndarray
-        每个时间点对应的震级频数统计（最多40个bin）
+        Magnitude frequency statistics corresponding to each time point (up to 40 bins)
     """
 
-    # 只保留震级大于 Mc 的事件
     data1 = data_input[data_input[:, 1] >= Mc]
     if len(data1) == 0:
-        raise ValueError("没有符合 Mc 条件的地震事件")
+        raise ValueError("No earthquake events meet the Mc condition")
 
     jd = data1[:, 0]
     mag = data1[:, 1]
     # reg = data1[:, 2]
 
-    # 时间数组设定
     if t_arrary is not None:
         t_arrary = np.array(t_arrary)
         if len(t_arrary) == 0:
-            raise ValueError("t_arrary 不能为空")
+            raise ValueError("t_arrary cannot be empty")
         if np.any(t_arrary < jd[0] + Twindow) or np.any(t_arrary > jd[-1]):
-            print("Warning: t_arrary 有值超出数据时间范围，会导致空窗口")
+            print("Warning: t_arrary contains values outside the valid range. They will be ignored.")
         Nloop = len(t_arrary)
         t_array_final = t_arrary
     else:
         Nloop = int(np.ceil((jd[-1] - jd[0] - Twindow - Tfore) / dt))
         t_array_final = Twindow + jd[0] + np.arange(Nloop) * dt
 
-    # 初始化特征字典
     features = {
         "t": t_array_final.copy(),
         "Num": np.zeros(Nloop),
@@ -319,7 +313,6 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
 
     num_mag = np.zeros((Nloop, L_max))
 
-    # 遍历每个时间节点
     for i in range(Nloop):
         t_now = t_array_final[i]
         index = np.where((jd >= t_now - Twindow) & (jd < t_now))[0]
@@ -339,14 +332,12 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
             print(f"Warning: No data in window for index {i}, skipping.")
             continue
 
-        # 调用子函数计算特征
         b_lsq, a_lsq, std_gr_lsq, b_mlk, a_mlk, std_gr_mlk, dM_lsq, dM_mlk, b_std_lsq, b_std_mlk, num_mag_int = calculate_magnitudes_and_features(sub_mag, Mc, dMag)
         T_elaps = calculate_elapsed_times(jd, t_now, mag, Mag_elaps)
         beta,zvalue = calculate_seismic_change_rate(sub_jd, Twindow, t_now)
         Mag_max_obs = get_max_magnitude_in_forecast(jd, mag, t_now, Tfore)
        
 
-        # 写入特征
         features["Num"][i] = len(index)
         features["Mag_max"][i] = np.max(sub_mag)
         features["Mag_mean"][i] = np.mean(sub_mag)
@@ -374,16 +365,42 @@ def calculate_seismic_features(data_input, Mc=4.7, Mf=5.5, Twindow=[20], Tfore=3
         L = min(len(num_mag_int), 40)
         num_mag[i, :L] = num_mag_int[:L]
 
-    # 返回 DataFrame 和 num_mag 数组
     features_df = pd.DataFrame(features)
     return features_df, num_mag
 
 def calculate_seismic_features_n(data_input, Mc=4.7, Mf=5.5, Twindow_list=[200], Tfore=30, dt=30, dMag=0.1, Mag_elaps=[6, 6.5], t_arrary=None):
+    """
+    Calculate seismic features over multiple time windows.
+
+    This function computes seismic features for a given dataset over a list of 
+    specified time windows. It uses the `calculate_seismic_features` function 
+    internally and aggregates the results for each time window.
+
+    Args:
+        data_input (pd.DataFrame): The input seismic data.
+        Mc (float, optional): The magnitude cutoff for completeness. Defaults to 4.7.
+        Mf (float, optional): The magnitude threshold for filtering. Defaults to 5.5.
+        Twindow_list (list of int, optional): A list of time windows (in seconds) 
+            over which to calculate features. Defaults to [200].
+        Tfore (int, optional): The forecast time window (in seconds). Defaults to 30.
+        dt (int, optional): The time step for feature calculation (in seconds). Defaults to 30.
+        dMag (float, optional): The magnitude bin size for histogram calculations. Defaults to 0.1.
+        Mag_elaps (list of float, optional): A list of magnitude ranges for elapsed time calculations. Defaults to [6, 6.5].
+        t_arrary (np.ndarray or None, optional): An optional array of time values to use 
+            for feature calculations. If None, it will be updated during the process. Defaults to None.
+
+    Returns:
+        tuple:
+            - results (dict): A dictionary where keys are time windows and values are 
+              the calculated seismic features for each window.
+            - num_mag_all (dict): A dictionary where keys are time windows and values are 
+              the number of events in each magnitude bin for each window.
+    """
     Twindow_list = sorted(Twindow_list, reverse=True)
     results = {}
     num_mag_all = {}
     for Twindow in Twindow_list:
-        # 计算地震特征
+
         out, num_mag = calculate_seismic_features(
             data_input, 
             Mc=Mc, 
@@ -396,11 +413,9 @@ def calculate_seismic_features_n(data_input, Mc=4.7, Mf=5.5, Twindow_list=[200],
             t_arrary=t_arrary
         )
 
-        # 存储当前时间窗口的结果
         results[Twindow] = out
         num_mag_all[Twindow] = num_mag
 
-        # 更新 t_arrary，保证后续窗口使用相同的时间点
         t_arrary = out["t"].values
     return results, num_mag_all
 

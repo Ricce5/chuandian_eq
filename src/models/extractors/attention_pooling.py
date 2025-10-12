@@ -1,9 +1,11 @@
-# models/extractors/attention_pooling.py
 from .base import RepresentationExtractor
 from ..layers.attention_pooling import AttentionPooling
 
 @RepresentationExtractor.register("attn")
 class AttentionPoolingExtractor(RepresentationExtractor):
+    """
+    Attention Pooling for sequence representation.
+    """
     def __init__(self, input_dim, hidden_dim,device=None):
         super().__init__()
         self.pool = AttentionPooling(input_dim=input_dim, hidden_dim=hidden_dim).to(device) 

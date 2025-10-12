@@ -1,26 +1,19 @@
-import pandas as pd
-import json
-import glob
-import os
 import torch
 import torch.nn.functional as F
 from torch.utils.data import WeightedRandomSampler
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 plt.rcParams['axes.unicode_minus'] = False
-from scipy.spatial.distance import cdist
 from torch.utils.data import WeightedRandomSampler,Subset
-from src.data.data_utils import get_split_indices
+from src.data.utils import get_split_indices
 from torch.utils.data import WeightedRandomSampler
 from .constants import PAD
 
 
 
 def normalize_df(df):
-    # 按特征类型分列
     magnitude_cols = [col for col in df.columns if 'Mag' in col]
     lat_cols = [col for col in df.columns if 'Lat' in col]
     lon_cols = [col for col in df.columns if 'Lon' in col]
@@ -33,8 +26,7 @@ def normalize_df(df):
         for col in col_list:
             scaler = MinMaxScaler()
             df_nl[col] = scaler.fit_transform(df[[col]])
-            scalers[col] = scaler  # 保存每个特征的scaler
-
+            scalers[col] = scaler
     return df_nl, scalers
 
 
@@ -47,14 +39,14 @@ def extract_field_array(dict_list, field):
 def generate_time_array(df, Twindow, Tfore, dt, t_array=None):
     t = df["t"].values
     t.sort()
-    print(f"地震事件数量（大于Mc）：{len(t)}")
+    print(f"Number of earthquake events (greater than Mc): {len(t)}")
 
     if t_array is not None:
         t_array = np.array(t_array)
         if len(t_array) == 0:
-            raise ValueError("t_array 不能为空")
+            raise ValueError("t_array cannot be empty")
         if np.any(t_array < t[0] + Twindow) or np.any(t_array > t[-1]):
-            print("⚠️ Warning: t_array 有值超出数据时间范围")
+            print("⚠️ Warning: t_array contains values outside the data time range")
         return t_array
     else:
         Nloop = int(np.ceil((t[-1] - t[0] - Twindow - Tfore) / dt))
@@ -124,7 +116,7 @@ def construct_samples_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t
 
 class EventDataset(torch.utils.data.Dataset):
     def __init__(self, array_dict, Mf=None,task_type ='classification',mag_min=3, mag_max=9.0):
-        assert task_type in ["classification", "regression", "count"], "不支持的任务类型"
+        assert task_type in ["classification", "regression", "count"], "Unsupported task type"
         self.task_type = task_type
         self.array_dict = array_dict
         self.Mf = Mf
@@ -216,7 +208,6 @@ def count_pos_neg(subset):
         pos = sum(1 for i in indices if base_dataset[i][1] == 1)
         neg = sum(1 for i in indices if base_dataset[i][1] == 0)
     else:
-        # 默认是完整的数据集
         pos = sum(1 for _, target in subset if target == 1)
         neg = sum(1 for _, target in subset if target == 0)
     return pos, neg
@@ -226,7 +217,7 @@ def count_pos_neg(subset):
 
 
 def get_balanced_sampler(dataset):
-    labels = [label for _, label in dataset]  # 假设 dataset[i] = (data, label)
+    labels = [label for _, label in dataset]  # assume dataset[i] = (data, label)
     class_counts = torch.bincount(torch.tensor(labels))
     class_weights = 1.0 / class_counts.float()
     sample_weights = [class_weights[label] for label in labels]
@@ -282,10 +273,10 @@ def get_sequence_length_stats(array_dict):
     lengths = [len(seq) for seq in history_times]
 
     if not lengths:
-        print("没有可用的序列")
+        print("No sequences found.")
         return
 
-    print(f"序列长度 - 最小值: {min(lengths)}, 最大值: {max(lengths)}, 平均值: {sum(lengths)/len(lengths):.2f}")
+    print(f"Sequence lengths - min: {min(lengths)}, max: {max(lengths)}, avg: {sum(lengths)/len(lengths):.2f}")
     return lengths
 
 

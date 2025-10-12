@@ -1,3 +1,9 @@
+# References:
+# 1. Spatio-temporal Diffusion Point Processes: 
+#    https://github.com/tsinghua-fib-lab/Spatio-temporal-Diffusion-Point-Processes
+# 2. EasyTemporalPointProcess: 
+#    https://github.com/ant-research/EasyTemporalPointProcess
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -132,7 +138,6 @@ class MultiHeadAttention(nn.Module):
         B, L, H, D = k.shape
         cache_len = cache["k"].size(1) if "k" in cache and cache["k"] is not None else 0
 
-        # === 强制 assert：每个样本的 valid_kv_mask 是一样的 ===
         if not torch.all(valid_kv_mask == valid_kv_mask[0]):
             raise ValueError("All samples in batch must have same valid_kv_mask for caching.")
 
