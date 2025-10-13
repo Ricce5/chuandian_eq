@@ -81,7 +81,6 @@ class RotaryEmbeddingTime(nn.Module):
         interleaved: bool = False,
         scale_base: Optional[float] = None,
         time_center: Optional[float] = None,
-        # center_mode:str = "dynamic",  #  'auto' | 'fixed' | 'dynamic'
         device=None,
         **kwargs,
     ):
@@ -106,7 +105,7 @@ class RotaryEmbeddingTime(nn.Module):
         self._center_cached = time_center if time_center is not None else None
 
 
-    def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device, update_center: bool = False):
+    def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device):
         # times: (seqlen,) or (batch, seqlen)
         inv_freq = self.inv_freq.to(device)
         if times.ndim == 1:
@@ -153,13 +152,17 @@ class RotaryEmbeddingTime(nn.Module):
         device = qkv.device
         dtype = qkv.dtype
         seq_len = times.shape[1]
+        # only update center when seqlen_offset == 0
+        # scale the center if max_seqlen is provided
         if seqlen_offset == 0:
             self._center_cached = compute_nonzero_center_per_sample(times, 'midpoint')[:, None]
             if max_seqlen is not None:
                 t_min = times[:, [0]]
+                # scale = (max_seqlen//2 + seq_len) / seq_len
                 scale = (max_seqlen + seq_len) / seq_len
-                self._center_cached = (self._center_cached - t_min) * scale + t_min
-
+                diff = self._center_cached - t_min 
+                diff = torch.where(diff > 0, diff, torch.ones_like(diff))
+                self._center_cached = diff * scale + t_min
         assert times is not None, "times must be provided for rotary embedding"
         self._update_cos_sin_cache(times, dtype, device)
 

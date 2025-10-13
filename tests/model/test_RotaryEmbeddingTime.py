@@ -9,7 +9,7 @@ device = "cuda"
 dtype = torch.float16
 
 dim = 8
-seq_len = 5
+seq_len = 3000
 
 rope_orig = RotaryEmbeddingOrig(dim, scale_base=512).to(device)
 rope_time = RotaryEmbeddingTime(dim, scale_base=512).to(device)
@@ -24,8 +24,8 @@ out_time = rope_time(qkv.clone(), times=times)
 diff = (out_orig - out_time).abs().max().item()
 print("Max difference:", diff)
 
-# assert diff < 1e-3, "Behavior does not match the original implementation"
-# print("✅ RotaryEmbeddingTime matches the original implementation with integer indices")
+assert diff < 1e-1, "Behavior does not match the original implementation"
+print("✅ RotaryEmbeddingTime matches the original implementation with integer indices")
 
 # %%
 import torch
@@ -41,25 +41,28 @@ def test_rotary_embedding_time_strict():
     qkv_full = torch.randn(B, L, 3, H, D, device=device, dtype=dtype)
     times = torch.arange(L, device=device, dtype=torch.float32).unsqueeze(0)  # (1, L)
 
-    # 1️⃣ Standard mode (one-shot)
+    # 1️⃣ without time (standard rotary embedding)
     rope_full = RotaryEmbeddingOrig(D, interleaved=False, scale_base=1024).to(device)
     out_full = rope_full(qkv_full.clone(), num_heads_q=num_heads)
     print("out_full:", out_full.shape)
 
-    # 2️⃣ Step-by-step KV Cache simulation
-    rope_cache = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024, time_center=L//2).to(device)
+    # 2️⃣ Step-by-step continuous time mode (simulate KV cache)   
+    rope_cache = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024).to(device)
     outs = []
+    seq_offset = 0
     for i in range(L):
         qkv_step = qkv_full[:, i:i+1]
         time = times[:, i:i+1]  # (1, 1)
-        out_step = rope_cache(qkv_step.clone(), num_heads_q=num_heads, times=time)
+        out_step = rope_cache(qkv_step.clone(), num_heads_q=num_heads, times=time, seqlen_offset=seq_offset,
+                              max_seqlen=L)
+        seq_offset += 1
         outs.append(out_step)
     out_cache = torch.cat(outs, dim=1)
     print("out_cache:", out_cache.shape)
 
     # 3️⃣ Continuous time mode
-    rope_time = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024, time_center=L//2).to(device)
-    out_time = rope_time(qkv_full.clone(), num_heads_q=num_heads, times=times)
+    rope_time = RotaryEmbeddingTime(D, interleaved=False, scale_base=1024).to(device)
+    out_time = rope_time(qkv_full.clone(), num_heads_q=num_heads, times=times,seqlen_offset=0)
     print("out_time:", out_time.shape)
 
     # 📊 Error comparison
@@ -68,8 +71,8 @@ def test_rotary_embedding_time_strict():
     print(f"Diff vs KV cache: {max_diff_cache:.6f}")
     print(f"Diff vs time mode: {max_diff_time:.6f}")
 
-    assert max_diff_cache < 1e-2, "Inconsistent with KV Cache mode"
-    assert max_diff_time < 1e-2, "Inconsistent with time mode"
+    assert max_diff_cache < 1e-2, "Inconsistent with step-by-step KV Cache simulation"
+    assert max_diff_time < 1e-2, "Inconsistent with continuous time mode"
     print("✅ RotaryEmbeddingTime performs consistently across three inference scenarios")
 
 if __name__ == "__main__":
