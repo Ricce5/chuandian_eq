@@ -1,8 +1,9 @@
+selective_state_update 中0被替换为(0,0), 处理None下的情况
+mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
 
 
 
-问题
 tmp_batch 的pad与现有版本不兼容
 新增加数据集序列长度过长
 之前的head过深产生问题
@@ -46,23 +47,11 @@ mha_time层自回归是正确的
 
 
 调试
-修正做了两次log_softmax的错误，会导致之前mixer_tpp的checkpoint存在问题
 限定g为正值
 mag = batch.mag-0.5去除，导致9.6 17664f3 -9.12105d897c512e49f39a294c7bca569240bed5aa11  存在问题 (指标全部有问题)
 
 
-to do
-3. mhatime的旋转处理
 
-
-debug: thp不除t_max
-tpp_trainstep增加梯度裁剪
-
-
-ps
-selective_state_update 中0被替换为(0,0), 处理None下的情况
-mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
-加载ckpt中args存在隐患，只能够覆盖，ckpt中没有的参数会保在args中
 
 
 
