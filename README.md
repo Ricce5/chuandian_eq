@@ -35,6 +35,7 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 To train the model, execute:
 ```bash
 python main.py --model <model_name> --mode train --config <path_to_config_file>
+python main.py --model <model_name> --mode train --config <path_to_config_file>
 ```
 
 Replace `<model_name>` with one of the following:
