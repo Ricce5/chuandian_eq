@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import src.features.seismic_features as sf
+import matplotlib.pyplot as plt
 
 def process_cn_catalog(dat_file):
     column_names = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'Latitude', 'Longitude', 'Depth', 'Magnitude']
@@ -97,3 +98,27 @@ def calculate_catalog_statistics(df):
         'mag_min': float(df['Magnitude'].min())
     }
     return stats
+
+def plot_dt_distributions(dfs, names=None, bins=100, figsize=(20, 4)):
+    if names is None:
+        names = [f'df{i+1}' for i in range(len(dfs))]
+
+    plt.figure(figsize=figsize)
+    
+    for i, (df, name) in enumerate(zip(dfs, names)):
+        plt.subplot(1, len(dfs), i + 1)
+        dt = df['dt'].dropna()
+        plt.hist(dt, bins=bins, alpha=0.7, color=f'C{i}')
+        mean = dt.mean()
+        std = dt.std()
+
+        plt.axvline(mean, color='red', linestyle='dashed', linewidth=1, label=f'Mean: {mean:.2f}')
+        plt.axvline(mean + std, color='green', linestyle='dotted', linewidth=1, label=f'Std: {std:.2f}')
+        plt.axvline(mean - std, color='green', linestyle='dotted', linewidth=1)
+        plt.title(f'{name} dt distribution')
+        plt.xlabel('dt')
+        plt.ylabel('Count')
+        plt.legend()
+
+    plt.tight_layout()
+    plt.show()
