@@ -203,10 +203,6 @@ class Mixer_BatchInputAdapter:
     ) -> Dict[str, torch.Tensor]:
         out: Dict[str, torch.Tensor] = {}
         
-        # Note: The original code applies the mask inside the call,
-        # but the MixerInputAdapterWithTime applies it outside.
-        # Sticking to the original Mixer_BatchInputAdapter logic,
-        # where the mask is applied outside the `if` check.
         if "times" in self.extra_input_keys:
             out["times"] = self.normalize_arrival_times(arrival_times, self.normalize_time) * non_pad_mask.squeeze(-1)
         if "inter_times" in self.extra_input_keys:

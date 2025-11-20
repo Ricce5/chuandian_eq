@@ -9,7 +9,10 @@ from .dot_dict import DotDict
 
 class EventSequence:
     def __init__(self, arrival_times, inter_times, 
-                 t_start: Optional[float] = None, t_end: Optional[float] = None, **attributes):
+                 t_start: Optional[float] = None, t_end: Optional[float] = None,
+                 time_series: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
+                 time_series_times: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
+                 **attributes):
         self.arrival_times = torch.as_tensor(arrival_times)
         self.inter_times = torch.as_tensor(inter_times)
 
@@ -26,6 +29,21 @@ class EventSequence:
                 raise ValueError(f"Attribute {k} must have length {len(self.arrival_times)}.")
             self.attributes[k] = v_tensor
 
+        # Handle optional continuous time series and their timestamps. These are
+        # independent of per-event attributes so store them separately.
+        if time_series is not None:
+            assert time_series_times is not None, "time_series_times must be provided if time_series is provided."
+            ts = torch.as_tensor(time_series)
+            ts_times = torch.as_tensor(time_series_times)
+            if ts_times.shape[0] != ts.shape[0]:
+                raise ValueError("time_series and time_series_times must have the same length")
+            self.time_series = ts
+            self.time_series_times = ts_times
+        else:
+            self.time_series = None
+            self.time_series_times = None
+        
+
     def __len__(self):
         return len(self.arrival_times)
 
@@ -33,7 +51,8 @@ class EventSequence:
          return {
             "arrival_times": self.arrival_times.tolist(),
             "inter_times": self.inter_times.tolist(),
-            **{k: v.tolist() for k, v in self.attributes.items()}
+            **{k: v.tolist() for k, v in self.attributes.items()},
+            **({"time_series": self.time_series.tolist(), "time_series_times": self.time_series_times.tolist()} if self.time_series is not None else {})
         }
 
 
@@ -72,6 +91,8 @@ class Sequence(DotDict):
         "t_start",
         "t_end",
         "t_nll_start",
+        "time_series",
+        "time_series_times",
     }
 
     def __init__(
@@ -79,6 +100,8 @@ class Sequence(DotDict):
         inter_times: Union[torch.Tensor, np.ndarray, list],
         t_start: float = 0.0,
         t_nll_start: Optional[float] = None,
+        time_series: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
+        time_series_times: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
         **kwargs,
     ):
         super().__init__()
@@ -98,6 +121,18 @@ class Sequence(DotDict):
 
         for key, value in kwargs.items():
             self[key] = torch.as_tensor(value)
+
+        # Handle optional continuous time series and their sample times.
+        if time_series is not None:
+            assert time_series_times is not None, "time_series_times must be provided if time_series is provided."
+            ts = torch.as_tensor(time_series)
+            ts_times = torch.as_tensor(time_series_times)
+            if ts_times.shape[0] != ts.shape[0]:
+                raise ValueError("time_series and time_series_times must have the same length")
+            # Store as sequence attributes so they are carried in state_dict and
+            # visible to routines that expect extra attributes.
+            self.time_series = ts
+            self.time_series_times = ts_times
 
         self._validate_args()
         # Move all tensors to the same device as inter_times
@@ -153,6 +188,16 @@ class Sequence(DotDict):
         for key, value in self.items():
             if key not in self.default_sequence_attrs:
                 other_attr[key] = value[mask].contiguous()
+        # Handle continuous time series (slice by time window if present)
+        if hasattr(self, 'time_series') and hasattr(self, 'time_series_times'):
+            ts = self.time_series
+            ts_times = self.time_series_times
+            ts_mask = (ts_times >= start) & (ts_times <= end)
+            # It's fine if no samples fall into the window — return empty tensors
+            new_ts = ts[ts_mask].contiguous()
+            new_ts_times = ts_times[ts_mask].contiguous()
+            other_attr['time_series'] = new_ts
+            other_attr['time_series_times'] = new_ts_times
         
         return Sequence(
             inter_times=new_inter_times,
@@ -216,11 +261,17 @@ class Sequence(DotDict):
             if k not in self.default_sequence_attrs
         }
 
+        # Pass through continuous time series if present
+        ts = self.get('time_series', None)
+        ts_times = self.get('time_series_times', None)
+
         return EventSequence(
             t_start=self.t_start,
             t_end=self.t_end,
             arrival_times=arrival_times,
             inter_times=inter_times,
+            time_series=ts,
+            time_series_times=ts_times,
             **other_attr
         )
 

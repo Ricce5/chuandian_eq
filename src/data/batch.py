@@ -97,6 +97,37 @@ class Batch(DotDict):
                 values, padding_value=pad, max_len=padded_seq_len
             )
 
+        # Handle optional continuous time series (time_series, time_series_times)
+        # These are not per-event attributes and may have different lengths
+        # per sequence. We pad them along the time dimension to the maximum
+        # length across the batch and include them as extra batch fields.
+        if any(getattr(seq, 'time_series', None) is not None for seq in sequences):
+            # Build lists, replacing missing series with empty tensors so padding works.
+            ts_list = []
+            ts_times_list = []
+            for seq in sequences:
+                seq_ts = getattr(seq, 'time_series', None)
+                seq_ts_times = getattr(seq, 'time_series_times', None)
+                if seq_ts is None:
+                    # create empty tensor on correct device/dtype
+                    ts_list.append(torch.empty(0, dtype=dtype, device=device))
+                    ts_times_list.append(torch.empty(0, dtype=dtype, device=device))
+                else:
+                    ts_list.append(torch.as_tensor(seq_ts))
+                    if seq_ts_times is None:
+                       assert False, "If time_series_times is missing, it must be provided for time_series."
+                    else:
+                        ts_times_list.append(torch.as_tensor(seq_ts_times))
+
+            # move to common device/dtype
+            ts_list = [t.to(device=device, dtype=dtype) for t in ts_list]
+            ts_times_list = [t.to(device=device, dtype=dtype) for t in ts_times_list]
+            max_ts_len = max(t.size(0) for t in ts_list)
+            ts_padded = pad_sequence(ts_list, padding_value=pad, max_len=max_ts_len)
+            ts_times_padded = pad_sequence(ts_times_list, padding_value=pad, max_len=max_ts_len)
+            other_attr['time_series'] = ts_padded
+            other_attr['time_series_times'] = ts_times_padded
+
         non_pad_mask = (inter_times != pad).float()
         non_pad_mask[:, 0] = 1. 
 
