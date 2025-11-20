@@ -15,7 +15,7 @@ class ProportionalBGModel(torch.nn.Module):
             x=batch.time_series,            # (B, T, F)
             t_query=batch.arrival_times,    # (B, Nq)
         )
-        intensity = self.fc(feature)
+        intensity = self.fc(feature).squeeze(-1)
         return intensity
 
     def intensity_integral(self, batch):
@@ -28,14 +28,25 @@ class ProportionalBGModel(torch.nn.Module):
             t_start=batch.t_nll_start,  
             t_end=batch.t_end,     
         )
-        intensity_integral = self.fc(integral).squeeze(-1)
+        # Avoid in-place parameter modification; apply Softplus to weights at computation time
+        positive_weights = torch.nn.functional.softplus(self.fc.weight)  # (1, F)
+
+        # Use functional linear so gradients flow to the original weights
+        out = torch.nn.functional.linear(integral, positive_weights)  # (..., 1)
+
+        # Normalize to shape (B,)
+        intensity_integral = out.reshape(out.shape[0])
         return intensity_integral
 
-    def loglikelihood_change(self, batch, h_intensity):
+    def nll_change(self, batch, log_h_intensity):
         f_intensity = self.intensity(batch)
         f_intensity_integral = self.intensity_integral(batch)
+        h_intensity = torch.exp(log_h_intensity)
         ratio = f_intensity / h_intensity.clamp_min(1e-8)
-        log_change = torch.log1p(ratio)
+        log_change = torch.log1p(ratio)*batch.nll_event_mask
         integral_change = f_intensity_integral
-        loglikelihood = log_change.sum(dim=1) - integral_change
-        return loglikelihood
+        log_like_change= log_change.sum(dim=1) - integral_change
+        # print(log_change.sum(dim=1))
+        # print(integral_change)
+        # print(batch.t_end - batch.t_nll_start)
+        return -log_like_change / (batch.t_end - batch.t_nll_start)
