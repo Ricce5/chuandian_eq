@@ -31,7 +31,7 @@ class RecurrentTPP(TPPModel):
         learning_rate: Learning rate used in optimization.
     """
 
-    def __init__(self, args,device=None):
+    def __init__(self, args,device=None,bg_model=None):
         super().__init__()
         self.device = device if device else torch.device('cpu')
         self.input_magnitude = True
@@ -75,6 +75,7 @@ class RecurrentTPP(TPPModel):
         # from src.utils.utils import print_weight_sum
         # print_weight_sum(self.rnn, name="RNN weights", verbose=True)
         self.dropout = nn.Dropout(args.rnn_dropout)
+        self.bg_model = bg_model
         self.to(self.device)
 
     def encode_time(self, inter_times):  # 做log变换并中心化
@@ -146,7 +147,10 @@ class RecurrentTPP(TPPModel):
         mag_min = self.mag_completeness * torch.ones_like(log_rate)
         return dist.GutenbergRichter(b=b, mag_min=mag_min)
 
-    def nll_loss(self, batch: src.data.Batch) -> torch.Tensor:
+    def nll_loss(self, 
+                 batch: src.data.Batch,
+                 eps: float = 1e-10
+                 ) -> torch.Tensor:
         """
         Compute negative log-likelihood (NLL) for a batch of event sequences.
 
@@ -179,7 +183,47 @@ class RecurrentTPP(TPPModel):
             )
             prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
             log_like = log_like - prev_log_surv
-        return -log_like / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+        
+        nll_total = -log_like  # (B,)
+        if getattr(self, "bg_model", None) is not None:
+            log_h_intensity = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))
+            nll_bg = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
+            nll_total = nll_total + nll_bg
+
+        return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+
+
+    # def sample_next_inter_time(
+    #     self,
+    #     inter_time_dist: dist.MixtureSameFamily,
+    #     t_last_event: Optional[torch.Tensor] = None,
+    #     lower_bound: Optional[torch.Tensor] = None,
+    # ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+
+    #     if lower_bound is None:
+    #         inter_time_h = inter_time_dist.sample()
+    #     else:
+    #         inter_time_h = inter_time_dist.sample_conditional(lower_bound=lower_bound)
+    #     if getattr(self,'bg_model',None) is None:
+    #         return inter_time_h
+    #     else:
+    #         if lower_bound is None:
+    #             t0 = t_last_event
+    #             t1 = t_last_event + inter_time_h
+    #             time_bg_list = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, t1=t1)
+    #             for time_bg in time_bg_list:
+                    
+    #         else:
+    #             t0 = t_last_event + lower_bound
+    #             t1 = t0 + inter_time_h
+    #             time_bg_list = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, t1=t1)
+            
+
+
+
+
+
+
 
 
     @torch.inference_mode()

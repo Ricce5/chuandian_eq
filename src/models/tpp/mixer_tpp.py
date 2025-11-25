@@ -39,7 +39,7 @@ class MixerTPP(TPPModel):
     def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, 
                  predict_b, ssm_filter=None, use_b_updater=False,
                  loss_weights=None, loss_reduction=None,b_range=None,
-                 use_adaptive_loss_weights=False):
+                 use_adaptive_loss_weights=False, bg_model=None):
         super().__init__()
 
         device = next(base_model.parameters()).device
@@ -85,6 +85,9 @@ class MixerTPP(TPPModel):
             self.b_min,self.b_max = b_range
         else:
             self.b_min, self.b_max = 0.5, 2.0
+
+        # optional proportional background model (expects ProportionalBGModel-like API)
+        self.bg_model = bg_model
 
     def get_context(self, batch, inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
@@ -250,6 +253,11 @@ class MixerTPP(TPPModel):
                 nll_b_all = weights["b_weight"] *nll_b
             nll_total += nll_b_all
 
+        # ---------- background proportional model part ----------
+        if getattr(self, "bg_model", None) is not None:
+            log_h_intensity = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))
+            nll_bg = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
+            nll_total = nll_total + nll_bg
         # ---------- Reductions (same rule for all) ---------
         out = {
             "time": _reduce(nll_time, reduction),
@@ -257,9 +265,11 @@ class MixerTPP(TPPModel):
             "total": _reduce(nll_total, reduction),
         }
 
-        # 只有在 use_b_updater 为 True 时，才返回 "b" 字段
         if use_b_updater:
             out["b"] = _reduce(nll_b, reduction)
+        if getattr(self, "bg_model", None) is not None:
+            # nll_bg was computed as per-batch tensor earlier when bg_model present
+            out["bg"] = _reduce(nll_bg, reduction)
         return out
 
 

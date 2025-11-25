@@ -14,15 +14,7 @@ import torch
 for batch in train_loader:
     print(batch.arrival_times[:,0])
     print(torch.max(batch.arrival_times,dim=1)[0])
-# %%
-from  src.models.bg.bg_proportional import ProportionalBGModel
-bg_model = ProportionalBGModel(d_feature=batch.time_series.shape[-1])
-bg_model.to(device)
-batch = batch.to(device)
-# %%
-bg_model.intensity(batch)
-# %%
-bg_model.intensity_integral(batch).shape
+
 # %%
 checkpoint_dir = Path("../../checkpoints/rtpp_20250819-142340") 
 checkpoint_path = checkpoint_dir / "best_model_1.pth"
@@ -48,8 +40,24 @@ time_dist = model.get_inter_time_dist(current_state)
 # %%
 log_h_intensity = time_dist.log_hazard(batch.inter_times[:,0].to(device))
 # %%
+import src.models.bg.bg_proportional as bg_models
+bg_model = bg_models.ProportionalBGModel(d_feature=batch.time_series.shape[-1],device=device)
+bg_model.to(device)
+batch = batch.to(device)
+# %%
+bg_model.intensity(batch)
+# %%
+bg_model.intensity_integral(batch).shape
 bg_model.to(device)
 bg_model.nll_change(batch.to(device), log_h_intensity)
 # %%
 model.nll_loss(batch.to(device))
+# %%
+bg_model.cache_batch(batch.time_series, batch.time_series_times)
+# %%
+time_bg_list, time_bg_tensor = bg_model.sample_nhpp(3,t0=9.0,t1=9.4,return_times_list=True)
+# %%
+time_bg_list
+# %%
+time_bg_tensor 
 # %%
