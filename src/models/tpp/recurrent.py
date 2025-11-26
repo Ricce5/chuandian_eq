@@ -193,37 +193,31 @@ class RecurrentTPP(TPPModel):
         return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
 
 
-    # def sample_next_inter_time(
-    #     self,
-    #     inter_time_dist: dist.MixtureSameFamily,
-    #     t_last_event: Optional[torch.Tensor] = None,
-    #     lower_bound: Optional[torch.Tensor] = None,
-    # ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+    def sample_next_inter_time(
+        self,
+        inter_time_dist: dist.MixtureSameFamily,
+        t_last_event: Optional[torch.Tensor] = None,
+        lower_bound: Optional[torch.Tensor] = None,
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
 
-    #     if lower_bound is None:
-    #         inter_time_h = inter_time_dist.sample()
-    #     else:
-    #         inter_time_h = inter_time_dist.sample_conditional(lower_bound=lower_bound)
-    #     if getattr(self,'bg_model',None) is None:
-    #         return inter_time_h
-    #     else:
-    #         if lower_bound is None:
-    #             t0 = t_last_event
-    #             t1 = t_last_event + inter_time_h
-    #             time_bg_list = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, t1=t1)
-    #             for time_bg in time_bg_list:
-                    
-    #         else:
-    #             t0 = t_last_event + lower_bound
-    #             t1 = t0 + inter_time_h
-    #             time_bg_list = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, t1=t1)
-            
+        if lower_bound is None:
+            inter_time_h = inter_time_dist.sample()
+        else:
+            inter_time_h = inter_time_dist.sample_conditional(lower_bound=lower_bound)-lower_bound
+        if getattr(self,'bg_model',None) is None:
+            return inter_time_h
+        else:
+            assert t_last_event is not None, "t_last_event must be provided when using bg_model"
+            dt = inter_time_h.squeeze(-1)
+            if lower_bound is None:
+                t0 = t_last_event
+                inter_time = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, dt=dt)
+            else:
+                t0 = t_last_event + lower_bound
+                inter_time = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, dt=dt)
 
-
-
-
-
-
+            assert (inter_time < 0.0).any() == False, f"Sampled inter-event time should be non-negative. Got minimum value {inter_time.min()}"
+            return inter_time.unsqueeze(-1)
 
 
     @torch.inference_mode()
@@ -259,13 +253,26 @@ class RecurrentTPP(TPPModel):
         generated = False
         while not generated:
             inter_time_dist = self.get_inter_time_dist(current_state)
-
+            ##############################
+            # if time_remaining is None:
+            #     next_inter_times = inter_time_dist.sample()  # (B, 1)
+            # else:
+            #     next_inter_times = inter_time_dist.sample_conditional(lower_bound=time_remaining)
+            #     next_inter_times -= time_remaining
+            #     time_remaining = None
             if time_remaining is None:
-                next_inter_times = inter_time_dist.sample()  # (B, 1)
+                print(f'total_time: {total_time}, min: {total_time.min()}')
+                t_last_event = t_start+total_time
             else:
-                next_inter_times = inter_time_dist.sample_conditional(lower_bound=time_remaining)
-                next_inter_times -= time_remaining
-                time_remaining = None
+                t_last_event = past_seq.arrival_times[-1].repeat(batch_size)
+               
+            next_inter_times = self.sample_next_inter_time(
+                inter_time_dist,
+                t_last_event=t_last_event,
+                lower_bound=time_remaining,
+            )
+            time_remaining = None
+            ##############################  
 
             next_inter_times.clamp_max_(t_end - t_start)
             inter_time_list.append(next_inter_times)  
@@ -287,8 +294,9 @@ class RecurrentTPP(TPPModel):
             # print(f"current_state: {torch.sum(current_state)}")
 
             # 检查是否达到采样终点
-            total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
-            generated = total_time >= (t_end - t_start)
+            total_time = torch.cat(inter_time_list, dim=1).sum(-1)
+            total_time_min= total_time.min()
+            generated = total_time_min >= (t_end - t_start)
 
         # 合并列表成张量
         inter_times = torch.cat(inter_time_list, dim=1)  # (B, L)

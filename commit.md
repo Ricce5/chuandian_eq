@@ -7,6 +7,9 @@ selective_state_update 中0被替换为(0,0), 处理None下的情况
 mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
 
+debug:
+1. 替换rtpp采样
+
 
 
 

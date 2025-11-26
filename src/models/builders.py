@@ -581,7 +581,12 @@ class THPDeltatBuilder(ModelBuilder):
 class RTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.recurrent import RecurrentTPP
-        return RecurrentTPP(args, device)
+        if  getattr(args,'bg_model', None) is not None:
+            from src.models.bg import BGModel
+            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+        else:
+            bg_model = None
+        return RecurrentTPP(args, device, bg_model)
     
 @ModelBuilder.register("etas")
 class ETASBuilder(ModelBuilder):

@@ -2,17 +2,17 @@ import torch
 
 def interp_uniform_time_series(t, x, t_query, clamp=False):
     """
-    t:       (B, T)      等间隔时间轴
-    x:       (B, T, F)   特征
-    t_query: (B, Nq)     查询时间
-    return:  (B, Nq, F)  插值后的值
+    t:       (B, T)/(1, T)    
+    x:       (B, T, F)/(1, T, F) 
+    t_query: (B, Nq)  
+    return:  (B, Nq, F)  
     """
-    B, T = t.shape
-    F = x.shape[-1]
-
+    _, T, F = x.shape
+    B,_ = t_query.shape
+    
     # (B, 1)
     t0 = t[:, 0:1]
-    dt = (t[:, 1] - t[:, 0]).view(B, 1)  #
+    dt = (t[:, 1] - t[:, 0]).view(-1, 1)  #
 
     if clamp:
         t_min = t[:, 0:1]
@@ -29,12 +29,13 @@ def interp_uniform_time_series(t, x, t_query, clamp=False):
     idx_i = i.unsqueeze(-1).expand(-1, -1, F)       # (B, Nq, F)
     idx_ip1 = (i + 1).unsqueeze(-1).expand(-1, -1, F)
 
+    x = x.expand(B, -1, -1)  # (B, T, F)
     x_i   = torch.gather(x, 1, idx_i)   # (B, Nq, F)
     x_ip1 = torch.gather(x, 1, idx_ip1)
 
     xq = x_i + (x_ip1 - x_i) * s       
     return xq
-import torch
+
 
 def integrate_uniform_time_series(t, x, t_start, t_end, clamp=True):
     """

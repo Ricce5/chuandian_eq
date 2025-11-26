@@ -1,6 +1,6 @@
 # %%
 import torch
-from src.utils.interp import interp_uniform_time_series, integrate_time_series_uniform
+from src.utils.interp import interp_uniform_time_series,integrate_uniform_time_series
 # %%
 # ====== 构造简单数据 ======
 B = 2       # batch size
@@ -45,7 +45,7 @@ t_end = torch.tensor([
     [3.5, 4.0],
 ], dtype=torch.float32)   # (B, N)
 
-I = integrate_time_series_uniform(t, x, t_start, t_end, clamp=True)  # (B, N, F)
+I = integrate_uniform_time_series(t, x, t_start, t_end, clamp=True)  # (B, N, F)
 
 print("t:")
 print(t)
