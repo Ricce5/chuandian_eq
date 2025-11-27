@@ -5,10 +5,12 @@ from config.config_loader import load_args_from_yaml
 from pathlib import Path
 import torch
 args= load_args_from_yaml("../../config/mixer_tpp.yaml")
-args.dataset = "Geysers"
+args.dataset = "PNR"
 base_dir = f"../../data/{args.dataset}"
 # %%
 seq, train_loader, val_loader, test_loader, catalog_ds = prepare_data_tpp(base_dir=base_dir, args=args,)
+# %%
+train_loader.dataset.sequences[0]
 # %%
 seq.inter_times
 # %%

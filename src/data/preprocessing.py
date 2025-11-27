@@ -122,3 +122,33 @@ def plot_dt_distributions(dfs, names=None, bins=100, figsize=(20, 4)):
 
     plt.tight_layout()
     plt.show()
+
+def estimate_mc_max_curvature(mags, bin_width=0.1, plot=True):
+    mags = np.asarray(mags)
+    mags = mags[~np.isnan(mags)]  # remove NaN values
+    
+    if len(mags) == 0:
+        raise ValueError("Magnitude array is empty, cannot estimate Mc")
+    m_min = np.floor(mags.min() * 10) / 10.0
+    m_max = np.ceil(mags.max() * 10) / 10.0
+    
+    bins = np.arange(m_min, m_max + bin_width, bin_width)
+    counts, edges = np.histogram(mags, bins=bins)
+    bin_centers = (edges[:-1] + edges[1:]) / 2.0
+
+    if len(counts) == 0:
+        raise ValueError("Magnitude range too narrow to compute histogram")
+    idx_max = np.argmax(counts)
+    mc = bin_centers[idx_max]
+
+    if plot:
+        plt.figure(figsize=(6, 4))
+        plt.bar(bin_centers, counts, width=bin_width, align="center", edgecolor="k")
+        plt.axvline(mc, linestyle="--", linewidth=2, label=f"Mc = {mc:.2f}")
+        plt.xlabel("Magnitude")
+        plt.ylabel("Count")
+        plt.title("Magnitude Frequency Histogram (Max Curvature Method)")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+    return mc, bin_centers, counts
