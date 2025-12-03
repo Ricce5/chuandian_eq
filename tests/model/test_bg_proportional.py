@@ -5,7 +5,8 @@ from src.data.preparation import prepare_data_tpp
 from config.config_loader import load_args_from_yaml 
 from pathlib import Path
 args= load_args_from_yaml("../../config/mixer_tpp.yaml")
-args.dataset = "Geysers"
+# args.dataset = "Geysers"
+args.dataset = "PNR"
 base_dir = f"../../data/{args.dataset}"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -14,7 +15,11 @@ import torch
 for batch in train_loader:
     print(batch.arrival_times[:,0])
     print(torch.max(batch.arrival_times,dim=1)[0])
-
+#%%
+batch_nan_count = int(torch.isnan(batch.time_series).sum().item())
+seq_nan_count = int(torch.isnan(seq.time_series).sum().item())
+print("batch.time_series NaN count:", batch_nan_count)
+print("seq.time_series NaN count:", seq_nan_count)
 # %%
 checkpoint_dir = Path("../../checkpoints/rtpp_20250819-142340") 
 checkpoint_path = checkpoint_dir / "best_model_1.pth"
@@ -47,6 +52,27 @@ batch = batch.to(device)
 # %%
 bg_model.intensity(batch)
 # %%
+torch.isnan(bg_model.intensity(batch)).any()
+# %%
+ts = batch.arrival_times
+ts_times = batch.time_series_times
+t_query = batch.arrival_times
+print("t.shape, x.shape, t_query.shape:", ts_times.shape, batch.time_series.shape, t_query.shape)
+print("t0:", ts_times[:, 0:2])               # 查看前两个时间点
+dt = (ts_times[:,1] - ts_times[:,0])
+print("dt:", dt)
+print("any dt==0:", (dt == 0).any().item())
+print("any NaN in x:", torch.isnan(batch.time_series).any().item())
+print("t_query min/max:", t_query.min(), t_query.max())
+print("t range min/max:", ts_times[:,0].min(), ts_times[:,-1].max())
+from src.utils.interp import interp_uniform_time_series
+result    = interp_uniform_time_series(
+            t=ts_times,      # (B, T)
+            x=batch.time_series,            # (B, T, F)
+            t_query=t_query,
+            )
+print(result)
+# %%
 bg_model.intensity_integral(batch).shape
 bg_model.to(device)
 bg_model.nll_change(batch.to(device), log_h_intensity)
@@ -66,7 +92,7 @@ min_tensor = torch.min(tensor1, time_bg_tensor)
 # %%
 min_tensor
 # %%
-time_bg_list, time_bg_tensor = bg_model.sample_nhpp(100000,t0=9.0,t1=11,return_times_list=True)
+out= bg_model.sample_nhpp_inverse(10,t0=9.0,dt=2.0)
 # %%
 print(model.bg_model)
 # %%

@@ -189,6 +189,7 @@ class RecurrentTPP(TPPModel):
             log_h_intensity = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))
             nll_bg = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
             nll_total = nll_total + nll_bg
+            print(f"nll_bg mean: {nll_bg.mean().item()}, nll_total mean: {nll_total.mean().item()}")
 
         return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
 
@@ -211,10 +212,10 @@ class RecurrentTPP(TPPModel):
             dt = inter_time_h.squeeze(-1)
             if lower_bound is None:
                 t0 = t_last_event
-                inter_time = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, dt=dt)
+                inter_time = self.bg_model.sample_nhpp_inverse(inter_time_h.shape[0], t0=t0, dt=dt)
             else:
                 t0 = t_last_event + lower_bound
-                inter_time = self.bg_model.sample_nhpp(inter_time_h.shape[0], t0=t0, dt=dt)
+                inter_time = self.bg_model.sample_nhpp_inverse(inter_time_h.shape[0], t0=t0, dt=dt)
 
             assert (inter_time < 0.0).any() == False, f"Sampled inter-event time should be non-negative. Got minimum value {inter_time.min()}"
             return inter_time.unsqueeze(-1)

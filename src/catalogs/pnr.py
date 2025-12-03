@@ -90,7 +90,9 @@ class PNRBase(Catalog):
         df_ts = pd.read_csv(self.time_series_file, parse_dates=['ts'])
         df_ts.set_index('ts', inplace=True)
         df_ts['t'] = (df_ts.index - start_ts) / pd.Timedelta("1h")
-
+        print(df_ts)
+        time_series = torch.tensor(df_ts[['IR_h']].values, dtype=torch.float32)
+        assert torch.isnan(time_series).sum().item() == 0, "Found NaN in time series data."
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
             t_start=t_start,

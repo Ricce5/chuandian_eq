@@ -12,7 +12,7 @@ bg_model_cfg:
 
 # 训练参数
 
-batch_size: 1
+batch_size: 32
 accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 1e-3 # 5e-4
@@ -41,6 +41,6 @@ cuda_id: "1"
 # 数据与控制参数
 dataset: PNR
 seed: 0
-minibatch_training: false
+minibatch_training: true
 split_by_time: true
 time_order:  [train, val, test]

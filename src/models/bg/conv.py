@@ -4,15 +4,17 @@ from src.utils.interp import interp_uniform_time_series, integrate_uniform_time_
 from src.data.dot_dict import DotDict
 from .base import BGModel
 
-@BGModel.register("proportional")
-class ProportionalBGModel(BGModel):
+@BGModel.register("conv")
+class ConvBGModel(BGModel):
     def __init__(self, d_feature, device):
         super().__init__()
         
         # raw weight, unconstrained
         self.raw_weight = torch.nn.Parameter(torch.zeros(1, d_feature))
+
         self.ts_batch_cache = None
         self.device = device
+        self.rnn = torch.nn.RNN(d_feature, 1, batch_first=True)
         if device is not None:
             self.to(device)
 
