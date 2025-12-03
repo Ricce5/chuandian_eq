@@ -132,3 +132,88 @@ class BoundedDiscreteSSM(nn.Module):
         """
         tensor = torch.randn(1, device=self.device)  # Use self.device here
         return min_val + (max_val - min_val) * 0.5 * (torch.tanh(tensor) + 1)
+    
+
+class SelectiveScanWrapper(nn.Module):
+    def __init__(self, d_model, d_state, device, B_positive: bool = False, C_positive: bool = False, D_positive: bool = False, **kwargs):
+        """
+        d_model: Feature dimension of the model
+        d_state: Dimension of the state space
+        device: Current device, either CPU or CUDA
+        B_positive/C_positive/D_positive: If True, enforce parameter > 0 via a softplus transform.
+        """
+        super().__init__()
+        self.d_model = d_model
+        self.d_state = d_state
+        self.device = device
+
+        # A: (d_model, d_state)
+        self.A = self.A = nn.Parameter(torch.zeros(d_model, d_state, device=device))
+
+        # helper to create either a raw param (to be transformed) or a direct param / tensor
+        def _maybe_create(name, shape, positive=False, init_zeros=False, default_zero=False,scale=1e-2):
+            if positive:
+                # 正数参数也先用接近 0 的 raw 值
+                if init_zeros:
+                    init = torch.zeros(shape, device=self.device)
+                else:
+                    init = scale * torch.randn(shape, device=self.device)
+                setattr(self, f"raw_{name}", nn.Parameter(init))
+            else:
+                if default_zero:
+                    setattr(self, name, torch.zeros(shape, device=self.device))
+                else:
+                    init = scale * torch.randn(shape, device=self.device)
+                    setattr(self, name, nn.Parameter(init))
+
+
+
+        # B and C: either direct trainable params or raw params to be transformed to positive
+        _maybe_create("B", (d_model, d_state), positive=B_positive)
+        _maybe_create("C", (d_model, d_state), positive=C_positive)
+
+        # D: either fixed zero tensor or trainable raw param (transformed if positive)
+        _maybe_create("D", d_model, positive=D_positive, init_zeros=True, default_zero=not D_positive)
+
+        # delta_bias parameter (optional)
+        self.delta_bias = None
+
+        # store positivity flags for forward
+        self.B_positive = B_positive
+        self.C_positive = C_positive
+        self.D_positive = D_positive
+
+    def _positive_transform(self, x: torch.Tensor) -> torch.Tensor:
+        return F.softplus(x)
+
+    def _resolve(self, name):
+        raw_attr = f"raw_{name}"
+        if hasattr(self, raw_attr):
+            return self._positive_transform(getattr(self, raw_attr))
+        else:
+            return getattr(self, name)
+
+    def forward(self, x, delta):
+        """
+        x: Input tensor with shape (batch, length, d_model)
+        delta: Time step tensor with shape (batch, length, d_model)
+        """
+        B = self._resolve("B")
+        C = self._resolve("C")
+        D = self._resolve("D")
+
+        u = rearrange(x, 'b l d -> b d l')
+        delta_rearranged = rearrange(delta, 'b l d -> b d l')
+
+        y_out = selective_scan_fn(
+            u=u,
+            delta=delta_rearranged,
+            A=self.A,
+            B=B,
+            C=C,
+            D=D,
+            delta_bias=self.delta_bias
+        )
+
+        y_out = rearrange(y_out, 'b d l -> b l d')
+        return y_out

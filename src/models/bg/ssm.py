@@ -1,65 +1,143 @@
-import abc
 import torch
 from src.utils.interp import interp_uniform_time_series, integrate_uniform_time_series
 from src.data.dot_dict import DotDict
+from src.models.mamba.scan_wrapper import SelectiveScanWrapper
 from .base import BGModel
 
-@BGModel.register("proportional")
-class ProportionalBGModel(BGModel):
-    def __init__(self, d_feature, device):
+
+@BGModel.register("ssm")
+class SSMBGModel(BGModel):
+    """
+    State-space model based background generator.
+    Uses a SelectiveScanWrapper to produce per-timepoint features which are
+    projected to a scalar intensity via a positive weight vector.
+    """
+
+    def __init__(self, d_feature,d_state, device=None):
         super().__init__()
-        
-        # raw weight, unconstrained
-        self.raw_weight = torch.nn.Parameter(torch.zeros(1, d_feature))
         self.ts_batch_cache = None
+        # raw (unconstrained) weight of shape (1, F)
+        self.raw_weight = torch.nn.Parameter(torch.zeros(1, d_feature))
+        # small SSM: d_state fixed here (same as original)
+        self.ssm = SelectiveScanWrapper(d_model=d_feature, d_state=d_state, D_positive=True, device=device)
         self.device = device
         if device is not None:
+            # move parameters to device
             self.to(device)
 
-    def positive_weight(self):
-        """Return positive weights via softplus(raw_weight)."""
+    def positive_weight(self) -> torch.Tensor:
+        """Return strictly positive weights via softplus(raw_weight), shape (1, F)."""
         return torch.nn.functional.softplus(self.raw_weight)
 
     # -------------------------------------------------------------
     # intensity(t)
     # -------------------------------------------------------------
-    def intensity(self, ts_batch, t_query=None):
+    def intensity(self, ts_batch: DotDict, t_query=None) -> torch.Tensor:
+        """
+        Compute intensity lambda(t) for given batch and query times.
+
+        Args:
+            ts_batch: DotDict with keys:
+                - time_series: (B, T, F)
+                - time_series_times: (B, T)
+                - optionally arrival_times: (B, Nq)
+            t_query: optional query times (absolute) of shape (B, Nq) or (Nq,) or None.
+                     If None, will use ts_batch.arrival_times if present, otherwise time_series_times.
+
+        Returns:
+            Tensor of shape (B, Nq) with nonnegative intensities.
+        """
         w = self.positive_weight()  # (1, F)
-        print(ts_batch.time_series_times)
-        feature = interp_uniform_time_series(
-            t=ts_batch.time_series_times,      # (B, T)
-            x=ts_batch.time_series,            # (B, T, F)
-            t_query=t_query if t_query is not None else ts_batch.arrival_times,
-        )                                       # (B, Nq, F)
-        intensity = torch.nn.functional.linear(feature, w).squeeze(-1)
-        return intensity
+        ts = ts_batch.time_series  # (B, T, F)
+
+        # compute deltas for scan wrapper (per-timepoint deltas, broadcast to F)
+        delta = ts_batch.time_series_times[:, 1:] - ts_batch.time_series_times[:, :-1]
+        delta = torch.cat([ts_batch.time_series_times[:, :1] * 0.0, delta], dim=1)
+        delta = delta.unsqueeze(-1).expand_as(ts)  # (B, T, F)
+
+        # run SSM and ensure positivity
+        y = self.ssm(ts, delta)  # (B, T, F)
+        y = torch.nn.functional.softplus(y)
+
+        # linear projection to scalar intensity per timepoint -> (B, T, 1)
+        intensity_all = torch.nn.functional.linear(y, w)
+
+        # decide query times
+        if t_query is None:
+            if hasattr(ts_batch, "arrival_times") and ts_batch.arrival_times is not None:
+                t_query = ts_batch.arrival_times
+            else:
+                t_query = ts_batch.time_series_times
+
+        # interpolate to requested query times, result (B, Nq, 1)
+        intensity = interp_uniform_time_series(
+            t=ts_batch.time_series_times,
+            x=intensity_all,
+            t_query=t_query,
+        )
+
+        return intensity.squeeze(-1)  # (B, Nq)
 
     # -------------------------------------------------------------
     # ∫ λ(t) dt
     # -------------------------------------------------------------
-    def intensity_integral(self, batch):
-        w = self.positive_weight()  # (1, F)q
-        integral = integrate_uniform_time_series(
-            t=batch.time_series_times,    
-            x=batch.time_series,          
-            t_start=batch.t_nll_start,  
-            t_end=batch.t_end,
-        )                                # (B, F)
-        out = torch.nn.functional.linear(integral, w)  # (B, 1)
-        return out.squeeze(-1)
+    def intensity_integral(self, batch: DotDict) -> torch.Tensor:
+        """
+        Compute integral of intensity over [t_start, t_end] for each batch element.
 
-    def nll_change(self, batch, log_h_intensity):
-        f_intensity = self.intensity(batch)
-        f_intensity_integral = self.intensity_integral(batch)
-        h_intensity = torch.exp(log_h_intensity)
-        ratio = f_intensity / h_intensity.clamp_min(1e-8)
-        torch.save( f_intensity, "f_intensity.pt")
-        torch.save(h_intensity, "h_intensity.pt")
-        torch.save(ratio, "ratio.pt")
-        print(f"f_intensity: {f_intensity.mean().item():.4f}, h_intensity: {h_intensity.mean().item():.4f}, ratio: {ratio.mean().item():.4f}")
-        log_change = torch.log1p(ratio)*batch.nll_event_mask
-        integral_change = f_intensity_integral
-        log_like_change= log_change.sum(dim=1) - integral_change
+        Args:
+            batch: DotDict containing time_series, time_series_times, t_nll_start, t_end
+
+        Returns:
+            Tensor of shape (B,) with integrals.
+        """
+        w = self.positive_weight()  # (1, F)
+        ts = batch.time_series  # (B, T, F)
+
+        delta = batch.time_series_times[:, 1:] - batch.time_series_times[:, :-1]
+        delta = torch.cat([batch.time_series_times[:, :1] * 0.0, delta], dim=1)
+        delta = delta.unsqueeze(-1).expand_as(ts)  # (B, T, F)
+
+        y = self.ssm(ts, delta)  # (B, T, F)
+        y = torch.nn.functional.softplus(y)
+
+        intensity_all = torch.nn.functional.linear(y, w)  # (B, T, 1)
+        integral = integrate_uniform_time_series(
+            t=batch.time_series_times,    # (B, T)
+            x=intensity_all,              # (B, T, 1)
+            t_start=batch.t_nll_start,    # (B,) or scalar
+            t_end=batch.t_end,            # (B,) or scalar
+        )                                 # (B, 1)
+        return integral.squeeze(-1)        # (B,)
+
+    def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor) -> torch.Tensor:
+        """
+        Compute negative log-likelihood change for importance sampling:
+        - log p_f/p_h on event times minus integral over interval (f intensity).
+        Args:
+            batch: DotDict used for intensity evaluation (must provide arrival_times and nll_event_mask)
+            log_h_intensity: log of proposal intensity h evaluated at event query times, shape (B, Nq)
+        Returns:
+            Tensor of shape (B,) with negative log-likelihood change (to be minimized).
+        """
+        f_intensity = self.intensity(batch)                 # (B, Nq)
+        f_intensity_integral = self.intensity_integral(batch)  # (B,)
+        h_intensity = torch.exp(log_h_intensity)            # (B, Nq)
+
+        # protect against zeros in denominator
+        denom = h_intensity.clamp_min(1e-8)
+        ratio = f_intensity / denom                         # (B, Nq)
+
+        # log change per event-time, only where events are present (mask)
+        mask = getattr(batch, "nll_event_mask", None)
+        if mask is None:
+            raise ValueError("batch must contain 'nll_event_mask' for nll_change computation.")
+        log_change = torch.log1p(ratio) * mask              # (B, Nq)
+
+        # sum over query/event times and subtract integral contribution
+        log_like_change = log_change.sum(dim=1) - f_intensity_integral  # (B,)
+
+        # return negative log-likelihood change (for minimization)
         return -log_like_change
     
     def cache_batch(self, time_series, time_series_times):

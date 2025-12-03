@@ -52,11 +52,12 @@ class SelectiveScanWrapper(nn.Module):
         return y_out
 
 # --- Usage Example ---
-B_batch, L_len, D_model, D_state = 1, 10, 1, 1  # Example dimensions: 4, 10, 128, 16
+B_batch, L_len, D_model, D_state = 1, 10, 1, 16  # Example dimensions: 4, 10, 128, 16
 
 ssm_wrapper = SelectiveScanWrapper(d_model=D_model, d_state=D_state, device=device).to(device)
 
 x_input = torch.randn(B_batch, L_len, D_model, device=device)
+# x_input = torch.zeros(B_batch, L_len, D_model, device=device)
 delta_input = torch.randn(B_batch, L_len, D_model, device=device)
 
 output = ssm_wrapper(x_input, delta_input) 
