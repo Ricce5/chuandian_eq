@@ -126,6 +126,42 @@ def plot_counting_process(seq, ax=None, color="k", alpha=1.0, T0=None, T=None):
     ax.plot(t, N, c=color, alpha=alpha)
 
 
+def plot_intensity(
+    seq,
+    ax=None,
+    color="k",
+    alpha=1.0,
+    T0=None,
+    T=None,
+    dt=1.0,         
+    logy=False,
+):
+    """plot intensity of a sequence"""
+    if ax is None:
+        ax = plt.gca()
+
+    if T0 is None:
+        T0 = float(seq.arrival_times.min())
+    if T is None:
+        T = float(seq.arrival_times.max())
+
+    t_arr = seq.arrival_times.cpu().numpy()
+    edges = np.arange(T0, T + dt, dt)
+    counts, _ = np.histogram(t_arr, bins=edges)
+    lam = counts / dt
+
+    t_plot = np.repeat(edges, 2)[1:-1]
+    l_plot = np.repeat(lam, 2)
+
+    ax.plot(t_plot, l_plot, color=color, alpha=alpha)
+    if logy:
+        ax.set_yscale("log")
+    ax.set_xlim(T0, T)
+    ax.set_ylabel("Intensity")
+    return ax
+
+
+
 def visualize_trajectories(
     seq: Sequence,
     forecast: List[Sequence],
