@@ -32,7 +32,7 @@ class SSMBGModel(BGModel):
     # -------------------------------------------------------------
     # intensity(t)
     # -------------------------------------------------------------
-    def intensity(self, ts_batch: DotDict, t_query=None) -> torch.Tensor:
+    def intensity(self, ts_batch: DotDict, t_query=None, return_ssm_out=False) -> torch.Tensor:
         """
         Compute intensity lambda(t) for given batch and query times.
 
@@ -56,9 +56,9 @@ class SSMBGModel(BGModel):
         delta = delta.unsqueeze(-1).expand_as(ts)  # (B, T, F)
 
         # run SSM and ensure positivity
-        y = self.ssm(ts, delta)  # (B, T, F)
-        y = torch.nn.functional.softplus(y)
-
+        ssm_out = self.ssm(ts, delta)  # (B, T, F)
+        y = torch.nn.functional.softplus(ssm_out)
+        y= y*ts
         # linear projection to scalar intensity per timepoint -> (B, T, 1)
         intensity_all = torch.nn.functional.linear(y, w)
 
@@ -75,8 +75,10 @@ class SSMBGModel(BGModel):
             x=intensity_all,
             t_query=t_query,
         )
-
-        return intensity.squeeze(-1)  # (B, Nq)
+        if return_ssm_out:
+            return ssm_out, intensity.squeeze(-1)  # (B, Nq)
+        else:
+            return intensity.squeeze(-1)  # (B, Nq)
 
     # -------------------------------------------------------------
     # ∫ λ(t) dt
@@ -100,7 +102,7 @@ class SSMBGModel(BGModel):
 
         y = self.ssm(ts, delta)  # (B, T, F)
         y = torch.nn.functional.softplus(y)
-
+        y= y*ts
         intensity_all = torch.nn.functional.linear(y, w)  # (B, T, 1)
         integral = integrate_uniform_time_series(
             t=batch.time_series_times,    # (B, T)
