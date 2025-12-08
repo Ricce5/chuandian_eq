@@ -588,6 +588,16 @@ class RTTPBuilder(ModelBuilder):
             bg_model = None
         return RecurrentTPP(args, device, bg_model)
     
+
+@ModelBuilder.register("nhpp")
+class NHPPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.nhpp import NHPP
+        from src.models.bg import BGModel
+        assert hasattr(args, 'bg_model'), "NHPP requires a background model."
+        bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+        return NHPP(args, device, bg_model)
+    
 @ModelBuilder.register("etas")
 class ETASBuilder(ModelBuilder):
     def __call__(self, args, device):

@@ -1,5 +1,4 @@
 
-sequence,batch兼容时间序列
 
 
 

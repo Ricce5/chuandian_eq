@@ -39,6 +39,7 @@ def get_model_and_data(args, base_path, device):
         "thp": ("src.train.tpp_train_step", prepare_data_tpp),
         "thp_deltat": ("src.train.tpp_train_step", prepare_data_tpp),
         "rtpp": ("src.train.tpp_train_step", prepare_data_tpp),
+        "nhpp": ("src.train.tpp_train_step", prepare_data_tpp),
         "etas": ("src.train.tpp_train_step", prepare_data_tpp),
         "mtpp": ("src.train.tpp_train_step", prepare_data_tpp),
         "mhp": ("src.train.tpp_train_step", prepare_data_tpp),
