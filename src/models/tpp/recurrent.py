@@ -164,6 +164,7 @@ class RecurrentTPP(TPPModel):
         # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
         log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # (B, L) 避免0处概率为0
+        log_harzd = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))  # (B, L)
         log_like = (log_pdf * batch.nll_event_mask).sum(-1) # 对nll区间的事件，上次事件到当前事件的时间间隔的对数概率
         # Survival time from last event until t_end
         arange = torch.arange(batch.batch_size)
@@ -262,7 +263,7 @@ class RecurrentTPP(TPPModel):
             #     next_inter_times -= time_remaining
             #     time_remaining = None
             if time_remaining is None:
-                print(f'total_time: {total_time}, min: {total_time.min()}')
+                # print(f'total_time: {total_time}, min: {total_time.min()}')
                 t_last_event = t_start+total_time
             else:
                 t_last_event = past_seq.arrival_times[-1].repeat(batch_size)
@@ -338,8 +339,7 @@ class RecurrentTPP(TPPModel):
         else:
             return batch
 
-
-    # 时间变换定理，任何TPP可转化为单位泊松过程
+    #  ∫​λ(u)du=−logS(t)
     def evaluate_compensator(
         self, sequence: src.data.Sequence, num_grid_points: int = 50
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -348,15 +348,15 @@ class RecurrentTPP(TPPModel):
         inter_time_dist = self.get_inter_time_dist(context)
 
         # Evaluate each log survival function at times x = [eps, ..., tau_i]
-        x = batch.inter_times * torch.linspace(1e-4, 1, num_grid_points)[:, None]
-        log_surv = inter_time_dist.log_survival(x)
+        x = batch.inter_times * torch.linspace(1e-4, 1, num_grid_points)[:, None].to(self.device)  # (num_grid_points, L)
+        log_surv = inter_time_dist.log_survival(x) # (num_grid_points, L)
         # Compute the cumulative sum of log survival functions to get the compensator
         surv_offsets = torch.cat(
-            [torch.tensor([0.0]), log_surv[-1].cumsum(dim=-1)[:-1]]
+            [torch.tensor([0.0]).to(self.device), log_surv[-1].cumsum(dim=-1)[:-1]]
         )
-        compensator = -(log_surv + surv_offsets).T.reshape(-1)
+        compensator = -(log_surv + surv_offsets).T.reshape(-1) # (num_grid_points, L) Λ(t)=−logS(t)
 
         # Shift the inter-event times x to get the global times
-        offsets = torch.cat([torch.tensor([0.0]), sequence.arrival_times])
+        offsets = torch.cat([torch.tensor([0.0]).to(self.device), sequence.arrival_times])
         grid = (x + offsets).T.reshape(-1)
         return grid, compensator

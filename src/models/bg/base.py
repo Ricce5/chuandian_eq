@@ -141,6 +141,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         h_intensity = torch.exp(log_h_intensity)            # (B, Nq)
         # protect against zeros in denominator
         denom = h_intensity.clamp_min(1e-8)
+        print(f"f_intensity max:     {f_intensity.max().item()}, h_intensity max: {h_intensity.max().item()}")
         ratio = f_intensity / denom                         # (B, Nq)
         # log change per event-time, only where events are present (mask)
         mask = getattr(batch, "nll_event_mask", None)
