@@ -17,7 +17,7 @@ def trim(x_min, x_max, p=0.05):
 
 @Catalog.register(name="PNR-Base")
 class PNRBase(Catalog):
-    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = -2.1, normalize: bool = True):
+    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = -1.5, normalize: bool = True):
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
         if isinstance(catalog_file, (str, Path)):
@@ -52,6 +52,8 @@ class PNRBase(Catalog):
         df['time'] = df['ts']
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
+        print(f"Magnitude completeness threshold: {self.metadata['mag_completeness']}")
+        print(f"Min magnitude after completeness filter: {df['Magnitude'].min()}")
         df.sort_values("time", inplace=True)
         # 微小扰动重复时间戳，避免 inter_time = 0
         duplicated_mask = df["time"].duplicated(keep=False)
@@ -112,7 +114,7 @@ class PNRStandard(PNRBase):
         self,
         root_dir: Union[str, Path],
         catalog_file: Union[str, Path] = None,
-        mag_completeness: float = -2.1,
+        mag_completeness: float = -1.5,
         train_start_ts: pd.Timestamp = pd.Timestamp("2018-10-22"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2018-11-22"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),

@@ -8,6 +8,7 @@ mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
 debug:
 1. 替换rtpp采样
+2. pnr数据重新生成
 
 
 
