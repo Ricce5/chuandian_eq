@@ -1,4 +1,5 @@
-添加限制WEIBULL分布的参数范围
+修正nhpp中nll计算错误
+更新nhpp逆变换采样
 
 
 
@@ -9,6 +10,8 @@ mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 debug:
 1. 替换rtpp采样
 2. pnr数据重新生成
+3. 对bg模型的nll计算进行修正
+4. 对bg模型的lambda进行cache
 
 
 
