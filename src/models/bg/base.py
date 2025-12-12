@@ -104,6 +104,18 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         )  # (B, 1)
 
         return integral.squeeze(-1)
+    
+    @torch.no_grad()
+    def forecast_count(self, t_start: torch.Tensor, t_end: torch.Tensor) -> torch.Tensor:
+        assert self.ts_batch_cache is not None, "Batch data must be cached before forecasting." 
+        assert self.lambda_cache is not None, "Lambda cache must be available before forecasting."
+        integral = integrate_uniform_time_series(
+            t=self.ts_batch_cache.time_series_times,
+            x=self.lambda_cache.unsqueeze(0).unsqueeze(-1),
+            t_start=torch.tensor(t_start, device=self.device),
+            t_end=torch.tensor(t_end, device=self.device),
+        )  # (B, 1)
+        return integral.squeeze()
 
     
     def nll(self, batch: DotDict) -> torch.Tensor: 

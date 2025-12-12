@@ -44,8 +44,8 @@ def integrate_uniform_time_series(t, x, t_start, t_end, clamp=True):
     Args:
         t:       (B, T)      等间隔时间轴（每个 batch 内等间隔）
         x:       (B, T, F)   对应特征
-        t_start: (B,) or (B, N)  积分下限
-        t_end:   (B,) or (B, N)  积分上限
+        t_start: (B,) or (B, N) or scalar  积分下限
+        t_end:   (B,) or (B, N) or scalar  积分上限
         clamp:   是否把 t_start/t_end 限制到 [t_min, t_max]
 
     Returns:
@@ -57,10 +57,16 @@ def integrate_uniform_time_series(t, x, t_start, t_end, clamp=True):
     assert x.shape[0] == B and x.shape[1] == T
 
     # 统一成 (B, N)
+    if t_start.dim() == 0:
+        t_start = t_start.expand(B)   # (B,)
+    if t_end.dim() == 0:
+        t_end = t_end.expand(B)       # (B,)
+
     if t_start.dim() == 1:
-        t_start = t_start[:, None]      # (B, 1)
+        t_start = t_start[:, None]    # (B, 1)
     if t_end.dim() == 1:
-        t_end = t_end[:, None]          # (B, 1)
+        t_end = t_end[:, None]        # (B, 1)
+
     assert t_start.shape == t_end.shape
     assert t_start.shape[0] == B
     _, N = t_start.shape
