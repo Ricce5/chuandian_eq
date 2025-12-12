@@ -336,7 +336,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
                 # subtract corresponding t0 to get waiting times
                 tau_valid = tau_abs_valid - t0_b[valid_mask]
                 tau[valid_mask] = tau_valid
-                print(f"sample_nhpp_inverse: sampled {valid_mask.sum().item()} events out of {B}.")
+                # print(f"sample_nhpp_inverse: sampled {valid_mask.sum().item()} events out of {B}.")
             # Ensure sampled taus do not exceed dt due to numerical error: clamp and warn if needed.
             diff = tau - dt_b
             if (diff > 1e-6).any():

@@ -8,7 +8,6 @@ from .distribution import Distribution
 
 class Weibull(Distribution):
     arg_constraints = {"scale": constraints.positive, "shape": constraints.positive}   # scale and shape are parameters of the Weibull distribution
-
     def __init__(
         self, scale: torch.Tensor, shape: torch.Tensor, eps=1e-10, validate_args=None  # eps is a small value to avoid numerical issues
     ):

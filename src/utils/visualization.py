@@ -239,7 +239,8 @@ def visualize_trajectories(
 
     # B:
     cummulative_no_of_events = [len(forecast[i]) for i in range(len(forecast))] # list of number of events in each forecast
-    ylim = [0, np.quantile(cummulative_no_of_events, 0.975)] # y-axis limits for histogram
+    no_of_events = len(s_obs)                          # number of observed events in the observed sequence
+    ylim = [0, max(np.quantile(cummulative_no_of_events, 0.975), no_of_events)] # y-axis limits for histogram
 
     axB.hist(
         cummulative_no_of_events,

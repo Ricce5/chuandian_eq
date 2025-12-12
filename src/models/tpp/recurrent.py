@@ -39,6 +39,9 @@ class RecurrentTPP(TPPModel):
         self.num_extra_features = None
         self.context_size = args.d_model
         self.num_components = args.num_components
+        self.scale_range = getattr(args, "scale_range", "positive")
+        if self.scale_range not in ["positive", "decay"]:
+            raise ValueError("scale_range must be one of ['positive', 'decay']")
         self.register_buffer("tau_mean", torch.tensor(args.tau_mean, dtype=torch.float32))  # 平均事件间隔
         self.register_buffer("log_tau_mean", self.tau_mean.log())
         self.register_buffer("mag_mean", torch.tensor(args.mag_mean, dtype=torch.float32))
@@ -122,8 +125,16 @@ class RecurrentTPP(TPPModel):
             [self.num_components, self.num_components, self.num_components],
             dim=-1,
         )
-        scale = F.softplus(scale.clamp_min(-5.0))
+        scale_raw = scale.clamp_min(-5.0)
+        if self.scale_range == "decay":
+            scale = torch.sigmoid(scale_raw)
+        elif self.scale_range == "positive":
+            scale = F.softplus(scale_raw)
+        else:
+            raise ValueError("scale_range must be one of ['positive', 'decay']")
         shape = F.softplus(shape.clamp_min(-5.0))
+        # print(f"scale stats: min {scale.min().item()}, max {scale.max().item()}, mean {scale.mean().item()}")
+        # print(f"shape stats: min {shape.min().item()}, max {shape.max().item()}, mean {shape.mean().item()}")
         weight_logits = F.log_softmax(weight_logits, dim=-1)
         component_dist = dist.Weibull(scale=scale, shape=shape)
         mixture_dist = Categorical(logits=weight_logits)
@@ -164,7 +175,6 @@ class RecurrentTPP(TPPModel):
         # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
         log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # (B, L) 避免0处概率为0
-        log_harzd = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))  # (B, L)
         log_like = (log_pdf * batch.nll_event_mask).sum(-1) # 对nll区间的事件，上次事件到当前事件的时间间隔的对数概率
         # Survival time from last event until t_end
         arange = torch.arange(batch.batch_size)
@@ -192,7 +202,7 @@ class RecurrentTPP(TPPModel):
             nll_total = nll_total + nll_bg
             print(f"nll_bg mean: {nll_bg.mean().item()}, nll_total mean: {nll_total.mean().item()}")
 
-        return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+        return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,) 
 
 
     def sample_next_inter_time(
@@ -236,7 +246,6 @@ class RecurrentTPP(TPPModel):
         if self.num_extra_features is not None:
             raise ValueError("Sampling is not currently supported for extra features")
 
-        # 初始化状态
         if past_seq is not None:
             t_start = past_seq.t_end
             past_batch = src.data.Batch.from_list([past_seq])
