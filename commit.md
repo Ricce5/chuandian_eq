@@ -1,4 +1,3 @@
-修正注水时间序列使用PNR时区而不是utc的错误
 
 
 
@@ -11,6 +10,9 @@ debug:
 2. pnr数据重新生成
 3. 对bg模型的nll计算进行修正
 4. 对bg模型的lambda进行cache
+5. 修改get_subsequence, 
+6. 修改rtpp的last_surv_time处理逻辑
+7. 修改bg_model的 intensity_integral没有clamp_min(0.0)
 
 
 

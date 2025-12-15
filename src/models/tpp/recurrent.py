@@ -324,10 +324,13 @@ class RecurrentTPP(TPPModel):
         inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
-        if (last_surv_time < 0).any():
-            print("Min last_surv_time:", last_surv_time.min().item())
-            print("Any negative?", (last_surv_time < 0).any().item())
-            raise ValueError("last_surv_time < 0 detected")
+        ##################
+        # if (last_surv_time < 0).any():
+        #     print("Min last_surv_time:", last_surv_time.min().item())
+        #     print("Any negative?", (last_surv_time < 0).any().item())
+        #     raise ValueError("last_surv_time < 0 detected")
+        last_surv_time.clamp_min_(0.0)
+        ##################
 
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
 

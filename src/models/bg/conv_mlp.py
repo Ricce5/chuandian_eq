@@ -44,6 +44,7 @@ class ConvMLPBGModel(BGModel):
             hidden_layers_width=hidden_layers_width,
             activation=activation,
             dropout_rate=dropout,
+            use_norm=False,
         )
 
         if device is not None:

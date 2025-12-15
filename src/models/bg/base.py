@@ -94,7 +94,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         time_series_times = batch.time_series_times.to(self.device)  # (B, T)
 
         # match intensity() definition: linear projection then positive weights
-        scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
+        scaled_intensity = self.scaled_intensity(time_series).clamp_min(0.0)  # (B, T, 1)
         intensity_traj = scaled_intensity * self._scale
         integral = integrate_uniform_time_series(
             t=time_series_times,
@@ -156,6 +156,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         # sum over query/event times and subtract integral contribution
         log_like_change = log_change.sum(dim=1) - f_intensity_integral  # (B,)
         # return negative log-likelihood change (for minimization)
+        # print(f"NLL change: { -log_like_change.mean().item() }")
         return -log_like_change
 
     def cache_batch(self, time_series, time_series_times,cache_lambda=True):

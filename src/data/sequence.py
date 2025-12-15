@@ -158,8 +158,16 @@ class Sequence(DotDict):
     ) -> np.ndarray:
         return np.diff(arrival_times, prepend=[t_start], append=[t_end])
 
-    def get_subsequence(self, start: float, end: float) -> "Sequence":
-        """Select a subset of events in the interval [start, end]."""
+    def get_subsequence(self, start: float, end: float, reset_t_nll_to_end: bool = False) -> "Sequence":
+        """Select a subset of events in the interval [start, end].
+
+        Args:
+            start: window start (inclusive).
+            end: window end (inclusive).
+            reset_t_nll_to_end: if True, set the returned sequence's t_nll_start == end
+                (useful for creating pure test sequences with no NLL interval). Otherwise
+                keep t_nll_start = max(self.t_nll_start, start).
+        """
         if start < self.t_start or end > self.t_end:
             raise ValueError(
                 f"start must be >= {self.t_start} and end must be <= {self.t_end}"
@@ -198,11 +206,13 @@ class Sequence(DotDict):
             new_ts_times = ts_times[ts_mask].contiguous()
             other_attr['time_series'] = new_ts
             other_attr['time_series_times'] = new_ts_times
-        
+
+        t_nll_start = end-1e-1 if reset_t_nll_to_end else max(self.t_nll_start, start)
+
         return Sequence(
             inter_times=new_inter_times,
             t_start=start,
-            t_nll_start=max(self.t_nll_start, start),
+            t_nll_start=t_nll_start,
             **other_attr,
         )
 

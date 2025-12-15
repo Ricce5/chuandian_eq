@@ -174,7 +174,9 @@ def visualize_trajectories(
     t_before: Optional[float] = None,
     num_examples: int = 10,               # number of example trajectories to plot
     save_path: Optional[str] = None,
-    xlabel: str = "Arrival time (days)"
+    xlabel: str = "Arrival time (days)",
+    reset_t_nll_to_end: bool = False,
+
 ):
     """Show an example visualization of simulated catalog continuations"""
     if (t_start is None) and (t_end is None):
@@ -216,8 +218,8 @@ def visualize_trajectories(
         forecast
     ), "num_examples must be <= to the number of simulations in the forecast"
 
-    s_viz = seq.get_subsequence(t_start - t_before, t_start + duration).cpu()
-    s_obs = seq.get_subsequence(t_start, t_start + duration).cpu()
+    s_viz = seq.get_subsequence(t_start - t_before, t_start + duration,reset_t_nll_to_end=reset_t_nll_to_end).cpu()
+    s_obs = seq.get_subsequence(t_start, t_start + duration,reset_t_nll_to_end=reset_t_nll_to_end).cpu()
 
     axA.axvline(t_start, c="k", lw=1, ls="--")
     axA.annotate(
