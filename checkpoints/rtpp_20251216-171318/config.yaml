@@ -6,12 +6,12 @@ pad_token_id: 1
 task_type: tpp
 
 
-bg_model: rnn
+bg_model: mamba
 bg_model_cfg:
  d_feature: 1 
-#  d_state: 64
+ d_state: 64
  d_model: 16
- model_type: gru  # lstm | gru
+ model_type: mamba  # mamba | mamba2
  scale_init: 400.0
 
 # 训练参数
@@ -34,7 +34,7 @@ d_model: 32
 rnn_dropout: 0.3
 #
 num_components: 32
-scale_range: positive  # positive | decay
+scale_range: decay # positive | decay
 
 # 其他参数
 dim: 1

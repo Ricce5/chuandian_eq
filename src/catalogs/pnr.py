@@ -114,7 +114,7 @@ class PNRStandard(PNRBase):
         self,
         root_dir: Union[str, Path],
         catalog_file: Union[str, Path] = None,
-        mag_completeness: float = -1.5,
+        mag_completeness: float = -1.8,
         train_start_ts: pd.Timestamp = pd.Timestamp("2018-10-22"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2018-11-22"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),

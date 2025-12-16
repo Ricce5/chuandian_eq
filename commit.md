@@ -13,6 +13,8 @@ debug:
 5. 修改get_subsequence, 
 6. 修改rtpp的last_surv_time处理逻辑
 7. 修改bg_model的 intensity_integral没有clamp_min(0.0)
+8. 修改pnr完备性-1.8
+9. 注水序列长度54000超过RNN处理范围
 
 
 
