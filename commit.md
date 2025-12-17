@@ -1,4 +1,9 @@
-处理pnz-2注水数据
+修改pnr目录数据加载，兼容pnr2
+修改pnr预处理的add_datetime_column
+增加背景模型ncde
+重命名Forecasting.ipynb 为 Forecasting_induced_eq.ipynb
+修正M-test错误
+
 
 
 selective_state_update 中0被替换为(0,0), 处理None下的情况
@@ -15,6 +20,9 @@ debug:
 7. 修改bg_model的 intensity_integral没有clamp_min(0.0)
 8. 修改pnr完备性-1.8
 9. 注水序列长度54000超过RNN处理范围
+10. pnr的generate中转datetime
+11. 修改pnr预处理的add_datetime_column
+12. 修正M-test错误
 
 
 

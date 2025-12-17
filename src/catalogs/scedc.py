@@ -48,6 +48,7 @@ class SCEDC(Catalog):
             "start_ts": pd.Timestamp("1981-01-01"),
             "end_ts": pd.Timestamp("2020-01-01"),
         }
+        
 
         super().__init__(root_dir=root_dir, metadata=metadata)
 
