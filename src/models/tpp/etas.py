@@ -18,7 +18,7 @@ from .tpp_model import TPPModel
 
 
 def branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
-    """Compute branching ratio of the ETAS model (Sornette & Werner).""" # 分支比：单个地震平均触发的余震数
+    """Compute branching ratio of the ETAS model (Sornette & Werner)."""  # 每个事件触发事件数的期望
     if b == alpha:
         branching_ratio = (
             k * b * np.log(10) * (M_max - M_min) / (1 - 10 ** (-b * (M_max - M_min)))
@@ -46,7 +46,7 @@ def gen_mag(shape=1, b=1, M_min=0, M_max=10):
 
 def productivity(m, k, alpha=1, Mc=3):
     """Compute productivity of the earthquake with given magnitude."""
-    return k * 10 ** (alpha * (m - Mc))    # 计算某次地震产生余震的能力
+    return k * 10 ** (alpha * (m - Mc))    
 
 
 def omori_int(T1, T2, c, p):
@@ -149,7 +149,7 @@ class ETAS(TPPModel):
         # delta_t[0, i, j] = t_i - t_j
         delta_t = t_select.unsqueeze(-1) - t.unsqueeze(-2)  # (B, S, L)
         # prev_mask[0, i, j] = float(t_i < t_j)
-        prev_mask = (delta_t > 0).float()  # (B, S, L)
+        prev_mask = (delta_t > 0).float()  # (B, S, L) 当前事件之前的所有事件掩码
         ###### 条件强度函数计算
         # Logarithm of the intensity
         # omori[0, i, j] = contribution of event t_j on intensity at time t_i
@@ -167,11 +167,12 @@ class ETAS(TPPModel):
         one_minus_p = 1 - self.p
         t_end = batch.t_end.unsqueeze(-1)  # (B, 1)
         t_nll_start = batch.t_nll_start.unsqueeze(-1)  # (B, 1)
-        # omori_int[0, j] = integral of the omori law from max(t_j, t_nll_start) to t_end
+        # omori_int[0, j] = integral of the omori law from max(t_j, t_nll_start) to t_end 对每个事件计算
         omori_int = (
             (t_end - t + self.c).pow(one_minus_p)
             - ((t_nll_start - t).clamp_min(0.0) + self.c).pow(one_minus_p)
         ) / one_minus_p  # (B, L)
+        # 屏蔽padding事件对积分的贡献
         survival_mask = get_mask(
             batch.inter_times,
             start_idx=torch.zeros_like(batch.start_idx),
@@ -388,8 +389,9 @@ class ETAS(TPPModel):
                 parent_catalog = []
 
             t_end = t_start + duration
-
+         
             # Background events are sampled from a poisson distribution with mean mu*T  由条件强度函数背景地震率部分生成的事件
+            #########
             Nback = poisson.rvs(mu * (duration))  # number of background events
 
             # background events occur randomly in the time domain
@@ -399,6 +401,7 @@ class ETAS(TPPModel):
             # Now iteratively add generations of aftershocks
             # The background and pre-existing catalog define the first parent catalog
             background_catalog = np.column_stack(background_events) # 将包含两个长度为Nback的数组合并为一个二维数组(Nback, 2)
+            #########
             parent_catalog = (
                 np.vstack((parent_catalog, background_catalog))
                 if len(parent_catalog) > 0
@@ -556,3 +559,5 @@ def masked_select_per_row(matrix, mask):
     new_matrix = pad_sequence(selected_rows)
     new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])
     return new_matrix, new_mask.float()
+
+

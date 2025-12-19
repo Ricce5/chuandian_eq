@@ -164,27 +164,27 @@ def get_attn_mask_with_cache(
 
     
 
-def masked_select_per_row(matrices, mask):
+def masked_select_per_row(matrixs, mask):
     """
-    Extended version: Supports multiple matrices sharing the same row-level mask.
+    Extended version: Supports multiple matrixs sharing the same row-level mask.
 
     Args:
-        matrices: A 3D tensor or a list of 2D tensors, shaped [B, M, N] or of length B, each [M, N].
+        matrixs: A 3D tensor or a list of 2D tensors, shaped [B, M, N] or of length B, each [M, N].
         mask: A boolean matrix [M, N], indicating which elements are selected.
 
     Returns:
         selected_matrices: A list of 2D tensors, shaped [B, max_len] (padded by rows).
         masks: A list of 2D float tensors corresponding to selected_matrices, indicating actual values vs padding.
     """
-    if isinstance(matrices, torch.Tensor):
-        matrices = [matrices[i] for i in range(matrices.shape[0])]
+    if isinstance(matrixs, torch.Tensor):
+        matrixs = [matrixs[i] for i in range(matrixs.shape[0])]
     
-    assert all(matrix.shape == mask.shape for matrix in matrices), "每个 matrix 必须与 mask 同形状"
+    assert all(matrix.shape == mask.shape for matrix in matrixs), "每个 matrix 必须与 mask 同形状"
 
     selected_matrices = []
     new_masks = []
 
-    for matrix in matrices:
+    for matrix in matrixs:
         selected_rows = [
             row.masked_select(mask_row.bool()) for row, mask_row in zip(matrix, mask)
         ]

@@ -168,6 +168,23 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         self.lambda_cache = None if not cache_lambda else self.intensity(self.ts_batch_cache).squeeze(0)
     
 
+
+
+    def _to_batched_tensor(self, x, name, B, dtype=None):
+        device = self.device
+        if torch.is_tensor(x):
+            x = x.to(device)
+            if dtype is not None:
+                x = x.to(dtype)
+            if x.dim() == 0:
+                return x.expand(B).reshape(B)
+            if x.numel() == 1:
+                return x.reshape(1).expand(B).reshape(B)
+            assert x.shape[0] == B, f"{name} must have length B"
+            return x.reshape(B)
+        return torch.full((B,), float(x), device=device, dtype=dtype or torch.float32)
+    
+
     def sample_nhpp(self, B, t0, dt, n_grid=10, return_times_list=False, eps_zero: float = 1e-12):
         """
         Parallel sampling of the first-event waiting time for B NHPPs (relative to t0).
@@ -190,23 +207,10 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
         device = self.device
 
-        def to_batched_tensor(x, name):
-            if torch.is_tensor(x):
-                x = x.to(device)
-                if x.dim() == 0:
-                    x = x.expand(B)
-                elif x.numel() == 1:
-                    x = x.reshape(1).expand(B)
-                else:
-                    assert x.shape[0] == B, f"{name} must have length B"
-                return x.reshape(B)
-            else:
-                x_t = torch.tensor(float(x), device=device)
-                return torch.full((B,), x_t.item(), device=device)
 
         with torch.no_grad():
-            t0_b = to_batched_tensor(t0, "t0")   # (B,)
-            dt_b = to_batched_tensor(dt, "dt")   # (B,)
+            t0_b = self._to_batched_tensor(t0, "t0", B)   # (B,)
+            dt_b = self._to_batched_tensor(dt, "dt", B)   # (B,)
 
             # estimate λ_max on a grid
             u = torch.linspace(0.0, 1.0, n_grid, device=device).unsqueeze(0)  # (1, n_grid)
@@ -281,29 +285,26 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         dt,
         eps_lam: float = 1e-12,
         eps_disc: float = 0.0,
-        use_fp64: bool = False,        
+        use_fp64: bool = False,  
+        sample_sequence: bool = False       
     ):
         """
         Inverse-CDF sampling of first-event waiting times for B NHPPs using a cached
         uniform grid. Returns dt for samples with no event in [t0, t0+dt].
+        Args:
+            B  : number of parallel samples
+            t0 : start absolute time, can be scalar / length-B vector / tensor
+            dt : interval length (t1 - t0), scalar / length-B vector / tensor
+            eps_lam: threshold for treating λ as zero
+            eps_disc: threshold for discriminant in quadratic solver
+            use_fp64: if True, use float64 for time/index/integral/CIF computations
+            sample_sequence: if True, return full event time sequences, else only first event times
         """
         cached = getattr(self, "ts_batch_cache", None)
         assert cached is not None, "Batch data must be cached before sampling."
         device = self.device
 
         # --- helpers ---
-        def to_batched_tensor(x, name, dtype=None):
-            if torch.is_tensor(x):
-                x = x.to(device)
-                if dtype is not None:
-                    x = x.to(dtype)
-                if x.dim() == 0:
-                    return x.expand(B).reshape(B)
-                if x.numel() == 1:
-                    return x.reshape(1).expand(B).reshape(B)
-                assert x.shape[0] == B, f"{name} must have length B"
-                return x.reshape(B)
-            return torch.full((B,), float(x), device=device, dtype=dtype or torch.float32)
 
         def build_window_grid(ts_times_full, t0_min, t1_max):
             T = ts_times_full.numel()
@@ -318,6 +319,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             return dt_grid, ts0, tsN, ts_times, i0, i1
 
         def build_cif_from_lam(lam, dt_grid):
+            """Build CIF from intensity values on uniform grid."""
             Tw = lam.numel()
             if Tw < 2:
                 return None
@@ -342,13 +344,33 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
                 s_local[nonlin_mask] = (-Bq + torch.sqrt(disc)) / (2.0 * A)
             return s_local
 
+        def invert_cif_targets(targets, cif, lam, dt_grid_local, ts_rel_local):
+            """Invert CIF for a 1D tensor of targets -> relative times.
+                targets: any shape
+            """
+            Tw_local = lam.numel()
+            if Tw_local < 2 or targets.numel() == 0:
+                return torch.empty_like(targets)
+
+            idx = torch.searchsorted(cif, targets)
+            idx = idx.clamp(min=1, max=Tw_local - 1)
+            idx0 = idx - 1
+
+            lam0_seg = lam[idx0]
+            lam1_seg = lam[idx0 + 1]
+            delta_L = targets - cif[idx0]
+
+            s = solve_segment_s(delta_L, lam0_seg, lam1_seg, dt_grid_local)
+            t_event_rel = ts_rel_local[idx0] + s
+            return t_event_rel
+
         # --- dtype policy ---
         # 只让“时间/索引/积分/CIF”走 fp64；强度 lam 可以保持 fp32（通常足够）
         t_dtype = torch.float64 if use_fp64 else torch.float32
 
         # --- main flow ---
-        t0_b = to_batched_tensor(t0, "t0", dtype=t_dtype)
-        dt_b = to_batched_tensor(dt, "dt", dtype=t_dtype)
+        t0_b = self._to_batched_tensor(t0, "t0", B, dtype=t_dtype)
+        dt_b = self._to_batched_tensor(dt, "dt", B, dtype=t_dtype)
         t1_b = t0_b + dt_b
 
         # cached uniform time grid (assumes batch dim was 1)
@@ -364,20 +386,20 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         )
 
         # intensity on full grid and restrict to window
-        # lam 通常用 fp32 也可以；若你也想 lam 跟着用 fp64，把 .to(...) 打开即可
         lam_full = self.lambda_cache if self.lambda_cache is not None else self.intensity(cached, t_query=ts_times_full.unsqueeze(0)).squeeze(0)  # (T,)
-        # lam_full =  self.intensity(cached, t_query=ts_times_full.unsqueeze(0)).squeeze(0)
     
 
         lam = lam_full[i0 : i1 + 1]  # (Tw,)
-        # 如果 use_fp64，希望 CIF/搜索更稳定，可以把 lam 也转到 t_dtype：
         lam = lam.to(t_dtype) if use_fp64 else lam
 
         Tw = lam.numel()
         if Tw < 2:
-            return dt_b.clone().to(self.device)
+            tau_fallback = dt_b.clone().to(self.device)
+            if sample_sequence:
+                return [[] for _ in range(B)], tau_fallback
+            return tau_fallback
 
-        # --- ✅ 相对时间：以窗口起点为 0 ---
+        # --- 相对时间：以窗口起点为 0 ---
         t_shift = ts_times[0]
         ts_rel = ts_times - t_shift        # (Tw,)
         t0_rel = t0_b - t_shift            # (B,)
@@ -386,7 +408,10 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         # build CIF on this window (基于 lam 和 dt_grid，与绝对时间无关)
         cif = build_cif_from_lam(lam, dt_grid)
         if cif is None:
-            return dt_b.clone().to(self.device)
+            tau_fallback = dt_b.clone().to(self.device)
+            if sample_sequence:
+                return [[] for _ in range(B)], tau_fallback
+            return tau_fallback
 
         # CIF at relative times in [0, ts_rel[-1]]
         def cif_at_rel(t_rel: torch.Tensor) -> torch.Tensor:
@@ -395,11 +420,11 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             t_j = ts_rel[j]
             s = (t_rel - t_j).clamp(min=0.0, max=dt_grid)
 
-            lam0 = lam[j]
-            lam1 = lam[j + 1]
-            dlam = (lam1 - lam0) / dt_grid
+            lam0_loc = lam[j]
+            lam1_loc = lam[j + 1]
+            dlam_loc = (lam1_loc - lam0_loc) / dt_grid
 
-            inc = lam0 * s + 0.5 * dlam * s * s
+            inc = lam0_loc * s + 0.5 * dlam_loc * s * s
             return cif[j] + inc
 
         # per-sample available cumulative intensity in window
@@ -408,140 +433,89 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         Lambda_win = (Lambda1 - Lambda0).clamp_min(0.0)
 
         if (Lambda_win < eps_lam).all():
-            return dt_b.clone()
+            tau_zero = dt_b.clone()
+            if sample_sequence:
+                return [[] for _ in range(B)], tau_zero
+            return tau_zero
 
-        # sample Exp(1)
-        E = -torch.log(torch.rand(B, device=device, dtype=t_dtype))
-        tau = dt_b.clone()
+        # 默认行为：只采样首个事件时间
+        if not sample_sequence:
+            E = -torch.log(torch.rand(B, device=device, dtype=t_dtype))
+            tau = dt_b.clone()
 
-        has_event = E < Lambda_win
-        if not has_event.any():
+            has_event = E < Lambda_win
+            if not has_event.any():
+                return tau
+
+            target = (Lambda0[has_event] + E[has_event]).clamp_min(0.0)
+
+            # 让 target 不要超过窗口 CIF 末端（更稳的 clamp）
+            cif_end = cif[-1]
+            target = target.clamp_max((cif_end - eps_lam).clamp_min(0.0))
+
+            t_event_rel = invert_cif_targets(target, cif, lam, dt_grid, ts_rel)
+            tau_event = (t_event_rel - t0_rel[has_event]).clamp_min(0.0)
+            tau[has_event] = torch.minimum(tau_event, dt_b[has_event])
+
             return tau
 
-        target = (Lambda0[has_event] + E[has_event]).clamp_min(0.0)
-
-        # 让 target 不要超过窗口 CIF 末端（更稳的 clamp）
+        # sample_sequence=True：返回整段事件序列（以及首事件时间）
+        tau = dt_b.clone()
         cif_end = cif[-1]
-        target = target.clamp_max((cif_end - eps_lam).clamp_min(0.0))
 
-        # idx: first index with cif[idx] >= target
-        idx = torch.searchsorted(cif, target)
-        idx = idx.clamp(min=1, max=Tw - 1)
-        idx0 = idx - 1
+        total_L = Lambda_win.clamp_min(0.0) # 变换后的时间区间长度
+        n_events = torch.poisson(total_L).long()
+        n_events = torch.where(total_L < eps_lam, torch.zeros_like(n_events), n_events)
 
-        lam0 = lam[idx0]
-        lam1 = lam[idx0 + 1]
-        delta_L = target - cif[idx0]
+        max_events = int(n_events.max().item())
+        if max_events == 0:
+            return [[] for _ in range(B)], tau
 
-        s = solve_segment_s(delta_L, lam0, lam1, dt_grid)
+        event_idx = torch.arange(max_events, device=device).unsqueeze(0)
+        event_mask = event_idx < n_events.unsqueeze(1)
 
-        # event time in REL coords, then waiting time is still (t_event - t0)
-        t_event_rel = ts_rel[idx0] + s
-        tau_event = (t_event_rel - t0_rel[has_event]).clamp_min(0.0)
-        tau[has_event] = torch.minimum(tau_event, dt_b[has_event])
+        U = torch.rand(B, max_events, device=device, dtype=t_dtype) # 变换后时间/total_L
+        U = torch.where(event_mask, U, torch.ones_like(U))
+        U_sorted, _ = torch.sort(U, dim=1)
+        U_sorted = torch.where(event_mask, U_sorted, torch.zeros_like(U_sorted))
 
-        return tau
+        targets = Lambda0.unsqueeze(1) + U_sorted * total_L.unsqueeze(1)
+        max_target = (cif_end - eps_lam).clamp_min(0.0)
+        targets = targets.clamp_max(max_target)
+        targets = torch.where(event_mask, targets, torch.zeros_like(targets))
 
- # def sample_nhpp_inverse(self, B, t0, dt, num_dense=10000, eps_lam=1e-12, eps_cif=1e-12):
-    #     cached = getattr(self, "ts_batch_cache", None)
-    #     assert cached is not None, "Batch data must be cached before sampling."
-    #     device = self.device
+        flat_targets = targets[event_mask] # 把所有True位置取出来，按行展开
+        if flat_targets.numel() == 0:
+            return [[] for _ in range(B)], tau
 
-    #     def to_batched_tensor(x, name):
-    #         # return tensor of shape (B,)
-    #         if torch.is_tensor(x):
-    #             x = x.to(device)
-    #             if x.dim() == 0:
-    #                 x = x.expand(B)
-    #             elif x.numel() == 1:
-    #                 x = x.reshape(1).expand(B)
-    #             else:
-    #                 assert x.shape[0] == B, f"{name} must have length B"
-    #             return x.reshape(B)
-    #         else:
-    #             x_t = torch.tensor(float(x), device=device)
-    #             return torch.full((B,), x_t.item(), device=device)
+        batch_ids = torch.repeat_interleave(torch.arange(B, device=device), n_events) # 每个事件对应的batch id
+        t_events_rel_flat = invert_cif_targets(flat_targets, cif, lam, dt_grid, ts_rel)
 
-    #     with torch.no_grad():
-    #         t0_b = to_batched_tensor(t0, "t0")
-    #         dt_b = to_batched_tensor(dt, "dt")
+        t0_flat = t0_rel[batch_ids]
+        t1_flat = t1_rel[batch_ids]
+        within = (t_events_rel_flat >= t0_flat) & (t_events_rel_flat <= t1_flat)
+        if not within.any():
+            return [[] for _ in range(B)], tau
 
-    #         t0_min = t0_b.min().item()
-    #         t1_max = (t0_b + dt_b).max().item()
+        t_events_rel_flat = t_events_rel_flat[within]
+        batch_ids = batch_ids[within]
 
-    #         # get cached series (assume batch size 1 was cached)
-    #         ts_times = cached["time_series_times"]  # expected shape (1, T)
-    #         ts_values = cached["time_series"]       # expected shape (1, T, F)
-
-    #         # flatten the cached time axis
-    #         ts_times_1d = ts_times.reshape(-1)  # (T,)
-    #         ts_min = ts_times_1d.min().item()
-    #         ts_max = ts_times_1d.max().item()
-    #         # select points inside [t0_min, t1_max]
-    #         assert t0_min >= ts_min and t1_max <= ts_max, (
-    #             f"[sample_nhpp_inverse] Query interval [{t0_min:.4f}, {t1_max:.4f}] "
-    #             f"out of cached range [{ts_min:.4f}, {ts_max:.4f}]."
-    #         )
-    #         mask = (ts_times_1d >= t0_min) & (ts_times_1d <= t1_max)
-    #         if mask.sum().item() == 0:
-    #             # no support points in interval -> no event
-    #             return dt_b.clone()
-
-    #         x = ts_times_1d[mask].to(device=device)  # (Nq,)
-    #         # prepare t_query for intensity: shape (1, Nq) because cached has batch dim
-    #         t_query = x.unsqueeze(0)  # (1, Nq)
-
-    #         # compute intensity at these absolute times; intensity returns (B_cached=1, Nq)
-    #         lam = self.intensity(cached, t_query=t_query)  # (1, Nq)
-    #         lam_1d = lam.squeeze(0)                        # (Nq,)
-
-    #         # build cif inverse/forward on device/dtype of x
-    #         interp = build_cif_inverse(x, lam_1d, num_dense=num_dense)
-    #         cif_inverse = interp["cif_inverse"]
-    #         cif_forward = interp["cif_forward"]
-
-    #         # evaluate CIF at each t0 in the batch
-    #         # cif_forward expects times in the same domain as x (absolute times)
-    #         cif_t0 = cif_forward.evaluate(t0_b).squeeze()          # (B,)
-    #         cif_t1 = cif_forward.evaluate(t0_b + dt_b).squeeze()  # (B,)
-    #         cif_max = cif_t1 - cif_t0  # (B,)
-
-    #         # sample exponential rates and map through inverse CIF
-    #         tau = dt_b.clone()  # default: no event (return dt)
-    #         tau_orig = -torch.log(torch.rand(B, device=device))  # (B,)
-    #         valid_mask = tau_orig < cif_max
-
-    #         if valid_mask.any():
-    #             cif_query = (tau_orig[valid_mask] + cif_t0[valid_mask]).to(device)
-    #             # cif_inverse.evaluate returns shape (1, M, 1) -> squeeze to (M,)
-    #             tau_abs_valid = cif_inverse.evaluate(cif_query).squeeze()  # absolute times
-    #             # subtract corresponding t0 to get waiting times
-    #             tau_valid = tau_abs_valid - t0_b[valid_mask]
-    #             tau[valid_mask] = tau_valid
-    #             # print(f"sample_nhpp_inverse: sampled {valid_mask.sum().item()} events out of {B}.")
-    #         # Ensure sampled taus do not exceed dt due to numerical error: clamp and warn if needed.
-    #         diff = tau - dt_b
-    #         if (diff > 1e-6).any():
-    #             warnings.warn(f"sample_nhpp_inverse: sampled tau exceeds dt by up to {diff.max().item():.3e}; clamping to dt.")
-    #             tau = torch.minimum(tau, dt_b)
-    #     return tau
+        counts_filtered = torch.bincount(batch_ids, minlength=B) # 统计保留的事件数
+        if counts_filtered.sum().item() == 0:
+            return [[] for _ in range(B)], tau
 
 
-
-# def build_cif_inverse(x, y, num_dense=10000):
-#     assert x.ndim == 1 and y.ndim == 1 and x.shape == y.shape
-#     forward_interp = torchcde.LinearInterpolation(y.unsqueeze(0).unsqueeze(-1), t=x)
-#     x_dense = torch.linspace(x[0], x[-1], num_dense, device=x.device, dtype=x.dtype)
-#     y_dense = forward_interp.evaluate(x_dense).squeeze()  # (num_dense,)
-
-#     dx = x_dense[1] - x_dense[0]
-#     cif_dense = torch.cumsum(y_dense, dim=0) * dx
-#     cif_inverse = torchcde.LinearInterpolation(x_dense.unsqueeze(0).unsqueeze(-1), t=cif_dense)
-#     cif_forward = torchcde.LinearInterpolation(cif_dense.unsqueeze(0).unsqueeze(-1), t=x_dense)
-
-#     return {
-#         "if": forward_interp,
-#         "cif_inverse": cif_inverse,
-#         "cif_forward": cif_forward,
-#         'cif': cif_dense
-#     }
+        counts_cpu = counts_filtered.cpu().tolist()
+        segments = torch.split(t_events_rel_flat, counts_cpu)
+        times_list = [
+            (seg + t_shift).to(torch.float32).cpu().tolist() if seg.numel() > 0 else []
+            for seg in segments
+            ]
+        return times_list
+         # first_offsets = torch.cumsum(counts_filtered, 0) - counts_filtered
+        # has_events_filtered = counts_filtered > 0
+        # first_idx = first_offsets[has_events_filtered]
+        # first_rel = t_events_rel_flat[first_idx]
+        # tau_vals = (first_rel - t0_rel[has_events_filtered]).clamp_min(0.0)
+        # tau[has_events_filtered] = torch.minimum(tau_vals, dt_b[has_events_filtered])
+        # return times_list, tau

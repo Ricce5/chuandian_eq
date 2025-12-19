@@ -6,7 +6,7 @@ from config.config_loader import load_args_from_yaml
 from pathlib import Path
 args= load_args_from_yaml("../../config/mixer_tpp.yaml")
 # args.dataset = "Geysers"
-args.dataset = "PNR"
+args.dataset = "PNR_1z"
 base_dir = f"../../data/{args.dataset}"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -46,9 +46,9 @@ time_dist = model.get_inter_time_dist(current_state)
 log_h_intensity = time_dist.log_hazard(batch.inter_times[:,0].to(device))
 # %%
 import src.models.bg.proportional as bg_models
-bg_model = bg_models.ProportionalBGModel(d_feature=batch.time_series.shape[-1],device=device)
-bg_model.to(device)
-batch = batch.to(device)
+# bg_model = bg_models.ProportionalBGModel(d_feature=batch.time_series.shape[-1],scale_init=200,device=device)
+# bg_model.to(device)
+# batch = batch.to(device)
 # %%
 bg_model.intensity(batch)
 # %%
