@@ -396,7 +396,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         if Tw < 2:
             tau_fallback = dt_b.clone().to(self.device)
             if sample_sequence:
-                return [[] for _ in range(B)], tau_fallback
+                return [[] for _ in range(B)]
             return tau_fallback
 
         # --- 相对时间：以窗口起点为 0 ---
@@ -410,7 +410,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         if cif is None:
             tau_fallback = dt_b.clone().to(self.device)
             if sample_sequence:
-                return [[] for _ in range(B)], tau_fallback
+                return [[] for _ in range(B)]
             return tau_fallback
 
         # CIF at relative times in [0, ts_rel[-1]]
@@ -438,7 +438,6 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
                 return [[] for _ in range(B)], tau_zero
             return tau_zero
 
-        # 默认行为：只采样首个事件时间
         if not sample_sequence:
             E = -torch.log(torch.rand(B, device=device, dtype=t_dtype))
             tau = dt_b.clone()
@@ -469,7 +468,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
         max_events = int(n_events.max().item())
         if max_events == 0:
-            return [[] for _ in range(B)], tau
+            return [[] for _ in range(B)]
 
         event_idx = torch.arange(max_events, device=device).unsqueeze(0)
         event_mask = event_idx < n_events.unsqueeze(1)
@@ -486,7 +485,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
         flat_targets = targets[event_mask] # 把所有True位置取出来，按行展开
         if flat_targets.numel() == 0:
-            return [[] for _ in range(B)], tau
+            return [[] for _ in range(B)]
 
         batch_ids = torch.repeat_interleave(torch.arange(B, device=device), n_events) # 每个事件对应的batch id
         t_events_rel_flat = invert_cif_targets(flat_targets, cif, lam, dt_grid, ts_rel)
@@ -495,14 +494,14 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         t1_flat = t1_rel[batch_ids]
         within = (t_events_rel_flat >= t0_flat) & (t_events_rel_flat <= t1_flat)
         if not within.any():
-            return [[] for _ in range(B)], tau
+            return [[] for _ in range(B)]
 
         t_events_rel_flat = t_events_rel_flat[within]
         batch_ids = batch_ids[within]
 
         counts_filtered = torch.bincount(batch_ids, minlength=B) # 统计保留的事件数
         if counts_filtered.sum().item() == 0:
-            return [[] for _ in range(B)], tau
+            return [[] for _ in range(B)]
 
 
         counts_cpu = counts_filtered.cpu().tolist()
@@ -512,10 +511,3 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             for seg in segments
             ]
         return times_list
-         # first_offsets = torch.cumsum(counts_filtered, 0) - counts_filtered
-        # has_events_filtered = counts_filtered > 0
-        # first_idx = first_offsets[has_events_filtered]
-        # first_rel = t_events_rel_flat[first_idx]
-        # tau_vals = (first_rel - t0_rel[has_events_filtered]).clamp_min(0.0)
-        # tau[has_events_filtered] = torch.minimum(tau_vals, dt_b[has_events_filtered])
-        # return times_list, tau

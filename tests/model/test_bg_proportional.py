@@ -46,9 +46,9 @@ time_dist = model.get_inter_time_dist(current_state)
 log_h_intensity = time_dist.log_hazard(batch.inter_times[:,0].to(device))
 # %%
 import src.models.bg.proportional as bg_models
-# bg_model = bg_models.ProportionalBGModel(d_feature=batch.time_series.shape[-1],scale_init=200,device=device)
-# bg_model.to(device)
-# batch = batch.to(device)
+bg_model = bg_models.ProportionalBGModel(d_feature=batch.time_series.shape[-1],scale_init=200,device=device)
+bg_model.to(device)
+batch = batch.to(device)
 # %%
 bg_model.intensity(batch)
 # %%
@@ -81,34 +81,56 @@ model.nll_loss(batch.to(device))
 # %%
 bg_model.cache_batch(batch.time_series, batch.time_series_times)
 # %%
-time_bg_list, time_bg_tensor = bg_model.sample_nhpp(30000,t0=9.0,t1=9.4,return_times_list=True)
+times_list, tau1= bg_model.sample_nhpp_inverse(3000,t0=9.0,dt=20,sample_sequence=True)
+tau2 =  bg_model.sample_nhpp_inverse(3000,t0=9.0,dt=20,sample_sequence=False)
 # %%
-time_bg_list
-# %%
-time_bg_tensor 
-# %%
-tensor1 = torch.tensor([9.8,9.7,9.5]).to(device)
-min_tensor = torch.min(tensor1, time_bg_tensor)
-# %%
-min_tensor
-# %%
-out= bg_model.sample_nhpp_inverse(10,t0=9.0,dt=2.0)
-# %%
-print(model.bg_model)
-# %%
-# %%
-current_state= current_state.expand(8,-1,-1)
-# %%
-time_dist = model.get_inter_time_dist(current_state[:,[-1],:])
-# %%
-model.sample_next_inter_time(inter_time_dist=time_dist)
-# %%
-model.bg_model = bg_model
-# %%
-t_last_event = torch.tensor([9.0]*8).to(device)
-# %%
-model.sample_next_inter_time(inter_time_dist=time_dist, t_last_event=t_last_event)
-# %%
-model.sample_next_inter_time(inter_time_dist=time_dist, t_last_event=t_last_event,lower_bound=torch.tensor([10]).to(device))
+torch.mean(tau1)
+# %%·
+torch.mean(tau2)
 
+# %%
+import matplotlib.pyplot as plt
+import seaborn as sns
+tau1_np = tau1.cpu().numpy()
+tau2_np = tau2.cpu().numpy()
+
+# Create a figure for plotting
+plt.figure(figsize=(12, 6))
+
+# Plot the histogram and KDE for tau1
+sns.histplot(tau1_np, kde=True, color='blue', label='tau1', stat="density", linewidth=2)
+
+# Plot the histogram and KDE for tau2
+sns.histplot(tau2_np, kde=True, color='red', label='tau2', stat="density", linewidth=2)
+
+# Adding title and labels
+plt.title('Distribution of tau1 and tau2', fontsize=14)
+plt.xlabel('Value', fontsize=12)
+plt.ylabel('Density', fontsize=12)
+
+# Add a legend
+plt.legend()
+
+# Show the plot
+plt.show()
+# %%
+from scipy.stats import ks_2samp
+alpha = 0.01
+
+# 进行 Kolmogorov-Smirnov 检验
+stat, p_value = ks_2samp(tau1.cpu().numpy(), tau2.cpu().numpy())
+
+print(f"KS-statistic: {stat}")
+print(f"p-value: {p_value}")
+
+# 根据 p-value 判断显著性
+if p_value < alpha:
+    print("Reject the null hypothesis: There is a significant difference.")
+else:
+    print("Fail to reject the null hypothesis: No significant difference.")
+
+# %%
+times_list[0]
+# %%
+times_list[1]
 # %%
