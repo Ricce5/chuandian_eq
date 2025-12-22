@@ -603,16 +603,34 @@ class ETASBuilder(ModelBuilder):
     def __call__(self, args, device):
         import torch
         from src.models.tpp.etas import ETAS
+
         tau_mean = torch.tensor(args.tau_mean, dtype=torch.float32)
-        richter_b =  torch.tensor(args.richter_b_mle, dtype=torch.float32)
-        base_rate_init=1 / tau_mean
+        richter_b = torch.tensor(args.richter_b_mle, dtype=torch.float32)
+    
         mag_completeness = torch.tensor(args.mag_completeness, dtype=torch.float32)
-        return ETAS(
+
+        if getattr(args, 'bg_model', None) is not None:
+            from src.models.bg import BGModel
+            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+            base_rate_init = torch.tensor(getattr(args, 'base_rate_init', 0.), dtype=torch.float64)
+        else:
+            bg_model = None
+            base_rate_init = 1 / tau_mean
+
+        model = ETAS(
             base_rate_init=base_rate_init,
             richter_b=richter_b,
             mag_completeness=mag_completeness,
-            device=device
+            device=device,
+            bg_model=bg_model,
+            fix_mu_zero=getattr(args, "fix_mu_zero", False),
         )
+
+        model.double()
+        if model.bg_model is not None:
+            model.bg_model.float()
+
+        return model
 
 
 @ModelBuilder.register("mtpp")

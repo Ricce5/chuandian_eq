@@ -1,3 +1,9 @@
+etas类支持添加背景模型
+修复bg_model的积分形状问题
+bg_model学习率支持与主模型不同
+bg_model添加卷积模型
+etas intensity方法
+支持_no_weight_decay 
 
 
 
@@ -18,7 +24,18 @@ debug:
 10. pnr的generate中转datetime
 11. 修改pnr预处理的add_datetime_column
 12. 修正M-test错误
+13. 修改etas转double的位置
+14. bg_model限制fp32
+15. 修复bg_model的积分形状问题
+16. bg_model采样时加入mu
+17. bg_model学习率支持与主模型不同
+18. 修改ETAS的base_rate初始化
 
+问题
+1. f_intensity单调衰减
+2. etas似然
+3. chuandian rtpp没有对齐
+4. etas掩码问题
 
 
 

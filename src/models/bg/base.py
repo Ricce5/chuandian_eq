@@ -10,15 +10,23 @@ from src.utils.interp import (
 )
 
 class BGModel(torch.nn.Module, abc.ABC, Registrable):
-    def __init__(self, device,scale_init=200.0):
+    def __init__(self, device,scale_init=200.0,no_weight_decay=False):
         super().__init__()  
         self.device = device
-        log_init = torch.log(torch.tensor(scale_init, device=device))
+        log_init = torch.log(torch.tensor(scale_init, device=device, dtype=torch.float32))
         self.log_scale = torch.nn.Parameter(log_init, requires_grad=True)
+        if no_weight_decay:
+            self.log_scale._no_weight_decay = True  
         
     @property
     def _scale(self):
         return torch.exp(self.log_scale)  
+
+    def set_scale(self, scale_value: float):
+        with torch.no_grad():
+            self.log_scale.copy_(torch.log(torch.tensor(scale_value, device=self.device, dtype=torch.float32)))
+
+     # -------------------------------------------------------------
     
     @abc.abstractmethod
     def scaled_intensity(self, time_series: torch.Tensor) -> torch.Tensor:
@@ -48,7 +56,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             ``(intensity, weights_over_time)`` when ``return_weights=True``.
         """
 
-        time_series = ts_batch.time_series.to(self.device)  # (B, T, F)
+        time_series = ts_batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
         time_series_times = ts_batch.time_series_times.to(self.device)  # (B, T)
         
         scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
@@ -70,7 +78,6 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             x=intensity_traj,
             t_query=t_query,
         )
-
         intensity = intensity.squeeze(-1).clamp_min(0.0)  # (B, Nq)
         return intensity
 
@@ -90,7 +97,8 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         Returns:
             Tensor of shape ``(B,)`` with integrals.
         """
-        time_series = batch.time_series.to(self.device)  # (B, T, F)
+        # 与 intensity 中保持一致的 dtype
+        time_series = batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
         time_series_times = batch.time_series_times.to(self.device)  # (B, T)
 
         # match intensity() definition: linear projection then positive weights
@@ -102,8 +110,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             t_start=batch.t_nll_start,
             t_end=batch.t_end,
         )  # (B, 1)
-
-        return integral.squeeze(-1)
+        return integral.squeeze(-1).squeeze(-1)  # (B,)
     
     @torch.no_grad()
     def forecast_count(self, t_start: torch.Tensor, t_end: torch.Tensor) -> torch.Tensor:
@@ -286,7 +293,8 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         eps_lam: float = 1e-12,
         eps_disc: float = 0.0,
         use_fp64: bool = False,  
-        sample_sequence: bool = False       
+        sample_sequence: bool = False,
+        mu : float = 0.0,       
     ):
         """
         Inverse-CDF sampling of first-event waiting times for B NHPPs using a cached
@@ -299,6 +307,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             eps_disc: threshold for discriminant in quadratic solver
             use_fp64: if True, use float64 for time/index/integral/CIF computations
             sample_sequence: if True, return full event time sequences, else only first event times
+            mu : float, background intensity to add to the cached intensity
         """
         cached = getattr(self, "ts_batch_cache", None)
         assert cached is not None, "Batch data must be cached before sampling."
@@ -389,7 +398,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         lam_full = self.lambda_cache if self.lambda_cache is not None else self.intensity(cached, t_query=ts_times_full.unsqueeze(0)).squeeze(0)  # (T,)
     
 
-        lam = lam_full[i0 : i1 + 1]  # (Tw,)
+        lam = lam_full[i0 : i1 + 1]+ mu  # (Tw,)
         lam = lam.to(t_dtype) if use_fp64 else lam
 
         Tw = lam.numel()

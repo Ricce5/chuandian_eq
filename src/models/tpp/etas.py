@@ -98,18 +98,26 @@ class ETAS(TPPModel):
         report_params: bool = True,
         learning_rate: float = 5e-2,
         device: Optional[torch.device] = None,
+        bg_model=None,
+        fix_mu_zero: bool = False,
     ):
         super().__init__()
+        self.fix_mu_zero = fix_mu_zero
         self.log_p = nn.Parameter(torch.tensor(math.log(omori_p_init)))
         self.log_c = nn.Parameter(torch.tensor(math.log(omori_c_init)))
         self.log_mu = nn.Parameter(torch.tensor(math.log(base_rate_init)))
+        if self.fix_mu_zero:
+            self.log_mu.requires_grad = False
         self.log_k = nn.Parameter(torch.tensor(math.log(productivity_k_init)))
         self.log_alpha = nn.Parameter(torch.tensor(math.log(productivity_alpha_init)))
         self.register_buffer("M_c", torch.tensor(mag_completeness))
         self.register_buffer("b", torch.tensor(richter_b))
+        if self.fix_mu_zero:
+            self.register_buffer("mu_zero", torch.tensor(0.0))
         self.report_params = report_params
         self.learning_rate = learning_rate
         self.device = device
+        self.bg_model = bg_model
         self.to(device)
 
     @property
@@ -122,6 +130,8 @@ class ETAS(TPPModel):
 
     @property
     def mu(self):
+        if getattr(self, "fix_mu_zero", False):
+            return self.mu_zero
         return torch.exp(self.log_mu)
 
     @property
@@ -131,6 +141,8 @@ class ETAS(TPPModel):
     @property
     def alpha(self):
         return torch.exp(self.log_alpha)
+
+   
 
     def nll_loss(self, batch: Batch) -> torch.Tensor:
         """
@@ -150,17 +162,22 @@ class ETAS(TPPModel):
         delta_t = t_select.unsqueeze(-1) - t.unsqueeze(-2)  # (B, S, L)
         # prev_mask[0, i, j] = float(t_i < t_j)
         prev_mask = (delta_t > 0).float()  # (B, S, L) 当前事件之前的所有事件掩码
-        ###### 条件强度函数计算
         # Logarithm of the intensity
         # omori[0, i, j] = contribution of event t_j on intensity at time t_i
         omori = (delta_t * prev_mask + self.c).pow(-self.p)  # (B, S, L)
         # productivity[0, j] = expected number of aftershocks after event t_j
         productivity = self.k * 10 ** (self.alpha * (batch.mag - self.M_c))  # (B, L)
+        #
+        intensity = (omori * productivity.unsqueeze(-2) * prev_mask).sum(-1) + self.mu  # (B, S)
+        if self.bg_model is not None:
+            f_intensity = self.bg_model.intensity(batch,t_query=t_select) # (B, S)
+            print(f"intensity max: {intensity.max().item()}, f_intensity max: {f_intensity.max().item()},mu max: {self.mu.max().item()}")
+            intensity += f_intensity
+        
         log_intensity = (
             torch.log(
-                (omori * productivity.unsqueeze(-2) * prev_mask).sum(-1) + self.mu # 条件强度函数的对数
-            )
-            * intensity_mask
+                intensity
+            )* intensity_mask
         ).sum(-1)
         ####### 对数条件强度函数和条件强度函数积分的掩码是分开计算的
         # Integrated intensity
@@ -179,8 +196,35 @@ class ETAS(TPPModel):
             end_idx=batch.end_idx,
         )
         integral = (omori_int * productivity * survival_mask).sum(-1)
-        integral += (batch.t_end - batch.t_nll_start) * self.mu
-        return (-log_intensity + integral) / (batch.t_end - batch.t_nll_start)  # (B,)
+        integral += (batch.t_end - batch.t_nll_start) * self.mu # (B,1)
+        if self.bg_model is not None:
+            f_integral = self.bg_model.intensity_integral(batch)  # (B,)
+            integral += f_integral
+        nll_total = -log_intensity + integral
+        return nll_total / (batch.t_end - batch.t_nll_start)  # (B,)
+    
+    def h_intensity(self, batch: Batch, t_query: torch.Tensor=None) -> torch.Tensor:
+        """Compute the intensity at given query times for each sequence in the batch.
+
+        Args:
+            batch: Batch of event sequences.
+            t_query: Query times, shape (B, S)
+
+        Returns:
+            intensity: Intensity at each query time, shape (B, S)
+        """
+        t = batch.arrival_times[:, :-1]
+        mag = batch.mag[:, :-1]
+        if t_query is None:
+            t_query = t
+        delta_t = t_query.unsqueeze(-1) - t.unsqueeze(-2)  # (B, S, L)
+        prev_mask = (delta_t > 0).float()  # (B, S, L)
+        omori = (delta_t * prev_mask + self.c).pow(-self.p)  # (B, S, L)
+        productivity = self.k * 10 ** (self.alpha * (mag - self.M_c))  # (B, L)
+        h_intensity = (omori * productivity.unsqueeze(-2) * prev_mask).sum(-1) + self.mu  # (B, S)
+        return h_intensity
+
+
 
     def training_step(self, batch, batch_idx):
         loss = self.nll_loss(batch).mean()
@@ -395,12 +439,26 @@ class ETAS(TPPModel):
             Nback = poisson.rvs(mu * (duration))  # number of background events
 
             # background events occur randomly in the time domain
-            background_events = [np.random.uniform(t_start, t_end, Nback).T]
-            background_events.append(gen_mag(shape=Nback, b=b, M_min=M_c))
+            if self.bg_model is None:   
+                background_events = [np.random.uniform(t_start, t_end, Nback).T]
+                background_events.append(gen_mag(shape=Nback, b=b, M_min=M_c))
+                background_catalog = np.column_stack(background_events) # (Nback, 2)
+            else:
+                times_list = self.bg_model.sample_nhpp_inverse(
+                    B=1,
+                    t0=torch.tensor([t_start], device=self.device),
+                    dt=torch.tensor([duration], device=self.device),
+                    sample_sequence=True,
+                    mu=float(self.mu.item()), 
+                )
+                t_back = np.array(times_list[0], dtype=np.float64)
 
-            # Now iteratively add generations of aftershocks
-            # The background and pre-existing catalog define the first parent catalog
-            background_catalog = np.column_stack(background_events) # 将包含两个长度为Nback的数组合并为一个二维数组(Nback, 2)
+                Nback = t_back.size
+                if Nback > 0:
+                    m_back = gen_mag(shape=Nback, b=b, M_min=M_c)
+                    background_catalog = np.column_stack([t_back, m_back]).astype(np.float64)
+                else:
+                    background_catalog = np.empty((0, 2), dtype=np.float64)
             #########
             parent_catalog = (
                 np.vstack((parent_catalog, background_catalog))
@@ -519,6 +577,94 @@ class ETAS(TPPModel):
             return sequences
         else:
             return Batch.from_list(sequences)
+        
+    def print_params(self):
+        """Print current ETAS model parameters in a readable format."""
+        params = {
+            "p": self.p.detach().cpu().item(),
+            "c": self.c.detach().cpu().item(),
+            "mu": self.mu.detach().cpu().item(),
+            "k": self.k.detach().cpu().item(),
+            "alpha": self.alpha.detach().cpu().item(),
+            "b": float(self.b.detach().cpu().item()),
+            "M_c": float(self.M_c.detach().cpu().item()),
+        }
+        print("ETAS model parameters:")
+        for name, value in params.items():
+            print(f"  {name} = {value}")
+
+    def set_params(
+        self,
+        *,
+        p: Optional[float] = None,
+        c: Optional[float] = None,
+        mu: Optional[float] = None,
+        k: Optional[float] = None,
+        alpha: Optional[float] = None,
+    ) -> None:
+        """Set ETAS parameters using their natural (non-log) values.
+
+        All arguments are optional; only the provided ones are updated.
+
+        Args:
+            p: Omori p parameter.
+            c: Omori c parameter.
+            mu: Background rate (ignored if ``fix_mu_zero`` is True).
+            k: Productivity parameter k.
+            alpha: Productivity parameter alpha.
+        """
+        with torch.no_grad():
+            if p is not None:
+                self.log_p.copy_(
+                    torch.log(
+                        torch.as_tensor(
+                            p,
+                            device=self.log_p.device,
+                            dtype=self.log_p.dtype,
+                        )
+                    )
+                )
+            if c is not None:
+                self.log_c.copy_(
+                    torch.log(
+                        torch.as_tensor(
+                            c,
+                            device=self.log_c.device,
+                            dtype=self.log_c.dtype,
+                        )
+                    )
+                )
+            if mu is not None and not self.fix_mu_zero:
+                self.log_mu.copy_(
+                    torch.log(
+                        torch.as_tensor(
+                            mu,
+                            device=self.log_mu.device,
+                            dtype=self.log_mu.dtype,
+                        )
+                    )
+                )
+            if k is not None:
+                self.log_k.copy_(
+                    torch.log(
+                        torch.as_tensor(
+                            k,
+                            device=self.log_k.device,
+                            dtype=self.log_k.dtype,
+                        )
+                    )
+                )
+            if alpha is not None:
+                self.log_alpha.copy_(
+                    torch.log(
+                        torch.as_tensor(
+                            alpha,
+                            device=self.log_alpha.device,
+                            dtype=self.log_alpha.dtype,
+                        )
+                    )
+                )
+
 
 
 def masked_select_per_row(matrix, mask):

@@ -138,8 +138,7 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     from src.models.builders import ModelBuilder
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
-    if args.model == "etas":
-        model.double()
+
 
     args.start_epoch = 0
     args.best_val_loss = float('inf')
@@ -190,8 +189,32 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     else:
         raise ValueError(f"Unsupported task_type: {args.task_type}")
 
+
+
+    param_groups = None
+
+    bg_lr = getattr(args, "bg_learning_rate", None)
+    if hasattr(model, "bg_model") and getattr(model, "bg_model") is not None and bg_lr is not None:
+        main_params = []
+        bg_params = []
+        for name, param in model.named_parameters():
+            if not param.requires_grad:
+                continue
+            if name.startswith("bg_model."):
+                bg_params.append(param)
+            else:
+                main_params.append(param)
+
+        param_groups = [
+            {"params": main_params, "lr": args.learning_rate},
+            {"params": bg_params, "lr": bg_lr},
+        ]
+
+    if param_groups is None:
+        param_groups = list(filter(lambda p: p.requires_grad, model.parameters()))
+
     optimizer = torch.optim.AdamW(
-        filter(lambda p: p.requires_grad, model.parameters()),
+        param_groups,
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
         betas=(0.9, 0.99)
