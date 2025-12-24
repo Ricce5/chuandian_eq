@@ -6,16 +6,7 @@ pad_token_id: 1
 task_type: tpp
 # 训练参数
 
-
-bg_model: mamba
-bg_model_cfg:
- d_feature: 1 
- d_state: 64
- d_model: 16
- model_type: mamba  # mamba | mamba2
- scale_init: 200.0
-
-batch_size: 1
+batch_size: 32
 accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 1e-3 # 5e-4
@@ -29,7 +20,6 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
 rnn_type: GRU
-scale_range: positive
 d_model: 32
 rnn_dropout: 0.3
 # 
@@ -45,6 +35,6 @@ cuda_id: "0"
 # 数据与控制参数
 dataset: PNR_1z
 seed: 0
-minibatch_training: false
+minibatch_training: true
 split_by_time: true
 time_order:  [train, val, test]
