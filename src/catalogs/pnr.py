@@ -202,6 +202,8 @@ class PNR2Standard(PNRBase):
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
+
+
     
 
 

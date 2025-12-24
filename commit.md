@@ -1,9 +1,3 @@
-etas类支持添加背景模型
-修复bg_model的积分形状问题
-bg_model学习率支持与主模型不同
-bg_model添加卷积模型
-etas intensity方法
-支持_no_weight_decay 
 
 
 
@@ -30,6 +24,8 @@ debug:
 16. bg_model采样时加入mu
 17. bg_model学习率支持与主模型不同
 18. 修改ETAS的base_rate初始化
+19. pnr2目录转换utc时间
+20. nsta的pnr2震级相对bgs小于0.15
 
 问题
 1. f_intensity单调衰减
