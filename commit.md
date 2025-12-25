@@ -1,4 +1,6 @@
-
+补充 train_test_split_sequence
+pnr支持1z和2合并
+pnr支持目录配置
 
 
 selective_state_update 中0被替换为(0,0), 处理None下的情况

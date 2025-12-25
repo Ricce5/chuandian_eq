@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Union
 import numpy as np
@@ -6,8 +5,7 @@ import pandas as pd
 import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
-from src.utils.catalog_utils import train_val_test_split_sequence
-from src.data.utils import get_split_indices
+from src.utils.catalog_utils import train_val_test_split_sequence,train_test_split_sequence
 
 
 VALID_REGIONS = {"1z", "2"}
@@ -20,37 +18,66 @@ END_TS = {
     "2": pd.Timestamp("2019-10-2 6:00:00"),
 }
 
+MAG_COMPLETENESS = {
+    "1z": -1.8,
+    "2": -1.8,
+    "all": -1.8,
+}
+
 
 @Catalog.register(name="PNR-Base")
 class PNRBase(Catalog):
     def __init__(
         self,
         root_dir: Union[str, Path],
-        catalog_file: Union[str, Path] = None,
+        data_dir: Union[str, Path] = None,
         mag_completeness: float = None,
         region: str = "1z",
         normalize: bool = True,
         train_start_ts: pd.Timestamp = None,
         val_start_ts: pd.Timestamp = None,    
         test_start_ts: pd.Timestamp = None,
+        freq: str = "1h",
     ):
         if region not in VALID_REGIONS:
             raise ValueError(f"Unsupported PNR region '{region}'. Supported: {sorted(VALID_REGIONS)}")
 
+        if mag_completeness is None:
+            mag_completeness = MAG_COMPLETENESS.get(region, MAG_COMPLETENESS["all"])
+
         self.region = region
+        self.mag_completeness = mag_completeness
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
-        if isinstance(catalog_file, (str, Path)):
-            self.catalog_file = Path(catalog_file)
-        elif catalog_file is None:
-            self.catalog_file = self.root_dir / f"PNR_{region}_catalog.csv"
-            self.time_series_file = self.root_dir / f"PNR_{region}_injection_rate_per_min.csv"
+        def _resolve_path(file, default, name):
+            if file is None:
+                return default
+            if isinstance(file, (str, Path)):
+                return Path(file)
+            raise TypeError(f"{name} must be a str or Path")
+
+        if data_dir is not None:
+            if isinstance(data_dir, (str, Path)):
+                data_dir_path = Path(data_dir)
+            else:
+                raise TypeError("data_dir must be a str, Path or None")
         else:
-            raise TypeError("catalog_file must be a str or Path")
+            data_dir_path = None
+
+        self.catalog_file = _resolve_path(
+            data_dir_path / f"PNR_{region}_catalog.csv" if data_dir_path is not None else None,
+            self.root_dir / f"PNR_{region}_catalog.csv",
+            "catalog_file",
+        )
+        self.time_series_file = _resolve_path(
+            data_dir_path / f"PNR_{region}_injection_rate_per_min.csv" if data_dir_path is not None else None,
+            self.root_dir / f"PNR_{region}_injection_rate_per_min.csv",
+            "time_series_file",
+        )
         self.normalize = normalize
         self.metadata = {
             "name": f"PNR_{region}",
-            "freq": "1h",
+            "freq": freq,
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
             "region": region,
@@ -70,13 +97,11 @@ class PNRBase(Catalog):
 
     def generate_catalog(self):
         df = pd.read_csv(self.catalog_file, parse_dates=['ts'])
-        print(self.catalog_file)
-        print(df)
-        print(df.columns)
         df["time"] = pd.to_datetime(df["ts"])
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
-        df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
-        print(f"Magnitude completeness threshold: {self.metadata['mag_completeness']}")
+        df = df[df["Magnitude"] > self.mag_completeness].copy()
+        print(f"Magnitude completeness threshold: {self.mag_completeness}")
+        print(f"freq: {self.metadata['freq']}")
         print(f"Min magnitude after completeness filter: {df['Magnitude'].min()}")
         df.sort_values("time", inplace=True)
         duplicated_mask = df["time"].duplicated(keep=False)
@@ -92,8 +117,8 @@ class PNRBase(Catalog):
         start_ts = self.metadata["start_ts"]
         end_ts = self.metadata["end_ts"]
         t_start = 0.0
-        t_end = (end_ts - start_ts) / pd.Timedelta("1h")
-        arrival_times = ((df["time"] - start_ts) / pd.Timedelta("1h")).values
+        t_end = (end_ts - start_ts) / pd.Timedelta(self.metadata["freq"])
+        arrival_times = ((df["time"] - start_ts) / pd.Timedelta(self.metadata["freq"])).values
         inter_times = np.diff(arrival_times, prepend=[t_start], append=[t_end])
         
 
@@ -114,8 +139,7 @@ class PNRBase(Catalog):
 
         df_ts = pd.read_csv(self.time_series_file, parse_dates=['ts'])
         df_ts.set_index('ts', inplace=True)
-        df_ts['t'] = (df_ts.index - start_ts) / pd.Timedelta("1h")
-        print(df_ts)
+        df_ts['t'] = (df_ts.index - start_ts) / pd.Timedelta(self.metadata["freq"])
         time_series = torch.tensor(df_ts[['IR_h']].values, dtype=torch.float32)
         assert torch.isnan(time_series).sum().item() == 0, "Found NaN in time series data."
         seq = Sequence(
@@ -124,7 +148,7 @@ class PNRBase(Catalog):
             mag=torch.tensor(df["Magnitude"].values, dtype=torch.float32),
             loc=fields["loc"],
             depth=fields["depth"],
-            time_series=torch.tensor(df_ts[['IR_h']].values, dtype=torch.float32),
+            time_series=time_series,
             time_series_times=torch.tensor(df_ts['t'].values, dtype=torch.float32),
 
         )
@@ -138,20 +162,22 @@ class PNR1zStandard(PNRBase):
     def __init__(
         self,
         root_dir: Union[str, Path],
-        catalog_file: Union[str, Path] = None,
-        mag_completeness: float = -1.8,
+        data_dir: Union[str, Path] = None,
+        mag_completeness: float = MAG_COMPLETENESS["1z"],
         train_start_ts: pd.Timestamp = pd.Timestamp("2018-10-22"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2018-11-22"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),
+        freq: str = "1h",
     ):
         super().__init__(
             root_dir=root_dir,
-            catalog_file=catalog_file,
+            data_dir=data_dir,
             mag_completeness=mag_completeness,
             region="1z",
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            freq=freq,
         )
         self._split_datasets()
     def _split_datasets(self):
@@ -173,21 +199,23 @@ class PNR2Standard(PNRBase):
     def __init__(
         self,
         root_dir: Union[str, Path],
-        catalog_file: Union[str, Path] = None,
-        mag_completeness: float = -1.8,
+        data_dir: Union[str, Path] = None,
+        mag_completeness: float = MAG_COMPLETENESS["2"],
         train_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2019-9-20"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2019-9-25"),
+        freq: str = "1h",
 
     ):
         super().__init__(
             root_dir=root_dir,
-            catalog_file=catalog_file,
+            data_dir=data_dir,
             mag_completeness=mag_completeness,
             region="2",
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            freq=freq,
         )
         self._split_datasets()
     def _split_datasets(self):
@@ -202,6 +230,108 @@ class PNR2Standard(PNRBase):
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
+
+
+@Catalog.register(name="PNR-Standard")
+class PNRStandard(Catalog):
+    def __init__(
+        self,
+        root_dir: Union[str, Path],
+        catalog_file: Union[str, Path] = None,
+        mag_completeness: float = MAG_COMPLETENESS["all"],
+        freq: str = "1h",
+        region_split: tuple = ("1z", "2", "2"),
+        train_start_ts: pd.Timestamp = pd.Timestamp("2018-10-22"),
+        val_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),
+        test_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
+    ):
+        root_dir_path = Path(root_dir)
+        self.root_dir = root_dir_path
+        self.norm_stats = {}
+
+        root_dir_1z = root_dir_path / "PNR_1z"
+        root_dir_2 = root_dir_path / "PNR_2"
+
+        if len(root_dir_path.parents) >= 2:
+            data_root = root_dir_path.parents[1]
+        else:
+            data_root = default_catalogs_dir
+
+        data_dir_1z = data_root / "PNR_1z" / "raw"
+        data_dir_2 = data_root / "PNR_2" / "raw"
+
+
+        self.catalog_1z = PNR1zStandard(root_dir=root_dir_1z,data_dir=data_dir_1z, 
+                                        mag_completeness=mag_completeness,freq=freq)
+        self.catalog_2 = PNR2Standard(root_dir=root_dir_2,data_dir=data_dir_2, 
+                                      mag_completeness=mag_completeness,freq=freq)   
+
+
+        self.full_sequence = self.catalog_2.full_sequence
+
+        self.metadata = self.catalog_1z.metadata.copy()
+        self.metadata["name"] = "PNR"
+        self.metadata["train_region"] = region_split[0]
+        self.metadata["val_region"] = region_split[1]
+        self.metadata["test_region"] = region_split[2]
+        self.metadata['end_ts'] = self.catalog_2.metadata['end_ts']
+        self.metadata['train_start_ts'] = train_start_ts
+        self.metadata["val_start_ts"] = val_start_ts
+        self.metadata["test_start_ts"] = test_start_ts
+        super().__init__(root_dir=self.root_dir, metadata=self.metadata)
+        self._split_datasets()
+
+    def _split_datasets(self):
+        train_region = self.metadata["train_region"]
+        val_region = self.metadata["val_region"]
+        test_region = self.metadata["test_region"]
+
+        if (train_region, val_region, test_region) == ("1z", "1z", "2"):
+            seq_train, seq_val = train_test_split_sequence(
+                seq=self.catalog_1z.full_sequence,
+                start_ts=self.catalog_1z.metadata["start_ts"],
+                train_start_ts=self.metadata["train_start_ts"],
+                test_start_ts=self.metadata["val_start_ts"],
+                freq=pd.Timedelta(self.catalog_1z.metadata["freq"]),
+            )
+            seq_test = self.catalog_2.full_sequence
+            seq_test.t_nll_start = self.metadata["test_start_ts"]
+
+        elif (train_region, val_region, test_region) == ("1z", "2", "2"):
+            seq_train, _ = train_test_split_sequence(
+                seq=self.catalog_1z.full_sequence,
+                start_ts=self.catalog_1z.metadata["start_ts"],
+                train_start_ts=self.metadata["train_start_ts"],
+                test_start_ts=self.catalog_1z.metadata["end_ts"],
+                freq=pd.Timedelta(self.catalog_1z.metadata["freq"]),
+            )
+
+          
+            seq_val, seq_test = train_test_split_sequence(
+                seq=self.catalog_2.full_sequence,
+                start_ts=self.catalog_2.metadata["start_ts"],
+                train_start_ts=self.metadata["val_start_ts"],
+                test_start_ts=self.metadata["test_start_ts"],
+                freq=pd.Timedelta(self.catalog_2.metadata["freq"]),
+            )
+
+        else:
+            raise ValueError(
+                f"Unsupported region combination for PNRStandard: "
+                f"train_region={train_region}, val_region={val_region}, test_region={test_region}"
+            )
+
+        self.train = TppDataset([seq_train])
+        self.val = TppDataset([seq_val])
+        self.test = TppDataset([seq_test])
+
+    def generate_catalog(self):
+         pass
+    
+    @property
+    def required_files(self):
+        return ["metadata.pt"]
+
 
 
     

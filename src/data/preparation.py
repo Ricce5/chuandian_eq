@@ -1,4 +1,6 @@
 import math
+import hashlib
+import json
 from src.utils.file_utils import save_or_load_data
 from src.utils.catalog_utils import split_minibatches
 from src.data.preprocessing import load_and_filter_catalog, calculate_catalog_statistics 
@@ -151,11 +153,31 @@ def prepare_data_tpp(args, base_dir):
     import src.data.catalog as catalog
     import src.catalogs as catalogs # ensure catalogs are registered
 
-    root_dir = os.path.join(base_dir, 'raw')
+    base_root_dir = os.path.join(base_dir, 'raw')
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
     print(f"Using catalog dataset class: {catalog_ds_class}")
-    
-    catalog_ds = catalog_ds_class(root_dir=root_dir)
+    if hasattr(args, 'catalog_cfg'):
+        catalog_cfg = getattr(args, 'catalog_cfg', {})
+        try:
+            cfg_container = OmegaConf.to_container(OmegaConf.create(catalog_cfg), resolve=True)
+        except Exception:
+            cfg_container = catalog_cfg
+        cfg_str = json.dumps(cfg_container, sort_keys=True, separators=(",", ":"))
+        cfg_hash = hashlib.md5(cfg_str.encode("utf-8")).hexdigest()[:8]
+
+        cfg_dir = f"{cfg_hash}"
+        root_dir = os.path.join(base_root_dir, cfg_dir)
+        os.makedirs(root_dir, exist_ok=True)
+
+        cfg_save_path = os.path.join(root_dir, "catalog_cfg.json")
+        with open(cfg_save_path, "w") as f:
+            json.dump(cfg_container, f, indent=2, sort_keys=True)
+
+        catalog_ds = catalog_ds_class(root_dir=root_dir, data_dir=base_root_dir, **catalog_cfg)
+    else:
+        root_dir = base_root_dir
+        catalog_ds = catalog_ds_class(root_dir=root_dir)
+        
     args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
     args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
     args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()
