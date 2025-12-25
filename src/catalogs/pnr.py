@@ -6,6 +6,7 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
 from src.utils.catalog_utils import train_val_test_split_sequence,train_test_split_sequence
+from src.utils.file_utils import build_catalog_root_dir
 
 
 VALID_REGIONS = {"1z", "2"}
@@ -25,6 +26,13 @@ MAG_COMPLETENESS = {
 }
 
 
+def _to_serializable_ts(ts):
+    """Helper: convert pandas/NumPy timestamps to string for JSON hashing."""
+    if isinstance(ts, pd.Timestamp):
+        return ts.isoformat()
+    return ts
+
+
 @Catalog.register(name="PNR-Base")
 class PNRBase(Catalog):
     def __init__(
@@ -39,6 +47,16 @@ class PNRBase(Catalog):
         test_start_ts: pd.Timestamp = None,
         freq: str = "1h",
     ):
+        catalog_cfg = {
+            "region": region,
+            "normalize": normalize,
+            "mag_completeness": mag_completeness,
+            "freq": freq,
+            "train_start_ts": _to_serializable_ts(train_start_ts),
+            "val_start_ts": _to_serializable_ts(val_start_ts),
+            "test_start_ts": _to_serializable_ts(test_start_ts),
+        }
+        sub_root_dir,_ = build_catalog_root_dir(root_dir, catalog_cfg)
         if region not in VALID_REGIONS:
             raise ValueError(f"Unsupported PNR region '{region}'. Supported: {sorted(VALID_REGIONS)}")
 
@@ -47,7 +65,7 @@ class PNRBase(Catalog):
 
         self.region = region
         self.mag_completeness = mag_completeness
-        self.root_dir = Path(root_dir)
+        self.root_dir = Path(sub_root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
         def _resolve_path(file, default, name):
             if file is None:
@@ -62,7 +80,7 @@ class PNRBase(Catalog):
             else:
                 raise TypeError("data_dir must be a str, Path or None")
         else:
-            data_dir_path = None
+            data_dir_path = Path(root_dir)
 
         self.catalog_file = _resolve_path(
             data_dir_path / f"PNR_{region}_catalog.csv" if data_dir_path is not None else None,
@@ -237,7 +255,7 @@ class PNRStandard(Catalog):
     def __init__(
         self,
         root_dir: Union[str, Path],
-        catalog_file: Union[str, Path] = None,
+        data_dir: Union[str, Path] = None,
         mag_completeness: float = MAG_COMPLETENESS["all"],
         freq: str = "1h",
         region_split: tuple = ("1z", "2", "2"),
@@ -245,15 +263,22 @@ class PNRStandard(Catalog):
         val_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
     ):
-        root_dir_path = Path(root_dir)
-        self.root_dir = root_dir_path
+        catalog_cfg = {
+            "region_split": region_split,
+            "mag_completeness": mag_completeness,
+            "freq": freq,
+            "train_start_ts": _to_serializable_ts(train_start_ts),
+            "val_start_ts": _to_serializable_ts(val_start_ts),
+            "test_start_ts": _to_serializable_ts(test_start_ts),
+        }
+        sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
+
+        base_root_dir = Path(root_dir)
+        self.root_dir = Path(sub_root_dir)
         self.norm_stats = {}
 
-        root_dir_1z = root_dir_path / "PNR_1z"
-        root_dir_2 = root_dir_path / "PNR_2"
-
-        if len(root_dir_path.parents) >= 2:
-            data_root = root_dir_path.parents[1]
+        if len(base_root_dir.parents) >= 2:
+            data_root = base_root_dir.parents[1]
         else:
             data_root = default_catalogs_dir
 
@@ -261,9 +286,9 @@ class PNRStandard(Catalog):
         data_dir_2 = data_root / "PNR_2" / "raw"
 
 
-        self.catalog_1z = PNR1zStandard(root_dir=root_dir_1z,data_dir=data_dir_1z, 
+        self.catalog_1z = PNR1zStandard(root_dir=data_dir_1z, 
                                         mag_completeness=mag_completeness,freq=freq)
-        self.catalog_2 = PNR2Standard(root_dir=root_dir_2,data_dir=data_dir_2, 
+        self.catalog_2 = PNR2Standard(root_dir=data_dir_2, 
                                       mag_completeness=mag_completeness,freq=freq)   
 
 

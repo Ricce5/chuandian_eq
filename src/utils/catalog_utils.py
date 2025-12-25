@@ -29,6 +29,8 @@ def train_test_split_sequence(
 
     test_start_ts = pd.Timestamp(test_start_ts)
     t_test_start = (test_start_ts - start_ts) / freq
+    # 数值误差可能导致 t_test_start 比 seq.t_end 略大，做一下截断
+    t_test_start = min(float(t_test_start), float(seq.t_end))
     freq = pd.Timedelta(freq)
 
     # Start of the train / val / test intervals as floats

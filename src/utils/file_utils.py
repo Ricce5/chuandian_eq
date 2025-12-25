@@ -7,6 +7,7 @@ import glob
 import yaml
 import json
 import hashlib
+from  omegaconf import OmegaConf
 
 def mkdirs(fn): 
     if not os.path.isdir(fn):
@@ -183,3 +184,21 @@ def save_args_to_json(args_dict, save_dir, filename="config.json"):
 
     with open(os.path.join(save_dir, filename), "w") as f:
         json.dump({k: convert(v) for k, v in args_dict.items()}, f, indent=2)
+
+def build_catalog_root_dir(base_root_dir, catalog_cfg):
+        try:
+            cfg_container = OmegaConf.to_container(OmegaConf.create(catalog_cfg), resolve=True)
+        except Exception:
+            cfg_container = catalog_cfg
+
+        cfg_str = json.dumps(cfg_container, sort_keys=True, separators=(",", ":"))
+        cfg_hash = hashlib.md5(cfg_str.encode("utf-8")).hexdigest()[:8]
+
+        cfg_dir = f"{cfg_hash}"
+        root_dir = os.path.join(base_root_dir, cfg_dir)
+        os.makedirs(root_dir, exist_ok=True)
+
+        cfg_save_path = os.path.join(root_dir, "catalog_cfg.json")
+        with open(cfg_save_path, "w") as f:
+            json.dump(cfg_container, f, indent=2, sort_keys=True)
+        return root_dir, cfg_container
