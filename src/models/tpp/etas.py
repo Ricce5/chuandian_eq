@@ -16,9 +16,12 @@ from src.data.sequence import Sequence
 
 from .tpp_model import TPPModel
 
+def _to_tensor(x, ref: torch.Tensor):
+    return torch.as_tensor(x, device=ref.device, dtype=ref.dtype)
 
 def branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
     """Compute branching ratio of the ETAS model (Sornette & Werner)."""  # 每个事件触发事件数的期望
+    # n=EM​[k10α(M−Mc​)]⋅∫0∞​(t+c)−pdt
     if b == alpha:
         branching_ratio = (
             k * b * np.log(10) * (M_max - M_min) / (1 - 10 ** (-b * (M_max - M_min)))
@@ -95,8 +98,8 @@ class ETAS(TPPModel):
         productivity_alpha_init: float = 1.0,
         richter_b: float = 1.0,
         mag_completeness: float = 2.0,
+        mag_max: float=10.0,
         report_params: bool = True,
-        learning_rate: float = 5e-2,
         device: Optional[torch.device] = None,
         bg_model=None,
         fix_mu_zero: bool = False,
@@ -111,11 +114,11 @@ class ETAS(TPPModel):
         self.log_k = nn.Parameter(torch.tensor(math.log(productivity_k_init)))
         self.log_alpha = nn.Parameter(torch.tensor(math.log(productivity_alpha_init)))
         self.register_buffer("M_c", torch.tensor(mag_completeness))
+        self.register_buffer("M_m", torch.tensor(mag_max))
         self.register_buffer("b", torch.tensor(richter_b))
         if self.fix_mu_zero:
             self.register_buffer("mu_zero", torch.tensor(0.0))
         self.report_params = report_params
-        self.learning_rate = learning_rate
         self.device = device
         self.bg_model = bg_model
         self.to(device)
@@ -413,7 +416,7 @@ class ETAS(TPPModel):
             t_start = t_start
 
         # Determine the branching ratio (and assert that it is smaller than one)
-        branch = branching_ratio(k=k, b=b, alpha=alpha, M_min=M_c, M_max=10)
+        branch = branching_ratio(k=k, b=b, alpha=alpha, M_min=M_c, M_max=self.M_m)
         if branch > 1:
             raise ValueError(
                 f"The process is explosive: branching ratio {branch:.2f} is > 1."
@@ -585,9 +588,12 @@ class ETAS(TPPModel):
             "c": self.c.detach().cpu().item(),
             "mu": self.mu.detach().cpu().item(),
             "k": self.k.detach().cpu().item(),
+            "K":self.k/(self.p-1)*self.c**(1-self.p).detach().cpu().item(),
             "alpha": self.alpha.detach().cpu().item(),
+            'alpha_e':(self.alpha * np.log(10)).detach().cpu().item(),
             "b": float(self.b.detach().cpu().item()),
             "M_c": float(self.M_c.detach().cpu().item()),
+            "M_m": float(self.M_m.detach().cpu().item()),
         }
         print("ETAS model parameters:")
         for name, value in params.items():
@@ -599,71 +605,76 @@ class ETAS(TPPModel):
         p: Optional[float] = None,
         c: Optional[float] = None,
         mu: Optional[float] = None,
+        # code parametrization
         k: Optional[float] = None,
         alpha: Optional[float] = None,
+        # paper parametrization
+        K: Optional[float] = None,
+        alpha_e: Optional[float] = None,
     ) -> None:
-        """Set ETAS parameters using their natural (non-log) values.
+        """
+        Set ETAS parameters.
 
-        All arguments are optional; only the provided ones are updated.
+        - current implementation
+            g = k * 10^(alpha*(M-Mc)) * (t+c)^(-p)
 
-        Args:
-            p: Omori p parameter.
-            c: Omori c parameter.
-            mu: Background rate (ignored if ``fix_mu_zero`` is True).
-            k: Productivity parameter k.
-            alpha: Productivity parameter alpha.
+        - Ogata/Zhuang normalized implementation
+            g = K * exp(alpha_e*(M-Mc)) * (p-1)*c^(p-1) * (t+c)^(-p)
+
+        Conversion (paper -> code):
+            alpha = alpha_e / ln(10)
+            k     = K * (p-1) * c^(p-1)   (depends on p,c)
         """
         with torch.no_grad():
+            # 1) update p,c,mu first (because k conversion needs p,c)
             if p is not None:
-                self.log_p.copy_(
-                    torch.log(
-                        torch.as_tensor(
-                            p,
-                            device=self.log_p.device,
-                            dtype=self.log_p.dtype,
-                        )
-                    )
-                )
+                p_t = _to_tensor(p, self.log_p)
+                self.log_p.copy_(torch.log(p_t))
+
             if c is not None:
-                self.log_c.copy_(
-                    torch.log(
-                        torch.as_tensor(
-                            c,
-                            device=self.log_c.device,
-                            dtype=self.log_c.dtype,
-                        )
-                    )
-                )
+                c_t = _to_tensor(c, self.log_c)
+                self.log_c.copy_(torch.log(c_t))
+
             if mu is not None and not self.fix_mu_zero:
-                self.log_mu.copy_(
-                    torch.log(
-                        torch.as_tensor(
-                            mu,
-                            device=self.log_mu.device,
-                            dtype=self.log_mu.dtype,
-                        )
-                    )
-                )
+                mu_t = _to_tensor(mu, self.log_mu)
+                self.log_mu.copy_(torch.log(mu_t))
+
+            # 2) if paper params provided, convert -> (k, alpha)
+            if (K is not None) or (alpha_e is not None):
+                # if only one of them is provided, use current value for the other
+                if K is None:
+                    K_t = torch.exp(self.log_k)  # placeholder; will be overwritten below only if needed
+                else:
+                    K_t = _to_tensor(K, self.log_k)
+
+                if alpha_e is None:
+                    alpha_e_t = None
+                else:
+                    alpha_e_t = _to_tensor(alpha_e, self.log_alpha)
+
+                # alpha conversion: alpha = alpha_e / ln(10)
+                if alpha_e_t is not None:
+                    alpha_t = alpha_e_t / math.log(10.0)
+                    self.log_alpha.copy_(torch.log(alpha_t))
+
+                # k conversion needs p,c
+                if K is not None:
+                    p_cur = torch.exp(self.log_p)   # after possible update above
+                    c_cur = torch.exp(self.log_c)
+                    k_t = K_t * (p_cur - 1.0) * c_cur.pow(p_cur - 1.0)
+                    self.log_k.copy_(torch.log(k_t))
+
+                # If paper params were used, we ignore direct k/alpha below to avoid conflict
+                return
+
+            # 3) otherwise: original code params (k, alpha)
             if k is not None:
-                self.log_k.copy_(
-                    torch.log(
-                        torch.as_tensor(
-                            k,
-                            device=self.log_k.device,
-                            dtype=self.log_k.dtype,
-                        )
-                    )
-                )
+                k_t = _to_tensor(k, self.log_k)
+                self.log_k.copy_(torch.log(k_t))
+
             if alpha is not None:
-                self.log_alpha.copy_(
-                    torch.log(
-                        torch.as_tensor(
-                            alpha,
-                            device=self.log_alpha.device,
-                            dtype=self.log_alpha.dtype,
-                        )
-                    )
-                )
+                a_t = _to_tensor(alpha, self.log_alpha)
+                self.log_alpha.copy_(torch.log(a_t))
 
 
 
@@ -707,3 +718,5 @@ def masked_select_per_row(matrix, mask):
     return new_matrix, new_mask.float()
 
 
+# αe​=α10​ln10
+#

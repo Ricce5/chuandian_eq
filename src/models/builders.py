@@ -605,9 +605,10 @@ class ETASBuilder(ModelBuilder):
         from src.models.tpp.etas import ETAS
 
         tau_mean = torch.tensor(args.tau_mean, dtype=torch.float32)
-        richter_b = torch.tensor(args.richter_b_mle, dtype=torch.float32)
+        richter_b = args.richter_b_mle
     
-        mag_completeness = torch.tensor(args.mag_completeness, dtype=torch.float32)
+        mag_completeness = args.mag_completeness
+        mag_max = getattr(args, 'mag_max', 10)
 
         if getattr(args, 'bg_model', None) is not None:
             from src.models.bg import BGModel
@@ -615,12 +616,13 @@ class ETASBuilder(ModelBuilder):
             base_rate_init = torch.tensor(getattr(args, 'base_rate_init', 0.), dtype=torch.float64)
         else:
             bg_model = None
-            base_rate_init = 1 / tau_mean
+            base_rate_init = torch.tensor(0.26, dtype=torch.float64)
 
         model = ETAS(
             base_rate_init=base_rate_init,
             richter_b=richter_b,
             mag_completeness=mag_completeness,
+            mag_max=mag_max,
             device=device,
             bg_model=bg_model,
             fix_mu_zero=getattr(args, "fix_mu_zero", False),
