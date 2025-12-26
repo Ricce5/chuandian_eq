@@ -220,7 +220,7 @@ class PNR2Standard(PNRBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: float = MAG_COMPLETENESS["2"],
         train_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
-        val_start_ts: pd.Timestamp = pd.Timestamp("2019-9-20"),
+        val_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2019-9-25"),
         freq: str = "1h",
 

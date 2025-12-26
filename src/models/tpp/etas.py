@@ -20,7 +20,7 @@ def _to_tensor(x, ref: torch.Tensor):
     return torch.as_tensor(x, device=ref.device, dtype=ref.dtype)
 
 def branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
-    """Compute branching ratio of the ETAS model (Sornette & Werner)."""  # 每个事件触发事件数的期望
+    """Compute branching ratio of the ETAS model (Sornette & Werner).""" 
     # n=EM​[k10α(M−Mc​)]⋅∫0∞​(t+c)−pdt
     if b == alpha:
         branching_ratio = (
@@ -182,7 +182,6 @@ class ETAS(TPPModel):
                 intensity
             )* intensity_mask
         ).sum(-1)
-        ####### 对数条件强度函数和条件强度函数积分的掩码是分开计算的
         # Integrated intensity
         one_minus_p = 1 - self.p
         t_end = batch.t_end.unsqueeze(-1)  # (B, 1)
