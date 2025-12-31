@@ -81,11 +81,16 @@ model.nll_loss(batch.to(device))
 # %%
 bg_model.cache_batch(batch.time_series, batch.time_series_times)
 # %%
-times_list, tau1= bg_model.sample_nhpp_inverse(3000,t0=9.0,dt=20,sample_sequence=True)
+t0 = 9.0
+times_list= bg_model.sample_nhpp_inverse(3000,t0=9.0,dt=20,sample_sequence=True)
 tau2 =  bg_model.sample_nhpp_inverse(3000,t0=9.0,dt=20,sample_sequence=False)
 # %%
-torch.mean(tau1)
-# %%·
+# %%
+# 安全地取每个序列的第一个时间点，缺失则填 NaN
+tau1_list = []
+for times in times_list:
+        tau1_list.append(torch.tensor(times[0]-t0).to(device))
+tau1 = torch.stack(tau1_list)
 torch.mean(tau2)
 
 # %%

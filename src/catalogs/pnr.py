@@ -220,7 +220,7 @@ class PNR2Standard(PNRBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: float = MAG_COMPLETENESS["2"],
         train_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
-        val_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
+        val_start_ts: pd.Timestamp = pd.Timestamp("2019-8-24"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2019-9-25"),
         freq: str = "1h",
 
@@ -260,8 +260,8 @@ class PNRStandard(Catalog):
         freq: str = "1h",
         region_split: tuple = ("1z", "2", "2"),
         train_start_ts: pd.Timestamp = pd.Timestamp("2018-10-22"),
-        val_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),
-        test_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
+        val_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
+        test_start_ts: pd.Timestamp = pd.Timestamp("2019-8-24"),
     ):
         catalog_cfg = {
             "region_split": region_split,
@@ -300,9 +300,9 @@ class PNRStandard(Catalog):
         self.metadata["val_region"] = region_split[1]
         self.metadata["test_region"] = region_split[2]
         self.metadata['end_ts'] = self.catalog_2.metadata['end_ts']
-        self.metadata['train_start_ts'] = train_start_ts
-        self.metadata["val_start_ts"] = val_start_ts
-        self.metadata["test_start_ts"] = test_start_ts
+        self.metadata['train_start_ts'] = pd.Timestamp(train_start_ts)
+        self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
+        self.metadata["test_start_ts"] = pd.Timestamp(test_start_ts)
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self._split_datasets()
 

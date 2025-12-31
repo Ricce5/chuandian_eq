@@ -20,6 +20,12 @@ def train_test_split_sequence(
     2) test: Includes events in [start_ts, end_ts], t_nll_start = test_start_ts
     """
     # Start of the train / val / test intervals as timestamps
+    freq_td = pd.Timedelta(freq)
+
+    assert (train_start_ts is None or train_start_ts <= test_start_ts), f"train_start_ts{train_start_ts} must be <= test_start_ts{test_start_ts}"
+    assert (test_start_ts >= start_ts), f"test_start_ts{test_start_ts} must be >= start_ts{start_ts}"
+    t_test_start = (test_start_ts - start_ts) / freq_td
+    assert (seq.t_end >= float(t_test_start)-1e-3), f"Sequence end time {seq.t_end} must be >= test_start_ts {t_test_start}"
     start_ts = pd.Timestamp(start_ts)
     if train_start_ts is not None:
         train_start_ts = pd.Timestamp(train_start_ts)

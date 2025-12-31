@@ -158,6 +158,12 @@ class ETAS(TPPModel):
             nll: NLL of each sequence, shape (batch_size,)
         """
         t = batch.arrival_times
+        # Mask of real (non-padding) events
+        survival_mask = get_mask(
+            batch.inter_times,
+            start_idx=torch.zeros_like(batch.start_idx),
+            end_idx=batch.end_idx,
+        )
         # t_select - arrival times of events for which intensity must be computed, shape (B, S)
         # (where S = L if t_start == t_nll_start, and S <= L otherwise)
         t_select, intensity_mask = masked_select_per_row(t, batch.nll_event_mask)
@@ -169,9 +175,12 @@ class ETAS(TPPModel):
         # omori[0, i, j] = contribution of event t_j on intensity at time t_i
         omori = (delta_t * prev_mask + self.c).pow(-self.p)  # (B, S, L)
         # productivity[0, j] = expected number of aftershocks after event t_j
-        productivity = self.k * 10 ** (self.alpha * (batch.mag - self.M_c))  # (B, L)
+        masked_mag = (batch.mag - self.M_c) * survival_mask
+        productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
         #
-        intensity = (omori * productivity.unsqueeze(-2) * prev_mask).sum(-1) + self.mu  # (B, S)
+        intensity = (
+            omori * productivity.unsqueeze(-2) * prev_mask * survival_mask.unsqueeze(-2)
+        ).sum(-1) + self.mu  # (B, S)
         if self.bg_model is not None:
             f_intensity = self.bg_model.intensity(batch,t_query=t_select) # (B, S)
             print(f"intensity max: {intensity.max().item()}, f_intensity max: {f_intensity.max().item()},mu max: {self.mu.max().item()}")
@@ -186,17 +195,12 @@ class ETAS(TPPModel):
         one_minus_p = 1 - self.p
         t_end = batch.t_end.unsqueeze(-1)  # (B, 1)
         t_nll_start = batch.t_nll_start.unsqueeze(-1)  # (B, 1)
-        # omori_int[0, j] = integral of the omori law from max(t_j, t_nll_start) to t_end 对每个事件计算
-        omori_int = (
-            (t_end - t + self.c).pow(one_minus_p)
-            - ((t_nll_start - t).clamp_min(0.0) + self.c).pow(one_minus_p)
-        ) / one_minus_p  # (B, L)
-        # 屏蔽padding事件对积分的贡献
-        survival_mask = get_mask(
-            batch.inter_times,
-            start_idx=torch.zeros_like(batch.start_idx),
-            end_idx=batch.end_idx,
-        )
+        # omori_int[0, j] = integral of the omori law from max(t_j, t_nll_start) to t_end
+        dt_end = (t_end - t).clamp_min(0.0)
+        dt_start = (t_nll_start - t).clamp_min(0.0)
+        omori_int = ((dt_end + self.c).pow(one_minus_p) - (dt_start + self.c).pow(one_minus_p)) / one_minus_p  # (B, L)
+        # zero-out padded events to avoid propagating NaNs from invalid exponents
+        omori_int = omori_int * survival_mask
         integral = (omori_int * productivity * survival_mask).sum(-1)
         integral += (batch.t_end - batch.t_nll_start) * self.mu # (B,1)
         if self.bg_model is not None:
@@ -204,6 +208,7 @@ class ETAS(TPPModel):
             integral += f_integral
         nll_total = -log_intensity + integral
         return nll_total / (batch.t_end - batch.t_nll_start)  # (B,)
+    
     
     def h_intensity(self, batch: Batch, t_query: torch.Tensor=None) -> torch.Tensor:
         """Compute the intensity at given query times for each sequence in the batch.
@@ -217,13 +222,19 @@ class ETAS(TPPModel):
         """
         t = batch.arrival_times[:, :-1]
         mag = batch.mag[:, :-1]
+        survival_mask = get_mask(
+            batch.inter_times[:, :-1],
+            start_idx=torch.zeros_like(batch.start_idx),
+            end_idx=batch.end_idx - 1,
+        )
         if t_query is None:
             t_query = t
         delta_t = t_query.unsqueeze(-1) - t.unsqueeze(-2)  # (B, S, L)
         prev_mask = (delta_t > 0).float()  # (B, S, L)
         omori = (delta_t * prev_mask + self.c).pow(-self.p)  # (B, S, L)
-        productivity = self.k * 10 ** (self.alpha * (mag - self.M_c))  # (B, L)
-        h_intensity = (omori * productivity.unsqueeze(-2) * prev_mask).sum(-1) + self.mu  # (B, S)
+        masked_mag = (mag - self.M_c) * survival_mask
+        productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
+        h_intensity = (omori * productivity.unsqueeze(-2) * prev_mask * survival_mask.unsqueeze(-2)).sum(-1) + self.mu  # (B, S)
         return h_intensity
 
 
@@ -405,17 +416,23 @@ class ETAS(TPPModel):
         Returns:
             batch: Sequences generated from the model.
         """
-        p, c, mu, k, alpha, b, M_c = [
-            param.cpu().detach().numpy()
-            for param in [self.p, self.c, self.mu, self.k, self.alpha, self.b, self.M_c]
-        ]
+        # Move scalar parameters to CPU before any NumPy math; branching_ratio expects
+        # host-side floats, and passing CUDA tensors causes conversion errors.
+        p = float(self.p.detach().cpu())
+        c = float(self.c.detach().cpu())
+        mu = float(self.mu.detach().cpu())
+        k = float(self.k.detach().cpu())
+        alpha = float(self.alpha.detach().cpu())
+        b = float(self.b.detach().cpu())
+        M_c = float(self.M_c.detach().cpu())
+        M_m = float(self.M_m.detach().cpu())
         if past_seq is not None:
             t_start = float(past_seq.t_end)
         else:
             t_start = t_start
 
         # Determine the branching ratio (and assert that it is smaller than one)
-        branch = branching_ratio(k=k, b=b, alpha=alpha, M_min=M_c, M_max=self.M_m)
+        branch = branching_ratio(k=k, b=b, alpha=alpha, M_min=M_c, M_max=M_m)
         if branch > 1:
             raise ValueError(
                 f"The process is explosive: branching ratio {branch:.2f} is > 1."
@@ -579,6 +596,294 @@ class ETAS(TPPModel):
             return sequences
         else:
             return Batch.from_list(sequences)
+
+    @staticmethod
+    def _torch_gen_mag(shape, b, M_min, M_max, device, dtype):
+        # Gutenberg-Richter inverse sampling (torch)
+        u = torch.rand(shape, device=device, dtype=dtype)
+        return (-1.0 / b) * torch.log10(
+            -u * (10 ** (-b * M_min) - 10 ** (-b * M_max)) + 10 ** (-b * M_min)
+        )
+
+    @staticmethod
+    def _torch_omori_int(T1, T2, c, p):
+        # Integral of Omori kernel from T1 to T2
+        # Handles p == 1
+        one = torch.tensor(1.0, device=T1.device, dtype=T1.dtype)
+        if torch.isclose(p, one):
+            return torch.log(T2 + c) - torch.log(T1 + c)
+        one_minus_p = one - p
+        return ((T2 + c).pow(one_minus_p) - (T1 + c).pow(one_minus_p)) / one_minus_p
+
+    @staticmethod
+    def _torch_omori_inv(T1, T2, c, p, size, t_max, device, dtype):
+        """
+        Draw samples tau ~ Omori(tau+c)^(-p) restricted to [T1, T2]
+        using inverse transform with global normalization integral(0,t_max).
+        """
+        u = torch.rand(size, device=device, dtype=dtype)
+
+        zero = torch.zeros((), device=device, dtype=dtype)
+        tmax_t = torch.tensor(t_max, device=device, dtype=dtype)
+
+        F0 = ETAS._torch_omori_int(zero, tmax_t, c, p)  # ∫_0^{t_max} g(t)
+
+        # CDF in [0, t_max]
+        F1 = ETAS._torch_omori_int(zero, T1, c, p) / F0
+        F2 = ETAS._torch_omori_int(zero, T2, c, p) / F0
+        u_prime = u * (F2 - F1) + F1
+
+        one = torch.tensor(1.0, device=device, dtype=dtype)
+        if torch.isclose(p, one):
+            # tau = c * exp(u_prime * log((t_max+c)/c)) - c
+            log_term = torch.log(tmax_t + c) - torch.log(c)
+            return c * torch.exp(u_prime * log_term) - c
+
+        one_minus_p = one - p
+        # Inverse CDF:
+        # u = ( (tau+c)^(1-p) - c^(1-p) ) / ( (tmax+c)^(1-p) - c^(1-p) )
+        base = u_prime * F0 * one_minus_p + c.pow(one_minus_p)
+        return base.pow(1.0 / one_minus_p) - c
+
+    def sample_gpu_parallel(
+        self,
+        batch_size: int,
+        duration: float,
+        t_start: float = 0.0,
+        past_seq: Optional["Sequence"] = None,
+        max_length: Optional[int] = 50_000,
+        t_max: float = 1e10,
+        return_sequences: bool = False,
+        dtype: torch.dtype = torch.float64,   # ✅ 支持 fp32 / fp64
+    ) -> Union["Batch", List["Sequence"]]:
+        """
+        GPU-parallel branching-process sampler for ETAS.
+
+        Fixes mismatch between offspring counts and Omori inverse sampling.
+        Supports float32/float64 via dtype argument.
+        """
+
+        device = self.device
+        if device is None:
+            device = next(self.parameters()).device
+
+        # ---- parameters on GPU ----
+        p = self.p.to(device=device, dtype=dtype)
+        c = self.c.to(device=device, dtype=dtype)
+        mu = self.mu.to(device=device, dtype=dtype)
+        k = self.k.to(device=device, dtype=dtype)
+        alpha = self.alpha.to(device=device, dtype=dtype)
+        b = self.b.to(device=device, dtype=dtype)
+
+        M_c = self.M_c.to(device=device, dtype=dtype)
+        M_m = self.M_m.to(device=device, dtype=dtype)
+
+        # ---- branching ratio check (CPU float) ----
+        branch = branching_ratio(
+            k=float(k.detach().cpu().item()),
+            b=float(b.detach().cpu().item()),
+            alpha=float(alpha.detach().cpu().item()),
+            M_min=float(M_c.detach().cpu().item()),
+            M_max=float(M_m.detach().cpu().item()),
+        )
+        if branch > 1:
+            raise ValueError(f"The process is explosive: branching ratio {branch:.2f} is > 1.")
+
+        # ---- start/end per sequence ----
+        if past_seq is not None:
+            t0 = float(past_seq.t_end)
+        else:
+            t0 = float(t_start)
+
+        t_start_vec = torch.full((batch_size,), t0, device=device, dtype=dtype)
+        t_end_vec = t_start_vec + float(duration)
+
+        catalogs = []
+
+        # ---- conditioning history (replicate across batch) ----
+        if past_seq is not None:
+            past_tau = past_seq.inter_times.cpu().numpy().copy()
+            tau_tensor = torch.tensor(past_tau[:-1], dtype=dtype, device=device)
+            arrival_single = torch.cumsum(tau_tensor, dim=0) + float(past_seq.t_start)
+            mags_single = torch.tensor(past_seq.mag, dtype=dtype, device=device)
+
+            # replicate
+            arrival = arrival_single.expand(batch_size, -1).reshape(-1)
+            mags = mags_single.expand(batch_size, -1).reshape(-1)
+            bid = torch.arange(batch_size, device=device, dtype=torch.int64).repeat_interleave(arrival_single.numel())
+
+            catalogs.append((arrival, mags, bid))
+
+        # ---- background events ----
+        lam = mu * duration
+        N_back = torch.poisson(lam.expand(batch_size)).to(torch.int64)
+        max_back = int(N_back.max().item()) if N_back.numel() > 0 else 0
+
+        if max_back > 0:
+            u_time = torch.rand((batch_size, max_back), device=device, dtype=dtype)
+            t_back = t_start_vec[:, None] + u_time * float(duration)  # (B, max_back)
+            m_back = self._torch_gen_mag(
+                (batch_size, max_back),
+                b=float(b.item()),
+                M_min=float(M_c.item()),
+                M_max=float(M_m.item()),
+                device=device,
+                dtype=dtype,
+            )
+            mask_back = (torch.arange(max_back, device=device)[None, :] < N_back[:, None])
+
+            t_back_flat = t_back[mask_back]
+            m_back_flat = m_back[mask_back]
+            bid_flat = torch.repeat_interleave(
+                torch.arange(batch_size, device=device, dtype=torch.int64),
+                N_back
+            )
+            catalogs.append((t_back_flat, m_back_flat, bid_flat))
+
+        # ---- if no events at all ----
+        if len(catalogs) == 0:
+            empty = [
+                Sequence(
+                    inter_times=np.array([duration], dtype=np.float64),
+                    t_start=float(t_start_vec[i].item()),
+                    mag=np.array([], dtype=np.float64),
+                )
+                for i in range(batch_size)
+            ]
+            return empty if return_sequences else Batch.from_list(empty)
+
+        # ---- merge catalog tensors ----
+        t_parent = torch.cat([c_[0] for c_ in catalogs], dim=0)
+        m_parent = torch.cat([c_[1] for c_ in catalogs], dim=0)
+        b_parent = torch.cat([c_[2] for c_ in catalogs], dim=0)  # int64
+
+        parent_catalog = (t_parent, m_parent, b_parent)
+        events_all = [parent_catalog]
+        total_events = t_parent.numel()
+
+        # global normalization integral ∫_0^{t_max} g(t)
+        zero = torch.zeros((), device=device, dtype=dtype)
+        tmax_t = torch.tensor(t_max, device=device, dtype=dtype)
+        omori_norm = self._torch_omori_int(zero, tmax_t, c, p)  # scalar
+
+        # ---- branching process generations ----
+        while True:
+            t_parent, m_parent, b_parent = parent_catalog
+
+            # interval boundaries relative to each parent
+            TAU1 = (t_start_vec[b_parent] - t_parent).clamp_min(0.0)
+            TAU2 = (t_end_vec[b_parent] - t_parent).clamp_min(0.0)   # ✅ clamp to avoid negative
+
+            # ----- offspring mean -----
+            # Match CPU sampler:
+            # k' = k * omori_norm
+            # prod_in_interval = k' * 10^(alpha*(M-Mc)) * omori_int(TAU1,TAU2)/omori_norm
+            # = k*10^(alpha*(M-Mc)) * omori_int(TAU1,TAU2)
+            prod = k * omori_norm * (10.0 ** (alpha * (m_parent - M_c)))
+            interval_mass = self._torch_omori_int(TAU1, TAU2, c, p)
+            prod_in_interval = prod * interval_mass / omori_norm
+
+            N_child = torch.poisson(prod_in_interval).to(torch.int64)
+            has_child = N_child > 0
+            if not has_child.any():
+                break
+
+            # explode parent indices
+            parent_idx = torch.nonzero(has_child, as_tuple=False).squeeze(-1)
+            repeat_idx = torch.repeat_interleave(parent_idx, N_child[has_child])
+            n_child_total = repeat_idx.numel()
+
+            # collect expanded parent info
+            t_sel = t_parent[repeat_idx]
+            bid_sel = b_parent[repeat_idx]
+            tau1_sel = TAU1[repeat_idx]
+            tau2_sel = TAU2[repeat_idx]
+
+            # sample child times
+            dti = self._torch_omori_inv(
+                tau1_sel,
+                tau2_sel,
+                c,
+                p,
+                size=(n_child_total,),
+                t_max=t_max,
+                device=device,
+                dtype=dtype,
+            )
+            t_child = t_sel + dti
+
+            # sample child magnitudes
+            m_child = self._torch_gen_mag(
+                (n_child_total,),
+                b=float(b.item()),
+                M_min=float(M_c.item()),
+                M_max=float(M_m.item()),
+                device=device,
+                dtype=dtype,
+            )
+
+            if (max_length is not None) and (total_events + n_child_total > max_length):
+                # discard / truncate explosive
+                break
+
+            child_catalog = (t_child, m_child, bid_sel)
+            events_all.append(child_catalog)
+            parent_catalog = child_catalog
+            total_events += n_child_total
+
+        # ---- build sequences back from catalog ----
+        all_t = torch.cat([ev[0] for ev in events_all], dim=0)
+        all_m = torch.cat([ev[1] for ev in events_all], dim=0)
+        all_b = torch.cat([ev[2] for ev in events_all], dim=0)  # int64
+
+        seq_list: List[Sequence] = []
+        for bidx in range(batch_size):
+            mask = (all_b == bidx)
+            if not mask.any():
+                seq_list.append(Sequence(
+                    inter_times=np.array([duration], dtype=np.float64),
+                    t_start=float(t_start_vec[bidx].item()),
+                    mag=np.array([], dtype=np.float64),
+                ))
+                continue
+
+            times = all_t[mask]
+            mags = all_m[mask]
+
+            # restrict to forecast window
+            in_win = (times > t_start_vec[bidx]) & (times <= t_end_vec[bidx])
+            times = times[in_win]
+            mags = mags[in_win]
+
+            if times.numel() == 0:
+                seq_list.append(Sequence(
+                    inter_times=np.array([duration], dtype=np.float64),
+                    t_start=float(t_start_vec[bidx].item()),
+                    mag=np.array([], dtype=np.float64),
+                ))
+                continue
+
+            sort_idx = torch.argsort(times)
+            times = times[sort_idx]
+            mags = mags[sort_idx]
+
+            inter_times = torch.diff(torch.cat([
+                t_start_vec[bidx:bidx+1],
+                times,
+                t_end_vec[bidx:bidx+1],
+            ]))
+
+            seq_list.append(Sequence(
+                inter_times=inter_times.detach().cpu().numpy().astype(np.float64),
+                t_start=float(t_start_vec[bidx].item()),
+                mag=mags.detach().cpu().numpy().astype(np.float64),
+            ))
+
+        return seq_list if return_sequences else Batch.from_list(seq_list)
+
+
+
+    
         
     def print_params(self):
         """Print current ETAS model parameters in a readable format."""

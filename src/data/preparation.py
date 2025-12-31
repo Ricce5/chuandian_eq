@@ -155,7 +155,8 @@ def prepare_data_tpp(args, base_dir):
 
     base_root_dir = os.path.join(base_dir, 'raw')
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
-    catalog_ds = catalog_ds_class(root_dir=base_root_dir,**args.catalog_cfg)
+    catalog_cfg = getattr(args, 'catalog_cfg', {})
+    catalog_ds = catalog_ds_class(root_dir=base_root_dir,**catalog_cfg)
         
     args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
     args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
