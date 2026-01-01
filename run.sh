@@ -13,7 +13,7 @@ python main.py --model clf_mixer_attnpl_t --mode test --checkpoint checkpoints/c
 python main.py --model thp --mode train
 python main.py --model rtpp --mode test --checkpoint /root/autodl-tmp/chuandian_eq/checkpoints/rtpp_20250907-144043
 python main.py --model nhpp --mode train
-python main.py --model etas --mode train
+python main.py --model etas --mode test --checkpoint checkpoints/etas_20251231-123806
 python main.py --model btpp --mode train
 python main.py --model mtpp --mode train
 python main.py --model mhp --mode train

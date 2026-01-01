@@ -32,7 +32,30 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
     def scaled_intensity(self, time_series: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
-    
+    def intensity_trajectory(
+        self,
+        ts_batch: DotDict,
+    ) -> torch.Tensor:
+        """Compute intensity trajectory :math:`lambda(t)` for given time series and query times.
+
+        Args:
+            time_series: time series of shape (B, T, F)
+            time_series_times: time points of shape (B, T)
+            t_query: optional query times of shape (B, Nq) or (Nq,). If ``None``,
+                use ``time_series_times``.
+
+        Returns:
+            ``(B, Nq)`` tensor of non-negative intensities.
+        """
+        time_series = ts_batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
+        time_series_times = ts_batch.time_series_times.to(self.device)  # (B, T)
+        
+        scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
+        intensity_traj = scaled_intensity * self._scale  # (B, T, 1)
+        return intensity_traj.squeeze(-1)  # (B, T)
+
+
+
     def intensity(
         self,
         ts_batch: DotDict,
@@ -61,7 +84,6 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         
         scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
         intensity_traj = scaled_intensity * self._scale  # (B, T, 1)
-
         # decide query times
         if t_query is None:
             arrival_times = getattr(ts_batch, "arrival_times", None)
@@ -78,6 +100,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             x=intensity_traj,
             t_query=t_query,
         )
+        print(f"intensity before squeeze min: {intensity.min().item()}, max: {intensity.max().item()}")
         intensity = intensity.squeeze(-1).clamp_min(0.0)  # (B, Nq)
         return intensity
 

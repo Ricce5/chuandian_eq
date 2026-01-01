@@ -29,6 +29,9 @@ debug:
 19. pnr2目录转换utc时间
 20. nsta的pnr2震级相对bgs小于0.15
 21. 修改etas的mu的初始化
+22. mamba模型的bias是否需要加入
+
+
 
 问题
 1. f_intensity单调衰减

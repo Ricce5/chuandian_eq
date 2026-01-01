@@ -15,7 +15,7 @@ class MambaBGModel(BGModel):
 
     def __init__(self, d_feature: int,  scale_init: float,
                  model_type: str,d_model: int, d_state: int, 
-                 device: torch.device | None = None, ):
+                 device: torch.device | None = None):
         super().__init__(device=device,scale_init=scale_init)
         self.d_feature = d_feature
         self.d_state = d_state
