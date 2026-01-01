@@ -386,7 +386,7 @@ class ETAS(TPPModel):
         else:
             return Batch.from_list(sequences)
 
-    def sample(   # 基于分支过程模拟
+    def sample(  
         self,
         batch_size: int,
         duration: float,
@@ -438,7 +438,7 @@ class ETAS(TPPModel):
                 f"The process is explosive: branching ratio {branch:.2f} is > 1."
             )
 
-        def sample_single_seq(seed):   
+        def sample_single_seq(seed, bg_times: Optional[np.ndarray] = None):   
             np.random.seed(seed)
             if past_seq is not None:
                 # Recompute the arrival times in float64 precision
@@ -455,7 +455,7 @@ class ETAS(TPPModel):
          
             # Background events are sampled from a poisson distribution with mean mu*T  由条件强度函数背景地震率部分生成的事件
             #########
-            Nback = poisson.rvs(mu * (duration))  # number of background events
+            Nback = poisson.rvs(mu * (duration)) if self.bg_model is None else 0
 
             # background events occur randomly in the time domain
             if self.bg_model is None:   
@@ -463,14 +463,18 @@ class ETAS(TPPModel):
                 background_events.append(gen_mag(shape=Nback, b=b, M_min=M_c))
                 background_catalog = np.column_stack(background_events) # (Nback, 2)
             else:
-                times_list = self.bg_model.sample_nhpp_inverse(
-                    B=1,
-                    t0=torch.tensor([t_start], device=self.device),
-                    dt=torch.tensor([duration], device=self.device),
-                    sample_sequence=True,
-                    mu=float(self.mu.item()), 
-                )
-                t_back = np.array(times_list[0], dtype=np.float64)
+                # precomputed NHPP samples avoid rebuilding the CIF per sequence
+                if bg_times is None:
+                    times_list = self.bg_model.sample_nhpp_inverse(
+                        B=1,
+                        t0=torch.tensor([t_start], device=self.device),
+                        dt=torch.tensor([duration], device=self.device),
+                        sample_sequence=True,
+                        mu=float(self.mu.item()), 
+                    )
+                    t_back = np.array(times_list[0], dtype=np.float64)
+                else:
+                    t_back = bg_times
 
                 Nback = t_back.size
                 if Nback > 0:
@@ -583,9 +587,22 @@ class ETAS(TPPModel):
         starting_seed = np.random.randint(0, 100000)
         while len(sequences) < batch_size:
             num_seq_to_generate = batch_size - len(sequences)
+
+            # pre-sample NHPP background events in one call to reuse cached grids
+            bg_times_bulk: Optional[List[np.ndarray]] = None
+            if self.bg_model is not None:
+                times_list = self.bg_model.sample_nhpp_inverse(
+                    B=num_seq_to_generate,
+                    t0=torch.full((num_seq_to_generate,), t_start, device=self.device),
+                    dt=torch.full((num_seq_to_generate,), duration, device=self.device),
+                    sample_sequence=True,
+                    mu=float(self.mu.item()),
+                )
+                bg_times_bulk = [np.array(t, dtype=np.float64) for t in times_list]
+
             new_sequences = Parallel(n_jobs=n_jobs)(
-                delayed(sample_single_seq)(seed)
-                for seed in trange(starting_seed, starting_seed + num_seq_to_generate)
+                delayed(sample_single_seq)(seed, None if bg_times_bulk is None else bg_times_bulk[i])
+                for i, seed in enumerate(trange(starting_seed, starting_seed + num_seq_to_generate))
             )
             # Filter out explosive sequences
             filtered = [seq for seq in new_sequences if seq is not None]

@@ -207,7 +207,9 @@ class Sequence(DotDict):
             other_attr['time_series'] = new_ts
             other_attr['time_series_times'] = new_ts_times
 
-        t_nll_start = end-1e-1 if reset_t_nll_to_end else max(self.t_nll_start, start)
+        # When the window is very short (end - start < 0.1), end-1e-1 can fall before start;
+        # clamp to start to keep 0 <= t_start <= t_nll_start <= t_end.
+        t_nll_start = max(end - 1e-1, start) if reset_t_nll_to_end else max(self.t_nll_start, start)
 
         return Sequence(
             inter_times=new_inter_times,
