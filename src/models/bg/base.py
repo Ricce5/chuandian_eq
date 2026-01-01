@@ -30,6 +30,11 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
     
     @abc.abstractmethod
     def scaled_intensity(self, time_series: torch.Tensor) -> torch.Tensor:
+        """
+        scaled_intensity 
+        Args:
+        To make sure the output is zero when the input is zero, linear layers should not have bias terms and the activation functions should satisfy f(0)=0.
+        """
         raise NotImplementedError
 
     def intensity_trajectory(
@@ -101,7 +106,8 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             t_query=t_query,
         )
         print(f"intensity before squeeze min: {intensity.min().item()}, max: {intensity.max().item()}")
-        intensity = intensity.squeeze(-1).clamp_min(0.0)  # (B, Nq)
+        x = intensity.squeeze(-1)
+        intensity = x + (x.clamp_min(0.0) - x).detach()  # forward = clamped, backward = identity (keep gradients)
         return intensity
 
     # -------------------------------------------------------------

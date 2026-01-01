@@ -2,7 +2,6 @@
 
 
 
-
 selective_state_update 中0被替换为(0,0), 处理None下的情况
 mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 
@@ -29,7 +28,8 @@ debug:
 19. pnr2目录转换utc时间
 20. nsta的pnr2震级相对bgs小于0.15
 21. 修改etas的mu的初始化
-22. mamba模型的bias是否需要加入,abs是否需要加入
+22. mamba模型的修改
+23. 移除所有背景模型的softplus
 
 
 

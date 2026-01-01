@@ -51,5 +51,5 @@ class RNNBGModel(BGModel):
         """
         rnn_in = self.fc_in(time_series)  
         rnn_out, _ = self.rnn(rnn_in.contiguous())  # (B, T, d_model)
-        scaled_intensity = torch.nn.functional.softplus(self.fc_out(rnn_out)) 
-        return scaled_intensity
+        out = self.fc_out(rnn_out)  # (B, T, 1)
+        return out

@@ -3,13 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.data.dot_dict import DotDict
 from .base import BGModel
 
 
 def _causal_depthwise_conv1d(x_btf: torch.Tensor, h_k: torch.Tensor) -> torch.Tensor:
     """
-    Causal depthwise conv with shared kernel across channels.
+    Causal depthwise conv with a kernel shared across channels.
 
     Args:
         x_btf: (B, T, F)
@@ -66,7 +65,7 @@ class ExpKernel(_BaseKernel):
 class GammaKernel(_BaseKernel):
     """
     h(tau) ∝ tau^(k-1) * exp(-beta * tau)
-    k>0, beta>0.  当 k>1 时有延迟峰值（非常适合注水延迟响应）。
+    k>0, beta>0. When k>1 there is a delayed peak (useful for injection delayed response).
     """
     def __init__(
         self,
@@ -87,7 +86,7 @@ class GammaKernel(_BaseKernel):
         beta = torch.exp(self.log_beta).clamp_min(1e-6)
 
         tau = torch.arange(self.kernel_size, device=device, dtype=dtype) * self.dt
-        # 防止 0^(k-1) 数值问题
+        # avoid numerical issues with 0^(k-1)
         tau_safe = tau.clamp_min(1e-8)
         h = torch.pow(tau_safe, k - 1.0) * torch.exp(-beta * tau)
         h = h.clamp_min(0.0)
@@ -97,7 +96,7 @@ class GammaKernel(_BaseKernel):
 class LogNormalKernel(_BaseKernel):
     """
     h(tau) ∝ 1/(tau*sigma*sqrt(2pi)) * exp(-(ln tau - mu)^2/(2 sigma^2))
-    有长尾延迟，适合扩散+长记忆。
+    Long-tailed delays suitable for diffusion and long memory.
     """
     def __init__(
         self,
@@ -117,7 +116,7 @@ class LogNormalKernel(_BaseKernel):
         sigma = torch.exp(self.log_sigma).clamp_min(1e-4)
 
         tau = torch.arange(self.kernel_size, device=device, dtype=dtype) * self.dt
-        tau = tau.clamp_min(self.dt)  # 避免 tau=0 的 ln
+        tau = tau.clamp_min(self.dt)  # avoid ln(0)
         log_tau = torch.log(tau)
         coeff = 1.0 / (tau * sigma * math.sqrt(2.0 * math.pi))
         expo = torch.exp(-0.5 * torch.square((log_tau - self.mu) / sigma))
@@ -127,8 +126,8 @@ class LogNormalKernel(_BaseKernel):
 
 class MixtureKernel(_BaseKernel):
     """
-    混合核：h = sum_r w_r * h_r, w_r>=0 且 sum w_r = 1
-    用于多尺度响应（短延迟 + 长延迟）。
+    Mixture kernel: h = sum_r w_r * h_r, w_r>=0 and sum w_r = 1
+    Used for multi-scale responses (short delay + long delay).
     """
     def __init__(self, kernels: list[_BaseKernel]):
         assert len(kernels) >= 2, "MixtureKernel needs >=2 component kernels."
@@ -141,7 +140,7 @@ class MixtureKernel(_BaseKernel):
         self.logits = nn.Parameter(torch.zeros(len(kernels)))  # mixture weights
 
     def forward(self, device=None, dtype=None) -> torch.Tensor:
-        # 每个子核自己会 normalize（通常），这里再混合后整体 normalize
+        # Each sub-kernel is typically normalized; normalize after mixing.
         hs = [k(device=device, dtype=dtype) for k in self.kernels]  # list of (K,)
         H = torch.stack(hs, dim=0)                                  # (R, K)
         w = torch.softmax(self.logits, dim=0).to(H.dtype)           # (R,)
@@ -152,16 +151,16 @@ class MixtureKernel(_BaseKernel):
 @BGModel.register("kernel")
 class KernelBGModel(BGModel):
     """
-    背景强度模型：注水时间序列 x(t) 经过“因果卷积核”得到响应 z(t)，
-    再映射到非负强度 λ_bg(t)。
+    Background intensity model: injection time series x(t) is convolved with a causal kernel to produce response z(t),
+    which is then mapped to a nonnegative intensity λ_bg(t).
 
     intensity_traj(t) = scale * softplus( Linear( z(t) ) + bias )
 
-    支持 kernel_type:
+    Supported kernel_type:
       - "exp"
       - "gamma"
       - "lognormal"
-      - "mix" (默认：gamma + exp 的混合，可改)
+      - "mix" (default: mixture of gamma + exp, configurable)
     """
     def __init__(
         self,
@@ -204,13 +203,12 @@ class KernelBGModel(BGModel):
         self.use_mlp = bool(use_mlp)
         if self.use_mlp:
             self.head = nn.Sequential(
-                nn.Linear(self.d_feature, hidden),
+                nn.Linear(self.d_feature, hidden, bias=False),
                 nn.SiLU(),
-                nn.Linear(hidden, 1),
-                nn.Softplus(),
+                nn.Linear(hidden, 1, bias=False),
             )
         else:
-            self.head = nn.Linear(self.d_feature, 1,bias=False)
+            self.head = nn.Linear(self.d_feature, 1, bias=False)
             torch.nn.init.constant_(self.head.weight, 1.0)
         if device is not None:
             self.to(device)
@@ -218,9 +216,9 @@ class KernelBGModel(BGModel):
     def scaled_intensity(self, time_series: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            time_series: (B, T, F) 注水特征序列
+            time_series: (B, T, F) injection feature sequence
         Returns:
-            scaled_intensity: (B, T, 1) 非负（softplus）
+            scaled_intensity: (B, T, 1) nonnegative (softplus applied later)
         """
         h = self.kernel(device=time_series.device, dtype=time_series.dtype)  # (K,)
 

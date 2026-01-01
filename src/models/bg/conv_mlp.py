@@ -67,5 +67,4 @@ class ConvMLPBGModel(BGModel):
         x = x.permute(0, 2, 1)  # -> (B, T, conv_out_channels)
         # MLP expects (B, T, out_channels)
         out = self.mlp(x)  # (B, T, 1)
-        scaled_intensity = torch.nn.functional.softplus(out)
-        return scaled_intensity
+        return out
