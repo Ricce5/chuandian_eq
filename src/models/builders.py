@@ -626,6 +626,7 @@ class ETASBuilder(ModelBuilder):
             device=device,
             bg_model=bg_model,
             fix_mu_zero=getattr(args, "fix_mu_zero", False),
+            fixed_mu_value=getattr(args, "fixed_mu_value", None),
         )
 
         model.double()

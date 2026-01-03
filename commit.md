@@ -1,4 +1,5 @@
-
+背景模型改为在intensity_trajectory中截取0
+修复背景模型积分梯度不一致的问题
 
 
 
@@ -30,7 +31,9 @@ debug:
 21. 修改etas的mu的初始化
 22. mamba模型的修改
 23. 移除所有背景模型的softplus
-
+24. 移除mamba的fc_in_bias和fc_out_bias
+25. 解决time_series没有正确mask的问题
+26. 更改mu最小值0.2
 
 
 问题

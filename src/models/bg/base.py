@@ -37,58 +37,35 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         """
         raise NotImplementedError
 
+    def _compute_intensity_traj(self, ts_batch: DotDict):
+        """Helper to compute uniform-grid intensity trajectory (B, T, 1) and times (B, T)."""
+        time_series = ts_batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
+        time_series_times = ts_batch.time_series_times.to(self.device)  # (B, T)
+        scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
+        intensity_traj = scaled_intensity * self._scale  # (B, T, 1)
+        ts_mask = getattr(ts_batch, "time_series_mask", None)
+        if ts_mask is not None:
+            intensity_traj = intensity_traj * ts_mask.to(self.device).unsqueeze(-1)
+        # forward = clamped, backward = identity (keep gradients)
+        intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
+        return time_series_times, intensity_traj
+
     def intensity_trajectory(
         self,
         ts_batch: DotDict,
     ) -> torch.Tensor:
-        """Compute intensity trajectory :math:`lambda(t)` for given time series and query times.
-
-        Args:
-            time_series: time series of shape (B, T, F)
-            time_series_times: time points of shape (B, T)
-            t_query: optional query times of shape (B, Nq) or (Nq,). If ``None``,
-                use ``time_series_times``.
-
-        Returns:
-            ``(B, Nq)`` tensor of non-negative intensities.
-        """
-        time_series = ts_batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
-        time_series_times = ts_batch.time_series_times.to(self.device)  # (B, T)
-        
-        scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
-        intensity_traj = scaled_intensity * self._scale  # (B, T, 1)
+        """Compute intensity trajectory on the stored uniform grid: (B, T)."""
+        _, intensity_traj = self._compute_intensity_traj(ts_batch)
         return intensity_traj.squeeze(-1)  # (B, T)
-
-
 
     def intensity(
         self,
         ts_batch: DotDict,
         t_query: torch.Tensor | None = None,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-        """Compute intensity :math:`lambda(t)` for given batch and query times.
+    ) -> torch.Tensor:
+        """Compute intensity lambda(t) for given batch and query times, returning (B, Nq)."""
+        time_series_times, intensity_traj = self._compute_intensity_traj(ts_batch)
 
-        Args:
-            ts_batch: batch with keys
-                - ``time_series``: (B, T, F)
-                - ``time_series_times``: (B, T)
-                - optionally ``arrival_times``: (B, Nq)
-            t_query: optional query times of shape (B, Nq) or (Nq,). If ``None``,
-                use ``ts_batch.arrival_times`` when available, otherwise
-                ``time_series_times``.
-            return_weights: if ``True``, also return the per-timepoint
-                weight vectors from the Mamba SSM.
-
-        Returns:
-            ``(B, Nq)`` tensor of non-negative intensities, or a tuple
-            ``(intensity, weights_over_time)`` when ``return_weights=True``.
-        """
-
-        time_series = ts_batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
-        time_series_times = ts_batch.time_series_times.to(self.device)  # (B, T)
-        
-        scaled_intensity = self.scaled_intensity(time_series)  # (B, T, 1)
-        intensity_traj = scaled_intensity * self._scale  # (B, T, 1)
         # decide query times
         if t_query is None:
             arrival_times = getattr(ts_batch, "arrival_times", None)
@@ -105,10 +82,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             x=intensity_traj,
             t_query=t_query,
         )
-        print(f"intensity before squeeze min: {intensity.min().item()}, max: {intensity.max().item()}")
-        x = intensity.squeeze(-1)
-        intensity = x + (x.clamp_min(0.0) - x).detach()  # forward = clamped, backward = identity (keep gradients)
-        return intensity
+        return intensity.squeeze(-1)  # (B, Nq)
 
     # -------------------------------------------------------------
     # ∫ λ(t) dt
@@ -126,13 +100,8 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         Returns:
             Tensor of shape ``(B,)`` with integrals.
         """
-        # 与 intensity 中保持一致的 dtype
-        time_series = batch.time_series.to(self.device, dtype=torch.float32)  # (B, T, F)
-        time_series_times = batch.time_series_times.to(self.device)  # (B, T)
-
-        # match intensity() definition: linear projection then positive weights
-        scaled_intensity = self.scaled_intensity(time_series).clamp_min(0.0)  # (B, T, 1)
-        intensity_traj = scaled_intensity * self._scale
+        # match intensity() forward/backward behavior by reusing the same trajectory construction
+        time_series_times, intensity_traj = self._compute_intensity_traj(batch)
         integral = integrate_uniform_time_series(
             t=time_series_times,
             x=intensity_traj,

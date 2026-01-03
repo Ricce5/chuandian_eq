@@ -207,11 +207,13 @@ def split_sequence(seq, mean_batch_size=300, max_events=30000):
             t_start = find_t_start_from_t_end(seq, t_nll_start=start, t_end=end, max_events=max_events)
             duration = end - t_start
             window_durations.append(duration)
+            print(f"[split_sequence] t_start: {t_start:.4f}, t_end: {end:.4f}")
             print(f"[split_sequence] Window duration: {duration:.4f}")
 
             short_seq = seq.get_subsequence(t_start, end)
             # print(f"[split_sequence] Short sequence from {t_start} to {end}, NLL start at {start}")
             short_seq.t_nll_start = max(start, short_seq.t_start)
+            print(f"[split_sequence] Short sequence NLL start set to {short_seq.t_nll_start:.4f}")
             # print(f"[split_sequence] Short sequence {short_seq}")
             short_sequences.append(short_seq)
         except ValueError as e:

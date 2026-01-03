@@ -1,6 +1,7 @@
 import torch
 from mamba_ssm import Mamba, Mamba2
 from .base import BGModel
+from .kernel import _causal_depthwise_conv1d
 
 
 @BGModel.register("mamba")
@@ -20,8 +21,7 @@ class MambaBGModel(BGModel):
         d_model: int,
         d_state: int,
         device: torch.device | None = None,
-        fc_in_bias: bool = True,
-        fc_out_bias: bool = True,
+        smooth_kernel_size: int | None = None,
     ):
         super().__init__(device=device, scale_init=scale_init)
         self.d_feature = d_feature
@@ -32,8 +32,15 @@ class MambaBGModel(BGModel):
             raise ValueError(f"Unknown model_type: {model_type}")
         
         self.mamba = cls(d_model=d_model, d_state=d_state, d_conv=4)
-        self.fc_in = torch.nn.Linear(d_feature, d_model, bias=fc_in_bias)
-        self.fc_out = torch.nn.Linear(d_model, 1, bias=fc_out_bias)
+        self.fc_in = torch.nn.Linear(d_feature, d_model, bias=False)
+        self.fc_out = torch.nn.Linear(d_model, 1, bias=False)
+
+        # Optional causal depthwise smoothing to suppress fast spikes while staying online/causal.
+        if smooth_kernel_size is not None and smooth_kernel_size > 1:
+            h = torch.ones(smooth_kernel_size, dtype=torch.float32) / float(smooth_kernel_size)
+            self.register_buffer("smoothing_kernel", h, persistent=False)
+        else:
+            self.smoothing_kernel = None
         
         if device is not None:
             self.to(device)
@@ -49,6 +56,8 @@ class MambaBGModel(BGModel):
         """
         ssm_in = self.fc_in(time_series)  # (B, T, d_model)
         ssm_out = self.mamba(ssm_in.contiguous())  # (B, T, d_model)
+        if self.smoothing_kernel is not None:
+            ssm_out = _causal_depthwise_conv1d(ssm_out, self.smoothing_kernel)
         
         intensity = self.fc_out(ssm_out)
         return intensity  # (B, T, 1)

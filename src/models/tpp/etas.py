@@ -1,4 +1,5 @@
 #  pytorch implementation of the ETAS model
+# Modify the ETAS model to use the ETAS background model
 # ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import math
 from typing import List, Optional, Union
@@ -102,22 +103,32 @@ class ETAS(TPPModel):
         report_params: bool = True,
         device: Optional[torch.device] = None,
         bg_model=None,
-        fix_mu_zero: bool = False,
+        fix_mu: bool = False,
+        fixed_mu_value: Optional[float] = None,
     ):
         super().__init__()
-        self.fix_mu_zero = fix_mu_zero
+        self.fix_mu = fix_mu
+        base_rate_init_t = torch.as_tensor(
+            base_rate_init, device=device, dtype=torch.get_default_dtype()
+        )
         self.log_p = nn.Parameter(torch.tensor(math.log(omori_p_init)))
         self.log_c = nn.Parameter(torch.tensor(math.log(omori_c_init)))
-        self.log_mu = nn.Parameter(torch.tensor(math.log(base_rate_init)))
-        if self.fix_mu_zero:
+        self.log_mu = nn.Parameter(base_rate_init_t.log())
+        if self.fix_mu:
             self.log_mu.requires_grad = False
+            mu_value = (
+                torch.as_tensor(
+                    fixed_mu_value, device=device, dtype=base_rate_init_t.dtype
+                )
+                if fixed_mu_value is not None
+                else torch.zeros(1, device=device, dtype=base_rate_init_t.dtype)
+            )
+            self.register_buffer("mu_fixed", mu_value)
         self.log_k = nn.Parameter(torch.tensor(math.log(productivity_k_init)))
         self.log_alpha = nn.Parameter(torch.tensor(math.log(productivity_alpha_init)))
         self.register_buffer("M_c", torch.tensor(mag_completeness))
         self.register_buffer("M_m", torch.tensor(mag_max))
         self.register_buffer("b", torch.tensor(richter_b))
-        if self.fix_mu_zero:
-            self.register_buffer("mu_zero", torch.tensor(0.0))
         self.report_params = report_params
         self.device = device
         self.bg_model = bg_model
@@ -133,8 +144,8 @@ class ETAS(TPPModel):
 
     @property
     def mu(self):
-        if getattr(self, "fix_mu_zero", False):
-            return self.mu_zero
+        if getattr(self, "fix_mu", False):
+            return self.mu_fixed
         return torch.exp(self.log_mu)
 
     @property
@@ -157,10 +168,10 @@ class ETAS(TPPModel):
         Returns:
             nll: NLL of each sequence, shape (batch_size,)
         """
-        t = batch.arrival_times
-        # Mask of real (non-padding) events
-        survival_mask = get_mask(
-            batch.inter_times,
+        t = batch.arrival_times                         # (B,L)
+        # Mask of real (non-padding) events             
+        survival_mask = get_mask(                       # (B,L)
+            batch.inter_times,      
             start_idx=torch.zeros_like(batch.start_idx),
             end_idx=batch.end_idx,
         )
@@ -168,14 +179,14 @@ class ETAS(TPPModel):
         # (where S = L if t_start == t_nll_start, and S <= L otherwise)
         t_select, intensity_mask = masked_select_per_row(t, batch.nll_event_mask)
         # delta_t[0, i, j] = t_i - t_j
-        delta_t = t_select.unsqueeze(-1) - t.unsqueeze(-2)  # (B, S, L)
+        delta_t = t_select.unsqueeze(-1) - t.unsqueeze(-2)       # (B, S, L)
         # prev_mask[0, i, j] = float(t_i < t_j)
-        prev_mask = (delta_t > 0).float()  # (B, S, L) 当前事件之前的所有事件掩码
+        prev_mask = (delta_t > 0).float()                        # (B, S, L) 当前事件之前的所有事件掩码
         # Logarithm of the intensity
         # omori[0, i, j] = contribution of event t_j on intensity at time t_i
-        omori = (delta_t * prev_mask + self.c).pow(-self.p)  # (B, S, L)
+        omori = (delta_t * prev_mask + self.c).pow(-self.p)      # (B, S, L)
         # productivity[0, j] = expected number of aftershocks after event t_j
-        masked_mag = (batch.mag - self.M_c) * survival_mask
+        masked_mag = (batch.mag - self.M_c) * survival_mask      # (B, L)
         productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
         #
         intensity = (
@@ -598,7 +609,12 @@ class ETAS(TPPModel):
                     sample_sequence=True,
                     mu=float(self.mu.item()),
                 )
-                bg_times_bulk = [np.array(t, dtype=np.float64) for t in times_list]
+                def _to_numpy(x):
+                    if torch.is_tensor(x):
+                        return x.detach().cpu().numpy().astype(np.float64)
+                    return np.asarray(x, dtype=np.float64)
+
+                bg_times_bulk = [_to_numpy(t) for t in times_list]
 
             new_sequences = Parallel(n_jobs=n_jobs)(
                 delayed(sample_single_seq)(seed, None if bg_times_bulk is None else bg_times_bulk[i])
@@ -909,9 +925,9 @@ class ETAS(TPPModel):
             "c": self.c.detach().cpu().item(),
             "mu": self.mu.detach().cpu().item(),
             "k": self.k.detach().cpu().item(),
-            "K":self.k/(self.p-1)*self.c**(1-self.p).detach().cpu().item(),
+            "K": (self.k / (self.p - 1) * self.c ** (1 - self.p)).detach().cpu().item(),
             "alpha": self.alpha.detach().cpu().item(),
-            'alpha_e':(self.alpha * np.log(10)).detach().cpu().item(),
+            'alpha_e': (self.alpha * math.log(10)).detach().cpu().item(),
             "b": float(self.b.detach().cpu().item()),
             "M_c": float(self.M_c.detach().cpu().item()),
             "M_m": float(self.M_m.detach().cpu().item()),
@@ -932,6 +948,8 @@ class ETAS(TPPModel):
         # paper parametrization
         K: Optional[float] = None,
         alpha_e: Optional[float] = None,
+        # Gutenberg-Richter b
+        b: Optional[float] = None,
     ) -> None:
         """
         Set ETAS parameters.
@@ -956,9 +974,16 @@ class ETAS(TPPModel):
                 c_t = _to_tensor(c, self.log_c)
                 self.log_c.copy_(torch.log(c_t))
 
-            if mu is not None and not self.fix_mu_zero:
-                mu_t = _to_tensor(mu, self.log_mu)
-                self.log_mu.copy_(torch.log(mu_t))
+            if mu is not None:
+                if not self.fix_mu:
+                    mu_t = _to_tensor(mu, self.log_mu)
+                    self.log_mu.copy_(torch.log(mu_t))
+                else:
+                    mu_t = _to_tensor(mu, self.log_mu)
+                    self.mu_fixed.copy_(mu_t)
+            if b is not None:
+                b_t = _to_tensor(b, self.b)
+                self.b.copy_(b_t)
 
             # 2) if paper params provided, convert -> (k, alpha)
             if (K is not None) or (alpha_e is not None):

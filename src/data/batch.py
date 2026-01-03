@@ -109,24 +109,33 @@ class Batch(DotDict):
                 seq_ts = getattr(seq, 'time_series', None)
                 seq_ts_times = getattr(seq, 'time_series_times', None)
                 if seq_ts is None:
-                    # create empty tensor on correct device/dtype
                     ts_list.append(torch.empty(0, dtype=dtype, device=device))
                     ts_times_list.append(torch.empty(0, dtype=dtype, device=device))
                 else:
                     ts_list.append(torch.as_tensor(seq_ts))
-                    if seq_ts_times is None:
-                       assert False, "If time_series_times is missing, it must be provided for time_series."
-                    else:
-                        ts_times_list.append(torch.as_tensor(seq_ts_times))
+                    assert seq_ts_times is not None, "If time_series is provided, time_series_times is required."
+                    ts_times_list.append(torch.as_tensor(seq_ts_times))
 
-            # move to common device/dtype
             ts_list = [t.to(device=device, dtype=dtype) for t in ts_list]
             ts_times_list = [t.to(device=device, dtype=dtype) for t in ts_times_list]
+
             max_ts_len = max(t.size(0) for t in ts_list)
-            ts_padded = pad_sequence(ts_list, padding_value=pad, max_len=max_ts_len)
-            ts_times_padded = pad_sequence(ts_times_list, padding_value=pad, max_len=max_ts_len)
+            ts_lengths = torch.tensor([t.size(0) for t in ts_list], device=device, dtype=torch.long)
+            ts_mask = torch.arange(max_ts_len, device=device).unsqueeze(0) < ts_lengths.unsqueeze(1)
+
+            ts_padded = pad_sequence(ts_list, padding_value=0.0, max_len=max_ts_len)
+            ts_times_padded = pad_sequence(ts_times_list, padding_value=0.0, max_len=max_ts_len)
+
+            # For padded positions, repeat the last valid value to keep the grid monotonic and stable.
+            for i, L in enumerate(ts_lengths.tolist()):
+                if L == 0:
+                    continue
+                ts_padded[i, L:] = ts_padded[i, L - 1]
+                ts_times_padded[i, L:] = ts_times_padded[i, L - 1]
+
             other_attr['time_series'] = ts_padded
             other_attr['time_series_times'] = ts_times_padded
+            other_attr['time_series_mask'] = ts_mask.float()
 
         non_pad_mask = (inter_times != pad).float()
         non_pad_mask[:, 0] = 1. 
