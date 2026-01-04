@@ -167,8 +167,14 @@ def prepare_data_tpp(args, base_dir):
     args.time_max = torch.max(torch.tensor([seq.t_end for seq in catalog_ds.train])).item()
     args.time_mean = torch.cat([seq.arrival_times[:-1] for seq in catalog_ds.train]).mean().item()
     args.mag_completeness = catalog_ds.metadata["mag_completeness"]
-    if "richter_b" in catalog_ds.metadata:
-        # Use ground truth value, if available
+
+    # Allow overriding b-value from config (richter_b or richter_b_mle)
+    config_b = getattr(args, "richter_b", None)
+
+    if config_b is not None:
+        args.richter_b_mle = float(config_b)
+    elif "richter_b" in catalog_ds.metadata:
+        # Use ground truth value from catalog metadata when provided
         args.richter_b_mle = catalog_ds.metadata["richter_b"]
     else:
         mag_roundoff_error = catalog_ds.metadata.get("mag_roundoff_error", 0.0)

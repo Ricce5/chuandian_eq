@@ -625,7 +625,7 @@ class ETASBuilder(ModelBuilder):
             mag_max=mag_max,
             device=device,
             bg_model=bg_model,
-            fix_mu_zero=getattr(args, "fix_mu_zero", False),
+            fix_mu=getattr(args, "fix_mu", False),
             fixed_mu_value=getattr(args, "fixed_mu_value", None),
         )
 

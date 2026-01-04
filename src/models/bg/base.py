@@ -442,7 +442,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         if (Lambda_win < eps_lam).all():
             tau_zero = dt_b.clone()
             if sample_sequence:
-                return [[] for _ in range(B)], tau_zero
+                return [[] for _ in range(B)]
             return tau_zero
 
         if not sample_sequence:

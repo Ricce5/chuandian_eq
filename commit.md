@@ -1,5 +1,7 @@
 背景模型改为在intensity_trajectory中截取0
 修复背景模型积分梯度不一致的问题
+增加config中的richter_b
+修复nhpp返回的不一致
 
 
 
