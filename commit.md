@@ -1,7 +1,4 @@
-背景模型改为在intensity_trajectory中截取0
-修复背景模型积分梯度不一致的问题
-增加config中的richter_b
-修复nhpp返回的不一致
+加入b值平滑项
 
 
 
@@ -36,6 +33,7 @@ debug:
 24. 移除mamba的fc_in_bias和fc_out_bias
 25. 解决time_series没有正确mask的问题
 26. 更改mu最小值0.2
+17. hypernet的context除100
 
 
 问题

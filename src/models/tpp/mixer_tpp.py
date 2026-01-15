@@ -17,6 +17,9 @@ from src.models.mamba.mixer_seq import MixerModel
 from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
+from src.models.mamba.scan_wrapper import  SelectiveScanWrapper
+
+
 
 
 class MixerTPP(TPPModel):
@@ -28,7 +31,6 @@ class MixerTPP(TPPModel):
         hypernet_mag: Hypernetwork for magnitude distribution parameters.
         dropout: Dropout probability.
         predict_b: Whether to predict the Gutenberg-Richter b-value.
-        ssm_filter: Optional state-space model filter for b-value.
         use_b_updater: Whether to use b-value updater distribution.
         loss_weights: Dictionary of loss weights for time, magnitude, and b-value.
         loss_reduction: Reduction method for loss ('sum', 'mean', etc.).
@@ -37,9 +39,9 @@ class MixerTPP(TPPModel):
     """
 
     def __init__(self, base_model, hypernet_time, hypernet_mag, dropout, 
-                 predict_b, ssm_filter=None, use_b_updater=False,
+                 predict_b, use_b_updater=False,
                  loss_weights=None, loss_reduction=None,b_range=None,
-                 use_adaptive_loss_weights=False, bg_model=None):
+                 use_adaptive_loss_weights=False, bg_model=None, b_filter=None, b_init=1.0):
         super().__init__()
 
         device = next(base_model.parameters()).device
@@ -52,7 +54,6 @@ class MixerTPP(TPPModel):
 
         self.hypernet_time = hypernet_time
         self.hypernet_mag = hypernet_mag
-        self.ssm_filter = ssm_filter
         self.dropout = nn.Dropout(dropout)
         rb = torch.as_tensor(self.base_model.input_adapter.richter_b, device=device, dtype=dtype)
         mc = torch.as_tensor(self.base_model.input_adapter.mag_completeness, device=device, dtype=dtype)
@@ -70,13 +71,15 @@ class MixerTPP(TPPModel):
             self.weights = {
             "time_weight": 1.0,
             "mag_weight": 1.0,
-            "b_weight": 1.0
+            "b_weight": 1.0,
+            "b_smooth_weight": 0.0,
             }
         else:
             self.weights = loss_weights
             self.weights.setdefault("time_weight", 1.0)
             self.weights.setdefault("mag_weight", 1.0)
             self.weights.setdefault("b_weight", 1.0)
+            self.weights.setdefault("b_smooth_weight", 0.0)
         if use_adaptive_loss_weights:
             print("Using adaptive loss weights")
             self.log_sigma2_b = nn.Parameter(torch.zeros(()))
@@ -85,6 +88,12 @@ class MixerTPP(TPPModel):
             self.b_min,self.b_max = b_range
         else:
             self.b_min, self.b_max = 0.5, 2.0
+
+        self.b_filter = b_filter
+        self.b_init = b_init
+
+
+
 
         # optional proportional background model (expects ProportionalBGModel-like API)
         self.bg_model = bg_model
@@ -101,6 +110,8 @@ class MixerTPP(TPPModel):
         output = F.pad(enc_output, (0, 0, 1, 0)) 
         output = self.dropout(output)
         return output  
+
+
 
     def get_current_state(self,
             batch: src.data.Batch, 
@@ -136,21 +147,34 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
     
-    def _get_b_pred(self, context, predict_b: Optional[bool] = None):
+
+    def _get_b_pred(self, context, predict_b: Optional[bool] = None, inter_times: Optional[torch.Tensor] = None):
+        """
+        context: (B, L, D)
+        inter_times: (B, L)  建议与序列对齐
+        return: (B, L)
+        """
         if predict_b:
-            b_delta = self.hypernet_mag(context)
-            if self.ssm_filter is not None:
-                b_pred = self.ssm_filter(b_delta)
+            use_filter = (self.b_filter is not None) and (inter_times is not None)
+            if use_filter:
+                dt = torch.log1p(inter_times.clamp_min(0.0))  # (B, L)
+                mask = (inter_times > 0).float()
+                mean_dt = (dt * mask).sum(dim=1, keepdim=True) / mask.sum(dim=1, keepdim=True).clamp_min(1.0)
+                dt = dt / (mean_dt + 1e-8)
+                context_ssm = self.b_filter(context, dt.unsqueeze(-1).expand_as(context))  # (B, L, D)
+                b_raw = self.hypernet_mag(context_ssm).squeeze(-1)  # (B, L)
+                b_raw=b_raw + self.b_init
             else:
-                b_pred = self.b_min + (self.b_max - self.b_min) * 0.5 * (torch.tanh(b_delta) + 1)
-                b_pred = b_pred
-            b_pred = b_pred.squeeze(-1)
+                b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
+            # Straight-through clamp to [b_min, b_max]
+            clamped = b_raw.clamp(self.b_min, self.b_max)
+            b_pred = b_raw + (clamped - b_raw).detach()
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
         return b_pred
 
-    def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False):
-        b_pred = self._get_b_pred(context, predict_b)
+    def get_magnitude_dist(self, context, predict_b: Optional[bool] = None, return_b: bool = False, inter_times: Optional[torch.Tensor] = None):
+        b_pred = self._get_b_pred(context, predict_b, inter_times=inter_times)
         mag_min = context.new_full(context.shape[:2], float(self.mag_completeness))
         gr = dist.GutenbergRichter(b=b_pred, mag_min=mag_min)
         if return_b:
@@ -160,7 +184,7 @@ class MixerTPP(TPPModel):
     def compute_b_value(self, seq: Optional[src.data.Sequence] = None, predict_b: bool = False):
         past_batch = src.data.Batch.from_list([seq])
         context = self.get_context(past_batch)
-        b_pred = self._get_b_pred(context, predict_b)
+        b_pred = self._get_b_pred(context, predict_b, inter_times=past_batch.inter_times)
         return b_pred
 
     def get_updater_b_distribution(self,batch):
@@ -235,13 +259,24 @@ class MixerTPP(TPPModel):
         nll_time = -log_like_time  # (B,)
 
         # ---------- Magnitude part ----------
-        mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True)
+        mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True, inter_times=batch.inter_times)
         mask = batch.nll_event_mask.bool()           # (B, L)
         log_like_mag = mag_dist.log_likelihood(batch.mag, mask)
         nll_mag = -log_like_mag                      # (B,)
 
         # ---------- Combine ----------
         nll_total = weights["time_weight"] * nll_time + weights["mag_weight"] * nll_mag   # (B,)
+
+        # ---------- b smoothness penalty ----------
+        b_smooth = None
+        if predict_b and weights.get("b_smooth_weight", 0.0) > 0:
+            mask_pairs = batch.nll_event_mask.bool()
+            mask_pairs = mask_pairs[:, 1:] & mask_pairs[:, :-1]
+            b_diff_sq = (b_pred[:, 1:] - b_pred[:, :-1]) ** 2
+            delta_t = batch.inter_times[:, 1:].clamp_min(eps)
+            b_smooth = (b_diff_sq / delta_t * mask_pairs).sum(-1)
+            nll_total = nll_total + weights["b_smooth_weight"] * b_smooth
+
         # ---------- b part ----------
         if use_b_updater:
             b_updater_dist = self.get_updater_b_distribution(batch)
@@ -264,6 +299,9 @@ class MixerTPP(TPPModel):
             "mag":  _reduce(nll_mag,  reduction),
             "total": _reduce(nll_total, reduction),
         }
+
+        if b_smooth is not None:
+            out["b_smooth"] = _reduce(b_smooth, reduction)
 
         if use_b_updater:
             out["b"] = _reduce(nll_b, reduction)
@@ -335,10 +373,7 @@ class MixerTPP(TPPModel):
 
             running_time += inter_time_list[-1].squeeze(-1)
 
-            if self.ssm_filter is None:
-                mag_dist = self.get_magnitude_dist(context= current_state,predict_b= predict_b)
-            else:
-                raise NotImplemented
+            mag_dist = self.get_magnitude_dist(context=current_state, predict_b=predict_b)
             next_mag = mag_dist.sample()
             mag_list.append(next_mag)
 
@@ -399,3 +434,6 @@ class MixerTPP(TPPModel):
         offsets = torch.cat([torch.tensor([0.0]), sequence.arrival_times])
         grid = (x + offsets).T.reshape(-1)
         return grid, compensator
+
+
+

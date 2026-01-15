@@ -135,12 +135,13 @@ class BoundedDiscreteSSM(nn.Module):
     
 
 class SelectiveScanWrapper(nn.Module):
-    def __init__(self, d_model, d_state, device, B_positive: bool = False, C_positive: bool = False, D_positive: bool = False, **kwargs):
+    def __init__(self, d_model, d_state, device, B_positive: bool = False, C_positive: bool = False, D_positive: bool = False, use_D: bool = True, **kwargs):
         """
         d_model: Feature dimension of the model
         d_state: Dimension of the state space
         device: Current device, either CPU or CUDA
         B_positive/C_positive/D_positive: If True, enforce parameter > 0 via a softplus transform.
+        use_D: If False, do not create or pass D to selective_scan_fn.
         """
         super().__init__()
         self.d_model = d_model
@@ -148,12 +149,11 @@ class SelectiveScanWrapper(nn.Module):
         self.device = device
 
         # A: (d_model, d_state)
-        self.A = self.A = nn.Parameter(torch.zeros(d_model, d_state, device=device))
+        self.A = nn.Parameter(torch.zeros(d_model, d_state, device=device))
 
         # helper to create either a raw param (to be transformed) or a direct param / tensor
-        def _maybe_create(name, shape, positive=False, init_zeros=False, default_zero=False,scale=1e-2):
+        def _maybe_create(name, shape, positive=False, init_zeros=False, default_zero=False, scale=1e-2):
             if positive:
-                # 正数参数也先用接近 0 的 raw 值
                 if init_zeros:
                     init = torch.zeros(shape, device=self.device)
                 else:
@@ -166,14 +166,14 @@ class SelectiveScanWrapper(nn.Module):
                     init = scale * torch.randn(shape, device=self.device)
                     setattr(self, name, nn.Parameter(init))
 
-
-
         # B and C: either direct trainable params or raw params to be transformed to positive
         _maybe_create("B", (d_model, d_state), positive=B_positive)
         _maybe_create("C", (d_model, d_state), positive=C_positive)
 
-        # D: either fixed zero tensor or trainable raw param (transformed if positive)
-        _maybe_create("D", d_model, positive=D_positive, init_zeros=True, default_zero=not D_positive)
+        # D: optionally created
+        self.use_D = use_D
+        if self.use_D:
+            _maybe_create("D", d_model, positive=D_positive, init_zeros=True, default_zero=not D_positive)
 
         # delta_bias parameter (optional)
         self.delta_bias = None
@@ -190,8 +190,10 @@ class SelectiveScanWrapper(nn.Module):
         raw_attr = f"raw_{name}"
         if hasattr(self, raw_attr):
             return self._positive_transform(getattr(self, raw_attr))
-        else:
+        elif hasattr(self, name):
             return getattr(self, name)
+        else:
+            return None
 
     def forward(self, x, delta):
         """
@@ -200,20 +202,23 @@ class SelectiveScanWrapper(nn.Module):
         """
         B = self._resolve("B")
         C = self._resolve("C")
-        D = self._resolve("D")
+        D = self._resolve("D") if self.use_D else None
 
         u = rearrange(x, 'b l d -> b d l')
         delta_rearranged = rearrange(delta, 'b l d -> b d l')
 
-        y_out = selective_scan_fn(
+        scan_kwargs = dict(
             u=u,
             delta=delta_rearranged,
             A=self.A,
             B=B,
             C=C,
-            D=D,
             delta_bias=self.delta_bias
         )
+        if self.use_D:
+            scan_kwargs['D'] = D
+
+        y_out = selective_scan_fn(**scan_kwargs)
 
         y_out = rearrange(y_out, 'b d l -> b l d')
         return y_out

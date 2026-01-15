@@ -715,19 +715,38 @@ class MixerTPPBuilder(ModelBuilder):
         from src.models.base_model import BaseModel
         from src.models.mamba.mixer_seq import MixerModel,MixerModelWrapper
         from src.models.mamba.scan_wrapper import BoundedSelectiveScanWrapper,BoundedDiscreteSSM
+        from src.models.layers import Causalconv
+        from mamba_ssm import Mamba
+        from src.models.mamba.scan_wrapper import  SelectiveScanWrapper
         import torch
         import torch.nn as nn   
         encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
         adapter = Mixer_BatchInputAdapter(args)
         hypernet_time = nn.Linear(args.d_model, 3 * args.num_components).to(device)
-        hypernet_mag = nn.Linear(args.d_model, 1).to(device)
-        if getattr(args, 'use_ssm_filter', True):
-            # ssm_filter = BoundedSelectiveScanWrapper(d_model=1, d_state=1, device=device, 
-            # B_range=getattr(args,'B_range',(1e-6, 1e-3)), output_range=getattr(args,'b_range',(0.5,2))).to(device) 
-            ssm_filter = BoundedDiscreteSSM(device=device,B_range=getattr(args,'B_range',(1e-6, 1e-3)),
-                         output_range=getattr(args,'b_range',(0.5,2)),output_init=args.richter_b_mle).to(device) 
+        hypernet_mag = nn.Sequential(
+            nn.Linear(args.d_model, 1).to(device),
+        )
+        # Configure optional b_filter
+        if getattr(args, 'use_ssm_filter', False):
+            fiter_type = getattr(args, 'ssm_filter_type', 'ssm')
+            if fiter_type == 'ssm':
+                b_filter = SelectiveScanWrapper(
+                    d_model=args.d_model,
+                    d_state=16,
+                    use_D=False,
+                    device=device,
+                )
+            elif fiter_type == 'bounded_ssm':
+                b_filter = BoundedSelectiveScanWrapper(
+                    d_model=args.d_model,
+                    d_state=16,
+                    device=device,
+                )
+            else:
+                raise ValueError(f"Unknown b_filter_type: {fiter_type}")
         else:
-            ssm_filter = None
+            b_filter = None
+
         base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
         predict_b = getattr(args, 'predict_b', False)
         use_b_updater = getattr(args, 'use_b_updater', False)
@@ -735,10 +754,11 @@ class MixerTPPBuilder(ModelBuilder):
         loss_reduction = getattr(args, 'loss_reduction', None)
         use_adaptive_loss_weights = getattr(args, 'use_adaptive_loss_weights', False)
         b_range = getattr(args, 'b_range', None)
+        b_init = getattr(args, 'b_init', 1.0)
         return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
-                        predict_b=predict_b, ssm_filter=ssm_filter,use_b_updater=use_b_updater,
+                        predict_b=predict_b, use_b_updater=use_b_updater,
                         loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range,
-                        use_adaptive_loss_weights=use_adaptive_loss_weights)
+                        use_adaptive_loss_weights=use_adaptive_loss_weights,b_filter=b_filter,b_init=b_init)
 
 
 
