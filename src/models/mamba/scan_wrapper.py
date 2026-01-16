@@ -135,7 +135,10 @@ class BoundedDiscreteSSM(nn.Module):
     
 
 class SelectiveScanWrapper(nn.Module):
-    def __init__(self, d_model, d_state, device, B_positive: bool = False, C_positive: bool = False, D_positive: bool = False, use_D: bool = True, **kwargs):
+    def __init__(self, d_model, d_state, device, B_positive: bool = False, C_positive: 
+                 bool = False, D_positive: bool = False, use_D: bool = True,
+                 A_max: float = 0,   
+                   **kwargs):
         """
         d_model: Feature dimension of the model
         d_state: Dimension of the state space
@@ -147,6 +150,7 @@ class SelectiveScanWrapper(nn.Module):
         self.d_model = d_model
         self.d_state = d_state
         self.device = device
+        self.A_max = A_max
 
         # A: (d_model, d_state)
         self.A = nn.Parameter(torch.zeros(d_model, d_state, device=device))
@@ -186,6 +190,11 @@ class SelectiveScanWrapper(nn.Module):
     def _positive_transform(self, x: torch.Tensor) -> torch.Tensor:
         return F.softplus(x)
 
+    @property
+    def _stable_A(self) -> torch.Tensor:
+        A_clamp = self.A.clamp(max=self.A_max)
+        return self.A + (A_clamp - self.A).detach()
+
     def _resolve(self, name):
         raw_attr = f"raw_{name}"
         if hasattr(self, raw_attr):
@@ -200,6 +209,7 @@ class SelectiveScanWrapper(nn.Module):
         x: Input tensor with shape (batch, length, d_model)
         delta: Time step tensor with shape (batch, length, d_model)
         """
+        A = self._stable_A  
         B = self._resolve("B")
         C = self._resolve("C")
         D = self._resolve("D") if self.use_D else None
@@ -210,7 +220,7 @@ class SelectiveScanWrapper(nn.Module):
         scan_kwargs = dict(
             u=u,
             delta=delta_rearranged,
-            A=self.A,
+            A=A,
             B=B,
             C=C,
             delta_bias=self.delta_bias
