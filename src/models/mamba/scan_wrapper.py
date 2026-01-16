@@ -2,6 +2,7 @@ import torch
 from einops import rearrange
 import torch.nn as nn
 from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
+from mamba_ssm.ops.triton.selective_state_update import selective_state_update
 import torch.nn.functional as F
 
 class BoundedSelectiveScanWrapper(nn.Module):
@@ -204,12 +205,12 @@ class SelectiveScanWrapper(nn.Module):
         else:
             return None
 
-    def forward(self, x, delta):
+    def forward(self, x, delta, ssm_state: torch.Tensor = None, return_state: bool = False):
         """
         x: Input tensor with shape (batch, length, d_model)
         delta: Time step tensor with shape (batch, length, d_model)
         """
-        A = self._stable_A  
+        A = self._stable_A
         B = self._resolve("B")
         C = self._resolve("C")
         D = self._resolve("D") if self.use_D else None
@@ -223,12 +224,72 @@ class SelectiveScanWrapper(nn.Module):
             A=A,
             B=B,
             C=C,
-            delta_bias=self.delta_bias
+            delta_bias=self.delta_bias,
         )
         if self.use_D:
             scan_kwargs['D'] = D
 
         y_out = selective_scan_fn(**scan_kwargs)
 
+        state_out = None
+        if return_state or (ssm_state is not None):
+            # Recompute final state via incremental step path to ensure consistency with step()
+            state_cache = ssm_state
+            if state_cache is None:
+                state_cache = self.allocate_inference_cache(batch_size=x.shape[0], dtype=x.dtype, device=x.device)
+            for t in range(x.shape[1]):
+                x_t = x[:, t:t+1, :]
+                dt_t = delta[:, t:t+1, :]
+                _, state_cache = self.step(x_t, dt_t, state_cache)
+            state_out = state_cache.squeeze(2)
+
         y_out = rearrange(y_out, 'b d l -> b l d')
+        if return_state:
+            return y_out, state_out
         return y_out
+
+    def allocate_inference_cache(self, batch_size: int, dtype=None, device=None):
+        """Allocate SSM state cache for incremental decoding."""
+        device = self.A.device if device is None else device
+        dtype = self.A.dtype if dtype is None else dtype
+        return torch.zeros(batch_size, self.d_model, 1, self.d_state, device=device, dtype=dtype)
+
+    def step(self, x, delta, ssm_state: torch.Tensor):
+        """Single-step update that mirrors selective_scan_fn for incremental inference."""
+        batch, seqlen, d_model = x.shape
+        assert seqlen == 1, "step() expects a single-step input (seqlen=1)"
+        assert d_model == self.d_model, f"Expected d_model={self.d_model}, got {d_model}"
+        assert ssm_state.shape == (batch, self.d_model, 1, self.d_state), "ssm_state has incompatible shape"
+
+        A = self._stable_A.to(dtype=ssm_state.dtype).unsqueeze(1)  # (D, 1, N)
+        B_param = self._resolve("B").to(dtype=ssm_state.dtype)
+        C_param = self._resolve("C").to(dtype=ssm_state.dtype)
+        B = B_param.unsqueeze(0).expand(batch, -1, -1)  # (B, D, N)
+        C = C_param.unsqueeze(0).expand(batch, -1, -1)  # (B, D, N)
+        D_param = None
+        if self.use_D:
+            D_param = self._resolve("D").to(dtype=ssm_state.dtype).unsqueeze(-1)  # (D, 1)
+
+        x_step = rearrange(x, 'b l d -> b d l')  # (B, D, 1)
+        delta_step = rearrange(delta, 'b l d -> b d l')  # (B, D, 1)
+
+        if self.delta_bias is None:
+            dt_bias = torch.zeros(self.d_model, 1, device=delta_step.device, dtype=delta_step.dtype)
+        else:
+            dt_bias = self.delta_bias.to(device=delta_step.device, dtype=delta_step.dtype)
+
+        y = selective_state_update(
+            state=ssm_state,
+            x=x_step,
+            dt=delta_step,
+            A=A,
+            B=B,
+            C=C,
+            D=D_param,
+            z=None,
+            dt_bias=dt_bias,
+            dt_softplus=False,
+        )
+
+        y_out = rearrange(y, 'b d l -> b l d')  # (B, 1, D)
+        return y_out, ssm_state
