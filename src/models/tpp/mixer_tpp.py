@@ -18,7 +18,7 @@ from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 from src.models.mamba.scan_wrapper import  SelectiveScanWrapper
-
+import math 
 
 
 
@@ -91,6 +91,9 @@ class MixerTPP(TPPModel):
 
         self.b_filter = b_filter
         self.b_init = b_init
+        self.log_dt_scale = torch.nn.Parameter(torch.zeros(()))  
+        self.dt_scale_min = 1e-2
+        self.dt_scale_max = 1e2
 
 
 
@@ -157,16 +160,17 @@ class MixerTPP(TPPModel):
         if predict_b:
             use_filter = (self.b_filter is not None) and (inter_times is not None)
             if use_filter:
-                dt = torch.log1p(inter_times.clamp_min(0.0))  # (B, L)
-                mask = (inter_times > 0).float()
-                mean_dt = (dt * mask).sum(dim=1, keepdim=True) / mask.sum(dim=1, keepdim=True).clamp_min(1.0)
-                dt = dt / (mean_dt + 1e-8)
+                # dt = torch.log1p(inter_times.clamp_min(0.0))  # (B, L)
+                dt = inter_times.clamp_min(0.0)
+                log_min = math.log(self.dt_scale_min)
+                log_max = math.log(self.dt_scale_max)
+                dt_scale = self.log_dt_scale.clamp(log_min, log_max).exp()
+                dt = dt / dt_scale
                 context_ssm = self.b_filter(context, dt.unsqueeze(-1).expand_as(context))  # (B, L, D)
                 b_raw = self.hypernet_mag(context_ssm).squeeze(-1)  # (B, L)
                 b_raw=b_raw + self.b_init
             else:
                 b_raw = self.hypernet_mag(context).squeeze(-1)  # (B, L)
-            # Straight-through clamp to [b_min, b_max]
             clamped = b_raw.clamp(self.b_min, self.b_max)
             b_pred = b_raw + (clamped - b_raw).detach()
         else:
