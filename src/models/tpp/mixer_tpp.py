@@ -150,6 +150,12 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
     
+    def scale_dt(self, inter_times):
+        log_min = math.log(self.dt_scale_min)
+        log_max = math.log(self.dt_scale_max)
+        dt_scale = self.log_dt_scale.clamp(log_min, log_max).exp()
+        scaled_dt = inter_times / dt_scale
+        return scaled_dt
 
     def _get_b_pred(self, context, predict_b: Optional[bool] = None, inter_times: Optional[torch.Tensor] = None):
         """
@@ -162,10 +168,7 @@ class MixerTPP(TPPModel):
             if use_filter:
                 # dt = torch.log1p(inter_times.clamp_min(0.0))  # (B, L)
                 dt = inter_times.clamp_min(0.0)
-                log_min = math.log(self.dt_scale_min)
-                log_max = math.log(self.dt_scale_max)
-                dt_scale = self.log_dt_scale.clamp(log_min, log_max).exp()
-                dt = dt / dt_scale
+                dt = self.scale_dt(dt)
                 context_ssm = self.b_filter(context, dt.unsqueeze(-1).expand_as(context))  # (B, L, D)
                 b_raw = self.hypernet_mag(context_ssm).squeeze(-1)  # (B, L)
                 b_raw=b_raw + self.b_init
@@ -358,6 +361,33 @@ class MixerTPP(TPPModel):
         running_time = torch.zeros(batch_size, device=self.device, dtype=torch.float32)
         mag_list = []
 
+        # Optional SSM filter state for b prediction (incremental inference)
+        b_filter_state = None
+        if predict_b and self.b_filter is not None and hasattr(self.b_filter, "allocate_inference_cache"):
+            if past_seq is not None:
+                # Warm state on past sequence (batch=1), then tile to batch_size
+                warm_state = self.b_filter.allocate_inference_cache(
+                    batch_size=1, dtype=current_state.dtype, device=self.device
+                ) # (1, D, 1, N)
+                past_batch = src.data.Batch.from_list([past_seq])[:, :-1]
+                past_context = self.get_context(past_batch)  # (1, L, D)
+                dt_full = past_batch.inter_times.clamp_min(0.0)
+                dt_full = self.scale_dt(dt_full)
+                with torch.no_grad():
+                    _, warm_state = self.b_filter(
+                        past_context,
+                        dt_full.unsqueeze(-1).expand_as(past_context),
+                        ssm_state=warm_state,
+                        return_state=True,
+                    )
+                if warm_state.dim() == 3:
+                    warm_state = warm_state.unsqueeze(2)
+                b_filter_state = warm_state.expand(batch_size, -1, -1, -1).contiguous()
+            else:
+                b_filter_state = self.b_filter.allocate_inference_cache(
+                    batch_size=batch_size, dtype=current_state.dtype, device=self.device
+                )
+
         generated = False
         while not generated:
             inter_time_dist = self.get_inter_time_dist(current_state)
@@ -377,7 +407,22 @@ class MixerTPP(TPPModel):
 
             running_time += inter_time_list[-1].squeeze(-1)
 
-            mag_dist = self.get_magnitude_dist(context=current_state, predict_b=predict_b)
+            if predict_b and self.b_filter is not None and b_filter_state is not None:
+                dt_for_filter = inter_time_list[-1]
+                dt_expanded = dt_for_filter.unsqueeze(-1).expand_as(current_state)
+                filtered_context, b_filter_state = self.b_filter(
+                    current_state,
+                    dt_expanded,
+                    ssm_state=b_filter_state,
+                    return_state=True,
+                )
+                if b_filter_state.dim() == 3:
+                    b_filter_state = b_filter_state.unsqueeze(2)
+                context_for_mag = filtered_context
+            else:
+                context_for_mag = current_state
+
+            mag_dist = self.get_magnitude_dist(context=context_for_mag, predict_b=predict_b)
             next_mag = mag_dist.sample()
             mag_list.append(next_mag)
 

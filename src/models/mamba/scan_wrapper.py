@@ -240,12 +240,12 @@ class SelectiveScanWrapper(nn.Module):
             for t in range(x.shape[1]):
                 x_t = x[:, t:t+1, :]
                 dt_t = delta[:, t:t+1, :]
-                _, state_cache = self.step(x_t, dt_t, state_cache)
-            state_out = state_cache.squeeze(2)
+                _, state_cache = self.step(x_t, dt_t, state_cache) # (B, D, 1, N)
+            state_out = state_cache.squeeze(2) # (B, D, N)
 
         y_out = rearrange(y_out, 'b d l -> b l d')
         if return_state:
-            return y_out, state_out
+            return y_out, state_out 
         return y_out
 
     def allocate_inference_cache(self, batch_size: int, dtype=None, device=None):
@@ -259,6 +259,10 @@ class SelectiveScanWrapper(nn.Module):
         batch, seqlen, d_model = x.shape
         assert seqlen == 1, "step() expects a single-step input (seqlen=1)"
         assert d_model == self.d_model, f"Expected d_model={self.d_model}, got {d_model}"
+        if ssm_state.dim() == 3:
+            ssm_state = ssm_state.unsqueeze(2)
+        if ssm_state.shape[0] == 1 and batch > 1:
+            ssm_state = ssm_state.expand(batch, -1, -1, -1).contiguous()
         assert ssm_state.shape == (batch, self.d_model, 1, self.d_state), "ssm_state has incompatible shape"
 
         A = self._stable_A.to(dtype=ssm_state.dtype).unsqueeze(1)  # (D, 1, N)
