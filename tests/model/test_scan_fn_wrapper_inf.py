@@ -43,7 +43,9 @@ def check_full_vs_step_consistency(
     ok = torch.allclose(y_full, y_step, atol=atol, rtol=rtol)
 
     # Compare final SSM state from full forward vs incremental step
-    state_step = ssm_state.squeeze(2)
+    state_step = ssm_state
+    print("state_full shape:", state_full.shape)
+    print("state_step shape:", state_step.shape)
     state_match = torch.allclose(state_full, state_step, atol=atol, rtol=rtol)
 
     print("=== Full vs Step Consistency ===")
