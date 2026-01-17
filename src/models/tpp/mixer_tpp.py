@@ -122,12 +122,12 @@ class MixerTPP(TPPModel):
             return_all: bool = False,
             ):
         """Get the current state of the model for inference."""
-        current_state = self.base_model(batch, inference_params=inference_params)
+        state_all = self.base_model(batch, inference_params=inference_params)
         if inference_params is not None:
             inference_params.seqlen_offset += 1
         if return_all:
-            return current_state
-        return current_state[:, -1:, :]
+            return state_all
+        return state_all[:, -1:, :]
     
 
     def get_inter_time_dist(self, context):
@@ -163,7 +163,7 @@ class MixerTPP(TPPModel):
     def _get_b_pred(self, context, predict_b: Optional[bool] = None, inter_times: Optional[torch.Tensor] = None, filter_params=None):
         """
         context: (B, L, D)
-        inter_times: (B, L)  建议与序列对齐
+        inter_times: (B, L) 
         return: (B, L)
         """
         updated_filter_params = filter_params
@@ -178,10 +178,7 @@ class MixerTPP(TPPModel):
                 else:
                     ssm_state = filter_params
                     if ssm_state.shape[0] != context.shape[0]:
-                        if ssm_state.shape[0] >= context.shape[0]:
-                            ssm_state = ssm_state[: context.shape[0]]
-                        else:
-                            ssm_state = ssm_state.expand(context.shape[0], -1, -1, -1).contiguous()
+                        ssm_state = ssm_state.expand(context.shape[0], -1, -1, -1).contiguous()
                     context_ssm, updated_filter_params = self.b_filter(
                         context,
                         delta,
@@ -196,7 +193,7 @@ class MixerTPP(TPPModel):
             b_pred = b_raw + (clamped - b_raw).detach()
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
-
+        print(f"b_pred min/max: {b_pred.min().item():.4f}/{b_pred.max().item():.4f}")
         if filter_params is None:
             return b_pred
         return b_pred, updated_filter_params
@@ -379,34 +376,25 @@ class MixerTPP(TPPModel):
         )
         filter_params = None
         if self.b_filter is not None:
-            filter_params = self.b_filter.allocate_inference_cache(batch_size=batch_size)
+            filter_params = self.b_filter.allocate_inference_cache(batch_size=1)
 
         if past_seq is not None:
             t_start = past_seq.t_end
             buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq.init_sample_sequence(), batch_size=batch_size, max_sample_len=max_sample_len)
             past_batch = src.data.Batch.from_list([past_seq])
-            current_state_all = self.get_current_state(
+            state_all = self.get_current_state(
                 past_batch[:, :-1], inference_params=inference_params, return_all=True
             )  # (1, L, C)
-            current_state = current_state_all[:, -1:, :]
-            # buffer_batch = src.data.Batch.init_sample_batch(past_seq=past_seq, batch_size=batch_size, max_sample_len=max_sample_len)
-            # current_state = self.get_current_state(buffer_batch.get_sample_batch(), inference_params=inference_params)  # (1, 1, C)
-            current_state = current_state.expand(batch_size, -1, -1)  # (B, 1, C)
+            current_state = state_all[:, -1:, :].expand(batch_size, -1, -1)  # (B, 1, C)
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
             # warm up SSM filter state over the observed history
             if self.b_filter is not None and filter_params is not None:
-                warm_state = filter_params[:1]
-                _, warm_state = self._get_b_pred(
-                    current_state_all,
+                _, filter_params = self._get_b_pred(
+                    state_all,
                     predict_b,
                     inter_times=past_batch.inter_times[:, :-1],
-                    filter_params=warm_state,
+                    filter_params=filter_params,
                 )
-                if warm_state is not None:
-                    if warm_state.shape[0] == 1 and batch_size > 1:
-                        filter_params = warm_state.expand(batch_size, -1, -1, -1).contiguous()
-                    else:
-                        filter_params = warm_state
         else:
             dtype = next(self.parameters()).dtype
             current_state = torch.zeros(batch_size, 1, self.context_size, device=self.device, dtype=dtype)
