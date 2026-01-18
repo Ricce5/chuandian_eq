@@ -137,13 +137,12 @@ class BoundedDiscreteSSM(nn.Module):
 
 class SelectiveScanWrapper(nn.Module):
     def __init__(self, d_model, d_state, device, B_positive: bool = False, C_positive: 
-                 bool = False, D_positive: bool = False, use_D: bool = True,
+                 bool = False, D_positive: bool = False, use_D: bool = True,A_init_scale: float = 0.02,input_norm: bool = True,
                  A_max: float = 0,   
                    **kwargs):
         """
         d_model: Feature dimension of the model
         d_state: Dimension of the state space
-        device: Current device, either CPU or CUDA
         B_positive/C_positive/D_positive: If True, enforce parameter > 0 via a softplus transform.
         use_D: If False, do not create or pass D to selective_scan_fn.
         """
@@ -152,9 +151,18 @@ class SelectiveScanWrapper(nn.Module):
         self.d_state = d_state
         self.device = device
         self.A_max = A_max
+        self.input_fc = nn.Sequential(
+            nn.Linear(d_model, d_model),
+        ).to(device)
+
+        if input_norm:
+            self.input_norm = nn.LayerNorm(d_model).to(device)
+        else:
+            self.input_norm = None
 
         # A: (d_model, d_state)
-        self.A = nn.Parameter(torch.zeros(d_model, d_state, device=device))
+        # self.A = nn.Parameter(torch.zeros(d_model, d_state, device=device))
+        self.A = nn.Parameter(torch.randn(d_model, d_state, device=device) * A_init_scale)
 
         # helper to create either a raw param (to be transformed) or a direct param / tensor
         def _maybe_create(name, shape, positive=False, init_zeros=False, default_zero=False, scale=1e-2):
@@ -210,6 +218,10 @@ class SelectiveScanWrapper(nn.Module):
         x: Input tensor with shape (batch, length, d_model)
         delta: Time step tensor with shape (batch, length, d_model)
         """
+        x = self.input_fc(x)
+        if self.input_norm is not None:
+            x = self.input_norm(x)
+
         A = self._stable_A
         B = self._resolve("B")
         C = self._resolve("C")
@@ -255,6 +267,9 @@ class SelectiveScanWrapper(nn.Module):
         return torch.zeros(batch_size, self.d_model, 1, self.d_state, device=device, dtype=dtype)
 
     def step(self, x, delta, ssm_state: torch.Tensor):
+        x = self.input_fc(x)
+        if self.input_norm is not None:
+            x = self.input_norm(x)
         """Single-step update that mirrors selective_scan_fn for incremental inference."""
         batch, seqlen, d_model = x.shape
         assert seqlen == 1, "step() expects a single-step input (seqlen=1)"

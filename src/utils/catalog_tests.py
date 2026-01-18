@@ -204,7 +204,6 @@ def magnitude_test_from_counts(
 
     # --- First pass: sum forecasts ---
     # 注意：这里直接遍历 forecast_catalogs 会“消耗”生成器
-    # 我们为了调试更靠谱，先转成 list（会占内存，但调试阶段更安全）
     if not isinstance(forecast_catalogs, (list, tuple)):
         forecast_catalogs = list(forecast_catalogs)
 
@@ -304,6 +303,7 @@ def magnitude_test_from_counts(
 
         a = _safe_log10(catalog_hist + 1.0)
         b = _safe_log10(scaled_union_hist + 1.0)
+        # print(f"catalog_hist_sim {catalog_hist.sum()}, scaled_union_hist sum {scaled_union_hist.sum()}")
 
         if debug and j < 3:
             _check_and_print(f"logA[{j}] = _safe_log10(catalog_hist+1)", a)
@@ -329,6 +329,7 @@ def magnitude_test_from_counts(
     # --- observed statistic ---
     a_obs = _safe_log10(obs_hist + 1.0)
     b_union = _safe_log10(scaled_union_hist + 1.0)
+    # print(f"obs_hist_sim {obs_hist.sum()}, scaled_union_hist sum {scaled_union_hist.sum()}")
     if debug:
         print("\n[DEBUG] Observed statistic inputs:")
         _check_and_print("logObs = _safe_log10(obs_hist+1)", a_obs)

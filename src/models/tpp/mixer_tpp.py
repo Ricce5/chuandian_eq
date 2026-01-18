@@ -46,7 +46,26 @@ class MixerTPP(TPPModel):
 
         device = next(base_model.parameters()).device
         dtype = next(base_model.parameters()).dtype
-        self.context_size = getattr(base_model, "d_model", None)
+        # Infer context size (d_model) from a few possible places on the provided base_model.
+        def _infer_d_model(bm):
+            # Common locations: bm.encoder.d_model, bm.encoder.backbone.d_model, bm.encoder.config.d_model, bm.d_model
+            enc = getattr(bm, "encoder", None)
+            if enc is not None:
+                d = getattr(enc, "d_model", None)
+                if d is not None:
+                    return d
+                cfg = getattr(enc, "config", None)
+                if cfg is not None:
+                    d = getattr(cfg, "d_model", None)
+                    if d is not None:
+                        return d
+            # try base_model itself
+            d = getattr(bm, "d_model", None)
+            return d
+
+        self.context_size = _infer_d_model(base_model)
+
+        print(f"MixerTPP context size: {self.context_size}")
         self.num_extra_features = None
         self.input_magnitude = True
         self.base_model = base_model
@@ -91,15 +110,14 @@ class MixerTPP(TPPModel):
 
         self.b_filter = b_filter
         self.b_init = b_init
-        self.log_dt_scale = torch.nn.Parameter(torch.zeros(()))  
-        self.dt_scale_min = 1e-2
-        self.dt_scale_max = 1e2
-
-
-
-
+        if self.b_filter is not None:
+            self.dt_input_proj = nn.Linear(1, self.context_size, bias=False)
+            self.dt_scale_min = 1e-2
+            self.dt_scale_max = 10
         # optional proportional background model (expects ProportionalBGModel-like API)
         self.bg_model = bg_model
+
+
 
     def get_context(self, batch, inference_params=None):
         """Get context embedding for each event in the batch of padded sequences.
@@ -153,12 +171,23 @@ class MixerTPP(TPPModel):
         enc_output = self.get_context(batch)  # (B, L, C)
         return enc_output
     
-    def scale_dt(self, inter_times):
-        log_min = math.log(self.dt_scale_min)
-        log_max = math.log(self.dt_scale_max)
-        dt_scale = self.log_dt_scale.clamp(log_min, log_max).exp()
-        scaled_dt = inter_times / dt_scale
-        return scaled_dt
+    def dt_to_delta(self, inter_times):
+        inter_times = inter_times.clamp_min(0)
+        weight = self._bounded_weight_tanh(self.dt_min, self.dt_max)
+        delta = torch.matmul(inter_times.unsqueeze(-1), weight)     
+        return   delta
+
+
+
+    def _bounded_weight_tanh(self, min_val: float = 0.01, max_val: float = 1 ):
+        """
+        Returns a bounded positive projection weight tensor in range [min_val, max_val].
+        """
+        raw_weight = self.dt_input_proj.weight.view(1, -1)  
+        bounded_weight = min_val + (max_val - min_val) * 0.5 * (torch.tanh(raw_weight) + 1)
+        return bounded_weight  
+
+
 
     def _get_b_pred(self, context, predict_b: Optional[bool] = None, inter_times: Optional[torch.Tensor] = None, filter_params=None):
         """
@@ -166,13 +195,13 @@ class MixerTPP(TPPModel):
         inter_times: (B, L) 
         return: (B, L)
         """
+        predict_b = self.predict_b if predict_b is None else predict_b
         updated_filter_params = filter_params
         if predict_b:
             use_filter = (self.b_filter is not None) and (inter_times is not None)
             if use_filter:
-                dt = inter_times.clamp_min(0.0)
-                dt = self.scale_dt(dt)
-                delta = dt.unsqueeze(-1).expand_as(context)
+                delta= self.dt_to_delta(inter_times)
+                delta = delta.expand_as(context)
                 if filter_params is None:
                     context_ssm = self.b_filter(context, delta)  # (B, L, D)
                 else:
@@ -392,7 +421,7 @@ class MixerTPP(TPPModel):
                 _, filter_params = self._get_b_pred(
                     state_all,
                     predict_b,
-                    inter_times=past_batch.inter_times[:, :-1],
+                    inter_times=past_batch.inter_times[:, 1:],
                     filter_params=filter_params,
                 )
         else:
