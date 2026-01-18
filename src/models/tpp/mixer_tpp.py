@@ -111,9 +111,9 @@ class MixerTPP(TPPModel):
         self.b_filter = b_filter
         self.b_init = b_init
         if self.b_filter is not None:
-            self.dt_input_proj = nn.Linear(1, self.context_size, bias=False)
-            self.dt_scale_min = 1e-2
-            self.dt_scale_max = 10
+            self.dt_input_proj = nn.Linear(1, self.context_size, bias=False).to(device=device, dtype=dtype)
+            self.dt_min = 1e-2
+            self.dt_max = 10
         # optional proportional background model (expects ProportionalBGModel-like API)
         self.bg_model = bg_model
 

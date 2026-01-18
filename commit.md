@@ -1,5 +1,6 @@
 mixer_tpp 中 b_filter时间对齐
 selective_scan_wrapper增加输入线性层和归一化层
+移除log_dt_scale 改线性层
 
 
 
