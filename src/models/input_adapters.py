@@ -1,74 +1,79 @@
-import   torch
-import  torch.nn as nn
+import logging
+from typing import Any, Dict, List, Optional, Tuple
+
+import torch
+import torch.nn as nn
 import src.data
-from typing import Dict, Tuple, List, Optional
-from src.utils.mask_utils import  get_non_pad_mask
+import math
+from src.utils.mask_utils import get_non_pad_mask
 
-class SM_T_InputAdapter:
-    def __call__(self, bx):
-        return {
-            "event_mark": torch.cat((bx[:, :, 3:5], bx[:, :, 2:3]), dim=-1),  
-            "event_time": bx[:, :, 1] 
-        }
+logger = logging.getLogger(__name__)
 
-
-class S_T_M_InputAdapter:
-    def __call__(self, bx):
-        return {
-            "event_loc": bx[:, :, 3:5],     
-            "event_mag": bx[:, :, 2:3],       
-            "event_time": bx[:, :, 1],     
-        }
-
-    
-class SM_T_InputAdapterWithTime:
-    def __call__(self, bx):
+class SpatialMagnitudeTimeAdapter:
+    """Adapter: spatial+magnitude as mark, plus event time."""
+    def __call__(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {
             "event_mark": torch.cat((bx[:, :, 3:5], bx[:, :, 2:3]), dim=-1),
-            "event_time": bx[:, :, 1]
+            "event_time": bx[:, :, 1],
         }
 
-    def get_extra_inputs(self, bx):
+
+class LocationMagnitudeTimeAdapter:
+    """Adapter: separate location, magnitude and time tensors."""
+    def __call__(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {
-            "event_time": bx[:, :, 1]  
+            "event_loc": bx[:, :, 3:5],
+            "event_mag": bx[:, :, 2:3],
+            "event_time": bx[:, :, 1],
         }
 
-
-
-class SM_T_BatchInputAdapter:
-    def __call__(self, batch):
+    
+class SpatialMagnitudeTimeAdapterWithAccessor:
+    """Same as `SpatialMagnitudeTimeAdapter` but exposes `get_extra_inputs` for time."""
+    def __call__(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {
-            "event_mark": torch.cat([batch.loc,batch.mag[...,None]],dim=-1),
-            "event_time":  batch.arrival_times
+            "event_mark": torch.cat((bx[:, :, 3:5], bx[:, :, 2:3]), dim=-1),
+            "event_time": bx[:, :, 1],
         }
 
-class Type_T_BatchInputAdapter:
-    def __call__(self, batch):
+    def get_extra_inputs(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
+        return {"event_time": bx[:, :, 1]}
+
+
+
+class SpatialMagnitudeTimeBatchAdapter:
+    """Adapter for batch objects exposing `loc`, `mag`, `arrival_times`."""
+    def __call__(self, batch: src.data.Batch) -> Dict[str, torch.Tensor]:
+        return {
+            "event_mark": torch.cat([batch.loc, batch.mag[..., None]], dim=-1),
+            "event_time": batch.arrival_times,
+        }
+
+class TypeTimeBatchAdapter:
+    """Adapter for categorical event types + times in batch objects."""
+    def __call__(self, batch: src.data.Batch) -> Dict[str, torch.Tensor]:
         return {
             "event_type": batch.type_seq,
-            "event_time":  batch.arrival_times
+            "event_time": batch.arrival_times,
         }
         
-class M_T_InputAdapter:
-    def __call__(self, bx):
+class MagnitudeTimeAdapter:
+    """Adapter: magnitude-only mark plus time."""
+    def __call__(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {
-            "event_mark": bx[:, :, 2:3],       
-            "event_time": bx[:, :, 1],     
+            "event_mark": bx[:, :, 2:3],
+            "event_time": bx[:, :, 1],
         }
     
-class M_T_InputAdapterWithTime:
-    def __call__(self, bx):
-        return {
-            "event_mark": bx[:, :, 2:3],       
-            "event_time": bx[:, :, 1],     
-        }
+class MagnitudeTimeAdapterWithAccessor:
+    """Magnitude-only adapter with extra time accessor."""
+    def __call__(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
+        return {"event_mark": bx[:, :, 2:3], "event_time": bx[:, :, 1]}
 
-    def get_extra_inputs(self, bx):
-        return {
-            "event_time": bx[:, :, 1]  
-        }
+    def get_extra_inputs(self, bx: torch.Tensor) -> Dict[str, torch.Tensor]:
+        return {"event_time": bx[:, :, 1]}
     
-class THP_BatchInputAdapter:
+class THPBatchAdapter:
     def __init__(self, model: Optional[nn.Module] = None):
         self.model = model 
 
@@ -82,12 +87,11 @@ class THP_BatchInputAdapter:
 
         return {
             "event_mark": mark * bx.input_mask[:, :, None],
-            # "event_time": bx.arrival_times/self.model.time_max * bx.input_mask,  
-            "event_time": bx.arrival_times * bx.input_mask, 
+            "event_time": bx.arrival_times * bx.input_mask,
             "input_mask": bx.input_mask.float(),
         }
     
-class THP_Logdeltat_BatchInputAdapter:
+class THPLogDeltaTBatchAdapter:
     def __init__(self, model: Optional[nn.Module] = None):
         self.model = model
 
@@ -101,48 +105,49 @@ class THP_Logdeltat_BatchInputAdapter:
 
         return {
             "event_mark": mark * bx.input_mask[:, :, None],
-            # "event_time": bx.arrival_times/self.model.time_max * bx.input_mask,  
-            "event_time": bx.arrival_times * bx.input_mask, 
+            "event_time": bx.arrival_times * bx.input_mask,
             "log_inter_time": log_inter_times * bx.input_mask[:, :, None],
             "input_mask": bx.input_mask.float(),
         }
 
-class Mixer_BatchInputAdapter:
+class MixerBatchAdapter:
     def __init__(self, args):
         """
         input adapter for mixer_tpp
         """
-        to_t = lambda x: torch.tensor(x, dtype=torch.float32)
+        def _to_t(x: Any) -> torch.Tensor:
+            return torch.tensor(x, dtype=torch.float32)
 
         # ---- stats & constants
-        self.tau_mean           = to_t(args.get('tau_mean'))
-        self.tau_min            = to_t(args.get('tau_min'))
-        self.tau_max            = to_t(args.get('tau_max'))
-        self.tau_q05           = to_t(args.get('tau_q05'))
-        self.tau_q025          = to_t(args.get('tau_q025'))
-        self.log_tau_mean       = self.tau_mean.log()
-        self.mag_mean           = to_t(args.get('mag_mean'))
-        self.time_max           = to_t(args.get('time_max'))
-        self.richter_b          = to_t(args.get('richter_b_mle'))
-        self.mag_completeness   = to_t(args.get('mag_completeness'))
-        self.eps: float          = 1e-10
+        self.tau_mean = _to_t(args.get('tau_mean'))
+        self.tau_min = _to_t(args.get('tau_min'))
+        self.tau_max = _to_t(args.get('tau_max'))
+        self.tau_q05 = _to_t(args.get('tau_q05'))
+        self.tau_q025 = _to_t(args.get('tau_q025'))
+        self.log_tau_mean = self.tau_mean.log()
+        self.mag_mean = _to_t(args.get('mag_mean'))
+        self.time_max = _to_t(args.get('time_max'))
+        self.richter_b = _to_t(args.get('richter_b_mle'))
+        self.mag_completeness = _to_t(args.get('mag_completeness'))
+        self.mag_mean_gr =  self.mag_completeness + 1.0 / (math.log(10.0) * self.richter_b)
+        self.eps: float = 1e-10
 
         # ---- config
-        self.extra_input_keys: List[str]    = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
+        self.extra_input_keys: List[str] = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
         self.features_input_keys: List[str] = sorted(getattr(args, 'features_input_keys', ['log_inter_times', 'mag']))
-        self.normalize_time: bool           = getattr(args, 'normalize_time_by_token', False)
+        self.normalize_time: bool = getattr(args, 'normalize_time_by_token', False)
 
         self.time_scale_base = torch.tensor(1.0, dtype=torch.float32)
         if self.normalize_time:
             if getattr(args, 'time_scale_base', None) is not None:
                 base = args.time_scale_base
-                print(f"using time scale base {base} (from args.time_scale_base)")
+                logger.info("using time scale base %s (from args.time_scale_base)", base)
             else:
                 key = getattr(args, 'time_scale_base_key', 'tau_mean')
                 base = args.get(key, 1.0)
-                print(f"using time scale base {base} (key: {key})")
-            self.time_scale_base = to_t(base)
-            print(f"tau mean: {self.tau_mean}")
+                logger.info("using time scale base %s (key: %s)", base, key)
+            self.time_scale_base = _to_t(base)
+            logger.info("tau mean: %s", self.tau_mean)
 
 
     # =========================
@@ -184,15 +189,15 @@ class Mixer_BatchInputAdapter:
             "mag": self.normalize_magnitude(mag),
             "loc": loc.unsqueeze(-1) if loc is not None and "loc" in self.features_input_keys else None
         }
-        parts = []
+        parts: List[torch.Tensor] = []
         for key in self.features_input_keys:
             if key in feature_map and feature_map[key] is not None:
                 parts.append(feature_map[key])
             else:
                 raise ValueError(f"Unsupported or missing feature key: {key}")
-        
+
         features = torch.cat(parts, dim=-1)
-        return features * non_pad_mask # Apply mask at the end
+        return features * non_pad_mask  # Apply mask at the end
 
     # ---------- step 4: extras ----------
     def _build_extras(
@@ -216,8 +221,16 @@ class Mixer_BatchInputAdapter:
         log_tau = torch.log(torch.clamp_min(inter_times, self.eps)).unsqueeze(-1)
         return log_tau - self.log_tau_mean.to(log_tau.device)
 
+    # def normalize_magnitude(self, mag: torch.Tensor) -> torch.Tensor:
+    #     return mag.unsqueeze(-1) - self.mag_mean.to(mag.device)
+
     def normalize_magnitude(self, mag: torch.Tensor) -> torch.Tensor:
-        return mag.unsqueeze(-1) - self.mag_mean.to(mag.device)
+        device = mag.device
+        dtype = mag.dtype
+        mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
+        b = self.richter_b.to(device=device, dtype=dtype)
+        return (mag.unsqueeze(-1) - mag_mean_gr) * b
+
 
     def normalize_inter_times(self, inter_times: torch.Tensor) -> torch.Tensor:
         return (inter_times - self.tau_min.to(inter_times.device)) / (self.tau_max.to(inter_times.device) - self.tau_min.to(inter_times.device) + self.eps)
@@ -232,12 +245,13 @@ class Mixer_BatchInputAdapter:
 
 
 
-class MixerInputAdapterWithTime:
+class MixerAdapter:
     """
     input adapter of mixer for classification and regression tasks
     """
     def __init__(self, args):
         stats = args.stats
+        print("Initializing MixerAdapter with stats:", stats)
         to_t = lambda x: torch.tensor(x, dtype=torch.float32)
 
         # ---- stats & constants
@@ -247,8 +261,12 @@ class MixerInputAdapterWithTime:
         self.tau_q025        = to_t(stats['tau_q025'])
         self.tau_q05         = to_t(stats['tau_q05'])
         self.tau_unfiltered  = to_t(stats['tau_unfiltered'])
+        self.mag_mean =     to_t(stats['mag_mean']) 
+        self.richter_b      = to_t(stats['b_value'])
+        self.mag_completeness = to_t(stats['mag_completeness'])
         self.log_tau_mean    = self.tau_mean.log()
         self.eps: float      = 1e-10
+        self.mag_mean_gr =  self.mag_completeness + 1.0 / (math.log(10.0) * self.richter_b)
 
         # ---- config
         self.extra_input_keys: List[str]    = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
@@ -261,13 +279,13 @@ class MixerInputAdapterWithTime:
         if self.normalize_time:
             if getattr(args, 'time_scale_base', None) is not None:
                 base = args.time_scale_base
-                print(f"using time scale base {base} (from args.time_scale_base)")
+                logger.info("using time scale base %s (from args.time_scale_base)", base)
             else:
                 key = getattr(args, 'time_scale_base_key', 'tau_unfiltered')
                 base = stats.get(key, 1.0)
-                print(f"using time scale base {base} (key: {key})")
+                logger.info("using time scale base %s (key: %s)", base, key)
             self.time_scale_base = to_t(base)
-            print(f"tau mean: {self.tau_mean}")
+            logger.info("tau mean: %s", self.tau_mean)
 
     # =========================
     # PIPELINE
@@ -354,3 +372,11 @@ class MixerInputAdapterWithTime:
 
     def get_extra_inputs(self, batch_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {"event_time": batch_tensor[:, :, 1]}
+    
+
+    def normalize_magnitude(self, mag: torch.Tensor) -> torch.Tensor:
+        device = mag.device
+        dtype = mag.dtype
+        mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
+        b = self.richter_b.to(device=device, dtype=dtype)
+        return (mag.unsqueeze(-1) - mag_mean_gr) * b  

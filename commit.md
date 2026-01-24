@@ -1,4 +1,5 @@
-
+去掉clf和reg的震级归一化
+使用单位指数归一化input_adpter
 
 
 

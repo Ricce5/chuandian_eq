@@ -2,7 +2,7 @@ import math
 import hashlib
 import json
 from src.utils.file_utils import save_or_load_data, build_catalog_root_dir
-from src.utils.catalog_utils import split_minibatches
+from src.utils.catalog_utils import split_minibatches, split_sequence
 from src.data.preprocessing import load_and_filter_catalog, calculate_catalog_statistics 
 from  omegaconf import OmegaConf
 
@@ -11,6 +11,7 @@ def prepare_data(args, base_dir):
     df = load_and_filter_catalog(base_dir, Mc=args.Mc)
     statistics = calculate_catalog_statistics(df)
     args.stats = OmegaConf.create(statistics)
+    print(f'stas {args.stats}')
     df_nl,scalers = loader.normalize_df(df)
     args.task_type = getattr(args, "task_type", "classification")
     task_prefix_map = {
@@ -158,14 +159,25 @@ def prepare_data_tpp(args, base_dir):
     catalog_cfg = getattr(args, 'catalog_cfg', {})
     catalog_ds = catalog_ds_class(root_dir=base_root_dir,**catalog_cfg)
         
-    args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).mean().item()
-    args.tau_min = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).min().item()
-    args.tau_max = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).max().item()
-    args.tau_q05 = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).quantile(0.5).item()
-    args.tau_q025 = torch.cat([seq.inter_times[:-1] for seq in catalog_ds.train]).quantile(0.025).item()
-    args.mag_mean = torch.cat([seq.mag for seq in catalog_ds.train]).mean().item()
-    args.time_max = torch.max(torch.tensor([seq.t_end for seq in catalog_ds.train])).item()
-    args.time_mean = torch.cat([seq.arrival_times[:-1] for seq in catalog_ds.train]).mean().item()
+    use_all_for_train =  getattr(args, "use_all_data", False)
+
+    # Use either the original train split or the union of all splits for statistics.
+    stats_source = catalog_ds.train
+    if use_all_for_train:
+        stats_source = TppDataset(
+            catalog_ds.train.sequences
+            + catalog_ds.val.sequences
+            + catalog_ds.test.sequences
+        )
+
+    args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in stats_source]).mean().item()
+    args.tau_min = torch.cat([seq.inter_times[:-1] for seq in stats_source]).min().item()
+    args.tau_max = torch.cat([seq.inter_times[:-1] for seq in stats_source]).max().item()
+    args.tau_q05 = torch.cat([seq.inter_times[:-1] for seq in stats_source]).quantile(0.5).item()
+    args.tau_q025 = torch.cat([seq.inter_times[:-1] for seq in stats_source]).quantile(0.025).item()
+    args.mag_mean = torch.cat([seq.mag for seq in stats_source]).mean().item()
+    args.time_max = torch.max(torch.tensor([seq.t_end for seq in stats_source])).item()
+    args.time_mean = torch.cat([seq.arrival_times[:-1] for seq in stats_source]).mean().item()
     args.mag_completeness = catalog_ds.metadata["mag_completeness"]
 
     # Allow overriding b-value from config (richter_b or richter_b_mle)
@@ -199,35 +211,54 @@ def prepare_data_tpp(args, base_dir):
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
             for seq in cat:
                 seq.double()
+        catalog_ds.full_sequence = catalog_ds.full_sequence.double()
         args.precision = 64
     else:
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
             for seq in cat:
                 seq.float()
+        catalog_ds.full_sequence = catalog_ds.full_sequence.float()
         args.precision = 32
-    args.num_events_train = sum(seq.num_nll_events for seq in catalog_ds.train)
-    args.num_events_val = sum(seq.num_nll_events for seq in catalog_ds.val)
-    print(f"Number of training events: {args.num_events_train}")
-    print(f"Number of validation events: {args.num_events_val}")
-    if getattr(args, 'minibatch_training', True):
-       print("Splitting into minibatches")
-       catalog_ds = split_minibatches(catalog_ds,300,40000) 
 
-    train_loader = catalog_ds.train.get_dataloader(
-        batch_size=args.batch_size,
-        shuffle=False,
-        pad_token_id=getattr(args, 'pad_token_id', None),
-    )
-    val_loader = catalog_ds.val.get_dataloader(
-        batch_size=args.batch_size,
-        shuffle=False,
-        pad_token_id=getattr(args, 'pad_token_id', None),
-    )
-    test_loader = catalog_ds.test.get_dataloader(
-        batch_size=args.batch_size,
-        shuffle=False,
-        pad_token_id=getattr(args, 'pad_token_id', None),
-    )
+    if use_all_for_train:
+        print("TPP pretrain mode: using all splits as training, disabling val/test loaders.")
+        if getattr(args, 'minibatch_training', True):
+            train_dataset = split_sequence(catalog_ds.full_sequence, 300, 40000)
+        else:
+            train_dataset = TppDataset([catalog_ds.full_sequence])
+        train_loader = train_dataset.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+            pad_token_id=getattr(args, 'pad_token_id', None),
+        )
+        val_loader = None
+        test_loader = None
+        args.num_events_train = sum(seq.num_nll_events for seq in train_dataset)
+        args.num_events_val = 0
+    else:
+        args.num_events_train = sum(seq.num_nll_events for seq in catalog_ds.train)
+        args.num_events_val = sum(seq.num_nll_events for seq in catalog_ds.val)
+        print(f"Number of training events: {args.num_events_train}")
+        print(f"Number of validation events: {args.num_events_val}")
+        if getattr(args, 'minibatch_training', True):
+           print("Splitting into minibatches")
+           catalog_ds = split_minibatches(catalog_ds,300,40000) 
+
+        train_loader = catalog_ds.train.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+            pad_token_id=getattr(args, 'pad_token_id', None),
+        )
+        val_loader = catalog_ds.val.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+            pad_token_id=getattr(args, 'pad_token_id', None),
+        )
+        test_loader = catalog_ds.test.get_dataloader(
+            batch_size=args.batch_size,
+            shuffle=False,
+            pad_token_id=getattr(args, 'pad_token_id', None),
+        )
 
     return catalog_ds.full_sequence, train_loader, val_loader, test_loader, catalog_ds
 

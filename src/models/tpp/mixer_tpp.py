@@ -222,7 +222,7 @@ class MixerTPP(TPPModel):
             b_pred = b_raw + (clamped - b_raw).detach()
         else:
             b_pred = context.new_full(context.shape[:2], float(self.richter_b))
-        print(f"b_pred min/max: {b_pred.min().item():.4f}/{b_pred.max().item():.4f}")
+        # print(f"b_pred min/max: {b_pred.min().item():.4f}/{b_pred.max().item():.4f}")
         if filter_params is None:
             return b_pred
         return b_pred, updated_filter_params

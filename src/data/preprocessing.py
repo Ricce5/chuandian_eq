@@ -95,8 +95,44 @@ def calculate_catalog_statistics(df):
         'mag_completeness': float(df['Magnitude'].min()),
         'mag_mean': float(df['Magnitude'].mean()),
         'mag_max': float(df['Magnitude'].max()),
-        'mag_min': float(df['Magnitude'].min())
+        'mag_min': float(df['Magnitude'].min()),
     }
+
+    # b-value (maximum likelihood) calculation
+    mags = df['Magnitude'].dropna().to_numpy()
+    Mc = stats['mag_completeness']
+    b_val = float('nan')
+    b_std = float('nan')
+    b_n = 0
+
+    if mags.size > 0:
+        # estimate bin width dM from unique magnitudes if possible, fallback to 0.1
+        unique_mags = np.unique(np.round(mags, 6))
+        if unique_mags.size > 1:
+            diffs = np.diff(unique_mags)
+            nonzero = diffs[diffs > 1e-8]
+            dM = float(nonzero.min()) if nonzero.size > 0 else 0.1
+        else:
+            dM = 0.1
+
+        # threshold correction (Mc - dM/2)
+        threshold = Mc - dM / 2.0
+        mags_above = mags[mags >= Mc]  # use Mc as completeness cutoff
+        b_n = mags_above.size
+
+        if b_n >= 2:
+            mean_excess = mags_above.mean() - threshold
+            if mean_excess > 0:
+                b_val = np.log10(np.e) / mean_excess  # log10(e) / mean(M - threshold)
+                b_std = b_val / np.sqrt(b_n)  # approximate standard error (Aki, 1965)
+
+    stats.update({
+        'b_value': None if np.isnan(b_val) else float(b_val),
+        'b_std':   None if np.isnan(b_std) else float(b_std),
+        'b_n':     int(b_n),
+    })
+
+    print("Catalog statistics:", stats)
     return stats
 
 def plot_dt_distributions(dfs, names=None, bins=100, figsize=(20, 4)):

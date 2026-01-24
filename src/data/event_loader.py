@@ -14,7 +14,7 @@ from .constants import PAD
 
 
 def normalize_df(df):
-    magnitude_cols = [col for col in df.columns if 'Mag' in col]
+    # magnitude_cols = [col for col in df.columns if 'Mag' in col]
     lat_cols = [col for col in df.columns if 'Lat' in col]
     lon_cols = [col for col in df.columns if 'Lon' in col]
     dep_cols = [col for col in df.columns if 'Dep' in col]
@@ -22,7 +22,8 @@ def normalize_df(df):
     df_nl = df.copy()
     scalers = {}
 
-    for col_list in [lat_cols, lon_cols, dep_cols, magnitude_cols]:
+    # for col_list in [lat_cols, lon_cols, dep_cols, magnitude_cols]:
+    for col_list in [lat_cols, lon_cols, dep_cols]:
         for col in col_list:
             scaler = MinMaxScaler()
             df_nl[col] = scaler.fit_transform(df[[col]])
