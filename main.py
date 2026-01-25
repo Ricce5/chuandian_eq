@@ -1,5 +1,6 @@
 # %%
 import argparse
+import logging
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import importlib
@@ -17,6 +18,7 @@ import yaml
 import optuna
 # torch.backends.cudnn.enabled = False
 torch.autograd.set_detect_anomaly(True)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 
 
 def get_model_and_data(args, base_path, device):

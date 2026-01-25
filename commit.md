@@ -1,6 +1,3 @@
-去掉clf和reg的震级归一化
-使用单位指数归一化input_adpter
-
 
 
 selective_state_update 中0被替换为(0,0), 处理None下的情况
@@ -35,7 +32,8 @@ debug:
 25. 解决time_series没有正确mask的问题
 26. 更改mu最小值0.2
 17. hypernet的context除100
-
+18. 调整mini_batch长度截断
+19. 修改pad值
 
 问题
 1. f_intensity单调衰减

@@ -106,8 +106,11 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     try:
         for epoch in range(start_epoch, args.epochs):
             print(f"Epoch {epoch + 1}\n-------------------------------")
+            train_kwargs = {}
+            if args.model in tpp_models + tpp_m_models:
+                train_kwargs["use_amp"] = getattr(args, "use_amp", False)
 
-            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device,accumulation_steps, ema_model=ema_model)
+            train_loss, train_metrics = train(train_loader, model, criterion, optimizer, scheduler, device,accumulation_steps, ema_model=ema_model, **train_kwargs)
             val_loss, val_metrics = validate(val_loader, 
                                               ema_model if use_ema and ema_model is not None else model,
                                             criterion, device)

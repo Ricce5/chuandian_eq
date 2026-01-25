@@ -265,9 +265,9 @@ class MixerTPP(TPPModel):
         self,
         batch: src.data.Batch,
         *,
-        predict_b: Optional[bool] = None,      # True=预测 b，False=常数 b（仍计算震级似然）
-        use_b_updater: Optional[bool] = None,  # 是否使用b的更新器
-        weights: dict = None,                   # 字典化配置各部分权重
+        predict_b: Optional[bool] = None,   
+        use_b_updater: Optional[bool] = None,  
+        weights: dict = None,                  
         reduction: str = None,           # "sum" | "mean" | "per_event" | "per_time" | "none"
         eps: float = 1e-10,
     ):

@@ -242,7 +242,7 @@ def prepare_data_tpp(args, base_dir):
         print(f"Number of validation events: {args.num_events_val}")
         if getattr(args, 'minibatch_training', True):
            print("Splitting into minibatches")
-           catalog_ds = split_minibatches(catalog_ds,300,40000) 
+           catalog_ds = split_minibatches(catalog_ds,300,2000) 
 
         train_loader = catalog_ds.train.get_dataloader(
             batch_size=args.batch_size,

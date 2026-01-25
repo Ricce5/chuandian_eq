@@ -327,7 +327,7 @@ class MixerAdapter:
         non_pad_mask: torch.Tensor
     ) -> torch.Tensor:
         feature_map = {
-            "mag": mag,                                           # [B, T, 1]
+            "mag": self.normalize_magnitude(mag),                                       # [B, T, 1]
             "log_inter_times": self.normalize_log_inter_times(inter_times),  # [B, T, 1]
             "loc": loc                                            # [B, T, 2]
         }
@@ -379,4 +379,4 @@ class MixerAdapter:
         dtype = mag.dtype
         mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
         b = self.richter_b.to(device=device, dtype=dtype)
-        return (mag.unsqueeze(-1) - mag_mean_gr) * b  
+        return (mag - mag_mean_gr) * b  
