@@ -191,27 +191,40 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
 
 
 
-    param_groups = None
+    trainable_params = [(name, param) for name, param in model.named_parameters() if param.requires_grad]
+    param_groups = []
+    handled = set()
+
+    encoder_lr = getattr(args, "encoder_learning_rate", None)
+    encoder_keywords = getattr(args, "encoder_param_keywords", ["encoder"])
+
+    def add_group(params, lr):
+        if params:
+            param_groups.append({"params": params, "lr": lr})
+
+    if encoder_lr is not None:
+        encoder_params = [
+            param for name, param in trainable_params
+            if any(keyword in name for keyword in encoder_keywords)
+        ]
+        handled.update(id(p) for p in encoder_params)
+        add_group(encoder_params, encoder_lr)
 
     bg_lr = getattr(args, "bg_learning_rate", None)
     if hasattr(model, "bg_model") and getattr(model, "bg_model") is not None and bg_lr is not None:
-        main_params = []
-        bg_params = []
-        for name, param in model.named_parameters():
-            if not param.requires_grad:
-                continue
-            if name.startswith("bg_model."):
-                bg_params.append(param)
-            else:
-                main_params.append(param)
-
-        param_groups = [
-            {"params": main_params, "lr": args.learning_rate},
-            {"params": bg_params, "lr": bg_lr},
+        bg_params = [
+            param for name, param in trainable_params
+            if name.startswith("bg_model.") and id(param) not in handled
         ]
+        handled.update(id(p) for p in bg_params)
+        add_group(bg_params, bg_lr)
 
-    if param_groups is None:
-        param_groups = list(filter(lambda p: p.requires_grad, model.parameters()))
+    remaining_params = [param for _, param in trainable_params if id(param) not in handled]
+
+    if param_groups:
+        add_group(remaining_params, args.learning_rate)
+    else:
+        param_groups = remaining_params
 
     optimizer = torch.optim.AdamW(
         param_groups,

@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve,average_precision_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import binom
@@ -48,6 +48,8 @@ def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",
     recall = recall_score(targets, preds_bin, zero_division=0)
     f1 = f1_score(targets, preds_bin, zero_division=0)
     auc = roc_auc_score(targets, preds)
+    pr_auc = average_precision_score(targets, preds)  # AUPRC / AP
+
 
     TP = np.sum((preds_bin == 1) & (targets == 1))
     FP = np.sum((preds_bin == 1) & (targets == 0))
@@ -70,6 +72,7 @@ def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",
             "recall": recall,
             "f1": f1,
             "auc": auc,
+            "pr_auc": pr_auc,
             "fpr": FPR,
             "tpr": TPR,
             "R": R,

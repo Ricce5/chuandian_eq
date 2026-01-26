@@ -30,3 +30,10 @@ class TaskModel(nn.Module):
     def set_attn_dropout(self, p: float):
         self.base_model.set_attn_dropout(p)
 
+    def get_pooled_representation(self, x, caches=None):
+        enc_out, non_pad_mask, _ = self.base_model(x, caches)
+        extra_inputs = {}
+        if hasattr(self.base_model.input_adapter, "get_extra_inputs"):
+            extra_inputs = self.base_model.input_adapter.get_extra_inputs(x)
+        representation = self.extractor(enc_out, non_pad_mask, extra_inputs)
+        return representation
