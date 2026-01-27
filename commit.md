@@ -36,6 +36,7 @@ debug:
 17. hypernet的context除100
 18. 调整mini_batch长度截断
 19. 修改pad值
+20. mixer adapter 直接return mag
 
 问题
 1. f_intensity单调衰减

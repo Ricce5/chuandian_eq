@@ -103,8 +103,9 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default=None, help='Path to config file')
     parser.add_argument('--checkpoint_dir', type=str, default=None,help='Directory to load checkpoint for test mode')
     parser.add_argument('--trial_index', type=int, default=1, help='Index of the trial for optuna')
-    parser.add_argument('--ckpt_select', type=str, choices=['best', 'last'], default='best',
-                    help='Which checkpoint to use in test mode (best or last)')
+    parser.add_argument('--ckpt_select', type=str, choices=['best', 'last', 'epoch'], default='best',
+                    help='Which checkpoint to use in test mode (best, last, or epoch)')
+    parser.add_argument('--ckpt_epoch', type=int, default=None, help='Epoch number to load when --ckpt_select epoch')
 
 
     args_cli = parser.parse_args()
@@ -165,7 +166,12 @@ if __name__ == "__main__":
             writer=writer,
         )
     elif args_cli.mode == "test":
-        checkpoint_path = f"{args.save_dir}/{args_cli.ckpt_select}_model_{args_cli.trial_index}.pth"  #  last/best
+        if args_cli.ckpt_select == 'epoch':
+            if args_cli.ckpt_epoch is None:
+                raise ValueError('When --ckpt_select is "epoch", --ckpt_epoch must be provided')
+            checkpoint_path = f"{args.save_dir}/epoch_{args_cli.ckpt_epoch}_model_{args_cli.trial_index}.pth"
+        else:
+            checkpoint_path = f"{args.save_dir}/{args_cli.ckpt_select}_model_{args_cli.trial_index}.pth"  #  last/best
         checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         args = config_setup.load_args_from_checkpoint(args, checkpoint)
         args.minibatch_training = False
@@ -200,9 +206,14 @@ if __name__ == "__main__":
             metrics["num_events_train"] = args.num_events_train
             metrics["num_events_val"] = args.num_events_val
         
-        metrics_name = f"metrics_test_{args_cli.ckpt_select}.json"
+        # name metrics file to reflect selected checkpoint (include epoch if provided)
+        if args_cli.ckpt_select == 'epoch':
+            metrics_name = f"metrics_test_epoch_{args_cli.ckpt_epoch}_{args_cli.trial_index}.json"
+        else:
+            metrics_name = f"metrics_test_{args_cli.ckpt_select}_{args_cli.trial_index}.json"
         with open(os.path.join(args.save_dir, metrics_name), "w") as f:
             json.dump(metrics, f, indent=2)
+        print(f"Saved test metrics to {os.path.join(args.save_dir, metrics_name)}")
 
         print("Metrics:", metrics)
         torch.cuda.empty_cache()
