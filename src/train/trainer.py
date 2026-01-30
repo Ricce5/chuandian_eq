@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 from omegaconf import OmegaConf
 from torch.optim.swa_utils import AveragedModel
@@ -85,8 +84,6 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
     best_val_loss = float('inf')
     best_model_wts = None
     start_epoch = 0
-    # history of metrics per epoch
-    metrics_history = []
     accumulation_steps = getattr(args, 'accumulation_steps', 1)
     train_metrics = {}
     val_metrics = {}   
@@ -129,23 +126,6 @@ def train_and_save(args, model, criterion, optimizer, scheduler, train_loader,
                     writer.add_scalar(f"Metric/train/{k}", v, epoch)
                 for k, v in val_metrics.items():
                     writer.add_scalar(f"Metric/val/{k}", v, epoch)
-
-            # record epoch metrics into history and persist
-            epoch_entry = {
-                'epoch': epoch + 1,
-                'train_loss': float(train_loss) if hasattr(train_loss, 'item') else float(train_loss),
-                'val_loss': float(val_loss) if hasattr(val_loss, 'item') else float(val_loss),
-                'train_metrics': {k: float(v) for k, v in train_metrics.items()},
-                'val_metrics': {k: float(v) for k, v in val_metrics.items()},
-                'lr': float(optimizer.param_groups[0]['lr'])
-            }
-            metrics_history.append(epoch_entry)
-            try:
-                metrics_path = os.path.join(save_dir, 'metrics_history.json')
-                with open(metrics_path, 'w') as f:
-                    json.dump(metrics_history, f, indent=2)
-            except Exception as e:
-                print(f"Warning: failed to write metrics history: {e}")
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
