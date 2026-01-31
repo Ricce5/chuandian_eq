@@ -249,7 +249,7 @@ class MixerAdapter:
     """
     input adapter of mixer for classification and regression tasks
     """
-    def __init__(self, args):
+    def __init__(self, args, revin_layer: Optional[nn.Module] = None):
         stats = args.stats
         print("Initializing MixerAdapter with stats:", stats)
         to_t = lambda x: torch.tensor(x, dtype=torch.float32)
@@ -273,6 +273,8 @@ class MixerAdapter:
         self.features_input_keys: List[str] = sorted(getattr(args, 'features_input_keys', ['mag']))
         self.Twindow: float                 = getattr(args, 'Twindow', None)
         self.normalize_time: bool           = getattr(args, 'normalize_time_by_token', False)
+        # Optional RevIN layer for magnitude normalization
+        self.revin_layer = revin_layer
 
         # ---- time-scale base
         self.time_scale_base = torch.tensor(1.0, dtype=torch.float32)
@@ -326,8 +328,17 @@ class MixerAdapter:
         inter_times: torch.Tensor,
         non_pad_mask: torch.Tensor
     ) -> torch.Tensor:
+        # Apply RevIN to magnitude if available, using row mask
+        if self.revin_layer is not None:
+            # Ensure RevIN module parameters are on the same device/dtype as inputs
+            self.revin_layer = self.revin_layer.to(device=mag.device, dtype=mag.dtype)
+            mask = non_pad_mask.squeeze(-1) if non_pad_mask.ndim == 3 else non_pad_mask
+            mag_norm = self.revin_layer(mag, mode='norm', mask=mask)
+        else:
+            mag_norm = self.normalize_magnitude(mag)  # [B, T, 1]
+
         feature_map = {
-            "mag": self.normalize_magnitude(mag),                                       # [B, T, 1]
+            "mag": mag_norm,
             "log_inter_times": self.normalize_log_inter_times(inter_times),  # [B, T, 1]
             "loc": loc                                            # [B, T, 2]
         }
@@ -379,7 +390,7 @@ class MixerAdapter:
         dtype = mag.dtype
         mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
         b = self.richter_b.to(device=device, dtype=dtype)
-        return (mag - mag_mean_gr) * b 
+        return (mag - mag_mean_gr) * b
         # mag_completeness = self.mag_completeness.to(device=device, dtype=dtype)
         # b = self.richter_b.to(device=device, dtype=dtype)
         # return (mag - mag_completeness)/5

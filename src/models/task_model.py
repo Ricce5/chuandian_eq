@@ -5,12 +5,13 @@ class TaskModel(nn.Module):
     """"
     A generic model for different tasks (e.g., classification, regression) built on top of a base model.
     """
-    def __init__(self, base_model, extractor, head, final_activation=None):
+    def __init__(self, base_model, extractor, head, final_activation=None, revin_layer=None):
         super().__init__()
         self.base_model = base_model
         self.extractor = extractor
         self.head = head
         self.final_activation = final_activation
+        self.revin_layer = revin_layer
 
     def forward(self, x,caches=None):
         enc_out, non_pad_mask,_ = self.base_model(x, caches)
@@ -19,6 +20,17 @@ class TaskModel(nn.Module):
             extra_inputs = self.base_model.input_adapter.get_extra_inputs(x)
         representation = self.extractor(enc_out, non_pad_mask, extra_inputs)
         out = self.head(representation)
+
+        if self.revin_layer:
+            # Ensure shape compatibility for RevIN denorm when output is (B, D)
+            # RevIN expects last-dim features; if scalar, temporarily add feature dim.
+            if out.dim() == 2:
+                out = out.unsqueeze(-1)
+                out = self.revin_layer(out, 'denorm')
+                out = out.squeeze(-1)
+            else:
+                out = self.revin_layer(out, 'denorm')
+
         if self.final_activation:
             out = self.final_activation(out)
 

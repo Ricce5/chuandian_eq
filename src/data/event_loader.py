@@ -126,7 +126,7 @@ class EventDataset(torch.utils.data.Dataset):
         self.data_fields = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth", "dt"]
 
         self.samples = []
-        self.labels = []
+        self.labels = []            # labels normalized by fixed [mag_min, mag_max]
         self.lengths = []
 
         future = array_dict["future"]
@@ -137,7 +137,7 @@ class EventDataset(torch.utils.data.Dataset):
             if self.task_type == "classification":
                 label = self.compute_flag_label(future["t"][idx], context["Magnitude"][idx])
             elif self.task_type == "regression":
-                label = self.compute_max_magnitude_label(future["Magnitude"][idx])
+                label = self.compute_max_magnitude_label(future["Magnitude"][idx])  # fixed-range normalization
             elif self.task_type == "count":
                 label = self.compute_count_label(future["t"][idx])
             else:
@@ -172,9 +172,9 @@ class EventDataset(torch.utils.data.Dataset):
             max_mag = np.max(arr_f_mag)
             return (max_mag - self.mag_min) / (self.mag_max - self.mag_min)
         return np.nan
-    
+
     def inverse_normalize_label(self, norm_value):
-        return norm_value * (self.mag_max - self.mag_min) + self.mag_min
+        return np.asarray(norm_value) * (self.mag_max - self.mag_min) + self.mag_min
 
     
     @property

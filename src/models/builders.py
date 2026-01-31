@@ -847,11 +847,14 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
             device=device
         )
 
+        revin_layer = None
+
         return TaskModel(
             base_model=base_model,
             extractor=extractor,
             head=head,
-            final_activation=None
+            final_activation=None,
+            revin_layer=revin_layer
         )
 
 @ModelBuilder.register("reg_mixer_attnpl_t")
@@ -867,10 +870,13 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
             from src.models.task_model import TaskModel
             from src.models.mamba.mixer_seq import MixerModelWrapper, MixerModel
             from src.models.heads import TaskHead
+            from src.models.layers.revin import RevIN
             import torch
 
             encoder = MixerModel(**args.mixer_model_config, device=device, dtype=torch.float32).to(device)
-            adapter = MixerAdapter(args)
+            # Optional RevIN for magnitude normalization at adapter stage
+            revin_layer = RevIN(num_features=1) if getattr(args, 'revin', False) else None
+            adapter = MixerAdapter(args, revin_layer=revin_layer)
             base_model = MixerModelWrapper(encoder=encoder, input_adapter=adapter, device=device)
 
             extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
@@ -938,9 +944,12 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
                 device=device
             )
 
+            # Pass the same RevIN to TaskModel for denorm of outputs
+
             return TaskModel(
                 base_model=base_model,
                 extractor=extractor,
                 head=head,
-                final_activation=None
+                final_activation=None,
+                revin_layer=revin_layer
             )
