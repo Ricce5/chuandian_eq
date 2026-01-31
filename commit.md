@@ -1,6 +1,11 @@
 降低回归模型初始化方差
 
 
+回归
+1. 分布漂移
+2，模型记忆
+3. 
+
 
 selective_state_update 中0被替换为(0,0), 处理None下的情况
 mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous

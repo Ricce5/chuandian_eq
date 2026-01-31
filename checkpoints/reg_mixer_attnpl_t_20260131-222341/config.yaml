@@ -5,10 +5,10 @@ model: reg_mixer_attnpl_t
 
 use_ema: false
 batch_size: 64
-accumulation_steps: 2
+accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 1e-3  #6e-4 # 5e-4
-weight_decay: 1e-5
+weight_decay: 1e-2
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -16,7 +16,6 @@ scheduler_min_lr: 1e-6
 scheduler_type: step_warmup
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
-revin: false
 
 d_model: 64
 mixer_model_config:
@@ -44,7 +43,7 @@ mixer_model_config:
   rms_norm: false            # 是否使用 RMSNorm 替代 LayerNorm
 
   initializer_cfg:
-    initializer_range: 0.01  # 初始权重方差，保持默认即可
+    initializer_range: 0.008  # 初始权重方差，保持默认即可
 
   fused_add_norm: false      # 是否使用 Triton 融合Norm（需支持）
 
@@ -65,8 +64,8 @@ mlp_hdw: [128]
 
 # 其他参数
 dim: 1
-epochs: 150
-save_epochs: [20,40,60,80,100,120,140]
+epochs: 80
+save_epochs: [20,40,60]
 save_dir: null
 cuda_id: "0"
 
