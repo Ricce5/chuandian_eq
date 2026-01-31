@@ -1,0 +1,1 @@
+调整归一化为(mag - mag_completeness) * b/10 +0.1

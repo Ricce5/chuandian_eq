@@ -1,0 +1,1 @@
+ return (mag - mag_completeness) * b/10 -0.3
