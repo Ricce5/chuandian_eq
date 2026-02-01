@@ -135,6 +135,11 @@ class MixerModel(nn.Module):
         n_layer: int,
         d_intermediate: int,
         input_dim: int,
+        input_proj_type: str = "linear",  # "linear" or "mlp"
+        input_proj_hidden: int | None = None,
+        input_proj_activation: str = "gelu",
+        input_proj_dropout: float = 0.0,
+        input_init: str = "default",  # default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
         ssm_cfg=None,
         attn_layer_idx=None,
         attn_cfg=None,
@@ -151,7 +156,35 @@ class MixerModel(nn.Module):
         super().__init__()
         self.residual_in_fp32 = residual_in_fp32
         self.d_model = d_model
-        self.input_linear = nn.Linear(input_dim, d_model)
+        self.input_init = input_init
+        self.initializer_cfg = initializer_cfg if initializer_cfg is not None else {}
+        # Build input projection: linear or MLP
+        if input_proj_type not in {"linear", "mlp"}:
+            raise ValueError(f"Invalid input_proj_type: {input_proj_type}")
+        self.input_proj_type = input_proj_type
+
+        if input_proj_type == "linear":
+            self.input_proj = nn.Linear(input_dim, d_model, **factory_kwargs)
+        else:
+            hidden_dim = input_proj_hidden if input_proj_hidden is not None else max(d_model, input_dim)
+            if input_proj_activation == "gelu":
+                act = nn.GELU()
+            elif input_proj_activation == "relu":
+                act = nn.ReLU()
+            elif input_proj_activation == "silu":
+                act = nn.SiLU()
+            else:
+                raise ValueError(f"Unsupported input_proj_activation: {input_proj_activation}")
+            dropout_layer = nn.Dropout(input_proj_dropout) if input_proj_dropout > 0 else nn.Identity()
+            self.input_proj = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim, **factory_kwargs),
+                act,
+                dropout_layer,
+                nn.Linear(hidden_dim, d_model, **factory_kwargs),
+            )
+
+        # Custom initialization for input projection if requested
+        self._init_input_projection(self.input_proj, method=self.input_init)
         self.dropout = nn.Dropout(dropout_prob) if dropout_prob > 0 else nn.Identity()
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
@@ -203,8 +236,7 @@ class MixerModel(nn.Module):
         }
 
     def forward(self, features=None, inference_params=None, **mixer_kwargs):
-
-        hidden_states = self.input_linear(features)
+        hidden_states = self.input_proj(features)
         hidden_states = self.dropout(hidden_states)
         residual = None
         for layer in self.layers:
@@ -227,6 +259,42 @@ class MixerModel(nn.Module):
                 is_rms_norm=isinstance(self.norm_f, RMSNorm)
             )
         return hidden_states
+
+    def _init_input_projection(self, module: nn.Module, method: str):
+        """Initialize input projection module's Linear layers based on method.
+        Supported methods: default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
+        For 'normal' and 'uniform', falls back to 'initializer_range' in initializer_cfg when available.
+        """
+        if method is None or method == "default":
+            return
+
+        def _init_linear(m: nn.Linear):
+            if method == "xavier_uniform":
+                nn.init.xavier_uniform_(m.weight)
+            elif method == "xavier_normal":
+                nn.init.xavier_normal_(m.weight)
+            elif method == "kaiming_uniform":
+                nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
+            elif method == "kaiming_normal":
+                nn.init.kaiming_normal_(m.weight, a=math.sqrt(5))
+            elif method == "normal":
+                std = float(self.initializer_cfg.get("initializer_range", 0.02))
+                nn.init.normal_(m.weight, mean=0.0, std=std)
+            elif method == "uniform":
+                bound = float(self.initializer_cfg.get("initializer_range", 0.02))
+                nn.init.uniform_(m.weight, a=-bound, b=bound)
+            else:
+                raise ValueError(f"Unsupported input_init method: {method}")
+
+            if m.bias is not None and not getattr(m.bias, "_no_reinit", False):
+                nn.init.zeros_(m.bias)
+
+        if isinstance(module, nn.Linear):
+            _init_linear(module)
+        else:
+            for m in module.modules():
+                if isinstance(m, nn.Linear):
+                    _init_linear(m)
 
 
 class MambaModel(nn.Module):

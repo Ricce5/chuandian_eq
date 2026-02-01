@@ -390,5 +390,5 @@ class MixerAdapter:
         dtype = mag.dtype
         mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
         b = self.richter_b.to(device=device, dtype=dtype)
-        # return (mag-mag_mean_gr)*b
-        return mag
+        return (mag-mag_mean_gr)*b
+        # return mag
