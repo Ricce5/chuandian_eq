@@ -849,13 +849,17 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
 
         revin_layer = None
 
-        return TaskModel(
+        model = TaskModel(
             base_model=base_model,
             extractor=extractor,
             head=head,
             final_activation=None,
             revin_layer=revin_layer
         )
+        # Optional training-time magnitude noise for classification
+        setattr(model, 'mag_noise_std', getattr(args, 'mag_noise_std', 0.0))
+        setattr(model, 'mag_noise_type', getattr(args, 'mag_noise_type', 'gaussian'))
+        return model
 
 @ModelBuilder.register("reg_mixer_attnpl_t")
 class RegMixerAttnPlTBuilder(ModelBuilder):
@@ -946,10 +950,14 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
 
             # Pass the same RevIN to TaskModel for denorm of outputs
 
-            return TaskModel(
+            model = TaskModel(
                 base_model=base_model,
                 extractor=extractor,
                 head=head,
                 final_activation=None,
                 revin_layer=revin_layer
             )
+            # Configure optional training-time magnitude noise augmentation
+            setattr(model, 'mag_noise_std', getattr(args, 'mag_noise_std', 0.0))
+            setattr(model, 'mag_noise_type', getattr(args, 'mag_noise_type', 'gaussian'))
+            return model

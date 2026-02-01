@@ -14,6 +14,19 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
     optimizer.zero_grad()
     for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
         x, y = x.to(device), y.to(device)
+
+        # Magnitude noise augmentation on training inputs (only non-pad positions)
+        noise_std = float(getattr(model, "mag_noise_std", 0.0) or 0.0)
+        if noise_std > 0.0:
+            noise_type = getattr(model, "mag_noise_type", "gaussian")
+            # Non-pad mask inferred from arrival time channel (channel 0)
+            non_pad_mask = (x[:, :, 0] != 0).to(x.dtype)
+            if noise_type == "uniform":
+                noise = (torch.rand_like(x[:, :, 2]) - 0.5) * 2.0 * noise_std
+            else:
+                noise = torch.randn_like(x[:, :, 2]) * noise_std
+            # Apply noise only to magnitude channel (channel index 2)
+            x[:, :, 2] = x[:, :, 2] + noise * non_pad_mask
         
         pred = model(x)
         loss = criterion(pred, y)

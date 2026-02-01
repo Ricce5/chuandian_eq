@@ -1,10 +1,9 @@
-降低回归模型初始化方差
+震级加随机噪声
 
 
 回归
-1. 分布漂移
+1. 分布漂移: 激活函数区域
 2，模型记忆
-3. 
 
 
 selective_state_update 中0被替换为(0,0), 处理None下的情况
@@ -191,3 +190,7 @@ SCEDC采样绘图，b值预测 ：checkpoints/mixer_tpp_20250912-202038
 ChuanDian采样绘图，b值预测 : checkpoints/mixer_tpp_20250912-205124
 
 rotary_embedding_time的scale计算影响采样结果
+
+
+
+checkpoints/reg_mixer_attnpl_t_20260131-112552

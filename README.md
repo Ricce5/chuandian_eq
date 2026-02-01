@@ -66,6 +66,20 @@ python main.py --model <model_name> --mode test --config <path_to_config_file>
 
 - If `--checkpoint` is not specified, the most recently trained model will be used by default.
 
+## Data Augmentation: Magnitude Noise
+
+To inject random noise into the input earthquake magnitudes during training (improves robustness), set the following in your config (e.g., `config/reg_mixer_attnpl_t.yaml`):
+
+```yaml
+# apply noise to input channel "Magnitude" only in training
+mag_noise_std: 0.05       # noise scale; 0 disables
+mag_noise_type: gaussian  # or: uniform
+```
+
+Notes:
+- Noise is applied only on non-padded timesteps, inferred from arrival times.
+- Validation and test remain untouched.
+
 ## Logs
 
 To monitor training logs, use TensorBoard:
