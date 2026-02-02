@@ -1,5 +1,5 @@
 
-
+支持 MixerBatchAdapter平移到0开始
 
 回归
 1. 分布漂移: 激活函数区域

@@ -6,6 +6,7 @@ import torch.nn as nn
 import src.data
 import math
 from src.utils.mask_utils import get_non_pad_mask
+from src.data.constants import PAD
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,7 @@ class MixerBatchAdapter:
         self.extra_input_keys: List[str] = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
         self.features_input_keys: List[str] = sorted(getattr(args, 'features_input_keys', ['log_inter_times', 'mag']))
         self.normalize_time: bool = getattr(args, 'normalize_time_by_token', False)
+        self.shift_time_to_zero: bool = getattr(args, 'shift_time_to_zero', False)
 
         self.time_scale_base = torch.tensor(1.0, dtype=torch.float32)
         if self.normalize_time:
@@ -237,10 +239,18 @@ class MixerBatchAdapter:
 
     def normalize_arrival_times(self, arrival_times: torch.Tensor, normalize_time: bool = False) -> torch.Tensor:
         device = arrival_times.device
+        times = arrival_times
+
+        if self.shift_time_to_zero:
+            valid_mask = times.ne(PAD)
+            first_idx = torch.argmax(valid_mask.int(), dim=1)  # [B]
+            offsets = times.gather(1, first_idx.unsqueeze(1)).squeeze(1)  # [B]
+            times = times - offsets.unsqueeze(1)
+
         if normalize_time:
-            return arrival_times / self.time_scale_base.to(device) 
+            return times / self.time_scale_base.to(device)
         else:
-            return arrival_times 
+            return times
 
 
 

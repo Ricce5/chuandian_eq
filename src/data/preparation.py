@@ -223,7 +223,9 @@ def prepare_data_tpp(args, base_dir):
     if use_all_for_train:
         print("TPP pretrain mode: using all splits as training, disabling val/test loaders.")
         if getattr(args, 'minibatch_training', True):
-            train_dataset = split_sequence(catalog_ds.full_sequence, 300, 40000)
+            max_events = getattr(args, 'max_seq_len', 2000)
+            mean_nll_events = getattr(args, 'mean_nll_events', 300)
+            train_dataset = split_sequence(catalog_ds.full_sequence, mean_nll_events, max_events)
         else:
             train_dataset = TppDataset([catalog_ds.full_sequence])
         train_loader = train_dataset.get_dataloader(
@@ -242,7 +244,9 @@ def prepare_data_tpp(args, base_dir):
         print(f"Number of validation events: {args.num_events_val}")
         if getattr(args, 'minibatch_training', True):
            print("Splitting into minibatches")
-           catalog_ds = split_minibatches(catalog_ds,300,2000) 
+           max_events = getattr(args, 'max_seq_len', 2000)
+           mean_nll_events = getattr(args, 'mean_nll_events', 300)
+           catalog_ds = split_minibatches(catalog_ds,mean_nll_events, max_events) 
 
         train_loader = catalog_ds.train.get_dataloader(
             batch_size=args.batch_size,
