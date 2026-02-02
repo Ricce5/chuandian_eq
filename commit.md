@@ -1,5 +1,4 @@
-The input layer supports replacing linear layers with MLP. 
-Supports initialization settings for the input layer.
+
 
 
 回归
