@@ -31,7 +31,7 @@ mixer_model_config:
   input_proj_dropout: 0.1
   # 输入层初始化方式：default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
   input_init:  kaiming_uniform
-  input_init_scale: 1.5
+  input_init_scale: 2
   attn_layer_idx: []
   ssm_cfg:
       layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
@@ -82,7 +82,7 @@ dataset: ChuanDian
 criterion_name: smooth_l1
 criterion_cfg:
    beta: 0.2
-seed: 0
+seed: 1
 Mc: 3 # 4.5
 Mf: 3
 Twindow: 360

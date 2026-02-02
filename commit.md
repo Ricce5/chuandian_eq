@@ -1,4 +1,5 @@
-输入层支持mlp替换线性层
+The input layer supports replacing linear layers with MLP. 
+Supports initialization settings for the input layer.
 
 
 回归

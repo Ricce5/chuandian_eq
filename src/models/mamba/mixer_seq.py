@@ -140,6 +140,7 @@ class MixerModel(nn.Module):
         input_proj_activation: str = "gelu",
         input_proj_dropout: float = 0.0,
         input_init: str = "default",  # default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
+        input_init_scale: float | None = None,
         ssm_cfg=None,
         attn_layer_idx=None,
         attn_cfg=None,
@@ -158,6 +159,11 @@ class MixerModel(nn.Module):
         self.d_model = d_model
         self.input_init = input_init
         self.initializer_cfg = initializer_cfg if initializer_cfg is not None else {}
+        self.input_init_scale = (
+            input_init_scale
+            if input_init_scale is not None
+            else float(self.initializer_cfg.get("input_init_scale", 1.0))
+        )
         # Build input projection: linear or MLP
         if input_proj_type not in {"linear", "mlp"}:
             raise ValueError(f"Invalid input_proj_type: {input_proj_type}")
@@ -184,7 +190,11 @@ class MixerModel(nn.Module):
             )
 
         # Custom initialization for input projection if requested
-        self._init_input_projection(self.input_proj, method=self.input_init)
+        self._init_input_projection(
+            self.input_proj,
+            method=self.input_init,
+            scale=self.input_init_scale,
+        )
         self.dropout = nn.Dropout(dropout_prob) if dropout_prob > 0 else nn.Identity()
         # We change the order of residual and layer norm:
         # Instead of LN -> Attn / MLP -> Add, we do:
@@ -260,15 +270,28 @@ class MixerModel(nn.Module):
             )
         return hidden_states
 
-    def _init_input_projection(self, module: nn.Module, method: str):
-        """Initialize input projection module's Linear layers based on method.
-        Supported methods: default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
-        For 'normal' and 'uniform', falls back to 'initializer_range' in initializer_cfg when available.
+    def _init_input_projection(self, module: nn.Module, method: str, scale: float = 1.0):
+        """初始化输入投影中的`Linear`权重，支持可控分散度。
+        - method: default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
+        - scale: 缩放系数，用于增大/减小权重分散度
+          * 对`normal`/`uniform`，通过调整`std`或`bound`生效
+          * 对`xavier_*`/`kaiming_*`以及`default`，在初始化后对权重乘以`scale`
+        对`normal`和`uniform`，当`initializer_cfg.initializer_range`存在时作为基准值。
         """
         if method is None or method == "default":
+            if scale != 1.0:
+                if isinstance(module, nn.Linear):
+                    with torch.no_grad():
+                        module.weight.mul_(scale)
+                else:
+                    for m in module.modules():
+                        if isinstance(m, nn.Linear):
+                            with torch.no_grad():
+                                m.weight.mul_(scale)
             return
 
         def _init_linear(m: nn.Linear):
+            applied_inside_scale = False
             if method == "xavier_uniform":
                 nn.init.xavier_uniform_(m.weight)
             elif method == "xavier_normal":
@@ -279,12 +302,18 @@ class MixerModel(nn.Module):
                 nn.init.kaiming_normal_(m.weight, a=math.sqrt(5))
             elif method == "normal":
                 std = float(self.initializer_cfg.get("initializer_range", 0.02))
-                nn.init.normal_(m.weight, mean=0.0, std=std)
+                nn.init.normal_(m.weight, mean=0.0, std=std * float(scale))
+                applied_inside_scale = True
             elif method == "uniform":
                 bound = float(self.initializer_cfg.get("initializer_range", 0.02))
-                nn.init.uniform_(m.weight, a=-bound, b=bound)
+                nn.init.uniform_(m.weight, a=-bound * float(scale), b=bound * float(scale))
+                applied_inside_scale = True
             else:
                 raise ValueError(f"Unsupported input_init method: {method}")
+
+            if scale != 1.0 and not applied_inside_scale:
+                with torch.no_grad():
+                    m.weight.mul_(float(scale))
 
             if m.bias is not None and not getattr(m.bias, "_no_reinit", False):
                 nn.init.zeros_(m.bias)
@@ -295,7 +324,7 @@ class MixerModel(nn.Module):
             for m in module.modules():
                 if isinstance(m, nn.Linear):
                     _init_linear(m)
-
+    
 
 class MambaModel(nn.Module):
 
