@@ -130,26 +130,29 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specif
     return model, start_epoch, best_val_loss
 
 
-def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_weights=True):
+def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_weights=True):
     """
     Initialize the model, optimizer, and scheduler (supports loading from a checkpoint for training or testing).
     """
-    # model = model_class(args, device=device)
     from src.models.builders import ModelBuilder
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
-
 
     args.start_epoch = 0
     args.best_val_loss = float('inf')
 
     if restore_weights and checkpoint is not None:
         model, args.start_epoch, args.best_val_loss = load_model_from_checkpoint(
-            model, checkpoint, freeze_parts=getattr(args, 'freeze_parts', None) ,load_specific_parts=getattr(args, 'load_specific_parts', None),
+            model,
+            checkpoint,
+            freeze_parts=getattr(args, 'freeze_parts', None),
+            load_specific_parts=getattr(args, 'load_specific_parts', None),
             exclude_freeze_parts=getattr(args, 'exclude_freeze_parts', None)
         )
 
-
+    # ------------------------------------------------------------------
+    # Criterion
+    # ------------------------------------------------------------------
     criterion_name = getattr(args, 'criterion_name', None)
     criterion_cfg = getattr(args, 'criterion_cfg', {})
 
@@ -180,31 +183,34 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             raise ValueError(f"Unsupported criterion_name for regression: {criterion_name}")
         print(f"Using regression criterion: {criterion_name}")
         print(f"Criterion config: {criterion_cfg}")
+
     elif args.task_type == "count":
         criterion = nn.PoissonNLLLoss(**criterion_cfg)
-        print(f"Using count criterion: PoissonNLLLoss")
+        print("Using count criterion: PoissonNLLLoss")
         print(f"Criterion config: {criterion_cfg}")
+
     elif args.task_type == "tpp":
         criterion = None
+
     else:
         raise ValueError(f"Unsupported task_type: {args.task_type}")
 
+    # ------------------------------------------------------------------
+    # Optimizer param groups
+    # ------------------------------------------------------------------
+    trainable_params = [
+        (name, param) for name, param in model.named_parameters()
+        if param.requires_grad
+    ]
 
-
-    trainable_params = [(name, param) for name, param in model.named_parameters() if param.requires_grad]
     param_groups = []
     handled = set()
 
     def build_no_decay_names(model_obj):
         no_decay = set()
-        for pname, _ in model_obj.named_parameters():
-            if pname.endswith(".bias"):
+        for pname, param in model_obj.named_parameters():
+            if pname.endswith(".bias") or param.ndim == 1:
                 no_decay.add(pname)
-        for module_name, module in model_obj.named_modules():
-            if isinstance(module, nn.LayerNorm):
-                for pname, _ in module.named_parameters(recurse=False):
-                    full_name = f"{module_name}.{pname}" if module_name else pname
-                    no_decay.add(full_name)
         return no_decay
 
     no_decay_names = build_no_decay_names(model)
@@ -217,21 +223,37 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
             return
         decay_params = [p for n, p in params_with_names if n not in no_decay_names]
         no_decay_params = [p for n, p in params_with_names if n in no_decay_names]
-        if decay_params:
-            param_groups.append({"params": decay_params, "lr": lr, "weight_decay": args.weight_decay})
-        if no_decay_params:
-            param_groups.append({"params": no_decay_params, "lr": lr, "weight_decay": 0.0})
 
+        if decay_params:
+            param_groups.append({
+                "params": decay_params,
+                "lr": lr,
+                "weight_decay": args.weight_decay
+            })
+        if no_decay_params:
+            param_groups.append({
+                "params": no_decay_params,
+                "lr": lr,
+                "weight_decay": 0.0
+            })
+
+    # Encoder params (optional different LR)
     if encoder_lr is not None:
         encoder_params = [
             (name, param) for name, param in trainable_params
             if any(keyword in name for keyword in encoder_keywords)
         ]
+        print("encoder_param_keywords:", encoder_keywords)
+        print(
+            "encoder_lr matches:",
+            [name for name, _ in encoder_params],
+        )
         handled.update(id(p) for _, p in encoder_params)
         add_group_named(encoder_params, encoder_lr)
 
+    # Background model params (optional)
     bg_lr = getattr(args, "bg_learning_rate", None)
-    if hasattr(model, "bg_model") and getattr(model, "bg_model") is not None and bg_lr is not None:
+    if hasattr(model, "bg_model") and model.bg_model is not None and bg_lr is not None:
         bg_params = [
             (name, param) for name, param in trainable_params
             if name.startswith("bg_model.") and id(param) not in handled
@@ -239,19 +261,30 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
         handled.update(id(p) for _, p in bg_params)
         add_group_named(bg_params, bg_lr)
 
-    remaining_params = [(name, param) for name, param in trainable_params if id(param) not in handled]
-
+    # Remaining params
+    remaining_params = [
+        (name, param) for name, param in trainable_params
+        if id(param) not in handled
+    ]
     add_group_named(remaining_params, args.learning_rate)
 
+    # ------------------------------------------------------------------
+    # Optimizer & scheduler
+    # ------------------------------------------------------------------
     optimizer = torch.optim.AdamW(
         param_groups,
-        lr=args.learning_rate,
-        weight_decay=0.0,
         betas=(0.9, 0.99)
     )
 
-    scheduler = get_scheduler(args.scheduler_type, optimizer, args, train_dataloader=train_dataloader)
+    scheduler = get_scheduler(
+        args.scheduler_type,
+        optimizer,
+        args,
+        train_dataloader=train_dataloader
+    )
+
     return model, criterion, optimizer, scheduler, args
+
 
 
 
