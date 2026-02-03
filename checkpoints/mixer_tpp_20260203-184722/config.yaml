@@ -45,14 +45,14 @@ mixer_model_config:
       layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
       # d_conv: 4
       use_conv: false
-      rotary_emb_scale_base: 1024
+      rotary_emb_scale_base: 2048
 
 
   attn_cfg:
     layer: MHATime
     num_heads: 4
     rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
-    rotary_emb_scale_base: 1024
+    rotary_emb_scale_base: 2048
     causal: true
 
   norm_epsilon: 1e-5
