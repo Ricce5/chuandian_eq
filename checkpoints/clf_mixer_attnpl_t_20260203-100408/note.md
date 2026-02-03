@@ -1,0 +1,1 @@
+加载resume_path: ./checkpoints/mixer_tpp_20260202-210928/last_model_1.pth
