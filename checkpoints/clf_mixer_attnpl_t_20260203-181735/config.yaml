@@ -1,4 +1,4 @@
-resume_path: ./checkpoints/mixer_tpp_20260203-161948/last_model_1.pth
+resume_path: ./checkpoints/mixer_tpp_20260203-165732/last_model_1.pth
 load_specific_parts: ['encoder']
 model: clf_mixer_attnpl_t
 # 训练参数
@@ -7,7 +7,8 @@ batch_size: 64
 accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 6e-4 # 5e-4
-weight_decay: 1e-3
+encoder_learning_rate: 6e-4
+weight_decay: 1e-5
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -66,7 +67,8 @@ mlp_hdw: [128]
 
 # 其他参数
 dim: 1
-epochs: 100
+epochs: 20
+save_epochs: [10,20,30,40,50]
 save_dir: null
 cuda_id: "0"
 

@@ -195,41 +195,58 @@ def setup_config(args, device,train_dataloader=None, checkpoint=None, restore_we
     param_groups = []
     handled = set()
 
+    def build_no_decay_names(model_obj):
+        no_decay = set()
+        for pname, _ in model_obj.named_parameters():
+            if pname.endswith(".bias"):
+                no_decay.add(pname)
+        for module_name, module in model_obj.named_modules():
+            if isinstance(module, nn.LayerNorm):
+                for pname, _ in module.named_parameters(recurse=False):
+                    full_name = f"{module_name}.{pname}" if module_name else pname
+                    no_decay.add(full_name)
+        return no_decay
+
+    no_decay_names = build_no_decay_names(model)
+
     encoder_lr = getattr(args, "encoder_learning_rate", None)
     encoder_keywords = getattr(args, "encoder_param_keywords", ["encoder"])
 
-    def add_group(params, lr):
-        if params:
-            param_groups.append({"params": params, "lr": lr})
+    def add_group_named(params_with_names, lr):
+        if not params_with_names:
+            return
+        decay_params = [p for n, p in params_with_names if n not in no_decay_names]
+        no_decay_params = [p for n, p in params_with_names if n in no_decay_names]
+        if decay_params:
+            param_groups.append({"params": decay_params, "lr": lr, "weight_decay": args.weight_decay})
+        if no_decay_params:
+            param_groups.append({"params": no_decay_params, "lr": lr, "weight_decay": 0.0})
 
     if encoder_lr is not None:
         encoder_params = [
-            param for name, param in trainable_params
+            (name, param) for name, param in trainable_params
             if any(keyword in name for keyword in encoder_keywords)
         ]
-        handled.update(id(p) for p in encoder_params)
-        add_group(encoder_params, encoder_lr)
+        handled.update(id(p) for _, p in encoder_params)
+        add_group_named(encoder_params, encoder_lr)
 
     bg_lr = getattr(args, "bg_learning_rate", None)
     if hasattr(model, "bg_model") and getattr(model, "bg_model") is not None and bg_lr is not None:
         bg_params = [
-            param for name, param in trainable_params
+            (name, param) for name, param in trainable_params
             if name.startswith("bg_model.") and id(param) not in handled
         ]
-        handled.update(id(p) for p in bg_params)
-        add_group(bg_params, bg_lr)
+        handled.update(id(p) for _, p in bg_params)
+        add_group_named(bg_params, bg_lr)
 
-    remaining_params = [param for _, param in trainable_params if id(param) not in handled]
+    remaining_params = [(name, param) for name, param in trainable_params if id(param) not in handled]
 
-    if param_groups:
-        add_group(remaining_params, args.learning_rate)
-    else:
-        param_groups = remaining_params
+    add_group_named(remaining_params, args.learning_rate)
 
     optimizer = torch.optim.AdamW(
         param_groups,
         lr=args.learning_rate,
-        weight_decay=args.weight_decay,
+        weight_decay=0.0,
         betas=(0.9, 0.99)
     )
 

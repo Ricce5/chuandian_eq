@@ -1,5 +1,4 @@
-
-支持 MixerBatchAdapter平移到0开始
+bias和norm不做L2
 
 回归
 1. 分布漂移: 激活函数区域
