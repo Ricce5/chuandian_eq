@@ -164,13 +164,16 @@ class MixerModel(nn.Module):
             if input_init_scale is not None
             else float(self.initializer_cfg.get("input_init_scale", 1.0))
         )
-        # Build input projection: linear or MLP
-        if input_proj_type not in {"linear", "mlp"}:
+        # Build input projection: linear, MLP or tanh+linear
+        if input_proj_type not in {"linear", "mlp", "tanh_linear"}:
             raise ValueError(f"Invalid input_proj_type: {input_proj_type}")
         self.input_proj_type = input_proj_type
 
         if input_proj_type == "linear":
             self.input_proj = nn.Linear(input_dim, d_model, **factory_kwargs)
+        elif input_proj_type == "tanh_linear":
+            # apply elementwise tanh to inputs, then a single linear projection
+            self.input_proj = nn.Sequential(nn.Tanh(), nn.Linear(input_dim, d_model, **factory_kwargs))
         else:
             hidden_dim = input_proj_hidden if input_proj_hidden is not None else max(d_model, input_dim)
             if input_proj_activation == "gelu":
@@ -179,6 +182,8 @@ class MixerModel(nn.Module):
                 act = nn.ReLU()
             elif input_proj_activation == "silu":
                 act = nn.SiLU()
+            elif input_proj_activation == "tanh":
+                act = nn.Tanh()
             else:
                 raise ValueError(f"Unsupported input_proj_activation: {input_proj_activation}")
             dropout_layer = nn.Dropout(input_proj_dropout) if input_proj_dropout > 0 else nn.Identity()

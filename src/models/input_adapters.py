@@ -277,6 +277,9 @@ class MixerAdapter:
         self.log_tau_mean    = self.tau_mean.log()
         self.eps: float      = 1e-10
         self.mag_mean_gr =  self.mag_completeness + 1.0 / (math.log(10.0) * self.richter_b)
+        self.use_mag_cdf = getattr(args, "use_mag_cdf", False)
+        if self.use_mag_cdf:
+            logger.info("Using magnitude CDF normalization in MixerAdapter.")
 
         # ---- config
         self.extra_input_keys: List[str]    = getattr(args, 'extra_input_keys', ['inter_times', 'times'])
@@ -396,9 +399,19 @@ class MixerAdapter:
     
 
     def normalize_magnitude(self, mag: torch.Tensor) -> torch.Tensor:
-        device = mag.device
-        dtype = mag.dtype
-        mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
-        b = self.richter_b.to(device=device, dtype=dtype)
-        return (mag-mag_mean_gr)*b
+        if self.use_mag_cdf:
+            # use magnitude CDF normalization
+            device = mag.device
+            dtype = mag.dtype
+            b = self.richter_b.to(device=device, dtype=dtype)
+            mag_comp = self.mag_completeness.to(device=device, dtype=dtype)
+            cdf = 1 - torch.exp(-b * math.log(10.0) * (mag - mag_comp + 1e-3))
+            return 2*cdf-1
+        else:
+            device = mag.device
+            dtype = mag.dtype
+            mag_mean_gr = self.mag_mean_gr.to(device=device, dtype=dtype)
+            b = self.richter_b.to(device=device, dtype=dtype)
+
+            return (mag-mag_mean_gr)*b
         # return mag

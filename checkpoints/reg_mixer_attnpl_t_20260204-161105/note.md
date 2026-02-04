@@ -1,0 +1,1 @@
+换tanh+linear无预训练
