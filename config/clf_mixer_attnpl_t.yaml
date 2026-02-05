@@ -1,4 +1,4 @@
-resume_path: ./checkpoints/mixer_tpp_20260203-190933/last_model_1.pth
+resume_path: ./checkpoints/mixer_tpp_20260203-161948/last_model_1.pth
 load_specific_parts: ['encoder']
 model: clf_mixer_attnpl_t
 # 训练参数
@@ -57,7 +57,12 @@ mixer_model_config:
 
 
 extractor_name: attn_time_biased_mh
-time_bias_type: log
+time_bias_type: linear
+agg: mean
+extractor_cfg:
+  fuse_mode: gate
+  use_ln: true
+  use_var_scale: true
 
 # MLP 参数
 mlp_out: 1
@@ -72,11 +77,15 @@ cuda_id: "0"
 
 # 数据与控制参数
 dataset: ChuanDian
+criterion_name: focal
+criterion_cfg:
+  alpha: 0.25
+  gamma: 2.0
 seed: 0
 Mc: 3 # 4.5
-Mf: 4.5
+Mf: 5.5
 Twindow: 180
-Tfore: 30
+Tfore: 90
 dt: 10
 context_len: 1
 split_by_time: true

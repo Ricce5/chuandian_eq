@@ -1,0 +1,2 @@
+对齐checkpoints/clf_mixer_attnpl_t_20260203-182943
+加载AXDX+b
