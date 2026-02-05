@@ -476,141 +476,161 @@ def _get_sample_mask(mask_obj, sample_idx, length):
 
     return m_np
 
-def plot_magnitude_and_importance(
-    x,
-    scores,
-    sample_idx=0,
-    feature_idx=2,
-    mask=None,
-    min_magnitude=3.0,
-    min_importance=0.0,
-    figsize=(14, 4),
-    title="Event Magnitude and Event Importance",
-    mag_color="C0",
-    imp_color="C1",
-    imp_alpha=0.30,
-    mag_linestyle=":",
-    mag_linewidth=1.2,
-    bar_width=1.0,
-    grid=True,
-    grid_alpha=0.35,
-    show=True,
+
+def plot_event_magnitude_and_importance(
+    x,                       # torch.Tensor or np.ndarray, shape [B, L, D], with D>=2
+    importance,              # torch.Tensor or np.ndarray, shape [B, L] or [L]
+    batch_idx: int = 0,
+    time_channel: int = 1,   # 1 = normalized time (recommended), 0 = real time
+    mag_channel: int = 2,    # if magnitude is stored elsewhere, set this accordingly
+    use_scatter_for_mag: bool = False,
+    importance_norm: str | None = "max",   # None | "max" | "sum" | "zscore" | "p99"
+    eps: float = 1e-12,
+    title: str = "Event Magnitude and Event Importance (IG)",
+    xlabel: str | None = None,
+    ylabel_left: str = "Event Magnitude",
+    ylabel_right: str = "Event Importance",
+    bar_alpha: float = 0.35,
+    bar_width: float | None = None,
+    figsize=(14, 3.8),
+    savepath: str | None = None,
+    show: bool = True,
+    mag_color: str = "tab:blue",
+    imp_color: str = "tab:red",
 ):
     """
-    Plot magnitude (a feature sequence) and event importance (scores) with optional masking.
+    Plots magnitude (left axis) and IG-based event importance (right axis) against time.
+    Supports importance normalization.
 
-    Parameters
-    ----------
-    x : array-like
-        Shape (B, L, D) or (L, D) or (L,) depending on your data.
-    scores : array-like
-        Shape (B, L) or (L,).
-    sample_idx : int
-        Which sample in batch to plot.
-    feature_idx : int
-        Which feature dimension to plot from x.
-    mask : array-like or None
-        Supports None or mask with shape (B, L) / (L,) etc.
-    min_magnitude : float or None
-        If not None, y-axis lower bound for magnitude.
-    show : bool
-        If True, calls plt.show(). Always returns fig/axes.
-
-    Returns
-    -------
-    fig, ax_mag, ax_imp
+    Notes:
+      - x[:,:,time_channel] is used as the x-axis (time).
+      - magnitude is taken from x[:,:,mag_channel] by default; adjust mag_channel to match your data.
+      - importance can be unnormalized or normalized via importance_norm.
     """
-    x_np =  to_numpy(x)
-    scores_np =  to_numpy(scores)
+    # ---- convert to numpy ----
+    def to_np(a):
+        if hasattr(a, "detach"):
+            a = a.detach()
+        if hasattr(a, "cpu"):
+            a = a.cpu()
+        return np.asarray(a)
 
-    # Extract seq and importance
-    if x_np.ndim == 3:  # (B, L, D)
-        seq = x_np[sample_idx, :, feature_idx]
-    elif x_np.ndim == 2:  # (L, D)
-        seq = x_np[:, feature_idx]
-    elif x_np.ndim == 1:  # (L,)
-        if feature_idx != 0:
-            raise ValueError("x is 1D (L,), so feature_idx must be 0.")
-        seq = x_np
+    x_np = to_np(x)
+    imp_np = to_np(importance)
+
+    if x_np.ndim != 3:
+        raise ValueError(f"x must be [B,L,D], got shape {x_np.shape}")
+
+    B, L, D = x_np.shape
+    if batch_idx < 0 or batch_idx >= B:
+        raise ValueError(f"batch_idx out of range: {batch_idx} for B={B}")
+
+    # importance shape handling
+    if imp_np.ndim == 2:
+        imp_1d = imp_np[batch_idx]
+    elif imp_np.ndim == 1:
+        if imp_np.shape[0] != L:
+            raise ValueError(f"importance length {imp_np.shape[0]} != L {L}")
+        imp_1d = imp_np
     else:
-        raise ValueError(f"Unsupported x shape: {x_np.shape}")
+        raise ValueError(f"importance must be [B,L] or [L], got shape {imp_np.shape}")
 
-    if scores_np.ndim == 2:  # (B, L)
-        importance = scores_np[sample_idx]
-    elif scores_np.ndim == 1:  # (L,)
-        importance = scores_np
+    # x-axis (time)
+    t = x_np[batch_idx, :, time_channel].astype(float)
+    # magnitude series (adjust mag_channel if needed)
+    if mag_channel >= D:
+        raise ValueError(f"mag_channel={mag_channel} out of bounds for D={D}")
+    m = x_np[batch_idx, :, mag_channel].astype(float)
+
+    # sort by time for cleaner plots (important if your batch is padded/unsorted)
+    order = np.argsort(t)
+    t = t[order]
+    m = m[order]
+    imp_1d = imp_1d[order]
+
+    # ---- normalize importance if requested ----
+    imp_plot = imp_1d.astype(float).copy()
+
+    if importance_norm is None:
+        pass
+    elif importance_norm.lower() == "max":
+        denom = np.max(imp_plot) + eps
+        imp_plot = imp_plot / denom
+        ylabel_right = ylabel_right + " (normalized by max)"
+    elif importance_norm.lower() == "sum":
+        denom = np.sum(imp_plot) + eps
+        imp_plot = imp_plot / denom
+        ylabel_right = ylabel_right + " (normalized by sum)"
+    elif importance_norm.lower() == "zscore":
+        mu = np.mean(imp_plot)
+        sd = np.std(imp_plot) + eps
+        imp_plot = (imp_plot - mu) / sd
+        ylabel_right = ylabel_right + " (z-score)"
+    elif importance_norm.lower() == "p99":
+        p = np.percentile(imp_plot, 99)
+        denom = p + eps
+        imp_plot = np.clip(imp_plot / denom, 0.0, 1.0)
+        ylabel_right = ylabel_right + " (clipped / p99)"
     else:
-        raise ValueError(f"Unsupported scores shape: {scores_np.shape}")
+        raise ValueError(f"Unknown importance_norm: {importance_norm}")
 
-    seq =  to_numpy(seq).squeeze()
-    importance =  to_numpy(importance).squeeze()
+    # ---- labels ----
+    if xlabel is None:
+        if time_channel == 1:
+            xlabel = "Normalized time (0: window start, 1: forecast origin)"
+        else:
+            xlabel = "Time"
 
-    if seq.shape[0] != importance.shape[0]:
-        raise ValueError(f"seq length ({seq.shape[0]}) != importance length ({importance.shape[0]}).")
+    # ---- plot ----
+    fig, ax1 = plt.subplots(figsize=figsize)
 
-    length = seq.shape[0]
-    x_axis = np.arange(length)
+    # magnitude (left axis) with distinct color
+    if use_scatter_for_mag:
+        ax1.scatter(t, m, s=10, label="Event Magnitude", color=mag_color)
+    else:
+        ax1.plot(t, m, linestyle=":", label="Event Magnitude", color=mag_color)
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel(ylabel_left, color=mag_color)
+    ax1.tick_params(axis="y", labelcolor=mag_color)
+    ax1.set_title(title)
+    ax1.grid(True, linestyle="--", linewidth=0.6, alpha=0.5)
 
-    # Mask
-    sample_mask = _get_sample_mask(mask, sample_idx, length)
-    valid_idx = np.flatnonzero(sample_mask)
+    # importance (right axis) with different color
+    ax2 = ax1.twinx()
 
-    if valid_idx.size == 0:
-        print("No visible points under current mask; skipping plot.")
-        return None, None, None
+    # choose a reasonable bar width if not provided
+    if bar_width is None:
+        # for normalized time, bars are dense; keep narrow
+        if time_channel == 1:
+            bar_width = 0.002
+        else:
+            # for real time (irregular), choose a small fraction of span
+            span = (np.max(t) - np.min(t)) + eps
+            bar_width = 0.002 * span
 
-    x_valid = x_axis[valid_idx]
-    seq_valid = seq[valid_idx]
-    importance_valid = importance[valid_idx]
+    ax2.bar(t, imp_plot, width=bar_width, alpha=bar_alpha, label="Event Importance", color=imp_color)
+    ax2.set_ylabel(ylabel_right, color=imp_color)
+    ax2.tick_params(axis="y", labelcolor=imp_color)
 
-    # Plot
-    fig, ax_mag = plt.subplots(figsize=figsize)
-
-    (line_mag,) = ax_mag.plot(
-        x_valid,
-        seq_valid,
-        linestyle=mag_linestyle,
-        linewidth=mag_linewidth,
-        color=mag_color,
-        label="Event Magnitude",
-    )
-    ax_mag.set_xlabel("Event Index", fontsize=11)
-    ax_mag.set_ylabel("Event Magnitude", fontsize=11, color=mag_color)
-    ax_mag.tick_params(axis="y", labelcolor=mag_color)
-    if min_magnitude is not None:
-        ax_mag.set_ylim(bottom=min_magnitude)
-
-    if grid:
-        ax_mag.grid(axis="y", linestyle="--", linewidth=0.6, alpha=grid_alpha)
-
-    ax_imp = ax_mag.twinx()
-    bars = ax_imp.bar(
-        x_valid,
-        importance_valid,
-        width=bar_width,
-        color=imp_color,
-        alpha=imp_alpha,
-        label="Event Importance",
-    )
-    ax_imp.set_ylabel("Event Importance", fontsize=11, color=imp_color)
-    ax_imp.tick_params(axis="y", labelcolor=imp_color)
-    ax_imp.set_ylim(bottom=min_importance)
-
-    ax_mag.set_title(title, fontsize=13, pad=10)
-
-    # Legend (use first bar as handle)
-    ax_mag.legend(
-        handles=[line_mag, bars],
-        labels=["Event Magnitude", "Event Importance"],
-        loc="upper right",
-        frameon=False,
-        fontsize=10,
-        handlelength=2.5,
-    )
+    # legend: combine from both axes
+    h1, l1 = ax1.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax1.legend(h1 + h2, l1 + l2, loc="upper left", frameon=True)
 
     plt.tight_layout()
+
+    if savepath is not None:
+        plt.savefig(savepath, dpi=300, bbox_inches="tight")
+
     if show:
         plt.show()
+    else:
+        plt.close(fig)
+
+    return fig, ax1, ax2
+
+# -----------------------------
+
 
     return fig, ax_mag, ax_imp
 
