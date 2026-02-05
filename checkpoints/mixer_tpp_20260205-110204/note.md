@@ -1,0 +1,1 @@
+  b_smooth_weight: 1e-3

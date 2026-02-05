@@ -166,104 +166,138 @@ def visualize_trajectories(
     seq: Sequence,
     forecast: List[Sequence],
     ax=None,
-    figsize: tuple = (6, 3),
-    dpi: int = 100,
+    figsize: tuple = (6.6, 3.0),
+    dpi: int = 150,
     event_color="C0",
     t_start: Optional[float] = None,
     t_end: Optional[float] = None,
     t_before: Optional[float] = None,
-    num_examples: int = 10,               # number of example trajectories to plot
+    num_examples: int = 10,
+    offset: int = 0,
     save_path: Optional[str] = None,
     xlabel: str = "Arrival time (days)",
     reset_t_nll_to_end: bool = False,
-
+    bins: int = 40,
 ):
-    """Show an example visualization of simulated catalog continuations"""
-    if (t_start is None) and (t_end is None):
-        sample_forecast = forecast[0]
+    """Visualize observed sequence + example forecast trajectories + forecast-count histogram.
+
+    Returns
+    -------
+    fig, (axA, axB, axAA)
+    """
+    assert len(forecast) > 0, "forecast must be non-empty"
+    sample_forecast = forecast[0]
+
+    # Resolve time bounds
+    if t_start is None:
         t_start = sample_forecast.t_start
+    if t_end is None:
         t_end = sample_forecast.t_end
 
-    duration = sample_forecast.t_end - sample_forecast.t_start
-
+    duration = t_end - t_start
     if t_before is None:
         t_before = duration
 
-    if ax is None:
-        fig = plt.figure(figsize=figsize, dpi=dpi)
-        gs = fig.add_gridspec(    
-            1,
-            2,                     
-            width_ratios=(3, 1.2), 
-            left=0.1,              
-            right=0.85,
-            bottom=0.2,
-            top=0.9,
-            wspace=0.02,         
-            hspace=0.1,
-        )
+    # Clamp offset/num_examples
+    offset = int(offset)
+    num_examples = int(num_examples)
+    offset = max(0, min(offset, len(forecast) - 1))
+    num_examples = min(num_examples, len(forecast) - offset)
 
+    # Create axes
+    if ax is None:
+        fig = plt.figure(figsize=figsize, dpi=dpi, layout="constrained")
+        gs = fig.add_gridspec(
+            1, 2,
+            width_ratios=(3.2, 1.3),
+            wspace=0.05,
+        )
         axA = fig.add_subplot(gs[0])
-        axAA = axA.twinx()       
+        axAA = axA.twinx()
         axB = fig.add_subplot(gs[1], sharey=axAA)
     else:
-        print("Bold choice")
-        assert len(ax) == 2, "len(ax) must be two to generate both subplots"
+        fig = ax[0].figure
+        assert len(ax) == 2, "ax must be (axA, axB)"
         axA, axB = ax
         axAA = axA.twinx()
 
+    # Data slices
+    s_viz = seq.get_subsequence(
+        t_start - t_before, t_end, reset_t_nll_to_end=reset_t_nll_to_end
+    ).cpu()
+    s_obs = seq.get_subsequence(
+        t_start, t_end, reset_t_nll_to_end=reset_t_nll_to_end
+    ).cpu()
+
+    # --- Left panel: events + forecast window highlight ---
     axA.margins(x=0)
+    axA.axvspan(t_start, t_end, color="k", alpha=0.06, lw=0)
+    axA.axvline(t_start, c="k", lw=1, ls="--", alpha=0.8)
 
-    assert num_examples <= len(
-        forecast
-    ), "num_examples must be <= to the number of simulations in the forecast"
+    visualize_sequence(seq=s_viz, ax=axA, event_color=event_color, show_legend=False, xlabel=xlabel)
 
-    s_viz = seq.get_subsequence(t_start - t_before, t_start + duration,reset_t_nll_to_end=reset_t_nll_to_end).cpu()
-    s_obs = seq.get_subsequence(t_start, t_start + duration,reset_t_nll_to_end=reset_t_nll_to_end).cpu()
+    axA.set_title("Observed sequence + example forecast trajectories", fontsize=10)
+    axA.set_xlabel(xlabel, fontsize=9)
+    axA.set_ylabel("Magnitude", fontsize=9)
+    axA.tick_params(axis="both", labelsize=8)
+    axA.grid(axis="x", alpha=0.25)
 
-    axA.axvline(t_start, c="k", lw=1, ls="--")
-    axA.annotate(
-        "Forecast interval", (0.75, 0.9), xycoords="axes fraction", c="k", ha="center"
-    )
+    # Counting process (right y of left panel)
+    plot_counting_process(s_obs, axAA, "k", T0=t_start, T=t_end)
+    for i_samp in forecast[offset:offset + num_examples]:
+        plot_counting_process(i_samp.cpu(), axAA, "k", 0.18, T0=t_start, T=t_end)
 
-    visualize_sequence(seq=s_viz, ax=axA, event_color=event_color, show_legend=False,xlabel=xlabel)
+    axAA.set_ylabel("Cumulative count", fontsize=9)
+    axAA.tick_params(axis="y", labelsize=8)
+    axAA.grid(False)
 
-    plot_counting_process(s_obs, axAA, "k", T0=t_start, T=t_start + duration)
-    [
-        plot_counting_process(
-            i_samp.cpu(), axAA, "k", 0.2, T0=t_start, T=t_start + duration
-        )
-        for i_samp in forecast[:num_examples]
-    ]
-    axAA.get_yaxis().set_visible(False)
-    axA.set_xticks(axA.get_xticks()[1::2])  # [1::2] means take every second element starting from index 1
-    axA.margins(x=0)
+    # Reduce x tick density
+    xt = axA.get_xticks()
+    if len(xt) > 6:
+        axA.set_xticks(xt[::2])
 
-    # B:
-    cummulative_no_of_events = [len(forecast[i]) for i in range(len(forecast))] # list of number of events in each forecast
-    no_of_events = len(s_obs)                          # number of observed events in the observed sequence
-    ylim = [0, max(np.quantile(cummulative_no_of_events, 0.975), no_of_events)] # y-axis limits for histogram
+    # --- Right panel: histogram of event counts per forecast ---
+    counts_per_forecast = np.array([len(s) for s in forecast], dtype=float)
+    obs_count = len(s_obs)
+
+    # y-axis (shared with cumulative count axis); choose sensible limits
+    q025, q975 = np.quantile(counts_per_forecast, [0.025, 0.975])
+    y_max = max(obs_count, q975) * 1.05
+    axB.set_ylim(0, y_max)
 
     axB.hist(
-        cummulative_no_of_events,
-        bins=50,
-        range=(int(ylim[0]), int(ylim[1])),
+        counts_per_forecast,
+        bins=bins,
+        range=(0, y_max),
         orientation="horizontal",
         facecolor="k",
-        alpha=0.2,
-        linewidth=1,
+        alpha=0.22,
         edgecolor="w",
+        linewidth=0.8,
         label="Simulated",
     )
-    axB.axhline(len(s_obs), c="k", label="Observed")
-    axB.set_ylabel("# of events\nin the interval")
+    axB.axhline(obs_count, c="C1", lw=1.6, label="Observed")
+
+    axB.set_title("Forecast counts", fontsize=10)
+    axB.set_xlabel("Frequency", fontsize=9)
     axB.yaxis.set_ticks_position("right")
     axB.yaxis.set_label_position("right")
-    axB.get_xaxis().set_visible(False)
-    axB.set_ylim(ylim)
-    axB.legend(fontsize=7)
+    axB.set_ylabel("Event count in window", fontsize=9)
+    axB.tick_params(axis="both", labelsize=8)
+    axB.grid(axis="y", alpha=0.15)
+    axB.legend(fontsize=8, loc="upper right", frameon=False)
+
+    # Annotation (mode + 95% interval)
+    txt = f"Observed: {len(s_obs)}\n95%: [{int(q025)}, {int(q975)}]"
+
+    axB.text(
+        0.05, 0.05, txt,
+        transform=axB.transAxes, fontsize=8,
+        va="bottom", ha="left",
+        bbox=dict(facecolor="white", alpha=0.75, edgecolor="none"),
+    )
+
     if save_path is not None:
-        plt.savefig(save_path, dpi=dpi, bbox_inches='tight')
-        plt.show()
-    else:
-        plt.show()
+        fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
+
+    return fig, (axA, axB, axAA)

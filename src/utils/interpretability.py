@@ -19,6 +19,7 @@ def plot_sequence(
     feature_idx: int = 2,
     t: Optional[np.ndarray] = None,
     title: Optional[str] = None,
+    mask: Optional[torch.Tensor] = None,
 ) -> None:
     """
     Plot a single feature sequence for a given sample.
@@ -32,18 +33,23 @@ def plot_sequence(
     title: optional plot title
     """
     s = to_numpy(x[sample_idx, :, feature_idx])
-    valid_mask = to_numpy((x[-1].abs().sum(dim=-1) > 0))
     idx = t if (t is not None and len(t) == len(s)) else np.arange(len(s))
 
+    # determine valid points: prefer provided mask, otherwise infer non-zero tokens
+    if mask is not None:
+        m = to_numpy(mask[sample_idx]).astype(bool)
+    else:
+        # infer from last dimension non-zero across features
+        inferred = (x[sample_idx].abs().sum(dim=-1) > 0)
+        m = to_numpy(inferred).astype(bool)
+
+    # filter out masked positions
+    idx_plot = idx[m]
+    s_plot = s[m]
+
     plt.figure(figsize=(10, 4))
-    plt.plot(idx, s, color="tab:blue", lw=1)
-    plt.scatter(
-        idx[valid_mask.astype(bool)],
-        s[valid_mask.astype(bool)],
-        s=8,
-        color="tab:blue",
-        alpha=0.8,
-    )
+    plt.plot(idx_plot, s_plot, color="tab:blue", lw=1)
+    plt.scatter(idx_plot, s_plot, s=8, color="tab:blue", alpha=0.8)
     plt.title(title or f"Sample {sample_idx}, feature {feature_idx}")
     plt.xlabel("Token index")
     plt.ylabel("Value")
@@ -128,7 +134,6 @@ def compute_token_importance(
     label: str
     """
     label = ""
-    mask_plot = None
     if method == "attention":
         scores, mask_plot = get_attn_token_weights(model, x)
         label = "Attention weight"
@@ -140,7 +145,7 @@ def compute_token_importance(
         label = "Gradient saliency"
     else:
         raise ValueError(f"Unknown method: {method}")
-    return scores, mask_plot, label
+    return scores, label
 
 
 def gradient_saliency_token_importance(model: torch.nn.Module, x: torch.Tensor):
@@ -165,17 +170,68 @@ def plot_token_importance(
     label: str = "IG importance",
     mask: Optional[torch.Tensor] = None,
     color: str = "tab:red",
+    sequence: Optional[torch.Tensor] = None,
+    sequence_feature_idx: int = 2,
+    sequence_label: str = "magnitude",
+    sequence_color: str = "tab:blue",
 ) -> None:
-    """Plot token importance for one sample with optional mask highlighting."""
+    """Plot token importance for one sample, optionally overlay a sequence (e.g. magnitude).
+
+    Both curves are drawn on the same figure using a secondary y-axis. Positions where
+    `mask` is False will be omitted from both plots.
+    """
     s = to_numpy(scores[sample_idx])
-    t = np.arange(len(s))
-    plt.figure(figsize=(10, 4))
-    plt.plot(t, s, label=label, color=color)
+    L = len(s)
+    t = np.arange(L)
+
+    # compute mask: True == valid (plot), False == masked (skip)
     if mask is not None:
         m = to_numpy(mask[sample_idx]).astype(bool)
-        plt.scatter(t[m], s[m], s=10, color=color)
-    plt.title(f"Token Importance (method={label}, sample {sample_idx})")
-    plt.legend()
+    else:
+        m = np.ones(L, dtype=bool)
+
+    t_plot = t[m]
+    s_plot = s[m]
+
+    fig, ax1 = plt.subplots(figsize=(10, 4))
+    ax1.plot(t_plot, s_plot, label=label, color=color)
+    ax1.scatter(t_plot, s_plot, s=10, color=color)
+    ax1.set_ylabel(label, color=color)
+    ax1.tick_params(axis="y", labelcolor=color)
+
+    # optionally plot provided sequence (torch tensor of shape [B,L] or array)
+    if sequence is not None:
+        if isinstance(sequence, torch.Tensor):
+            seq = to_numpy(sequence[sample_idx])
+        else:
+            seq = np.asarray(sequence)
+        # if sequence has extra dims (e.g., [B,L,features]), pick feature idx
+        if seq.ndim == 2:
+            seq_vals = seq[sample_idx] if seq.shape[0] != L else seq[0]
+        elif seq.ndim == 1 and len(seq) == L:
+            seq_vals = seq
+        elif seq.ndim == 2 and seq.shape[1] == L:
+            seq_vals = seq[:, sequence_feature_idx] if seq.shape[0] == L else seq[:, sequence_feature_idx]
+        elif seq.ndim == 3:
+            seq_vals = seq[sample_idx, :, sequence_feature_idx]
+        else:
+            # best-effort flatten
+            seq_vals = seq.reshape(-1)[:L]
+
+        seq_vals = np.asarray(seq_vals)
+        seq_plot = seq_vals[m]
+        ax2 = ax1.twinx()
+        ax2.plot(t_plot, seq_plot, label=sequence_label, color=sequence_color, lw=1)
+        ax2.scatter(t_plot, seq_plot, s=8, color=sequence_color, alpha=0.9)
+        ax2.set_ylabel(sequence_label, color=sequence_color)
+        ax2.tick_params(axis="y", labelcolor=sequence_color)
+
+    plt.title(f"Token Importance & {sequence_label} (sample {sample_idx})")
+    # combine legends
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = (ax2.get_legend_handles_labels() if sequence is not None else ([], []))
+    if handles1 or handles2:
+        ax1.legend(handles1 + handles2, labels1 + labels2, loc="upper right")
     plt.tight_layout()
     plt.show()
 
