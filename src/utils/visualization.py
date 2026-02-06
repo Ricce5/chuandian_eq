@@ -291,9 +291,9 @@ def visualize_trajectories(
     txt = f"Observed: {len(s_obs)}\n95%: [{int(q025)}, {int(q975)}]"
 
     axB.text(
-        0.05, 0.05, txt,
+        0.05, 0.55, txt,
         transform=axB.transAxes, fontsize=8,
-        va="bottom", ha="left",
+        va="top", ha="left",
         bbox=dict(facecolor="white", alpha=0.75, edgecolor="none"),
     )
 

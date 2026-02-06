@@ -1,96 +1,116 @@
 
-
-
-
 ## Installation
 
 Before proceeding, ensure your GPU supports `flash_attn` and `mamba_ssm`.
 
-1. Install the required dependencies from `requirements.txt`:
-    ```bash
-    pip install -r requirements.txt
-    ```
-2. Install `flash_attn`:
-    [Flash Attention Releases](https://github.com/Dao-AILab/flash-attention/releases)
-3. Install `causal_conv1d`:
-    [Causal Conv1D Releases](https://github.com/Dao-AILab/causal-conv1d/releases)
-4. Install `mamba_ssm`:
-    [Mamba Releases](https://github.com/state-spaces/mamba/releases)
-5. Install the current package in editable mode:
-    ```bash
-    pip install -e .
-    ```
+1. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## Training
+2. Optional/accelerating libraries (install if relevant to your configuration):
+- `flash_attn` — accelerated attention implementations (see https://github.com/Dao-AILab/flash-attention/releases)
+- `mamba_ssm` / `causal_conv1d` — install per their repositories if used in your config
 
-Configuration files for training are available in the `configs/` directory.
+3. Install the package in editable mode (optional, for easier imports):
+```bash
+pip install -e .
+```
 
-### Models
-- **Proposed Models**: `reg_mixer_attnpl_t`, `clf_mixer_attnpl_t`, `mixer_tpp`
-- **Benchmark Models**: `etas`, `rtpp`
+## Project Overview
 
-### Reproducibility
-To ensure reproducibility, set the following environment variable:
+This repository implements a unified deep-learning forecasting framework for earthquake catalogs, including multiple temporal point process (TPP) sequence models and regression/classification models, along with training and evaluation pipelines.
+
+Brief directory layout:
+- `main.py`: Entry script — supports `train`, `test`, `optuna` modes.
+- `config/`: Model and data YAML configs (e.g. `mixer_tpp.yaml`, `reg_mixer_attnpl_t.yaml`).
+- `data/`: Raw and processed data (prepare data according to `src/data`).
+- `src/`: Code for data processing, models, training, and evaluation.
+- `checkpoints/`: Saved models and logs from training.
+
+## Configuration
+
+- All training/testing parameters are defined in YAML files under `config/`. Default convention: `config/<model>.yaml`.
+- If `--config` is not provided, the program uses `config/{model}.yaml`.
+
+Configurable items include learning rate, batch size, epochs, dataset name, random seed, and augmentation options.
+
+## Quick Start
+
+1) Train (creates `checkpoints/<model>_<timestamp>` by default):
+```bash
+python main.py --model mixer_tpp --mode train --config config/mixer_tpp.yaml
+```
+Specify a custom checkpoint directory:
+```bash
+python main.py --model mixer_tpp --mode train --config config/mixer_tpp.yaml --checkpoint_dir checkpoints/my_experiment
+```
+
+2) Test (load saved checkpoint):
+```bash
+python main.py --model mixer_tpp --mode test --config config/mixer_tpp.yaml --checkpoint_dir checkpoints/my_experiment --ckpt_select best --trial_index 1
+```
+Load by epoch:
+```bash
+python main.py --model mixer_tpp --mode test --config config/mixer_tpp.yaml --checkpoint_dir checkpoints/my_experiment --ckpt_select epoch --ckpt_epoch 10 --trial_index 1
+```
+
+3) Hyperparameter search (Optuna):
+```bash
+python main.py --model mixer_tpp --mode optuna --config config/mixer_tpp.yaml
+```
+
+## Common Arguments
+
+- `--model`: Model name (must match `model` field in config).
+- `--mode`: `train` / `test` / `optuna`.
+- `--config`: Path to config file (default `config/<model>.yaml`).
+- `--checkpoint_dir`: Directory to save/load training artifacts.
+- `--ckpt_select`: `best`, `last`, or `epoch` (select checkpoint when testing).
+- `--ckpt_epoch`: Epoch number when `--ckpt_select epoch` is used.
+
+## Data & Augmentation
+
+- Data is located in `data/`. Data preparation logic is in `src/data`.
+- Example augmentation options in YAML:
+```yaml
+mag_noise_std: 0.05       # magnitude noise std for training; 0 disables
+mag_noise_type: gaussian  # options: gaussian / uniform
+```
+Noise is typically applied only to non-padding timesteps; validation/test sets are unaffected.
+
+## Logging & Visualization
+
+- Training logs for TensorBoard are saved under `checkpoints/<exp>/tensorboard`.
+```bash
+tensorboard --logdir checkpoints/<exp>/tensorboard --port 6006
+```
+- Test metrics are saved as `metrics_test_*.json` in the experiment checkpoint directory.
+
+## Reproducibility
+
+For better numerical reproducibility (especially with CUDA), set:
 ```bash
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 ```
 
-### Training Command
-To train the model, execute:
+## Example Configs
+
+Example configs are provided in `config/`: `mixer_tpp.yaml`, `reg_mixer_attnpl_t.yaml`, `clf_mixer_attnpl_t.yaml`, `etas.yaml`, `rtpp.yaml`, etc.
+
+## Development & Contribution
+
+- Run tests (if available):
 ```bash
-python main.py --model <model_name> --mode train --config <path_to_config_file>
-python main.py --model <model_name> --mode train --config <path_to_config_file>
+pytest -q
 ```
+- Follow code style and dependency specifications in `requirements.txt` and `setup.py`.
 
-Replace `<model_name>` with one of the following:
-- `reg_mixer_attnpl_t`
-- `clf_mixer_attnpl_t`
-- `mixer_tpp`
-- `etas`
-- `rtpp`
+## Contact & License
 
-Replace `<path_to_config_file>` with the path to your configuration file.
+For more information or to submit issues/PRs, open an Issue or submit a PR in the repository.
 
-## Testing
+---
 
-To test the model, use the following command:
-```bash
-python main.py --model <model_name> --mode test --config <path_to_config_file>
-```
+If you want this README translated back to Chinese or expanded with more examples (e.g., data format details, field explanations for configs), I can add that.
 
-Replace `<model_name>` and `<path_to_config_file>` with the appropriate values for your setup.
-
-```bash
-python main.py --model <model_name> --mode test --config <path_to_config_file>
-```
-
-- If `--checkpoint` is not specified, the most recently trained model will be used by default.
-
-## Data Augmentation: Magnitude Noise
-
-To inject random noise into the input earthquake magnitudes during training (improves robustness), set the following in your config (e.g., `config/reg_mixer_attnpl_t.yaml`):
-
-```yaml
-# apply noise to input channel "Magnitude" only in training
-mag_noise_std: 0.05       # noise scale; 0 disables
-mag_noise_type: gaussian  # or: uniform
-```
-
-Notes:
-- Noise is applied only on non-padded timesteps, inferred from arrival times.
-- Validation and test remain untouched.
-
-## Logs
-
-To monitor training logs, use TensorBoard:
-
-```bash
-tensorboard --logdir <tensorboard_folder_in_checkpoint_directory> --port <port_number>
-```
-
-Replace `<tensorboard_folder_in_checkpoint_directory>` with the path to the TensorBoard logs directory and `<port_number>` with the desired port number.
-
-## Notes
-mamba-ssm has bugs, try to fix with:
-- In `selective_state_update`, the value `0` has been replaced with `(0, 0)` to handle cases where the input is `None`.
-- For `mamba2`, the operation `xBC.contiguous().transpose(1, 2)` now includes `contiguous` for improved memory layout handling.
