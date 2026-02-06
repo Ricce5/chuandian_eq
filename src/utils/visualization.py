@@ -168,7 +168,7 @@ def visualize_trajectories(
     ax=None,
     figsize: tuple = (6.6, 3.0),
     dpi: int = 150,
-    event_color="C0",
+    event_color="C0",  # 默认的事件颜色
     t_start: Optional[float] = None,
     t_end: Optional[float] = None,
     t_before: Optional[float] = None,
@@ -179,13 +179,31 @@ def visualize_trajectories(
     reset_t_nll_to_end: bool = False,
     bins: int = 40,
 ):
-    """Visualize observed sequence + example forecast trajectories + forecast-count histogram.
-
-    Returns
-    -------
-    fig, (axA, axB, axAA)
+    """Visualize the observed sequence, example forecast trajectories, and the forecast-count histogram.
+    
+    Args:
+        seq: Observed sequence.
+        forecast: List of forecast sequences.
+        ax: Optional, axes to plot on.
+        figsize: The size of the figure (default is (6.6, 3.0)).
+        dpi: The resolution of the figure (default is 150).
+        event_color: Color of events (default is 'C0').
+        t_start: Start time for visualization.
+        t_end: End time for visualization.
+        t_before: Time window before the start time to show.
+        num_examples: Number of example forecasts to display.
+        offset: The offset for starting the examples.
+        save_path: Path to save the figure, optional.
+        xlabel: Label for the x-axis (default is 'Arrival time (days)').
+        reset_t_nll_to_end: Whether to reset the NLL to the end of the sequence.
+        bins: Number of bins for the histogram (default is 40).
+    
+    Returns:
+        fig: The created figure.
+        (axA, axB, axAA): The axes for the left plot, right histogram, and right cumulative plot.
     """
-    assert len(forecast) > 0, "forecast must be non-empty"
+
+    assert len(forecast) > 0, "Forecast must be non-empty"
     sample_forecast = forecast[0]
 
     # Resolve time bounds
@@ -199,19 +217,13 @@ def visualize_trajectories(
         t_before = duration
 
     # Clamp offset/num_examples
-    offset = int(offset)
-    num_examples = int(num_examples)
-    offset = max(0, min(offset, len(forecast) - 1))
-    num_examples = min(num_examples, len(forecast) - offset)
+    offset = max(0, min(int(offset), len(forecast) - 1))
+    num_examples = min(int(num_examples), len(forecast) - offset)
 
-    # Create axes
+    # Create axes with reduced space between subplots
     if ax is None:
         fig = plt.figure(figsize=figsize, dpi=dpi, layout="constrained")
-        gs = fig.add_gridspec(
-            1, 2,
-            width_ratios=(3.2, 1.3),
-            wspace=0.05,
-        )
+        gs = fig.add_gridspec(1, 2, width_ratios=(3.2, 1.3), wspace=0.02)
         axA = fig.add_subplot(gs[0])
         axAA = axA.twinx()
         axB = fig.add_subplot(gs[1], sharey=axAA)
@@ -222,27 +234,23 @@ def visualize_trajectories(
         axAA = axA.twinx()
 
     # Data slices
-    s_viz = seq.get_subsequence(
-        t_start - t_before, t_end, reset_t_nll_to_end=reset_t_nll_to_end
-    ).cpu()
-    s_obs = seq.get_subsequence(
-        t_start, t_end, reset_t_nll_to_end=reset_t_nll_to_end
-    ).cpu()
+    s_viz = seq.get_subsequence(t_start - t_before, t_end, reset_t_nll_to_end=reset_t_nll_to_end).cpu()
+    s_obs = seq.get_subsequence(t_start, t_end, reset_t_nll_to_end=reset_t_nll_to_end).cpu()
 
-    # --- Left panel: events + forecast window highlight ---
+    # --- Left panel: Events + forecast window highlight ---
     axA.margins(x=0)
-    axA.axvspan(t_start, t_end, color="k", alpha=0.06, lw=0)
+    # axA.axvspan(t_start, t_end, color="C0", alpha=0.06, lw=0)  # Highlight forecast window with color C0
     axA.axvline(t_start, c="k", lw=1, ls="--", alpha=0.8)
 
+    # Visualize observed sequence and forecast trajectories
     visualize_sequence(seq=s_viz, ax=axA, event_color=event_color, show_legend=False, xlabel=xlabel)
-
     axA.set_title("Observed sequence + example forecast trajectories", fontsize=10)
     axA.set_xlabel(xlabel, fontsize=9)
     axA.set_ylabel("Magnitude", fontsize=9)
     axA.tick_params(axis="both", labelsize=8)
     axA.grid(axis="x", alpha=0.25)
 
-    # Counting process (right y of left panel)
+    # Counting process on the right y-axis of the left panel
     plot_counting_process(s_obs, axAA, "k", T0=t_start, T=t_end)
     for i_samp in forecast[offset:offset + num_examples]:
         plot_counting_process(i_samp.cpu(), axAA, "k", 0.18, T0=t_start, T=t_end)
@@ -251,16 +259,16 @@ def visualize_trajectories(
     axAA.tick_params(axis="y", labelsize=8)
     axAA.grid(False)
 
-    # Reduce x tick density
+    # Reduce x tick density to avoid cluttering
     xt = axA.get_xticks()
     if len(xt) > 6:
         axA.set_xticks(xt[::2])
 
-    # --- Right panel: histogram of event counts per forecast ---
+    # --- Right panel: Histogram of event counts per forecast ---
     counts_per_forecast = np.array([len(s) for s in forecast], dtype=float)
     obs_count = len(s_obs)
 
-    # y-axis (shared with cumulative count axis); choose sensible limits
+    # Y-axis limits (shared with cumulative count axis)
     q025, q975 = np.quantile(counts_per_forecast, [0.025, 0.975])
     y_max = max(obs_count, q975) * 1.05
     axB.set_ylim(0, y_max)
@@ -276,7 +284,7 @@ def visualize_trajectories(
         linewidth=0.8,
         label="Simulated",
     )
-    axB.axhline(obs_count, c="C1", lw=1.6, label="Observed")
+    axB.axhline(obs_count, c="k", lw=1.6, label="Observed")
 
     axB.set_title("Forecast counts", fontsize=10)
     axB.set_xlabel("Frequency", fontsize=9)
@@ -287,9 +295,8 @@ def visualize_trajectories(
     axB.grid(axis="y", alpha=0.15)
     axB.legend(fontsize=8, loc="upper right", frameon=False)
 
-    # Annotation (mode + 95% interval)
+    # Add annotation for observed count and 95% interval
     txt = f"Observed: {len(s_obs)}\n95%: [{int(q025)}, {int(q975)}]"
-
     axB.text(
         0.05, 0.55, txt,
         transform=axB.transAxes, fontsize=8,
@@ -297,6 +304,7 @@ def visualize_trajectories(
         bbox=dict(facecolor="white", alpha=0.75, edgecolor="none"),
     )
 
+    # Save the figure if a path is provided
     if save_path is not None:
         fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
 

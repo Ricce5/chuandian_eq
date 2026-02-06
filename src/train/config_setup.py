@@ -362,12 +362,13 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
     else:
         raise ValueError("Invalid scheduler type. Choose from 'plateau', 'cosine', 'hf_cosine', 'hf_linear', 'hf_constant'.")
 
-def load_and_prepare_model(checkpoint_path, device):
+def load_and_prepare_model(checkpoint_path, device,compile = True):
     check_point = torch.load(checkpoint_path, weights_only=False)
     args = load_args_from_checkpoint(None, check_point)
     model_builder = ModelBuilder.by_name(args.model.lower())()
     model = model_builder(args, device)
     model, _, _ = load_model_from_checkpoint(model, check_point)
-    model = torch.compile(model)
+    if compile:
+        model = torch.compile(model)
     model.eval()
     return model, args
