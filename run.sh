@@ -1,7 +1,7 @@
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 python main.py --model reg_mixer_attnpl_t --mode train
 python main.py --model clf_mixer_attnpl_t --mode train
-python main.py --model mixer_tpp --mode train
+python main.py --model mixer_tpp --mode test --checkpoint  checkpoints/mixer_tpp_20260204-233222
 python main.py --model classifier --mode train
 python main.py --model clf_attnpl_t --mode train
 python main.py --model classifier_se --mode train

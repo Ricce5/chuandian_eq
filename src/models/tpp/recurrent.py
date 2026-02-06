@@ -71,7 +71,7 @@ class RecurrentTPP(TPPModel):
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.rnn = getattr(nn, args.rnn_type)(
-            self.num_rnn_inputs, self.context_size, batch_first=True
+            self.num_rnn_inputs, self.context_size, batch_first=True,
         )
         # from src.utils.utils import init_rnn_weights 
         # init_rnn_weights(self.rnn,seed=42) 
