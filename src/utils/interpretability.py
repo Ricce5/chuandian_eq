@@ -642,3 +642,181 @@ def plot_event_magnitude_and_importance(
         plt.close(fig)
 
     return fig, ax1, ax2
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def plot_event_magnitude_and_importance_clean(
+    x,                       # [B, L, D]
+    importance,              # [B, L] or [L]
+    batch_idx: int = 0,
+    time_channel: int = 1,   # 1 = normalized time, 0 = real time
+    mag_channel: int = 2,
+    importance_norm: str | None = "p99",   # None | "max" | "sum" | "zscore" | "p99"
+    eps: float = 1e-12,
+    title: str = "Event magnitudes and IG-based event importance",
+    xlabel: str | None = None,
+    ylabel_mag: str = "Magnitude",
+    ylabel_imp: str = "IG attribution",
+    bar_alpha: float = 0.35,
+    bar_width: float | None = None,
+    figsize=(14, 4.8),
+    savepath: str | None = None,
+    show: bool = True,
+    mag_color: str = "tab:blue",
+    imp_color: str = "tab:red",
+    mask: np.ndarray | None = None,
+    # ---- recommended: fix/standardize axes for paper-ready figures ----
+    clip_mag: tuple[float, float] | None = (3.0, 5.2),   # set None to auto
+    imp_ylim: tuple[float, float] | None = (0.0, 1.05),  # useful when importance_norm in {max,sum,p99}
+    # ---- layout controls to prevent left labels from being cut off ----
+    left_margin: float = 0.09,    # increase if your left labels are clipped
+    right_margin: float = 0.985,
+    top_margin: float = 0.92,
+    bottom_margin: float = 0.14,
+    hspace: float = 0.08,
+    height_ratios: Tuple[float, float] | None = (2.0, 1.5),  # relative heights of mag vs importance
+    dpi: int = 300,
+):
+    """
+    Paper-ready plot: two-row layout with shared x-axis.
+      - Top: magnitude scatter (no redundant marker-size encoding).
+      - Bottom: IG importance bars (optionally normalized/clipped).
+
+    Fixes common issues:
+      - Prevents left-side labels/ticks from being clipped by using subplots_adjust
+        and saving with bbox_inches="tight".
+      - Allows standardized y-limits for magnitude and importance.
+    """
+
+    # ---- convert to numpy ----
+    def to_np(a):
+        if hasattr(a, "detach"):
+            a = a.detach()
+        if hasattr(a, "cpu"):
+            a = a.cpu()
+        return np.asarray(a)
+
+    x_np = to_np(x)
+    imp_np = to_np(importance)
+
+    if x_np.ndim != 3:
+        raise ValueError(f"x must be [B,L,D], got shape {x_np.shape}")
+    B, L, D = x_np.shape
+    if not (0 <= batch_idx < B):
+        raise ValueError(f"batch_idx out of range: {batch_idx} for B={B}")
+
+    # ---- importance shape handling ----
+    if imp_np.ndim ==  2:
+        imp_1d = imp_np[batch_idx]
+    elif imp_np.ndim == 1:
+        if imp_np.shape[0] != L:
+            raise ValueError(f"importance length {imp_np.shape[0]} != L {L}")
+        imp_1d = imp_np
+    else:
+        raise ValueError(f"importance must be [B,L] or [L], got shape {imp_np.shape}")
+
+    # ---- x-axis (time) and magnitude ----
+    t = x_np[batch_idx, :, time_channel].astype(float)
+    if mag_channel >= D:
+        raise ValueError(f"mag_channel={mag_channel} out of bounds for D={D}")
+    m = x_np[batch_idx, :, mag_channel].astype(float)
+
+    # ---- apply mask if provided ----
+    if mask is not None:
+        if mask.shape != (B, L):
+            raise ValueError(f"Mask shape {mask.shape} must be [B, L], got {mask.shape}")
+        valid = mask[batch_idx].astype(bool)
+        t, m, imp_1d = t[valid], m[valid], imp_1d[valid]
+
+    # ---- sort by time ----
+    order = np.argsort(t)
+    t, m, imp_1d = t[order], m[order], imp_1d[order]
+
+    # ---- normalize importance if requested ----
+    imp_plot = imp_1d.astype(float).copy()
+    suffix = ""
+    if importance_norm is None:
+        pass
+    else:
+        key = importance_norm.lower()
+        if key == "max":
+            imp_plot = imp_plot / (np.max(imp_plot) + eps)
+            suffix = " (norm. by max)"
+        elif key == "sum":
+            imp_plot = imp_plot / (np.sum(imp_plot) + eps)
+            suffix = " (norm. by sum)"
+        elif key == "zscore":
+            mu = np.mean(imp_plot)
+            sd = np.std(imp_plot) + eps
+            imp_plot = (imp_plot - mu) / sd
+            suffix = " (z-score)"
+        elif key == "p99":
+            p = np.percentile(imp_plot, 99)
+            imp_plot = np.clip(imp_plot / (p + eps), 0.0, 1.0)
+            suffix = " (clipped / p99)"
+        else:
+            raise ValueError(f"Unknown importance_norm: {importance_norm}")
+
+    # ---- x label ----
+    if xlabel is None:
+        xlabel = "Normalized time (0: observation window start, 1: observation window end)" if time_channel == 1 else "Time"
+
+    # ---- bar width ----
+    if bar_width is None:
+        if time_channel == 1:
+            bar_width = 0.002  # slightly thinner for normalized time
+        else:
+            span = (np.max(t) - np.min(t)) + eps
+            bar_width = 0.002 * span
+
+    # ---- plot: two-row layout ----
+    if isinstance(height_ratios, (tuple, list)):
+        ratios = height_ratios
+    else:
+        ratios = [2., 1.5]
+    fig, (ax_mag, ax_imp) = plt.subplots(
+        2, 1, figsize=figsize, sharex=True,
+        gridspec_kw={"height_ratios": ratios, "hspace": hspace}
+    )
+
+    # Top: magnitude scatter (fixed marker size to avoid redundant encoding)
+    ax_mag.scatter(t, m, s=14, color=mag_color, alpha=0.75, edgecolors="none", label="Event magnitude")
+    ax_mag.set_ylabel(ylabel_mag)
+    ax_mag.set_title(title)
+    ax_mag.grid(True, linestyle="--", linewidth=0.6, alpha=0.4)
+    ax_mag.legend(loc="upper right", frameon=True)
+
+    if clip_mag is not None:
+        ax_mag.set_ylim(*clip_mag)
+
+    # Bottom: importance bars
+    ax_imp.bar(t, imp_plot, width=bar_width, color=imp_color, alpha=bar_alpha, label="Event importance (IG)")
+    ax_imp.set_ylabel(ylabel_imp + suffix)
+    ax_imp.set_xlabel(xlabel)
+    ax_imp.grid(True, axis="y", linestyle="--", linewidth=0.6, alpha=0.35)
+    ax_imp.legend(loc="upper right", frameon=True)
+
+    # Set a stable y-limit for normalized importance
+    if imp_ylim is not None and (importance_norm is not None and importance_norm.lower() in ["max", "sum", "p99"]):
+        ax_imp.set_ylim(*imp_ylim)
+
+    # ---- fix left label clipping: use explicit margins (more reliable than tight_layout alone) ----
+    fig.subplots_adjust(
+        left=left_margin, right=right_margin,
+        top=top_margin, bottom=bottom_margin,
+        hspace=hspace
+    )
+
+    # ---- save/show ----
+    if savepath is not None:
+        # bbox_inches="tight" further prevents clipping in saved files
+        plt.savefig(savepath, dpi=dpi, bbox_inches="tight")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return fig, ax_mag, ax_imp

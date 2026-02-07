@@ -371,7 +371,8 @@ def run_magnitude_test_result(
     obs_catalog_repr: str = 'obs',
     obs_name: str = 'catalog',
     sim_name: str = 'forecast',
-    plot: bool = True
+    plot: bool = True,
+    plot_args: Optional[Dict[str, Any]] = None
 ) -> CatalogMagnitudeTestResult:
     test_distribution = result_dict.get('test_distribution', [])
     obs_stat = result_dict.get('obs_d_statistic', None)
@@ -389,7 +390,7 @@ def run_magnitude_test_result(
             sim_name=sim_name
         )
         if plot:
-            result.plot()
+            result.plot(**plot_args if plot_args else {})
         return result
 
     delta_1, delta_2 = get_quantiles(test_distribution, obs_stat)
@@ -405,7 +406,7 @@ def run_magnitude_test_result(
         sim_name=sim_name
     )
     if plot:
-        result.plot()
+        result.plot(**plot_args if plot_args else {})
     return result
 
 
