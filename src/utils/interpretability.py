@@ -497,15 +497,17 @@ def plot_event_magnitude_and_importance(
     show: bool = True,
     mag_color: str = "tab:blue",
     imp_color: str = "tab:red",
+    mask: np.ndarray | None = None 
 ):
     """
     Plots magnitude (left axis) and IG-based event importance (right axis) against time.
-    Supports importance normalization.
+    Supports importance normalization and mask handling.
 
     Notes:
       - x[:,:,time_channel] is used as the x-axis (time).
       - magnitude is taken from x[:,:,mag_channel] by default; adjust mag_channel to match your data.
       - importance can be unnormalized or normalized via importance_norm.
+      - mask is applied to filter out invalid time steps.
     """
     # ---- convert to numpy ----
     def to_np(a):
@@ -542,6 +544,16 @@ def plot_event_magnitude_and_importance(
         raise ValueError(f"mag_channel={mag_channel} out of bounds for D={D}")
     m = x_np[batch_idx, :, mag_channel].astype(float)
 
+    # ---- Apply mask if provided ----
+    if mask is not None:
+        if mask.shape != (B, L):
+            raise ValueError(f"Mask shape {mask.shape} must be [B, L], got {mask.shape}")
+        # Apply mask to filter out invalid time steps (where mask is False)
+        valid_idx = mask[batch_idx]  # Get the mask for the specific batch
+        t = t[valid_idx]
+        m = m[valid_idx]
+        imp_1d = imp_1d[valid_idx]
+
     # sort by time for cleaner plots (important if your batch is padded/unsorted)
     order = np.argsort(t)
     t = t[order]
@@ -577,7 +589,7 @@ def plot_event_magnitude_and_importance(
     # ---- labels ----
     if xlabel is None:
         if time_channel == 1:
-            xlabel = "Normalized time (0: window start, 1: forecast origin)"
+            xlabel = "Normalized time (0: window start, 1: window end)"
         else:
             xlabel = "Time"
 
@@ -585,10 +597,14 @@ def plot_event_magnitude_and_importance(
     fig, ax1 = plt.subplots(figsize=figsize)
 
     # magnitude (left axis) with distinct color
+    # Point size is now proportional to the magnitude, use a log transformation if needed
+    mag_size = np.exp(2 * m - np.min(m))  # exponential scaling for visibility
+
     if use_scatter_for_mag:
-        ax1.scatter(t, m, s=10, label="Event Magnitude", color=mag_color)
+        ax1.scatter(t, m, s=mag_size, label="Event Magnitude", color=mag_color, alpha=0.6)
     else:
-        ax1.plot(t, m, linestyle=":", label="Event Magnitude", color=mag_color)
+        ax1.scatter(t, m, s=mag_size, label="Event Magnitude", color=mag_color, alpha=0.6)
+
     ax1.set_xlabel(xlabel)
     ax1.set_ylabel(ylabel_left, color=mag_color)
     ax1.tick_params(axis="y", labelcolor=mag_color)
@@ -600,11 +616,9 @@ def plot_event_magnitude_and_importance(
 
     # choose a reasonable bar width if not provided
     if bar_width is None:
-        # for normalized time, bars are dense; keep narrow
         if time_channel == 1:
             bar_width = 0.002
         else:
-            # for real time (irregular), choose a small fraction of span
             span = (np.max(t) - np.min(t)) + eps
             bar_width = 0.002 * span
 
@@ -615,7 +629,7 @@ def plot_event_magnitude_and_importance(
     # legend: combine from both axes
     h1, l1 = ax1.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
-    ax1.legend(h1 + h2, l1 + l2, loc="upper left", frameon=True)
+    ax1.legend(h1 + h2, l1 + l2, loc="upper left", frameon=True,markerscale=0.4)
 
     plt.tight_layout()
 
@@ -628,90 +642,3 @@ def plot_event_magnitude_and_importance(
         plt.close(fig)
 
     return fig, ax1, ax2
-
-# -----------------------------
-
-
-    return fig, ax_mag, ax_imp
-
-
-def capture_layer_activations(model, x, module, valid_mask=None, visualize=True):
-    """
-    Capture activations from model.base_model.encoder.layers[layer_idx] for input x.
-    Returns a dict with tensors/numpy arrays and stats; optionally plots hist/means.
-    """
-    layer_out = []
-    def _hook(module, inp, out):
-        out_ = out[0] if isinstance(out, tuple) else out
-        layer_out.append(out_.detach().cpu())
-
-    handle = module.register_forward_hook(_hook)
-    try:
-        with torch.no_grad():
-            _ = model(x)
-    finally:
-        handle.remove()
-
-    if len(layer_out) == 0:
-        print("No activations captured.")
-        return {}
-
-    h = layer_out[0]  # (B, L, D) on CPU
-    if valid_mask is None:
-        valid_mask = (x.abs().sum(dim=-1) > 0).detach().cpu()  # (B, L)
-    n_valid = int(valid_mask.sum().item())
-    n_total = int(valid_mask.numel())
-
-    h_valid = h[valid_mask]  # (N_valid, D)
-
-    stats = {
-        "n_valid": n_valid,
-        "n_total": n_total,
-        "mean_all": float(h.mean().item()),
-        "std_all": float(h.std().item()),
-        "min_all": float(h.min().item()),
-        "max_all": float(h.max().item()),
-        "mean_masked": float(h_valid.mean().item()),
-        "std_masked": float(h_valid.std().item()),
-        "min_masked": float(h_valid.min().item()),
-        "max_masked": float(h_valid.max().item()),
-    }
-
-    channel_means_all = h.mean(dim=(0, 1)).numpy()
-    channel_means_masked = h_valid.mean(dim=0).numpy()
-    h_flat_all = h.reshape(-1).numpy()
-    h_flat_masked = h_valid.reshape(-1).numpy()
-
-    out = {
-        "h": h,
-        "h_valid": h_valid,
-        "valid_mask": valid_mask,
-        "channel_means_all": channel_means_all,
-        "channel_means_masked": channel_means_masked,
-        "h_flat_all": h_flat_all,
-        "h_flat_masked": h_flat_masked,
-        "stats": stats,
-    }
-
-    if visualize:
-        plt.figure(figsize=(12,4))
-        plt.subplot(1,2,1)
-        plt.hist(h_flat_masked, bins=100)
-        plt.title(f"activation histogram (masked)")
-        plt.subplot(1,2,2)
-        plt.plot(channel_means_masked, label="masked")
-        plt.plot(channel_means_all, alpha=0.5, label="all")
-        plt.title("Per-channel mean")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
-
-        plt.figure(figsize=(6,4))
-        plt.hist(h_flat_all, bins=100, alpha=0.4, label="all")
-        plt.hist(h_flat_masked, bins=100, alpha=0.6, label="masked")
-        plt.legend()
-        plt.title("Histogram: all vs masked")
-        plt.tight_layout()
-        plt.show()
-
-    return out

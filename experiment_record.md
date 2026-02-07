@@ -482,4 +482,5 @@ SCEDC 预测，b值绘图 ：checkpoints/mixer_tpp_20260206-112901
     ../checkpoints/mixer_tpp_20260205-111733
 
 
-ChuanDian 预测，b值绘图 ：checkpoints/mixer_tpp_20260204-220105
+ChuanDian 预测，b值绘图 ：checkpoints/mixer_tpp_20260207-095619
+checkpoints/mixer_tpp_20260204-220105 
