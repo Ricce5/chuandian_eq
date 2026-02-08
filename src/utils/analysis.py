@@ -59,6 +59,9 @@ def tsne_scatter(
     perplexity: float = 30,
     learning_rate: float = 200,
     n_iter: int = 1000,
+    title_left: str = "t-SNE colored by true label (y_all)",
+    title_right: str = "t-SNE colored by model score (y_pred_all)",
+    show: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Standardize features, run t-SNE, and plot two panels colored by
@@ -72,7 +75,7 @@ def tsne_scatter(
         n_components=2,
         perplexity=perplexity,
         learning_rate=learning_rate,
-        n_iter=n_iter,
+        max_iter=n_iter,
         random_state=0,
     )
     X_tsne = tsne.fit_transform(X_scaled)
@@ -81,66 +84,20 @@ def tsne_scatter(
     y_max = float(np.max(y_pred_all))
     y_score = (y_pred_all - y_min) / (y_max - y_min + 1e-8)
 
-    # Plot two panels as in notebooks
     import matplotlib.pyplot as plt
     fig, axs = plt.subplots(1, 2, figsize=(12, 5))
-    sc0 = axs[0].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y_all, cmap="coolwarm", s=8, alpha=0.8)
-    axs[0].set_title("t-SNE colored by true label (y_all)")
-    plt.colorbar(sc0, ax=axs[0])
-
-    sc1 = axs[1].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y_score, cmap="viridis", s=8, alpha=0.8)
-    axs[1].set_title("t-SNE colored by model score (y_pred_all)")
-    plt.colorbar(sc1, ax=axs[1])
-
-    plt.tight_layout()
-    plt.show()
-
-    return X_scaled, X_tsne, y_score
-
-
-def tsne_scatter_plot(
-    X: np.ndarray,
-    y_true: Optional[np.ndarray] = None,
-    y_score: Optional[np.ndarray] = None,
-    perplexity: float = 30,
-    learning_rate: float = 200,
-    max_iter: int = 1000,
-    title_left: str = "t-SNE colored by true label",
-    title_right: str = "t-SNE colored by score",
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Standardize features, run t-SNE, and plot two panels colored by truth and score.
-    Mirrors the helper used in Classifier_analysis notebook.
-
-    Returns standardized features and 2D embeddings.
-    """
-    Xf = X.astype(float)
-    X_scaled = StandardScaler().fit_transform(Xf)
-
-    tsne = TSNE(
-        n_components=2,
-        perplexity=perplexity,
-        learning_rate=learning_rate,
-        n_iter=max_iter,
-        random_state=0,
-    )
-    X_tsne = tsne.fit_transform(X_scaled)
-
-    import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(1, 2, figsize=(12, 5))
-    if y_true is not None:
-        sc0 = axs[0].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y_true, cmap="coolwarm", s=8, alpha=0.8)
+    # Left panel: true labels
+    if y_all is not None:
+        sc0 = axs[0].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y_all, cmap="coolwarm", s=8, alpha=0.8)
         axs[0].set_title(title_left)
         plt.colorbar(sc0, ax=axs[0])
     else:
         axs[0].scatter(X_tsne[:, 0], X_tsne[:, 1], s=8, alpha=0.8)
         axs[0].set_title("t-SNE (no label)")
 
+    # Right panel: normalized prediction score
     if y_score is not None:
-        ymin = float(np.min(y_score))
-        ymax = float(np.max(y_score))
-        y_score_nl = (y_score - ymin) / (ymax - ymin + 1e-8)
-        sc1 = axs[1].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y_score_nl, cmap="viridis", s=8, alpha=0.8)
+        sc1 = axs[1].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y_score, cmap="viridis", s=8, alpha=0.8)
         axs[1].set_title(title_right)
         plt.colorbar(sc1, ax=axs[1])
     else:
@@ -148,6 +105,7 @@ def tsne_scatter_plot(
         axs[1].set_title("t-SNE (no score)")
 
     plt.tight_layout()
-    plt.show()
+    if show:
+        plt.show()
 
-    return X_scaled, X_tsne
+    return X_scaled, X_tsne, y_score
