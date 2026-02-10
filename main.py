@@ -106,6 +106,8 @@ if __name__ == "__main__":
     parser.add_argument('--ckpt_select', type=str, choices=['best', 'last', 'epoch'], default='best',
                     help='Which checkpoint to use in test mode (best, last, or epoch)')
     parser.add_argument('--ckpt_epoch', type=int, default=None, help='Epoch number to load when --ckpt_select epoch')
+    parser.add_argument('--threshold', type=float, default=None, help='If provided, use this threshold for classification test (overrides checkpoint)')
+    parser.add_argument('--no_val_threshold', action='store_true', default=False, help='Do not use threshold stored in checkpoint val_metrics')
 
 
     args_cli = parser.parse_args()
@@ -184,13 +186,39 @@ if __name__ == "__main__":
             checkpoint=checkpoint, restore_weights=True
         )
         if args.task_type != "tpp":
-            test_loss, metrics = train_step.test(
-                model=model,
-                criterion=criterion,
-                data_loader=test_loader,  # Test data loader
-                device=device,
-                save_dir=args.save_dir,
-            )
+            # Determine threshold only for classification task
+            if getattr(args, 'task_type', None) == 'classification':
+                # Priority: CLI --threshold > checkpoint val_metrics (unless --no_val_threshold) > None
+                cli_thresh = getattr(args_cli, 'threshold', None)
+                if cli_thresh is not None:
+                    threshold = cli_thresh
+                    logging.info(f"Using threshold {threshold} from CLI argument for testing.")
+                else:
+                    threshold = None
+                    if not getattr(args_cli, 'no_val_threshold', False):
+                        if checkpoint is not None and isinstance(checkpoint, dict):
+                            val_metrics = checkpoint.get('val_metrics', {})
+                            if isinstance(val_metrics, dict) and 'threshold' in val_metrics:
+                                threshold = val_metrics.get('threshold')
+                                logging.info(f"Using threshold {threshold} from checkpoint val_metrics for testing.")
+
+                test_loss, metrics = train_step.test(
+                    model=model,
+                    criterion=criterion,
+                    data_loader=test_loader,  # Test data loader
+                    device=device,
+                    save_dir=args.save_dir,
+                    threshold=threshold,
+                )
+            elif getattr(args, 'task_type', None) == 'regression':
+                # For non-classification (e.g., regression), do not pass threshold
+                test_loss, metrics = train_step.test(
+                    model=model,
+                    criterion=criterion,
+                    data_loader=test_loader,  # Test data loader
+                    device=device,
+                    save_dir=args.save_dir,
+                )
             print("Test loss:", test_loss)
             train_step.visualize_results(model,train_loader, val_loader, test_loader, device,args.save_dir)
         else:

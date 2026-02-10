@@ -85,7 +85,7 @@ def validate(data_loader, model, criterion, device):
   
     return avg_val_loss, metrics
 
-def test(data_loader, model, criterion, device, save_dir=None):
+def test(data_loader, model, criterion, device, save_dir=None,threshold=None):
     
     model.eval()
     test_loss = 0
@@ -109,7 +109,7 @@ def test(data_loader, model, criterion, device, save_dir=None):
     all_node_targets = np.array(all_node_targets)
 
     # Calculate evaluation metrics
-    metrics = classification_metrics(all_node_targets, all_node_preds)
+    metrics = classification_metrics(all_node_targets, all_node_preds, threshold=threshold)
     log_metrics(metrics, prefix="Test")
     plot_and_save_roc_curve(all_node_targets, all_node_preds,metrics['auc'], save_dir, filename="roc_curve.png")
     avg_test_loss = test_loss / len(data_loader)
