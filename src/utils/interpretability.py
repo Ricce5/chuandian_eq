@@ -755,6 +755,7 @@ def plot_event_magnitude_and_importance_clean(
             dt_int = np.rint(scaled).astype(np.int64)
             t_np64 = t0_np + dt_int.astype(f"timedelta64[{time_unit}]")
         t_plot = np.array([_to_py_datetime(v) for v in t_np64], dtype=object)
+        print(f"observation window: {t_plot[0]} to {t_plot[-1]} (duration: {t_plot[-1] - t_plot[0]})")
     else:
         t_plot = t
 
