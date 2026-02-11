@@ -225,11 +225,25 @@ def get_balanced_sampler(dataset):
     sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
     return sampler
 
-def get_dataloader(dataset, batch_size, shuffle=True, sampler=None,task_type='classification'):
+def get_dataloader(
+    dataset,
+    batch_size,
+    shuffle=True,
+    sampler=None,
+    task_type='classification',
+    full_batch: bool = False,
+):
     if task_type == 'classification':
         pos_count, neg_count = count_pos_neg(dataset)
         print(f"Positive samples: {pos_count}, Negative samples: {neg_count}")
         print(f"Total samples: {len(dataset)}, Positive ratio: {pos_count / len(dataset):.2f}, Negative ratio: {neg_count / len(dataset):.2f}")
+
+    if full_batch:
+        if len(dataset) == 0:
+            raise ValueError("Cannot create full-batch DataLoader from an empty dataset.")
+        batch_size = len(dataset)
+        shuffle = False
+        sampler = None
 
     if sampler is not None:
         shuffle = False  
@@ -310,5 +324,4 @@ def split_data(samples_list, array_dict, test_size=0.1, val_size=0.1, random_sta
     test_samples, test_dict = extract_subset(test_idx)
 
     return (train_samples, train_dict), (val_samples, val_dict), (test_samples, test_dict)
-
 

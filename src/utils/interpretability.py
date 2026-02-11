@@ -5,6 +5,7 @@ import torch
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
+from src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime, set_xaxis_time_locator
 
 
 
@@ -644,8 +645,6 @@ def plot_event_magnitude_and_importance(
     return fig, ax1, ax2
 
 
-import numpy as np
-import matplotlib.pyplot as plt
 
 def plot_event_magnitude_and_importance_clean(
     x,                       # [B, L, D]
@@ -667,6 +666,11 @@ def plot_event_magnitude_and_importance_clean(
     mag_color: str = "tab:blue",
     imp_color: str = "tab:red",
     mask: np.ndarray | None = None,
+    x_axis: str = "relative",  # "relative" | "time"
+    start_time=None,           # datetime-like, required when x_axis="time"
+    time_scale: float = 1.0,   # multiply time values before converting (default: days)
+    time_unit: str = "D",      # timedelta unit for converted relative time
+    use_time_locator: bool = True,
     # ---- recommended: fix/standardize axes for paper-ready figures ----
     clip_mag: tuple[float, float] | None = (3.0, 5.2),   # set None to auto
     imp_ylim: tuple[float, float] | None = (0.0, 1.05),  # useful when importance_norm in {max,sum,p99}
@@ -734,6 +738,26 @@ def plot_event_magnitude_and_importance_clean(
     order = np.argsort(t)
     t, m, imp_1d = t[order], m[order], imp_1d[order]
 
+    if x_axis not in {"relative", "time"}:
+        raise ValueError("x_axis must be either 'relative' or 'time'")
+
+    # Convert relative time values to absolute datetimes when requested.
+    # Default assumes input t is in days since start_time.
+    if x_axis == "time":
+        if start_time is None:
+            raise ValueError("start_time is required when x_axis='time'")
+        t0_np = _to_np_datetime64_seconds(start_time)
+        scaled = np.asarray(t, dtype=float) * float(time_scale)
+        if time_unit == "D":
+            dt_seconds = np.rint(scaled * 86400.0).astype(np.int64)
+            t_np64 = t0_np + dt_seconds.astype("timedelta64[s]")
+        else:
+            dt_int = np.rint(scaled).astype(np.int64)
+            t_np64 = t0_np + dt_int.astype(f"timedelta64[{time_unit}]")
+        t_plot = np.array([_to_py_datetime(v) for v in t_np64], dtype=object)
+    else:
+        t_plot = t
+
     # ---- normalize importance if requested ----
     imp_plot = imp_1d.astype(float).copy()
     suffix = ""
@@ -761,7 +785,10 @@ def plot_event_magnitude_and_importance_clean(
 
     # ---- x label ----
     if xlabel is None:
-        xlabel = "Normalized time (0: observation window start, 1: observation window end)" if time_channel == 1 else "Time"
+        if x_axis == "time":
+            xlabel = "Time"
+        else:
+            xlabel = "Normalized time (0: observation window start, 1: observation window end)" if time_channel == 1 else "Time"
 
     # ---- bar width ----
     if bar_width is None:
@@ -782,7 +809,7 @@ def plot_event_magnitude_and_importance_clean(
     )
 
     # Top: magnitude scatter (fixed marker size to avoid redundant encoding)
-    ax_mag.scatter(t, m, s=14, color=mag_color, alpha=0.75, edgecolors="none", label="Event magnitude")
+    ax_mag.scatter(t_plot, m, s=14, color=mag_color, alpha=0.75, edgecolors="none", label="Event magnitude")
     ax_mag.set_ylabel(ylabel_mag)
     ax_mag.set_title(title)
     ax_mag.grid(True, linestyle="--", linewidth=0.6, alpha=0.4)
@@ -792,11 +819,22 @@ def plot_event_magnitude_and_importance_clean(
         ax_mag.set_ylim(*clip_mag)
 
     # Bottom: importance bars
-    ax_imp.bar(t, imp_plot, width=bar_width, color=imp_color, alpha=bar_alpha, label="Event importance (IG)")
+    ax_imp.bar(t_plot, imp_plot, width=bar_width, color=imp_color, alpha=bar_alpha, label="Event importance (IG)")
     ax_imp.set_ylabel(ylabel_imp + suffix)
     ax_imp.set_xlabel(xlabel)
     ax_imp.grid(True, axis="y", linestyle="--", linewidth=0.6, alpha=0.35)
     ax_imp.legend(loc="upper right", frameon=True)
+
+    if x_axis == "time" and use_time_locator:
+       set_xaxis_time_locator(
+        ax_imp,
+        start_time,
+        x_axis="time",
+        major_date_fmt="%Y-%m-%d",
+        major_unit="month",
+        major_interval=1
+    )
+
 
     # Set a stable y-limit for normalized importance
     if imp_ylim is not None and (importance_norm is not None and importance_norm.lower() in ["max", "sum", "p99"]):

@@ -301,7 +301,7 @@ def visualize_trajectories(
     # Annotation for observed count and 95% interval
     txt = f"Observed: {len(s_obs)}\n95%: [{int(q025)}, {int(q975)}]"
     axB.text(
-        0.05,
+        0.65,
         0.55,
         txt,
         transform=axB.transAxes,

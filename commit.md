@@ -42,6 +42,7 @@ debug:
 18. 调整mini_batch长度截断
 19. 修改pad值
 20. mixer adapter 直接return mag
+21. 支持分类器切换threshhold
 
 问题
 1. f_intensity单调衰减

@@ -66,28 +66,85 @@ def _to_py_datetime(t64: np.datetime64) -> datetime:
     ts = (t64 - np.datetime64('1970-01-01T00:00:00', 's')) / np.timedelta64(1, 's')
     return datetime.fromtimestamp(float(ts), tz=timezone.utc)
 
-def set_xaxis_time_locator(ax, start_time, x_axis="time"):
-    """
-    Function to set X axis ticks for time-based data.
 
-    Parameters:
+
+def set_xaxis_time_locator(
+    ax,
+    start_time,
+    x_axis: str = "time",
+    major_date_fmt: str = "%Y",
+    major_unit: str = "year",   # "day" | "month" | "year"
+    major_interval: int = 5,    # 5天 / 5月 / 5年
+    minor_unit: str | None = "month",  # None | "day" | "month" | "quarter"
+    hide_minor_ticks: bool = True,
+):
+    """
+    Set X axis ticks for time-based data.
+
+    Parameters
+    ----------
     ax : matplotlib.axes.Axes
-        The axis to modify.
-    start_time : str or datetime
-        The start time to align the ticks.
-    x_axis : str, optional
-        Whether to use time-based x-axis. Default is "time".
+        Axis to modify.
+    start_time : str | datetime | np.datetime64
+        Start time used for alignment (month/day when using year/month locators).
+    x_axis : str
+        Use time-based x-axis when == "time".
+    major_date_fmt : str
+        Major tick label format (matplotlib.dates.DateFormatter).
+        Examples: "%Y", "%Y-%m", "%Y-%m-%d".
+    major_unit : str
+        Major tick unit: "day", "month", "year".
+    major_interval : int
+        Major tick interval count (e.g., 5 days / 5 months / 5 years).
+    minor_unit : str | None
+        Minor tick unit: None, "day", "month", "quarter".
+    hide_minor_ticks : bool
+        If True, do not draw minor tick marks on bottom (locator may still help grids).
     """
-    if x_axis == "time" and start_time is not None:
-        # Convert np.datetime64 start point to Python datetime to extract month/day
-        t0_py = _to_py_datetime(_to_np_datetime64_seconds(start_time))
+    if x_axis != "time" or start_time is None:
+        return
 
-        # Major ticks: Align with the "year-month-day" of the start time, one tick every 5 years
+    if major_interval < 1:
+        raise ValueError("major_interval must be >= 1")
+
+    # Convert start_time to Python datetime to extract month/day, etc.
+    t0_py = _to_py_datetime(_to_np_datetime64_seconds(start_time))
+    if not isinstance(t0_py, datetime):
+        raise TypeError("start_time could not be converted to datetime")
+
+    # ---- Major locator ----
+    major_unit = major_unit.lower()
+    if major_unit == "year":
         ax.xaxis.set_major_locator(
-            mdates.YearLocator(base=5, month=t0_py.month, day=t0_py.day)
+            mdates.YearLocator(base=major_interval, month=t0_py.month, day=t0_py.day)
         )
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    elif major_unit == "month":
+        # Note: if t0_py.day is 29/30/31 some months may not have that day -> ticks may skip.
+        ax.xaxis.set_major_locator(
+        mdates.MonthLocator(interval=major_interval, bymonthday=1)  # 固定每月1号
+    )
+    elif major_unit == "day":
+        ax.xaxis.set_major_locator(
+            mdates.DayLocator(interval=major_interval)
+        )
+    else:
+        raise ValueError('major_unit must be one of: "day", "month", "year"')
 
-        # (Optional) Minor ticks: Quarterly positioning for easier reading
-        ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 4, 7, 10)))
-        ax.tick_params(axis='x', which='minor', bottom=False)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(major_date_fmt))
+
+    # ---- Minor locator (optional) ----
+    if minor_unit is None:
+        ax.xaxis.set_minor_locator(mdates.NullLocator())
+    else:
+        minor_unit = minor_unit.lower()
+        if minor_unit == "quarter":
+            ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=(1, 4, 7, 10)))
+        elif minor_unit == "month":
+            ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        elif minor_unit == "day":
+            ax.xaxis.set_minor_locator(mdates.DayLocator())
+        else:
+            raise ValueError('minor_unit must be one of: None, "day", "month", "quarter"')
+
+        if hide_minor_ticks:
+            ax.tick_params(axis="x", which="minor", bottom=False)
