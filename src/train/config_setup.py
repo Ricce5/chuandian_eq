@@ -1,12 +1,17 @@
+import logging
+
 import torch
-import torch.nn as nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, StepLR, LinearLR, SequentialLR
-from transformers import get_cosine_schedule_with_warmup,get_linear_schedule_with_warmup, get_constant_schedule_with_warmup
-from .scheduler import WarmupLinearDecay, NoOpScheduler,CosineWithWarmupFloor, LinearWithWarmupFloor
-from torch import nn
 from omegaconf import DictConfig, ListConfig, OmegaConf
-from src.utils.binary_focal_loss import  FocalLossWrapper
+from torch import nn
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, ReduceLROnPlateau, SequentialLR, StepLR
+from transformers import get_constant_schedule_with_warmup
+
 from src.models.builders import ModelBuilder
+from src.utils.binary_focal_loss import FocalLossWrapper
+
+from .scheduler import CosineWithWarmupFloor, LinearWithWarmupFloor, NoOpScheduler, WarmupLinearDecay
+
+logger = logging.getLogger(__name__)
 
 def _prune_to_schema(src, schema):
     """
@@ -68,7 +73,7 @@ def freeze_model_parts(model, freeze_keywords=None, allowed_names=None, exclude_
             continue
         if any(k in name for k in freeze_keywords) and not any(e in name for e in exclude_keywords):
             param.requires_grad = False
-            print(f"Froze parameter: {name}")
+            logger.info("Froze parameter: %s", name)
 
 def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
     """
@@ -77,26 +82,31 @@ def load_model_weights(model, checkpoint_state_dict, load_specific_parts=None):
     model_state_dict = model.state_dict()
     loaded_names = set()
 
-    print(f"load_specific_parts: {load_specific_parts}")
+    logger.info("load_specific_parts: %s", load_specific_parts)
     if load_specific_parts is not None:
         for name, param in checkpoint_state_dict.items():
             if any(keyword in name for keyword in load_specific_parts) and name in model_state_dict:
                 if model_state_dict[name].shape == param.shape:
                     model_state_dict[name] = param
                     loaded_names.add(name)  
-                    print(f"Loaded part: {name}")
+                    logger.info("Loaded part: %s", name)
                 else:
-                    print(f"Warning: Shape mismatch for {name} (checkpoint: {param.shape}, model: {model_state_dict[name].shape})")
+                    logger.warning(
+                        "Shape mismatch for %s (checkpoint: %s, model: %s)",
+                        name,
+                        param.shape,
+                        model_state_dict[name].shape,
+                    )
             elif name not in model_state_dict:
-                print(f"Warning: {name} not found in model!")
+                logger.warning("%s not found in model", name)
     else:
         load_result = model.load_state_dict(checkpoint_state_dict, strict=False)
-        print(f"Checkpoint loaded: {load_result}")
+        logger.info("Checkpoint loaded: %s", load_result)
 
         if load_result.missing_keys:
-            print(f"Warning: Missing keys (not loaded in the model): {load_result.missing_keys}")
+            logger.warning("Missing keys (not loaded in the model): %s", load_result.missing_keys)
         if load_result.unexpected_keys:
-            print(f"Warning: Unexpected keys (present in checkpoint but not in model): {load_result.unexpected_keys}")
+            logger.warning("Unexpected keys (present in checkpoint but not in model): %s", load_result.unexpected_keys)
         loaded_names = set(model_state_dict.keys()) - set(load_result.missing_keys)
 
     model.load_state_dict(model_state_dict)
@@ -111,11 +121,11 @@ def load_model_from_checkpoint(model, checkpoint, freeze_parts=None, load_specif
     loaded_names = load_model_weights(model, checkpoint['model_state_dict'], load_specific_parts=load_specific_parts)
 
     if 'hyperparameters' in checkpoint:
-        print("hyperparameters:", checkpoint['hyperparameters'])
+        logger.info("hyperparameters: %s", checkpoint['hyperparameters'])
     if 'train_metrics' in checkpoint:
-        print("train_metrics:", checkpoint['train_metrics'])
+        logger.info("train_metrics: %s", checkpoint['train_metrics'])
     if 'val_metrics' in checkpoint:
-        print("val_metrics:", checkpoint['val_metrics'])
+        logger.info("val_metrics: %s", checkpoint['val_metrics'])
 
     if freeze_parts:
         freeze_model_parts(
@@ -134,7 +144,6 @@ def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_w
     """
     Initialize the model, optimizer, and scheduler (supports loading from a checkpoint for training or testing).
     """
-    from src.models.builders import ModelBuilder
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
 
@@ -165,8 +174,8 @@ def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_w
             criterion = FocalLossWrapper(**criterion_cfg)
         else:
             raise ValueError(f"Unsupported criterion_name for classification: {criterion_name}")
-        print(f"Using classification criterion: {criterion_name}")
-        print(f"Criterion config: {criterion_cfg}")
+        logger.info("Using classification criterion: %s", criterion_name)
+        logger.info("Criterion config: %s", criterion_cfg)
 
     elif args.task_type == "regression":
         if criterion_name is None:
@@ -181,13 +190,13 @@ def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_w
             criterion = nn.SmoothL1Loss(**criterion_cfg)
         else:
             raise ValueError(f"Unsupported criterion_name for regression: {criterion_name}")
-        print(f"Using regression criterion: {criterion_name}")
-        print(f"Criterion config: {criterion_cfg}")
+        logger.info("Using regression criterion: %s", criterion_name)
+        logger.info("Criterion config: %s", criterion_cfg)
 
     elif args.task_type == "count":
         criterion = nn.PoissonNLLLoss(**criterion_cfg)
-        print("Using count criterion: PoissonNLLLoss")
-        print(f"Criterion config: {criterion_cfg}")
+        logger.info("Using count criterion: PoissonNLLLoss")
+        logger.info("Criterion config: %s", criterion_cfg)
 
     elif args.task_type == "tpp":
         criterion = None
@@ -243,11 +252,8 @@ def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_w
             (name, param) for name, param in trainable_params
             if any(keyword in name for keyword in encoder_keywords)
         ]
-        print("encoder_param_keywords:", encoder_keywords)
-        print(
-            "encoder_lr matches:",
-            [name for name, _ in encoder_params],
-        )
+        logger.info("encoder_param_keywords: %s", encoder_keywords)
+        logger.info("encoder_lr matches: %s", [name for name, _ in encoder_params])
         handled.update(id(p) for _, p in encoder_params)
         add_group_named(encoder_params, encoder_lr)
 
@@ -290,79 +296,99 @@ def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_w
 
 def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
     """
-    return: lr_scheduler
+    Return the configured learning-rate scheduler.
     """
-    warmup_ratio = getattr(args, 'warmup_ratio', 0.1) 
+    warmup_ratio = getattr(args, "warmup_ratio", 0.1)
     try:
         warmup_ratio = float(warmup_ratio)
-    except ValueError:
+    except (TypeError, ValueError):
         warmup_ratio = 0.1
-        
-    accumulation_steps = getattr(args, 'accumulation_steps', 1)
-    total_steps = len(train_dataloader) * args.epochs // accumulation_steps
-    warmup_steps = int(warmup_ratio * total_steps)
+
+    accumulation_steps = max(1, int(getattr(args, "accumulation_steps", 1)))
+
+    def _get_total_steps():
+        if train_dataloader is None:
+            raise ValueError(
+                f"Scheduler '{scheduler_type}' requires train_dataloader to compute total training steps."
+            )
+        return max(1, len(train_dataloader) * args.epochs // accumulation_steps)
 
     if scheduler_type == "plateau":
         return ReduceLROnPlateau(
             optimizer,
-            mode='min',
+            mode="min",
             factor=args.scheduler_factor,
             patience=args.scheduler_patience,
             threshold=args.scheduler_threshold,
-            min_lr=args.scheduler_min_lr
+            min_lr=args.scheduler_min_lr,
         )
-    elif scheduler_type == "cosine":
+
+    if scheduler_type == "cosine":
         return CosineAnnealingLR(
             optimizer,
             T_max=args.epochs,
-            eta_min=args.scheduler_min_lr
+            eta_min=args.scheduler_min_lr,
         )
-    elif scheduler_type == "hf_cosine":
+
+    if scheduler_type in {"hf_cosine", "hf_linear", "hf_constant", "step_warmup", "warmup_linear_decay"}:
+        total_steps = _get_total_steps()
+        warmup_steps = int(warmup_ratio * total_steps)
+
+    if scheduler_type == "hf_cosine":
         return CosineWithWarmupFloor(
             optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=total_steps,
-            min_lr=args.scheduler_min_lr
+            min_lr=args.scheduler_min_lr,
         )
-    elif scheduler_type == "hf_linear":
+
+    if scheduler_type == "hf_linear":
         return LinearWithWarmupFloor(
             optimizer,
             num_warmup_steps=warmup_steps,
             num_training_steps=total_steps,
-            min_lr=args.scheduler_min_lr
+            min_lr=args.scheduler_min_lr,
         )
-    elif scheduler_type == "hf_constant":
+
+    if scheduler_type == "hf_constant":
         return get_constant_schedule_with_warmup(
             optimizer,
-            num_warmup_steps=warmup_steps
+            num_warmup_steps=warmup_steps,
         )
-    elif scheduler_type == "step_warmup":
-        step_size = int(args.step_lr_step_size_ratio * total_steps) 
-        gamma = args.step_lr_gamma  
 
+    if scheduler_type == "step_warmup":
+        step_size = max(1, int(args.step_lr_step_size_ratio * total_steps))
+        gamma = args.step_lr_gamma
         step_scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
-        warmup_scheduler = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)
+        if warmup_steps <= 0:
+            return step_scheduler
 
+        warmup_scheduler = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_steps)
         return SequentialLR(
             optimizer,
             schedulers=[warmup_scheduler, step_scheduler],
-            milestones=[warmup_steps]
+            milestones=[warmup_steps],
         )
-    
-    elif scheduler_type == "warmup_linear_decay":
+
+    if scheduler_type == "warmup_linear_decay":
         return WarmupLinearDecay(
             optimizer,
             base_lr=args.learning_rate,
             min_lr=args.scheduler_min_lr,
             warmup_steps=warmup_steps,
-            total_steps=total_steps
-        )   
-    elif scheduler_type == "none":
-         return NoOpScheduler(optimizer)
-    else:
-        raise ValueError("Invalid scheduler type. Choose from 'plateau', 'cosine', 'hf_cosine', 'hf_linear', 'hf_constant'.")
+            total_steps=total_steps,
+        )
 
-def load_and_prepare_model(checkpoint_path, device,compile = True):
+    if scheduler_type == "none":
+        return NoOpScheduler(optimizer)
+
+    raise ValueError(
+        "Invalid scheduler type. Choose from 'plateau', 'cosine', 'hf_cosine', "
+        "'hf_linear', 'hf_constant', 'step_warmup', 'warmup_linear_decay', 'none'."
+    )
+
+
+def load_and_prepare_model(checkpoint_path, device, compile=True):
     check_point = torch.load(checkpoint_path, weights_only=False)
     args = load_args_from_checkpoint(None, check_point)
     model_builder = ModelBuilder.by_name(args.model.lower())()

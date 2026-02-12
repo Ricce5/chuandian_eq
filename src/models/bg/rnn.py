@@ -27,10 +27,10 @@ class RNNBGModel(BGModel):
         self.fc_in = torch.nn.Linear(d_feature, d_model)
 
         self.rnn = rnn_cls(
-            input_size=d_model,           # 输入维度现在是 d_model
-            hidden_size=d_model,          # 隐藏状态维度是 d_model
+            input_size=d_model,  # Comment in English.
+            hidden_size=d_model,  # Comment in English.
             num_layers=num_layers,
-            batch_first=True,             # 保证 (B, T, H) 形状
+            batch_first=True,  # Comment in English.
             bidirectional=False
         )
 

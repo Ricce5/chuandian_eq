@@ -1,10 +1,14 @@
 # Enhanced Catalog class to include normalization and GR/B value estimation.
 # Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
+import importlib
+import logging
 from pathlib import Path
 from typing import Any, Dict, Union
 from src.utils.registrable import Registrable
 import numpy as np
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 default_catalogs_dir = Path(__file__).parents[2] / "data"
@@ -20,19 +24,16 @@ class Catalog(Registrable):
 
     def __init__(self, root_dir: Union[str, Path], metadata: Dict[str, Any]): 
         self.norm_stats = {}
-        # self.root_dir = Path(root_dir)
+        self.root_dir = Path(root_dir).expanduser().resolve()
         norm_path = self.root_dir / "norm_stats.pt"
         if norm_path.exists():
             self.norm_stats = torch.load(norm_path,weights_only=False)
-
-
-        self.root_dir = Path(root_dir).expanduser().resolve() 
         self.metadata = metadata
         metadata_path = self.root_dir / "metadata.pt"
         if metadata_path.exists():
             existing_metadata = torch.load(metadata_path, weights_only=False)
             if existing_metadata == self.metadata and self.all_paths_exist():
-                print(f"Loading existing catalog from {self.root_dir}.")
+                logger.info("Loading existing catalog from %s.", self.root_dir)
             else:
                 raise FileExistsError(
                     f"A different catalog already exists in {self.root_dir}. "
@@ -41,11 +42,11 @@ class Catalog(Registrable):
                     f"  - Remove the existing catalog with\n     rm -rf {self.root_dir}"
                 )
         else:
-            print("Generating the catalog...")
+            logger.info("Generating the catalog...")
             self.root_dir.mkdir(parents=True, exist_ok=True)
             self.generate_catalog()
             torch.save(self.metadata, metadata_path)
-            print(f"Catalog saved to {self.root_dir}")
+            logger.info("Catalog saved to %s", self.root_dir)
             if not self.all_paths_exist():
                 missing_paths = "\n  - ".join(
                     str(path.name) for path in self.required_paths if not path.exists()
@@ -57,6 +58,21 @@ class Catalog(Registrable):
                     "\nOne of the methods `generate_catalog` or `required_files` "
                     "isn't implemented correctly."
                 )
+
+    @classmethod
+    def _ensure_catalogs_registered(cls):
+        # Import side-effect: modules in src.catalogs register subclasses via decorators.
+        importlib.import_module("src.catalogs")
+
+    @classmethod
+    def by_name(cls, name):
+        cls._ensure_catalogs_registered()
+        return super().by_name(name)
+
+    @classmethod
+    def list_available(cls):
+        cls._ensure_catalogs_registered()
+        return super().list_available()
     
     def set_b_updater(self, b_updater):
         self.b_updater = b_updater

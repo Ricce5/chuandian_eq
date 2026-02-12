@@ -1,13 +1,16 @@
+import logging
 import pandas as pd
 import numpy as np
 import os
 import src.features.seismic_features as sf
 import matplotlib.pyplot as plt
 
+logger = logging.getLogger(__name__)
+
 def process_cn_catalog(dat_file):
     column_names = ['Year', 'Month', 'Day', 'Hour', 'Minute', 'Second', 'Latitude', 'Longitude', 'Depth', 'Magnitude']
-    df = pd.read_csv(dat_file, header=None, names=column_names, sep='\s+')
-    print(df)
+    df = pd.read_csv(dat_file, header=None, names=column_names, sep=r"\s+")
+    logger.debug("Loaded CN catalog preview:\n%s", df.head())
     data_input = df.to_numpy()
     year = data_input[:, 0].astype(int)
     month = data_input[:, 1].astype(int)
@@ -32,7 +35,7 @@ def process_cn_catalog(dat_file):
 
 def process_synthetic_catlog(dat_file):
     column_names =["ID1", "ID2", "t", "Magnitude", "Depth", "Longitude", "Latitude"]
-    df = pd.read_csv(dat_file, header=None, names=column_names, sep='\s+')
+    df = pd.read_csv(dat_file, header=None, names=column_names, sep=r"\s+")
     df['dt'] = df['t'].diff().fillna(0)
     df = df[['t', 'Magnitude', 'Latitude', 'Longitude', 'Depth', 'dt']]
     csv_file = os.path.splitext(dat_file)[0] + '.csv'
@@ -43,7 +46,7 @@ def process_synthetic_catlog(dat_file):
 def load_and_filter_catalog(base_dir, Mc):
     raw_dir = os.path.join(base_dir, 'raw')
     csv_files = [f for f in os.listdir(raw_dir) if f.endswith('.csv')]
-    print("CSV files found:", csv_files)
+    logger.info("CSV files found: %s", csv_files)
 
     if len(csv_files) == 1:
         chosen_file = csv_files[0]
@@ -52,7 +55,7 @@ def load_and_filter_catalog(base_dir, Mc):
         if len(processed_files) != 1:
             raise ValueError(f"Expected exactly one 'processed_' CSV file among multiple files, found {len(processed_files)}: {processed_files}")
         chosen_file = processed_files[0]
-        print(f"Multiple CSV files found. Using processed file: {chosen_file}")
+        logger.info("Multiple CSV files found. Using processed file: %s", chosen_file)
     else:
         raise ValueError("No CSV files found in the 'raw' directory.")
     
@@ -132,7 +135,7 @@ def calculate_catalog_statistics(df):
         'b_n':     int(b_n),
     })
 
-    print("Catalog statistics:", stats)
+    logger.info("Catalog statistics: %s", stats)
     return stats
 
 def plot_dt_distributions(dfs, names=None, bins=100, figsize=(20, 4)):

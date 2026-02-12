@@ -1,17 +1,20 @@
 import math
 import hashlib
 import json
+import logging
 from src.utils.file_utils import save_or_load_data, build_catalog_root_dir
 from src.utils.catalog_utils import split_minibatches, split_sequence
 from src.data.preprocessing import load_and_filter_catalog, calculate_catalog_statistics 
 from  omegaconf import OmegaConf
+
+logger = logging.getLogger(__name__)
 
 def prepare_data(args, base_dir):
     import src.data.event_loader as loader
     df = load_and_filter_catalog(base_dir, Mc=args.Mc)
     statistics = calculate_catalog_statistics(df)
     args.stats = OmegaConf.create(statistics)
-    print(f'stas {args.stats}')
+    logger.info("stats %s", args.stats)
     df_nl,scalers = loader.normalize_df(df)
     args.task_type = getattr(args, "task_type", "classification")
     task_prefix_map = {
@@ -204,8 +207,13 @@ def prepare_data_tpp(args, base_dir):
         )
         catalog_ds.set_b_updater(b_updater)
         catalog_ds.estimate_gr_b()
-        print(f"Using Bayesian GR b-value updater with delta={b_updater.delta}, a0={b_updater.a0}, init b={b_updater.init_b_target:.4f}, "
-              f"mag_completeness={b_updater.Mc}")
+        logger.info(
+            "Using Bayesian GR b-value updater with delta=%s, a0=%s, init b=%.4f, mag_completeness=%s",
+            b_updater.delta,
+            b_updater.a0,
+            b_updater.init_b_target,
+            b_updater.Mc,
+        )
 
     if getattr(args, 'use_double_precision:', False):
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
@@ -221,7 +229,7 @@ def prepare_data_tpp(args, base_dir):
         args.precision = 32
 
     if use_all_for_train:
-        print("TPP pretrain mode: using all splits as training, disabling val/test loaders.")
+        logger.info("TPP pretrain mode: using all splits as training, disabling val/test loaders.")
         if getattr(args, 'minibatch_training', True):
             max_events = getattr(args, 'max_seq_len', 2000)
             mean_nll_events = getattr(args, 'mean_nll_events', 300)
@@ -240,13 +248,13 @@ def prepare_data_tpp(args, base_dir):
     else:
         args.num_events_train = sum(seq.num_nll_events for seq in catalog_ds.train)
         args.num_events_val = sum(seq.num_nll_events for seq in catalog_ds.val)
-        print(f"Number of training events: {args.num_events_train}")
-        print(f"Number of validation events: {args.num_events_val}")
+        logger.info("Number of training events: %s", args.num_events_train)
+        logger.info("Number of validation events: %s", args.num_events_val)
         if getattr(args, 'minibatch_training', True):
-           print("Splitting into minibatches")
-           max_events = getattr(args, 'max_seq_len', 2000)
-           mean_nll_events = getattr(args, 'mean_nll_events', 300)
-           catalog_ds = split_minibatches(catalog_ds,mean_nll_events, max_events) 
+            logger.info("Splitting into minibatches")
+            max_events = getattr(args, 'max_seq_len', 2000)
+            mean_nll_events = getattr(args, 'mean_nll_events', 300)
+            catalog_ds = split_minibatches(catalog_ds, mean_nll_events, max_events)
 
         train_loader = catalog_ds.train.get_dataloader(
             batch_size=args.batch_size,
@@ -265,4 +273,3 @@ def prepare_data_tpp(args, base_dir):
         )
 
     return catalog_ds.full_sequence, train_loader, val_loader, test_loader, catalog_ds
-

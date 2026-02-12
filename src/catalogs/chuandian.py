@@ -1,18 +1,13 @@
-import os
 from pathlib import Path
 from typing import Union
 import numpy as np
 import pandas as pd
 import torch
 
-from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
+from src.data import Catalog, TppDataset, Sequence
 from src.utils.catalog_utils import train_val_test_split_sequence
 from src.data.utils import get_split_indices
 
-
-def trim(x_min, x_max, p=0.05):
-    length = x_max - x_min
-    return x_min + length * p, x_min + length * (1 - p)
 
 @Catalog.register(name="ChuanDian-Base")
 class ChuanDianBase(Catalog):
@@ -87,7 +82,7 @@ class ChuanDianBase(Catalog):
         
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
-            t_start=torch.tensor(t_start, dtype=torch.float32),
+            t_start=t_start,
             mag=torch.tensor(df["Magnitude"].values, dtype=torch.float32),
             loc = torch.tensor(fields["loc"], dtype=torch.float32),
             depth= torch.tensor(fields["depth"], dtype=torch.float32),
@@ -179,8 +174,6 @@ class ChuanDianSlidingWindow(ChuanDianBase):
             sequences.append(seq)
             window_start += step_size_days
 
-        print(f"Generated {len(sequences)} sliding window sequences.")
-
         if len(sequences) < 3:
             raise ValueError("Too few sequences to split into train/val/test.")
 
@@ -195,4 +188,3 @@ class ChuanDianSlidingWindow(ChuanDianBase):
         test_dataset = TppDataset([sequences[i] for i in test_idx])
 
         return train_dataset, val_dataset, test_dataset
-

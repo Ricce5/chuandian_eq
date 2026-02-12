@@ -2,7 +2,6 @@ import torch
 import os
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 from src.utils.metrics import count_metrics, log_metrics,plot_count_scatter, plot_count_series
 from .trainer import step_scheduler
 
@@ -142,4 +141,3 @@ def visualize_results(model, train_loader, val_loader, test_loader, device, save
 
     plot_count_scatter(data_dict, save_path=os.path.join(save_dir, "regression_scatter.png"))
     plot_count_series(data_dict, save_path=os.path.join(save_dir, "regression_series.png"))
-

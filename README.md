@@ -1,116 +1,207 @@
+# ChuanDian_EQ
 
-## Installation
+A unified deep-learning framework for earthquake-catalog forecasting, covering:
+- Classification and regression tasks (window-based samples)
+- Temporal point process (TPP) tasks (event-sequence based)
+- Training, testing, Optuna search, visualization, and evaluation workflows
 
-Before proceeding, ensure your GPU supports `flash_attn` and `mamba_ssm`.
+## 1. Installation
 
-1. Install Python dependencies:
+### 1.1 Core dependencies
 ```bash
 pip install -r requirements.txt
-```
-
-2. Optional/accelerating libraries (install if relevant to your configuration):
-- `flash_attn` — accelerated attention implementations (see https://github.com/Dao-AILab/flash-attention/releases)
-- `mamba_ssm` / `causal_conv1d` — install per their repositories if used in your config
-
-3. Install the package in editable mode (optional, for easier imports):
-```bash
 pip install -e .
 ```
 
-## Project Overview
+### 1.2 Optional acceleration dependencies
+Install these only if your selected model/config requires them:
+- `flash_attn`
+- `mamba_ssm`
+- `causal_conv1d`
 
-This repository implements a unified deep-learning forecasting framework for earthquake catalogs, including multiple temporal point process (TPP) sequence models and regression/classification models, along with training and evaluation pipelines.
+Use the official installation guides and make sure versions match your CUDA/PyTorch environment.
 
-Brief directory layout:
-- `main.py`: Entry script — supports `train`, `test`, `optuna` modes.
-- `config/`: Model and data YAML configs (e.g. `mixer_tpp.yaml`, `reg_mixer_attnpl_t.yaml`).
-- `data/`: Raw and processed data (prepare data according to `src/data`).
-- `src/`: Code for data processing, models, training, and evaluation.
-- `checkpoints/`: Saved models and logs from training.
+## 2. Repository layout
 
-## Configuration
+```text
+.
+├── main.py                 # Main entry point (train/test/optuna)
+├── forecasting.py          # Sampling and forecast visualization script
+├── config/                 # YAML configurations
+├── data/                   # Data directory (raw/processed)
+├── notebooks/              # Jupyter notebooks for preprocessing, analysis, and plotting
+├── checkpoints/            # Training artifacts
+├── src/
+│   ├── catalogs/           # Multi-catalog builders and registration
+│   ├── data/               # Data loading, splitting, batching
+│   ├── distributions/      # Distributions and mixture distributions
+│   ├── features/           # Seismic feature engineering
+│   ├── models/             # Model definitions and components
+│   ├── train/              # Training pipeline and train steps
+│   └── utils/              # Utilities (logging, metrics, visualization, etc.)
+└── tests/                  # Tests
+```
 
-- All training/testing parameters are defined in YAML files under `config/`. Default convention: `config/<model>.yaml`.
-- If `--config` is not provided, the program uses `config/{model}.yaml`.
+## 3. Quick start
 
-Configurable items include learning rate, batch size, epochs, dataset name, random seed, and augmentation options.
-
-## Quick Start
-
-1) Train (creates `checkpoints/<model>_<timestamp>` by default):
+### 3.1 Train
 ```bash
 python main.py --model mixer_tpp --mode train --config config/mixer_tpp.yaml
 ```
-Specify a custom checkpoint directory:
+
+Set a custom output directory:
 ```bash
-python main.py --model mixer_tpp --mode train --config config/mixer_tpp.yaml --checkpoint_dir checkpoints/my_experiment
+python main.py --model mixer_tpp --mode train --checkpoint_dir checkpoints/my_exp
 ```
 
-2) Test (load saved checkpoint):
+### 3.2 Test
+By default, test uses `best_model_{trial_index}.pth`:
 ```bash
-python main.py --model mixer_tpp --mode test --config config/mixer_tpp.yaml --checkpoint_dir checkpoints/my_experiment --ckpt_select best --trial_index 1
-```
-Load by epoch:
-```bash
-python main.py --model mixer_tpp --mode test --config config/mixer_tpp.yaml --checkpoint_dir checkpoints/my_experiment --ckpt_select epoch --ckpt_epoch 10 --trial_index 1
+python main.py \
+  --model mixer_tpp \
+  --mode test \
+  --checkpoint_dir checkpoints/my_exp \
+  --ckpt_select best \
+  --trial_index 1
 ```
 
-3) Hyperparameter search (Optuna):
+Test with an epoch checkpoint:
+```bash
+python main.py \
+  --model mixer_tpp \
+  --mode test \
+  --checkpoint_dir checkpoints/my_exp \
+  --ckpt_select epoch \
+  --ckpt_epoch 10 \
+  --trial_index 1
+```
+
+For classification, you can manually set a threshold:
+```bash
+python main.py --model clf_mixer_attnpl_t --mode test --threshold 0.5
+```
+
+### 3.3 Optuna search
 ```bash
 python main.py --model mixer_tpp --mode optuna --config config/mixer_tpp.yaml
 ```
 
-## Common Arguments
+## 4. CLI arguments (main.py)
 
-- `--model`: Model name (must match `model` field in config).
-- `--mode`: `train` / `test` / `optuna`.
-- `--config`: Path to config file (default `config/<model>.yaml`).
-- `--checkpoint_dir`: Directory to save/load training artifacts.
-- `--ckpt_select`: `best`, `last`, or `epoch` (select checkpoint when testing).
-- `--ckpt_epoch`: Epoch number when `--ckpt_select epoch` is used.
+- `--mode`: `train` / `test` / `optuna`
+- `--model`: Model name (must match `model` in config)
+- `--config`: Config file path, default `config/<model>.yaml`
+- `--checkpoint_dir`: Training output directory or test input directory
+- `--trial_index`: Checkpoint index suffix (default `1`)
+- `--ckpt_select`: `best` / `last` / `epoch`
+- `--ckpt_epoch`: Required when `--ckpt_select epoch`
+- `--threshold`: Classification test threshold (overrides checkpoint threshold)
+- `--no_val_threshold`: Do not use threshold stored in checkpoint `val_metrics`
 
-## Data & Augmentation
+Notes:
+- In `train`/`optuna`, if `--checkpoint_dir` is omitted, a new directory is created as `checkpoints/<model>_<timestamp>`
+- In `test`, if `--checkpoint_dir` is omitted, the latest checkpoint directory for the model is selected automatically
 
-- Data is located in `data/`. Data preparation logic is in `src/data`.
-- Example augmentation options in YAML:
-```yaml
-mag_noise_std: 0.05       # magnitude noise std for training; 0 disables
-mag_noise_type: gaussian  # options: gaussian / uniform
+## 5. Configuration system
+
+- Config files are under `config/`
+- YAML is loaded through `OmegaConf`
+- Typical fields: `model`, `dataset`, `task_type`, optimizer/scheduler params, model architecture params
+
+Recommended starter configs:
+- `config/mixer_tpp.yaml`
+- `config/clf_mixer_attnpl_t.yaml`
+- `config/reg_mixer_attnpl_t.yaml`
+- `config/etas.yaml`
+
+## 6. Data
+
+### 6.1 Classification/Regression data
+Common path: `data/<dataset>/raw/*.csv`
+
+Main columns used by preprocessing:
+- `t`
+- `Magnitude`
+- `Latitude`
+- `Longitude`
+- `Depth`
+- `dt` (recomputed from `t` during preprocessing)
+
+### 6.2 TPP data
+TPP pipeline resolves catalogs through the registration system using `<dataset>-Standard`:
+- Example: `dataset: ChuanDian` -> `ChuanDian-Standard`
+
+List registered catalogs:
+```bash
+python - <<'PY'
+import src.catalogs
+from src.data.catalog import Catalog
+print(sorted(Catalog.list_available()))
+PY
 ```
-Noise is typically applied only to non-padding timesteps; validation/test sets are unaffected.
 
-## Logging & Visualization
+## 7. Available models
 
-- Training logs for TensorBoard are saved under `checkpoints/<exp>/tensorboard`.
+Current registered models (from `ModelBuilder.list_available()`):
+
+`btpp`, `classifier`, `classifier_se`, `classifier_stm`, `classifier_stm_s`, `classifier_tm_s`, `clf_attnpl`, `clf_attnpl_t`, `clf_mixer_attnpl_t`, `clf_tm_attnpl`, `clf_tm_attnpl_t`, `clf_tm_cv_attnpl_t`, `etas`, `lstm`, `mhp`, `mixer_tpp`, `mtpp`, `nhpp`, `reg_attnpl`, `reg_mixer_attnpl_t`, `rtpp`, `thp`, `thp_deltat`
+
+## 8. Artifacts and logging
+
+Typical files under `checkpoints/<exp>/`:
+- `config.yaml` (runtime config snapshot)
+- `run.log` (unified logger output)
+- `best_model_<idx>.pth`
+- `last_model_<idx>.pth`
+- `epoch_<k>_model_<idx>.pth` (if periodic checkpoint saving is enabled)
+- `tensorboard/`
+
+Testing writes:
+- `metrics_test_<...>.json`
+
+TensorBoard:
 ```bash
 tensorboard --logdir checkpoints/<exp>/tensorboard --port 6006
 ```
-- Test metrics are saved as `metrics_test_*.json` in the experiment checkpoint directory.
 
-## Reproducibility
+## 9. Forecast script
 
-For better numerical reproducibility (especially with CUDA), set:
+`forecasting.py` generates samples from a trained checkpoint and saves forecast visualizations.
+
+Example:
 ```bash
-export CUBLAS_WORKSPACE_CONFIG=:4096:8
+python forecasting.py --checkpoint_dir checkpoints/mixer_tpp_YYYYMMDD-HHMMSS --ckpt_select best
 ```
 
-## Example Configs
+## 10. Notebooks
 
-Example configs are provided in `config/`: `mixer_tpp.yaml`, `reg_mixer_attnpl_t.yaml`, `clf_mixer_attnpl_t.yaml`, `etas.yaml`, `rtpp.yaml`, etc.
+Notebook resources are under `notebooks/` (absolute path in this environment: `/root/autodl-tmp/chuandian_eq/notebooks`):
 
-## Development & Contribution
+- `Preprocessing*.ipynb`: preprocessing pipelines for different catalogs/datasets
+- `Classifier_baseline.ipynb`, `Classifier_analysis.ipynb`: classification baseline and result analysis
+- `Regressor_analysis.ipynb`, `Regression_plot.ipynb`: regression result analysis and plotting
+- `Tpp_analysis.ipynb`, `Tpp_evaluating.ipynb`: TPP behavior analysis and evaluation
+- `Forecasting*.ipynb`: interactive forecasting workflows
+- `b(t)-estimation.ipynb`: time-varying b-value estimation
+- Output figures and cached plotting data are organized in `notebooks/figs/` and `notebooks/figs_data/`
 
-- Run tests (if available):
+## 11. Testing
+
+Run all tests:
 ```bash
 pytest -q
 ```
-- Follow code style and dependency specifications in `requirements.txt` and `setup.py`.
 
-## Contact & License
+Run selected groups:
+```bash
+pytest -q tests/features
+pytest -q tests/data
+pytest -q tests/model
+```
 
-For more information or to submit issues/PRs, open an Issue or submit a PR in the repository.
+## 12. Reproducibility hint
 
----
-
-If you want this README translated back to Chinese or expanded with more examples (e.g., data format details, field explanations for configs), I can add that.
-
+To improve CUDA reproducibility:
+```bash
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+```

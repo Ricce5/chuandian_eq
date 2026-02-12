@@ -1,4 +1,5 @@
 # transformer Hawkes Process (THP) model with intensity free implementation 
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +8,8 @@ from torch.distributions import Categorical
 from .tpp_model import TPPModel  
 import src.data
 from typing import Optional, Dict, Any, Union, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 class THP(TPPModel):
     def __init__(self, args,base_model, hypernet_time,hypernet_mag):
@@ -115,27 +118,27 @@ class THP(TPPModel):
         context = self.get_context(batch)  # (B, L, C)
         # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
-        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # (B, L) 避免0处概率为0
-        log_like = (log_pdf * batch.nll_event_mask).sum(-1) # 对nll区间的事件，上次事件到当前事件的时间间隔的对数概率
+        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # avoid zero-probability at zero
+        log_like = (log_pdf * batch.nll_event_mask).sum(-1)  # Comment in English.
         # Survival time from last event until t_end
         arange = torch.arange(batch.batch_size)
-        last_surv_context = context[arange, batch.end_idx, :] # end_idx对应生存时间
+        last_surv_context = context[arange, batch.end_idx, :]  # end_idx corresponds to the survival interval
         last_surv_dist = self.get_inter_time_dist(last_surv_context)
         last_log_surv = last_surv_dist.log_survival(
             batch.inter_times[arange, batch.end_idx]
         )
         log_like = log_like + last_log_surv.squeeze(-1)  # (B,)
 
-        # Remove survival time from t_prev to t_nll_start  # 对第一个事件，计算条件概率，条件是在t_nll_start-t_prev存活
+        # for the first event
         if torch.any(batch.t_nll_start != batch.t_start):
             prev_surv_context = context[arange, batch.start_idx, :]
             prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (       # nll区间上一个事件到nll区间开始时间
+            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (  # Comment in English.
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
             prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
             log_like = log_like - prev_log_surv
-        return -log_like / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+        return -log_like / (batch.t_end - batch.t_nll_start)  # negated as NLL
 
 
     @torch.inference_mode()
@@ -167,7 +170,7 @@ class THP(TPPModel):
             time_remaining = None
 
         t_end = t_start + duration
-        inter_time_list = []  # 用列表累积，避免频繁 cat
+        inter_time_list = []  # accumulate in a list to avoid frequent concatenation
         if self.predict_magnitude:
             mag_list = []
 
@@ -184,7 +187,7 @@ class THP(TPPModel):
   
 
             next_inter_times.clamp_max_(t_end - t_start)
-            inter_time_list.append(next_inter_times)  # 不再循环中 cat
+            inter_time_list.append(next_inter_times)  # Comment in English.
             if self.predict_magnitude:
                 mag_dist = self.get_magnitude_dist(current_state)
                 next_mag = mag_dist.sample()  # (B, 1)
@@ -195,7 +198,7 @@ class THP(TPPModel):
 
 
             current_state = self.get_current_state(sample_batch)
-            current_state = current_state.detach()  # 关键：防止图增长
+            current_state = current_state.detach()  # important: prevent graph growth
 
    
             total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
@@ -216,8 +219,8 @@ class THP(TPPModel):
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
         if (last_surv_time < 0).any():
-            print("Min last_surv_time:", last_surv_time.min().item())
-            print("Any negative?", (last_surv_time < 0).any().item())
+            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
+            logger.error("Any negative? %s", (last_surv_time < 0).any().item())
             raise ValueError("last_surv_time < 0 detected")
 
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
@@ -267,7 +270,7 @@ class THP(TPPModel):
             time_remaining = None
 
         t_end = t_start + duration
-        inter_time_list = []  # 用列表累积，避免频繁 cat
+        inter_time_list = []  # accumulate in a list to avoid frequent concatenation
         if self.predict_magnitude:
             mag_list = []
 
@@ -284,7 +287,7 @@ class THP(TPPModel):
   
 
             next_inter_times.clamp_max_(t_end - t_start)
-            inter_time_list.append(next_inter_times)  # 不再循环中 cat
+            inter_time_list.append(next_inter_times)  # Comment in English.
 
             if self.predict_magnitude:
                 mag_dist = self.get_magnitude_dist(current_state)
@@ -294,7 +297,7 @@ class THP(TPPModel):
             buffer_batch.update_sample_batch(next_inter_times=next_inter_times, next_mag=next_mag if self.predict_magnitude else None)
             tmp_batch = buffer_batch.get_tmp_batch()  
             current_state,cache = self.get_current_state(tmp_batch, cache)
-            current_state = current_state.detach()  # 关键：防止图增长
+            current_state = current_state.detach()  # important: prevent graph growth
             cache =cache.detach()
 
             total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
@@ -314,8 +317,8 @@ class THP(TPPModel):
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
         if (last_surv_time < 0).any():
-            print("Min last_surv_time:", last_surv_time.min().item())
-            print("Any negative?", (last_surv_time < 0).any().item())
+            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
+            logger.error("Any negative? %s", (last_surv_time < 0).any().item())
             raise ValueError("last_surv_time < 0 detected")
 
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
@@ -366,5 +369,4 @@ class THP(TPPModel):
 
 
  
-
 

@@ -1,18 +1,12 @@
-import os
 from pathlib import Path
 from typing import Union
 import numpy as np
 import pandas as pd
 import torch
 
-from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
+from src.data import Catalog, TppDataset, Sequence
 from src.utils.catalog_utils import train_val_test_split_sequence_float
 from src.data.utils import get_split_indices
-
-
-def trim(x_min, x_max, p=0.05):
-    length = x_max - x_min
-    return x_min + length * p, x_min + length * (1 - p)
 
 
 @Catalog.register(name="AZDX-Base")
@@ -158,8 +152,6 @@ class AZDXSlidingWindow(AZDXBase):
             sequences.append(seq)
             window_start += step_size_days
 
-        print(f"Generated {len(sequences)} sliding window sequences.")
-
         if len(sequences) < 3:
             raise ValueError("Too few sequences to split into train/val/test.")
 
@@ -174,4 +166,3 @@ class AZDXSlidingWindow(AZDXBase):
         test_dataset = TppDataset([sequences[i] for i in test_idx])
 
         return train_dataset, val_dataset, test_dataset
-

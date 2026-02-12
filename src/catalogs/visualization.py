@@ -166,7 +166,6 @@ def visualize_trajectories(
         axAA = axA.twinx()
         axB = fig.add_subplot(gs[1], sharey=axAA)
     else:
-        print("Bold choice")
         assert len(ax) == 2, "len(ax) must be two to generate both subplots"
         axA, axB = ax
         axAA = axA.twinx()

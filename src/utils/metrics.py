@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve,average_precision_score
 import matplotlib.pyplot as plt
@@ -6,6 +7,8 @@ from scipy.stats import binom
 from tqdm import tqdm
 import os
 from scipy.special import expit 
+
+logger = logging.getLogger(__name__)
 
 def classification_metrics(targets, preds, threshold=None, optimize_metric="f1",apply_sigmoid=True):
     preds = np.array(preds)
@@ -123,10 +126,10 @@ def plot_and_save_roc_curve(targets, preds, auc_value, save_dir, filename="roc_c
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, filename)
         plt.savefig(save_path)
-        print(f"ROC curve saved to {save_path}")
+        logger.info("ROC curve saved to %s", save_path)
         plt.show()
     except Exception as e:
-        print("Failed to plot ROC curve:", e)
+        logger.warning("Failed to plot ROC curve: %s", e)
 
 def plot_classification_distribution(preds, labels, title="Prediction Distribution (Training Set)", save_path=None):
     preds = np.array(preds)
@@ -294,7 +297,7 @@ def plot_regression_scatter(data_dict, save_path=None, verbose=False, taus=None)
     if save_path:
         plt.savefig(save_path, dpi=100)
         if verbose:
-            print(f"[✔] Saved scatter plot to {save_path}")
+            logger.info("Saved scatter plot to %s", save_path)
     plt.show()
 
 
@@ -322,7 +325,7 @@ def plot_regression_series(data_dict, save_path=None, verbose=False):
     if save_path:
         plt.savefig(save_path, dpi=100)
         if verbose:
-            print(f"[✔] Saved series plot to {save_path}")
+            logger.info("Saved series plot to %s", save_path)
     plt.show()
 
 def plot_count_scatter(data_dict, save_path=None, verbose=False):
@@ -361,7 +364,7 @@ def plot_count_scatter(data_dict, save_path=None, verbose=False):
     if save_path:
         plt.savefig(save_path, dpi=100)
         if verbose:
-            print(f"[✔] Saved scatter plot to {save_path}")
+            logger.info("Saved scatter plot to %s", save_path)
     plt.show()
 
 
@@ -389,5 +392,5 @@ def plot_count_series(data_dict, save_path=None, verbose=False):
     if save_path:
         plt.savefig(save_path, dpi=100)
         if verbose:
-            print(f"[✔] Saved series plot to {save_path}")
+            logger.info("Saved series plot to %s", save_path)
     plt.show()

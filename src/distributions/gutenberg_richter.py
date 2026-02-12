@@ -1,11 +1,13 @@
-# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
-import torch
 import math
-from torch.distributions import constraints
-from .distribution import Distribution
 from typing import Optional
 
+import torch
+from torch.distributions import constraints
+
+from .distribution import Distribution
+
 LOG10 = math.log(10.0)
+
 
 class GutenbergRichter(Distribution):
     arg_constraints = {"b": constraints.positive}
@@ -17,13 +19,12 @@ class GutenbergRichter(Distribution):
         batch_shape = self.b.shape
         super().__init__(batch_shape, validate_args=False)
 
-
-    def norm_denom(self, b:Optional[torch.Tensor]=None):
+    def norm_denom(self, b: Optional[torch.Tensor] = None):
         if b is None:
             b = self.b
         dM = torch.as_tensor(self.mag_max - self.mag_min, dtype=b.dtype, device=b.device)
-        ten_pow_neg_b_dM = torch.exp(-b * LOG10 * dM)  # 10^{-b*(Mmax-Mmin)}
-        norm_denom = 1.0 - ten_pow_neg_b_dM  # 1 - 10^{-bΔ}
+        ten_pow_neg_b_dM = torch.exp(-b * LOG10 * dM)
+        norm_denom = 1.0 - ten_pow_neg_b_dM
         norm_denom = torch.clamp(norm_denom, min=torch.finfo(b.dtype).eps)
         return norm_denom
 
@@ -31,48 +32,48 @@ class GutenbergRichter(Distribution):
     def support(self):
         return constraints.interval(self.mag_min, self.mag_max)
 
-    # -------- log pdf / cdf / survival / hazard --------
     def log_prob(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
-        # Expand b to match the shape of x
-        b = self.b.expand_as(x)  # Shape (B, L)
-        valid = (x >= self.mag_min) & (x <= self.mag_max)
-        denom = 10 ** (-b * self.mag_min) - 10 ** (-b * self.mag_max)
-        log_norm_const = torch.log(b * LOG10) - torch.log(denom)
-        log_pdf = log_norm_const - b * LOG10 * x
-        
+        b = self.b.expand_as(x)
+        mag_min = torch.as_tensor(self.mag_min, dtype=x.dtype, device=x.device)
+        mag_max = torch.as_tensor(self.mag_max, dtype=x.dtype, device=x.device)
+        valid = (x >= mag_min) & (x <= mag_max)
+        log_norm_const = torch.log(b * LOG10) - torch.log(self.norm_denom(b))
+        log_pdf = log_norm_const - b * LOG10 * (x - mag_min)
+
         if mask is not None:
-            log_pdf = torch.where(mask, log_pdf, torch.zeros_like(log_pdf))  # Masking invalid values
-        return torch.where(valid, log_pdf, torch.zeros_like(x))  # Ensure values outside [mag_min, mag_max] are 0
+            mask = mask.bool()
+            log_pdf = torch.where(mask, log_pdf, torch.zeros_like(log_pdf))
+        return torch.where(valid, log_pdf, torch.zeros_like(log_pdf))
 
     def log_survival(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
-        b = self.b.expand_as(x)  # Shape (B, L)
-        # log(1 - F(x))
         F = self.cdf(x)
         survival = torch.log1p(-F)
-        
+
         if mask is not None:
+            mask = mask.bool()
             survival = torch.where(mask, survival, torch.zeros_like(survival))
         return survival
 
-    def cdf(self, x: torch.Tensor ,b:Optional[torch.Tensor]=None) -> torch.Tensor:
+    def cdf(self, x: torch.Tensor, b: Optional[torch.Tensor] = None) -> torch.Tensor:
         x = torch.as_tensor(x, dtype=self.b.dtype, device=self.b.device)
+        mag_min = torch.as_tensor(self.mag_min, dtype=x.dtype, device=x.device)
+        mag_max = torch.as_tensor(self.mag_max, dtype=x.dtype, device=x.device)
         if b is None:
-            b = self.b.expand_as(x)  # Shape (B, L)
-        z = torch.exp(-b * LOG10 * (x - self.mag_min))  # 10^{-b (x - Mmin)} = exp( -b ln10 * ... )
+            b = self.b.expand_as(x)
+        z = torch.exp(-b * LOG10 * (x - mag_min))
         F = (1.0 - z) / self.norm_denom(b)
         F = torch.clamp(F, 0.0, 1.0)
-        F = torch.where(x < self.mag_min, torch.zeros_like(F), F)
-        F = torch.where(x > self.mag_max, torch.ones_like(F), F)
+        F = torch.where(x < mag_min, torch.zeros_like(F), F)
+        F = torch.where(x > mag_max, torch.ones_like(F), F)
         return F
     
     def rsample(self, sample_shape=torch.Size()):
         shape = torch.Size(sample_shape) + self.batch_shape
-        u = torch.empty(shape, device=self.b.device, dtype=self.b.dtype).uniform_()  # Generate uniform random numbers
-        # Generate samples based on each event's b value
-        return self.b.reciprocal().neg() * torch.log10(
-            -u * (10 ** (-self.b * self.mag_min) - 10 ** (-self.b * self.mag_max)) 
-            + 10 ** (-self.b * self.mag_min)
-        )
+        u = torch.empty(shape, device=self.b.device, dtype=self.b.dtype).uniform_()
+        b = self.b.expand(shape)
+        mag_min = torch.as_tensor(self.mag_min, dtype=self.b.dtype, device=self.b.device).expand(shape)
+        norm = self.norm_denom(b)
+        return mag_min - torch.log1p(-u * norm) / (b * LOG10)
 
     def log_likelihood(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         log_probs = self.log_prob(x, mask)

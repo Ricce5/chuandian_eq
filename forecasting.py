@@ -1,6 +1,7 @@
 # %%
 import sys
 import argparse
+import logging
 from pathlib import Path
 import torch
 import matplotlib.pyplot as plt
@@ -11,8 +12,11 @@ import src.catalogs as catalogs
 from src.models.builders import ModelBuilder
 from src.train.config_setup import load_args_from_checkpoint, load_model_from_checkpoint
 from src.utils.visualization import visualize_sequence, visualize_trajectories
+from src.utils.logging_utils import setup_logging
 import src
 import numpy as np
+
+logger = logging.getLogger(__name__)
 # %%
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description="Run forecast visualization using trained model.")
@@ -41,6 +45,7 @@ def parse_args(args=None):
 
 # %%
 args = parse_args()
+setup_logging()
 set_seed(args.seed)
 if args.ckpt_select == 'epoch':
     if args.ckpt_epoch is None:
@@ -50,7 +55,7 @@ else:
     checkpoint_path = Path(args.checkpoint_dir) / f"{args.ckpt_select}_model_1.pth"
 check_point = torch.load(checkpoint_path, weights_only=False)
 ckpt_args = load_args_from_checkpoint(None, check_point)
-print(f"Loaded checkpoint with args: {ckpt_args}")
+logger.info("Loaded checkpoint with args: %s", ckpt_args)
 catalog_ds_class = catalog.Catalog.by_name(f"{ckpt_args.dataset}-Standard")
 catalog_ds = catalog_ds_class(root_dir=f'data/{ckpt_args.dataset}/raw', catalog_file=None)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -76,7 +81,7 @@ full_batch.to(device)
 model.eval()
 model.nll_loss(full_batch)['time']
 # %%
-print(f"Avg. inter-event time in past_batch: {torch.mean(past_batch.inter_times):.4f}")
+logger.info("Avg. inter-event time in past_batch: %.4f", torch.mean(past_batch.inter_times).item())
 
 if torch.cuda.is_available():
     model.to('cuda:0')

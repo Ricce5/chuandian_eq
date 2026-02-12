@@ -43,12 +43,10 @@ debug:
 19. 修改pad值
 20. mixer adapter 直接return mag
 21. 支持分类器切换threshhold
+22. pnr数据处理被修改
 
 问题
 1. f_intensity单调衰减
-2. etas似然
-3. chuandian rtpp没有对齐
-4. etas掩码问题
 
 
 

@@ -1,8 +1,5 @@
 import torch
-import os
-import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
 from torch.nn.utils import clip_grad_norm_

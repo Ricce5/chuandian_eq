@@ -276,12 +276,12 @@ class MixerModel(nn.Module):
         return hidden_states
 
     def _init_input_projection(self, module: nn.Module, method: str, scale: float = 1.0):
-        """初始化输入投影中的`Linear`权重，支持可控分散度。
+        """Initialize `Linear` weights in input projection with controllable dispersion.
         - method: default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
-        - scale: 缩放系数，用于增大/减小权重分散度
-          * 对`normal`/`uniform`，通过调整`std`或`bound`生效
-          * 对`xavier_*`/`kaiming_*`以及`default`，在初始化后对权重乘以`scale`
-        对`normal`和`uniform`，当`initializer_cfg.initializer_range`存在时作为基准值。
+        - scale: scaling factor to increase/decrease weight dispersion
+          * for `normal`/`uniform`, it changes `std` or `bound`
+          * for `xavier_*`/`kaiming_*`/`default`, it multiplies weights after init
+        For `normal` and `uniform`, `initializer_cfg.initializer_range` is used as a base value when provided.
         """
         if method is None or method == "default":
             if scale != 1.0:

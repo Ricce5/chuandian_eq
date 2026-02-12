@@ -1,11 +1,14 @@
 from typing import Dict, List, Optional, Tuple
 
+import logging
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
 from src.utils.utils import _to_np_datetime64_seconds, _to_py_datetime, set_xaxis_time_locator
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -755,7 +758,12 @@ def plot_event_magnitude_and_importance_clean(
             dt_int = np.rint(scaled).astype(np.int64)
             t_np64 = t0_np + dt_int.astype(f"timedelta64[{time_unit}]")
         t_plot = np.array([_to_py_datetime(v) for v in t_np64], dtype=object)
-        print(f"observation window: {t_plot[0]} to {t_plot[-1]} (duration: {t_plot[-1] - t_plot[0]})")
+        logger.info(
+            "observation window: %s to %s (duration: %s)",
+            t_plot[0],
+            t_plot[-1],
+            t_plot[-1] - t_plot[0],
+        )
     else:
         t_plot = t
 
@@ -880,7 +888,7 @@ def capture_layer_activations(model, x, module, valid_mask=None, visualize=True)
         handle.remove()
 
     if len(layer_out) == 0:
-        print("No activations captured.")
+        logger.warning("No activations captured.")
         return {}
 
     h = layer_out[0]  # (B, L, D) on CPU

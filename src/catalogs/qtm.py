@@ -42,6 +42,7 @@ class QTM(Catalog):
 
         lat_range = LAT_RANGE[region]
         lon_range = LON_RANGE[region]
+        self.root_dir = Path(root_dir).expanduser().resolve()
 
         metadata = {
             "name": f"QTM{region}",
@@ -54,8 +55,7 @@ class QTM(Catalog):
             "start_ts": pd.Timestamp("2008-01-01"),
             "end_ts": pd.Timestamp("2018-01-01"),
         }
-        print(f"root_dir: {root_dir}, metadata: {metadata}")
-        super().__init__(root_dir=root_dir, metadata=metadata)
+        super().__init__(root_dir=self.root_dir, metadata=metadata)
 
         # Load the full sequence
         self.full_sequence = TppDataset.load_from_disk(
@@ -85,15 +85,13 @@ class QTM(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def generate_catalog(self):
-        print("Downloading...")
         stream = requests.get(self.url).content
-        raw_df = pd.read_csv(io.StringIO(stream.decode("utf-8")), delim_whitespace=True)
+        raw_df = pd.read_csv(io.StringIO(stream.decode("utf-8")), sep=r"\s+")
         raw_df["date"] = pd.to_datetime(
             raw_df[["YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND"]]
         )
         raw_df.sort_values(by=["date"], inplace=True)
 
-        print("Processing...")
         # Select relevant events from the dataframe
         indicator = (
             (raw_df.LATITUDE > self.metadata["lat_range"][0])

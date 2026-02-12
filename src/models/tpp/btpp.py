@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +16,8 @@ from src.models.mamba.block import Block
 from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
+
+logger = logging.getLogger(__name__)
 
 class BlockTPP(TPPModel):
     """Neural TPP model with an recurrent encoder.
@@ -67,12 +70,12 @@ class BlockTPP(TPPModel):
 
         self.num_inputs = (
             1  # inter-event times
-            + int(self.input_magnitude)  # magnitude features 取true或false
+            + int(self.input_magnitude)  # Comment in English.
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         D = args.d_model  # batch size, sequence length, embedding dim
         H = 4               # number of heads
-        rotary_emb_dim = D // H // 2  # 通常是一半 head_dim
+        rotary_emb_dim = D // H // 2  # typically half of head_dim
         rotary_emb_scale_base = 1024
         mlp_hidden_dim = 256
         self.layer_idx = 0
@@ -98,7 +101,7 @@ class BlockTPP(TPPModel):
         self.norm_f = nn.LayerNorm(self.context_size, elementwise_affine=False)
         self.to(self.device)
 
-    def encode_time(self, inter_times):  # 做log变换并中心化
+    def encode_time(self, inter_times):  # apply log transform and centering
         log_tau = torch.log(torch.clamp_min(inter_times, 1e-10)).unsqueeze(-1)
         return log_tau - self.log_tau_mean
 
@@ -107,7 +110,7 @@ class BlockTPP(TPPModel):
         return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + 1e-10)
 
 
-    def encode_magnitude(self, mag): # 中心化
+    def encode_magnitude(self, mag):  # apply centering
         return mag.unsqueeze(-1) - self.mag_mean
 
     def encode_extra_features(self, extra_feat):
@@ -127,7 +130,6 @@ class BlockTPP(TPPModel):
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
         dt_input = self.normalize_inter_times(batch.inter_times)* batch.input_mask
         t_input =   batch.arrival_times * batch.input_mask/self.tau_mean
-        print(t_input.min(), t_input.max())
         hidden_states = self.input_proj(features)
         hidden_states, residual = self.block(
             hidden_states,
@@ -171,7 +173,7 @@ class BlockTPP(TPPModel):
         )
 
     def forward(self, batch):
-        feat_list = [self.encode_time(batch.inter_times)]  # 上一次事件到当前事件的时间间隔
+        feat_list = [self.encode_time(batch.inter_times)]  # inter-event time from previous to current event
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
@@ -198,27 +200,27 @@ class BlockTPP(TPPModel):
         context = self.get_context(batch)  # (B, L, C)
         # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
-        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # (B, L) 避免0处概率为0
-        log_like = (log_pdf * batch.nll_event_mask).sum(-1) # 对nll区间的事件，上次事件到当前事件的时间间隔的对数概率
+        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # avoid zero-probability at zero
+        log_like = (log_pdf * batch.nll_event_mask).sum(-1)  # Comment in English.
         # Survival time from last event until t_end
         arange = torch.arange(batch.batch_size)
-        last_surv_context = context[arange, batch.end_idx, :] # end_idx对应生存时间
+        last_surv_context = context[arange, batch.end_idx, :]  # end_idx corresponds to the survival interval
         last_surv_dist = self.get_inter_time_dist(last_surv_context)
         last_log_surv = last_surv_dist.log_survival(
             batch.inter_times[arange, batch.end_idx]
         )
         log_like = log_like + last_log_surv.squeeze(-1)  # (B,)
 
-        # Remove survival time from t_prev to t_nll_start  # 对第一个事件，计算条件概率，条件是在t_nll_start-t_prev存活
+        # for the first event
         if torch.any(batch.t_nll_start != batch.t_start):
             prev_surv_context = context[arange, batch.start_idx, :]
             prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (       # nll区间上一个事件到nll区间开始时间
+            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (  # Comment in English.
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
             prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
             log_like = log_like - prev_log_surv
-        return -log_like / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+        return -log_like / (batch.t_end - batch.t_nll_start)  # negated as NLL
 
 
     @torch.inference_mode()
@@ -300,7 +302,7 @@ class BlockTPP(TPPModel):
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
         if (last_surv_time < 0).any():
-            print("Min last_surv_time:", last_surv_time.min().item())
+            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
             raise ValueError("last_surv_time < 0 detected")
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
 

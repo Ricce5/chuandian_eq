@@ -1,15 +1,34 @@
+import glob
+import hashlib
+import json
+import logging
 import os
+import pickle
 import re
 from datetime import datetime
-import pandas as pd
-import pickle
-import glob
-import yaml
-import json
-import hashlib
-from  omegaconf import OmegaConf
 
-def mkdirs(fn): 
+import pandas as pd
+import yaml
+from omegaconf import OmegaConf
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "mkdirs",
+    "create_save_dir",
+    "build_filename",
+    "save_or_load_data",
+    "find_latest_model_path",
+    "remove_empty_dirs",
+    "create_unique_dir",
+    "find_config_with_conditions",
+    "load_csv_by_keyword",
+    "save_args_to_json",
+    "build_catalog_root_dir",
+]
+
+
+def mkdirs(fn):
     if not os.path.isdir(fn):
         os.makedirs(fn)
     return fn
@@ -25,7 +44,6 @@ def create_save_dir(base_dir, model_name='rf', args_dict=None):
         config_hash = hashlib.md5(config_str.encode('utf-8')).hexdigest()[:8]
         dir_name = f"{model_name}_{config_hash}".lower()
     else:
-        from datetime import datetime
         time_str = datetime.now().strftime("%Y%m%d-%H%M%S")
         dir_name = f"{model_name}_{time_str}".lower()
 
@@ -75,11 +93,11 @@ def save_or_load_data(base_path, generate_fn, args=None, filename=None, sub_dir=
     full_path = os.path.join(save_dir, filename)
 
     if os.path.exists(full_path):
-        print(f"[✔] Loading cached data from: {full_path}")
+        logger.info("Loading cached data from: %s", full_path)
         with open(full_path, "rb") as f:
             return pickle.load(f)
     else:
-        print(f"[✱] Processing and saving new data to: {full_path}")
+        logger.info("Processing and saving new data to: %s", full_path)
         data = generate_fn(*(args or ()))
         with open(full_path, "wb") as f:
             pickle.dump(data, f)
@@ -89,22 +107,22 @@ def save_or_load_data(base_path, generate_fn, args=None, filename=None, sub_dir=
 
 def find_latest_model_path(model_name, checkpoint_root="checkpoints"):
     pattern = re.compile(rf"{model_name.lower()}_\d{{8}}-\d{{6}}$")
-    
-    # find all subdirectories matching the pattern
+
+    # Find all subdirectories matching the pattern.
     all_subdirs = glob.glob(os.path.join(checkpoint_root, "*"))
     matched_subdirs = [
         d for d in all_subdirs
         if os.path.isdir(d) and pattern.search(os.path.basename(d))
     ]
 
-    # sort by modification time, newest first
-    matched_subdirs.sort(reverse=True)
+    # Sort by folder name descending (timestamp suffix in folder name).
+    matched_subdirs.sort(key=lambda d: os.path.basename(d), reverse=True)
 
-    # check for the existence of last_model_1.pth in each matched subdirectory
+    # Check for the existence of last_model_1.pth in each matched subdirectory.
     for subdir in matched_subdirs:
         candidate = os.path.join(subdir, "last_model_1.pth")
         if os.path.isfile(candidate):
-            print(f"Found folder: {subdir}")
+            logger.info("Found folder: %s", subdir)
             return os.path.abspath(subdir)
 
     raise FileNotFoundError(f"No checkpoint found for model: {model_name}")
@@ -115,9 +133,10 @@ def remove_empty_dirs(root_path):
         if not dirnames and not filenames:
             os.rmdir(dirpath)
 
-def create_unique_dir(base_path): 
+
+def create_unique_dir(base_path):
     remove_empty_dirs(base_path)
-    
+
     sub_folder_name = re.sub(r'[^0-9]', '', str(datetime.now()))
     unique_path = os.path.join(base_path, sub_folder_name)
     mkdirs(unique_path)
@@ -145,7 +164,7 @@ def find_config_with_conditions(conditions, root_dir):
                     if all(config.get(key) == value for key, value in conditions.items()):
                         matching_dirs.append(os.path.abspath(subdir))
             except Exception as e:
-                print(f"Error reading {config_path}: {e}")
+                logger.warning("Error reading %s: %s", config_path, e)
     return matching_dirs
 
 def load_csv_by_keyword(keyword, base_path):
@@ -163,10 +182,10 @@ def load_csv_by_keyword(keyword, base_path):
     if file_list:
         file_path = file_list[0]
         df = pd.read_csv(file_path)
-        print(df.head())
+        logger.info("Loaded CSV %s, preview:\n%s", file_path, df.head())
         return df
     else:
-        print(f"No matching {keyword}.csv file found")
+        logger.warning("No matching %s.csv file found", keyword)
         return None
 
 

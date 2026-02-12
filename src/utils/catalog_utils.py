@@ -1,10 +1,13 @@
 # Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
+import logging
 import pandas as pd
 import src
 from src.data import Sequence
 from dataclasses import dataclass
 import numpy as np
 from tqdm.auto import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 def train_test_split_sequence(
@@ -207,13 +210,13 @@ def split_sequence(seq, mean_batch_size=300, max_events=30000):
             t_start = find_t_start_from_t_end(seq, t_nll_start=start, t_end=end, max_events=max_events)
             duration = end - t_start
             window_durations.append(duration)
-            print(f"[split_sequence] t_start: {t_start:.4f}, t_end: {end:.4f}")
-            print(f"[split_sequence] Window duration: {duration:.4f}")
+            logger.debug("[split_sequence] t_start: %.4f, t_end: %.4f", t_start, end)
+            logger.debug("[split_sequence] Window duration: %.4f", duration)
 
             short_seq = seq.get_subsequence(t_start, end)
             # print(f"[split_sequence] Short sequence from {t_start} to {end}, NLL start at {start}")
             short_seq.t_nll_start = max(start, short_seq.t_start)
-            print(f"[split_sequence] Short sequence NLL start set to {short_seq.t_nll_start:.4f}")
+            logger.debug("[split_sequence] Short sequence NLL start set to %.4f", short_seq.t_nll_start)
             # print(f"[split_sequence] Short sequence {short_seq}")
             short_sequences.append(short_seq)
         except ValueError as e:
@@ -221,11 +224,11 @@ def split_sequence(seq, mean_batch_size=300, max_events=30000):
             continue
 
     if skipped > 0:
-        print(f"[split_sequence] Skipped {skipped} windows due to too few events or invalid t_start.")
+        logger.warning("[split_sequence] Skipped %s windows due to too few events or invalid t_start.", skipped)
 
     if window_durations:
         mean_duration = np.mean(window_durations)
-        print(f"[split_sequence] Average window duration: {mean_duration:.4f}")
+        logger.info("[split_sequence] Average window duration: %.4f", mean_duration)
 
     return src.data.TppDataset(short_sequences)
 
@@ -240,5 +243,4 @@ def split_minibatches(catalog: src.data.Catalog,mean_batch_size:int,max_events: 
     return DummyCatalog(
         train=d_train, val=d_val, test=d_test, metadata=catalog.metadata,full_sequence=catalog.full_sequence
     )
-
 

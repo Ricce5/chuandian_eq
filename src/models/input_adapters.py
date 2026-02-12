@@ -261,7 +261,6 @@ class MixerAdapter:
     """
     def __init__(self, args, revin_layer: Optional[nn.Module] = None):
         stats = args.stats
-        print("Initializing MixerAdapter with stats:", stats)
         to_t = lambda x: torch.tensor(x, dtype=torch.float32)
 
         # ---- stats & constants

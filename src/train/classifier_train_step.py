@@ -1,10 +1,12 @@
+import logging
 import torch
 import os
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 from src.utils.metrics import classification_metrics, log_metrics, plot_and_save_roc_curve, plot_classification_distribution
 from .trainer import step_scheduler
+
+logger = logging.getLogger(__name__)
 
 def train(data_loader, model, criterion, optimizer, scheduler, device, accumulation_steps=2, ema_model=None):
     model.train()
@@ -149,4 +151,4 @@ def visualize_predictions(model, data_loader, device, save_dir, title="Predictio
         save_path=save_path
     )
 
-    print(f"[✔] Prediction distribution plot has been saved to: {save_path}")
+    logger.info("Prediction distribution plot has been saved to: %s", save_path)

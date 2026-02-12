@@ -1,4 +1,3 @@
-# ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
 import torch
 from torch.distributions import Distribution as TorchDistribution
 
@@ -9,7 +8,7 @@ class Distribution(TorchDistribution):
 
         The hazard function h(x) is defined as h(x) = p(x) / S(x), where p(x) is the
         probability density function (PDF) and S(x) is the survival function (SF)
-        defined as S(x) = \int_{0}^{x} p(u) du.
+        defined as S(x) = Pr(X >= x).
 
         Args:
             x: Input.
@@ -23,7 +22,7 @@ class Distribution(TorchDistribution):
         r"""Compute the logarithm of the survival function.
 
         The survival function S(x) corresponds to Pr(X >= x) and can be computed as
-        S(x) = \int_{0}^{x} p(u) du, where p(x) is the PDF.
+        S(x) = 1 - F(x) = \int_{x}^{+\infty} p(u) du, where p(x) is the PDF.
 
         Args:
             x: Input.
@@ -34,7 +33,7 @@ class Distribution(TorchDistribution):
         raise NotImplementedError
 
     def sample_conditional(
-        self, lower_bound: torch.Tensor, sample_shape: torch.Size = torch.Size() # 默认值是空的torch.Size对象
+        self, lower_bound: torch.Tensor, sample_shape: torch.Size = torch.Size()
     ) -> torch.Tensor:
         """Sample from the distribution conditioned on the fact that x > lower_bound."""
         raise NotImplementedError

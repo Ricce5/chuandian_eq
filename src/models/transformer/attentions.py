@@ -248,19 +248,19 @@ class ProbAttention(BaseAttention):
         B, H, L_V, D = V.shape
 
         if self.mask_flag:
-            # 构造 ProbAttention 的因果 mask
+            # build the causal mask for ProbAttention
             prob_mask = ProbMask(B, H, L_Q, index, scores, device=V.device).mask  # [B, H, top_k, L]
 
             if attn_mask is not None:
                 # attn_mask: [B, 1, L_Q, L_V]
-                # 取出 top-k 行
+                # select top-k rows
                 external_mask = attn_mask.expand(B, H, L_Q, L_V)[
                     torch.arange(B)[:, None, None],
                     torch.arange(H)[None, :, None],
                     index, :
                 ]  # shape: [B, H, top_k, L_V]
 
-                # 合并两种掩码：True 表示需要 mask
+                # combine two masks; True means masked
                 attn_mask = prob_mask | external_mask
             else:
                 attn_mask = prob_mask
@@ -318,7 +318,7 @@ class ProbAttention(BaseAttention):
         return out, attn
     
     def set_dropout(self, p: float):
-        device = next(self.parameters()).device  # 获取当前模块的 device
+        device = next(self.parameters()).device  # get current module device
         self.dropout = nn.Dropout(p).to(device)
 
 

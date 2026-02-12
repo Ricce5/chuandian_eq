@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +14,8 @@ import src.distributions as dist
 from .tpp_model import TPPModel
 from src.models.mamba.mamba_time import MambaTime
 from mamba_ssm.utils.generation import InferenceParams
+
+logger = logging.getLogger(__name__)
 
 class MHP(TPPModel):
     """Neural TPP model with an recurrent encoder.
@@ -40,9 +43,9 @@ class MHP(TPPModel):
         self.num_extra_features = None
         self.context_size = args.d_model
         self.num_components = args.num_components
-        self.register_buffer("tau_mean", torch.tensor(args.tau_mean, dtype=torch.float32))  # 平均事件间隔
-        self.register_buffer("tau_min", torch.tensor(args.tau_min, dtype=torch.float32))  # 最小事件间隔
-        self.register_buffer("tau_max", torch.tensor(args.tau_max, dtype=torch.float32))  # 最大事件间隔
+        self.register_buffer("tau_mean", torch.tensor(args.tau_mean, dtype=torch.float32))  # average inter-event interval
+        self.register_buffer("tau_min", torch.tensor(args.tau_min, dtype=torch.float32))  # minimum inter-event interval
+        self.register_buffer("tau_max", torch.tensor(args.tau_max, dtype=torch.float32))  # maximum inter-event interval
         self.register_buffer("log_tau_mean", self.tau_mean.log())
         self.register_buffer("mag_mean", torch.tensor(args.mag_mean, dtype=torch.float32))
         self.register_buffer("time_max", torch.tensor(args.time_max, dtype=torch.float32))
@@ -67,7 +70,7 @@ class MHP(TPPModel):
             )
         self.num_inputs = (
             1  # inter-event times
-            + int(self.input_magnitude)  # magnitude features 取true或false
+            + int(self.input_magnitude)  # Comment in English.
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.layer_idx = 0 
@@ -83,7 +86,7 @@ class MHP(TPPModel):
         self.dropout = nn.Dropout(args.rnn_dropout)
         self.to(self.device)
 
-    def encode_time(self, inter_times):  # 做log变换并中心化
+    def encode_time(self, inter_times):  # apply log transform and centering
         log_tau = torch.log(torch.clamp_min(inter_times, 1e-10)).unsqueeze(-1)
         return log_tau - self.log_tau_mean
 
@@ -92,7 +95,7 @@ class MHP(TPPModel):
         return (inter_times - self.tau_min) / (self.tau_max - self.tau_min + 1e-10)
 
 
-    def encode_magnitude(self, mag): # 中心化
+    def encode_magnitude(self, mag):  # apply centering
         return mag.unsqueeze(-1) - self.mag_mean
 
     def encode_extra_features(self, extra_feat):
@@ -148,7 +151,7 @@ class MHP(TPPModel):
         )
 
     def forward(self, batch):
-        feat_list = [self.encode_time(batch.inter_times)]  # 上一次事件到当前事件的时间间隔
+        feat_list = [self.encode_time(batch.inter_times)]  # inter-event time from previous to current event
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
@@ -156,7 +159,7 @@ class MHP(TPPModel):
         rnn_output = self.mamba(features.contiguous(), inter_times=inter_times)  # (B, L, C)
         return rnn_output
 
-    # log_rate没有被使用
+    # Comment in English.
     def get_magnitude_dist(self, context):
         log_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
         b = self.richter_b * torch.ones_like(log_rate)
@@ -176,27 +179,27 @@ class MHP(TPPModel):
         context = self.get_context(batch)  # (B, L, C)
         # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
-        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # (B, L) 避免0处概率为0
-        log_like = (log_pdf * batch.nll_event_mask).sum(-1) # 对nll区间的事件，上次事件到当前事件的时间间隔的对数概率
+        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # avoid zero-probability at zero
+        log_like = (log_pdf * batch.nll_event_mask).sum(-1)  # Comment in English.
         # Survival time from last event until t_end
         arange = torch.arange(batch.batch_size)
-        last_surv_context = context[arange, batch.end_idx, :] # end_idx对应生存时间
+        last_surv_context = context[arange, batch.end_idx, :]  # end_idx corresponds to the survival interval
         last_surv_dist = self.get_inter_time_dist(last_surv_context)
         last_log_surv = last_surv_dist.log_survival(
             batch.inter_times[arange, batch.end_idx]
         )
         log_like = log_like + last_log_surv.squeeze(-1)  # (B,)
 
-        # Remove survival time from t_prev to t_nll_start  # 对第一个事件，计算条件概率，条件是在t_nll_start-t_prev存活
+        # for the first event
         if torch.any(batch.t_nll_start != batch.t_start):
             prev_surv_context = context[arange, batch.start_idx, :]
             prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (       # nll区间上一个事件到nll区间开始时间
+            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (  # Comment in English.
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
             prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
             log_like = log_like - prev_log_surv
-        return -log_like / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+        return -log_like / (batch.t_end - batch.t_nll_start)  # negated as NLL
 
 
     @torch.inference_mode()
@@ -230,7 +233,7 @@ class MHP(TPPModel):
             time_remaining = None
 
         t_end = t_start + duration
-        inter_time_list = []  # 用列表累积，避免频繁 cat
+        inter_time_list = []  # accumulate in a list to avoid frequent concatenation
         if self.predict_magnitude:
             mag_list = []
 
@@ -258,25 +261,25 @@ class MHP(TPPModel):
 
             rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
 
-            # RNN 更新状态
+            # Comment in English.
             current_state = self.get_current_state(rnn_input, inference_params=inference_params, inter_times=next_inter_times)
             inference_params.seqlen_offset += 1
             current_state = self.dropout(current_state)
-            current_state = current_state.detach()  # 关键：防止图增长
+            current_state = current_state.detach()  # important: prevent graph growth
             # print(f"current_state: {torch.sum(current_state)}")
 
-            # 检查是否达到采样终点
+            # check whether sampling has reached the end time
             total_time = torch.cat(inter_time_list, dim=1).sum(-1).min()
             generated = total_time >= (t_end - t_start)
 
-        # 合并列表成张量
+        # concatenate list tensors
         inter_times = torch.cat(inter_time_list, dim=1)  # (B, L)
         if self.predict_magnitude:
             magnitudes = torch.cat(mag_list, dim=1)  # (B, L)
         else:
             magnitudes = None
 
-        # 时间修正与padding处理
+        # time correction and padding handling
         duration = t_end - t_start
         unclipped_arrival_times = inter_times.cumsum(-1)  # (B, L)
         epsilon = 1e-5
@@ -285,8 +288,8 @@ class MHP(TPPModel):
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
         if (last_surv_time < 0).any():
-            print("Min last_surv_time:", last_surv_time.min().item())
-            print("Any negative?", (last_surv_time < 0).any().item())
+            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
+            logger.error("Any negative? %s", (last_surv_time < 0).any().item())
             raise ValueError("last_surv_time < 0 detected")
 
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
@@ -309,7 +312,7 @@ class MHP(TPPModel):
             return batch
 
 
-    # 时间变换定理，任何TPP可转化为单位泊松过程
+    # time-rescaling theorem: any TPP can be transformed to a unit-rate Poisson process
     def evaluate_compensator(
         self, sequence: src.data.Sequence, num_grid_points: int = 50
     ) -> Tuple[torch.Tensor, torch.Tensor]:

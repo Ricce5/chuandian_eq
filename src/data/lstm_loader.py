@@ -1,3 +1,4 @@
+import logging
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
@@ -6,6 +7,8 @@ from sklearn.preprocessing import MinMaxScaler
 plt.rcParams['axes.unicode_minus'] = False
 from torch.utils.data import Subset, Dataset
 from src.data.utils import get_split_indices
+
+logger = logging.getLogger(__name__)
 
 class LSTMDataset(Dataset):
     def __init__(self, X, y, scalars=None):
@@ -80,8 +83,12 @@ def clean_data(X, y, nan_value_for_x=0.0, verbose=True):
 
     X_clean = np.nan_to_num(X_clean, nan=nan_value_for_x)
     if verbose:
-        print(f"   Original number of samples: {len(y)}, number of samples after cleaning: {len(y_clean)}")
-        print(f"   Replaced NaN values in X with {nan_value_for_x}")
+        logger.info(
+            "Original number of samples: %s, number of samples after cleaning: %s",
+            len(y),
+            len(y_clean),
+        )
+        logger.info("Replaced NaN values in X with %s", nan_value_for_x)
 
     return X_clean, y_clean
 
@@ -109,9 +116,9 @@ def split_dataset(X, y, by_time=False, batch_size=64, seed=0, train_ratio=0.7, v
     test_ds = Subset(dataset, test_idx)
 
 
-    print(f"Train set: {len(train_ds)} samples")
-    print(f"Validation set: {len(val_ds)} samples")
-    print(f"Test set: {len(test_ds)} samples")
+    logger.info("Train set: %s samples", len(train_ds))
+    logger.info("Validation set: %s samples", len(val_ds))
+    logger.info("Test set: %s samples", len(test_ds))
 
 
     data_loaders = {

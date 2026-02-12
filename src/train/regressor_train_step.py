@@ -2,7 +2,6 @@ import torch
 import os
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
@@ -166,4 +165,3 @@ def visualize_results(model, train_loader, val_loader, test_loader, device, save
 
     plot_regression_scatter(data_dict, save_path=os.path.join(save_dir, "regression_scatter.png"))
     plot_regression_series(data_dict, save_path=os.path.join(save_dir, "regression_series.png"))
-

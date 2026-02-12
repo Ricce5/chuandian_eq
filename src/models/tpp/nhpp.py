@@ -26,7 +26,7 @@ class NHPP(TPPModel):
                  ) -> torch.Tensor:
         
         nll_total = self.bg_model.nll(batch)
-        return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,)  取了负值
+        return  nll_total / (batch.t_end - batch.t_nll_start)  # negated as NLL
 
 
     

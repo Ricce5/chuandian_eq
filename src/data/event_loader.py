@@ -1,3 +1,4 @@
+import logging
 import torch
 import torch.nn.functional as F
 from torch.utils.data import WeightedRandomSampler
@@ -10,6 +11,8 @@ from torch.utils.data import WeightedRandomSampler,Subset
 from src.data.utils import get_split_indices
 from torch.utils.data import WeightedRandomSampler
 from .constants import PAD
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -40,14 +43,14 @@ def extract_field_array(dict_list, field):
 def generate_time_array(df, Twindow, Tfore, dt, t_array=None):
     t = df["t"].values
     t.sort()
-    print(f"Number of earthquake events (greater than Mc): {len(t)}")
+    logger.info("Number of earthquake events (greater than Mc): %s", len(t))
 
     if t_array is not None:
         t_array = np.array(t_array)
         if len(t_array) == 0:
             raise ValueError("t_array cannot be empty")
         if np.any(t_array < t[0] + Twindow) or np.any(t_array > t[-1]):
-            print("⚠️ Warning: t_array contains values outside the data time range")
+            logger.warning("t_array contains values outside the data time range")
         return t_array
     else:
         Nloop = int(np.ceil((t[-1] - t[0] - Twindow - Tfore) / dt))
@@ -149,7 +152,12 @@ class EventDataset(torch.utils.data.Dataset):
                 self.lengths.append(len(history_data[0]))
 
         if self.lengths:
-            print(f"lengths of samples: min={min(self.lengths)}, max={max(self.lengths)}, avg={sum(self.lengths)/len(self.lengths):.2f}")
+            logger.info(
+                "lengths of samples: min=%s, max=%s, avg=%.2f",
+                min(self.lengths),
+                max(self.lengths),
+                sum(self.lengths) / len(self.lengths),
+            )
                 
     def __len__(self):
         return len(self.samples)
@@ -235,8 +243,17 @@ def get_dataloader(
 ):
     if task_type == 'classification':
         pos_count, neg_count = count_pos_neg(dataset)
-        print(f"Positive samples: {pos_count}, Negative samples: {neg_count}")
-        print(f"Total samples: {len(dataset)}, Positive ratio: {pos_count / len(dataset):.2f}, Negative ratio: {neg_count / len(dataset):.2f}")
+        total = len(dataset)
+        if total > 0:
+            logger.info("Positive samples: %s, Negative samples: %s", pos_count, neg_count)
+            logger.info(
+                "Total samples: %s, Positive ratio: %.2f, Negative ratio: %.2f",
+                total,
+                pos_count / total,
+                neg_count / total,
+            )
+        else:
+            logger.warning("Classification dataset is empty.")
 
     if full_batch:
         if len(dataset) == 0:
@@ -264,8 +281,8 @@ def get_dataloader(
 def split_dataset(dataset, train_ratio=0.8, val_ratio=0.1, seed=0, by_time=True, time_order=('train', 'val', 'test'),task_type='classification'):
     total = len(dataset)
     if task_type == 'classification':
-        print(f"Number of positive samples: {dataset.pos_count}")
-        print(f"Number of negative samples: {dataset.neg_count}")
+        logger.info("Number of positive samples: %s", dataset.pos_count)
+        logger.info("Number of negative samples: %s", dataset.neg_count)
     train_idx, val_idx, test_idx = get_split_indices(
         total_length=total,
         train_ratio=train_ratio,
@@ -288,10 +305,15 @@ def get_sequence_length_stats(array_dict):
     lengths = [len(seq) for seq in history_times]
 
     if not lengths:
-        print("No sequences found.")
+        logger.warning("No sequences found.")
         return
 
-    print(f"Sequence lengths - min: {min(lengths)}, max: {max(lengths)}, avg: {sum(lengths)/len(lengths):.2f}")
+    logger.info(
+        "Sequence lengths - min: %s, max: %s, avg: %.2f",
+        min(lengths),
+        max(lengths),
+        sum(lengths) / len(lengths),
+    )
     return lengths
 
 
@@ -324,4 +346,3 @@ def split_data(samples_list, array_dict, test_size=0.1, val_size=0.1, random_sta
     test_samples, test_dict = extract_subset(test_idx)
 
     return (train_samples, train_dict), (val_samples, val_dict), (test_samples, test_dict)
-

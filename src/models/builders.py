@@ -329,12 +329,12 @@ class ClassifierSEBuilder(ModelBuilder):
             attn_type=args.attn_type,
         )
 
-        # 输入适配器
+        # input adapter
         input_adapter = S_T_M_InputAdapter()
         base_model = BaseModel(encoder=encoder, input_adapter=input_adapter, device=device)
         extractor = RepresentationExtractor.by_name("last")()
 
-        # 分类头（输入维度为 3 * d_rnn）
+        # classification head
         head = TaskHead(
             input_dim=3 * args.d_model,
             output_dim=args.mlp_out,
@@ -381,7 +381,7 @@ class ClassifierSTMBuilder(ModelBuilder):
         extractor = RepresentationExtractor.by_name("last")()
 
         head = TaskHead(
-            input_dim=4 * args.d_model,  # 注意这里是 4，因为 STM 有多分支拼接输出
+            input_dim=4 * args.d_model,  # note
             output_dim=args.mlp_out,
             head_type="mlp",
             hidden_layers=args.mlp_hdw,
@@ -406,7 +406,7 @@ class ClassifierAttnPlBuilder(ModelBuilder):
         from src.models.base_model import BaseModel
         from src.models.extractors.attention_pooling import AttentionPoolingExtractor
 
-        # 编码器
+        # encoder
         encoder = Transformer_ST(
             d_model=args.d_model,
             d_rnn=args.d_rnn,
@@ -425,7 +425,7 @@ class ClassifierAttnPlBuilder(ModelBuilder):
         input_adapter = SM_T_InputAdapter()
         base_model = BaseModel(encoder=encoder, input_adapter=input_adapter, device=device)
 
-        # 注意这里 input_dim 不带时间：transformer 输出是 [B, L, 3*d_model]
+        # note
         extractor = AttentionPoolingExtractor(
             input_dim=3 * args.d_model,
             hidden_dim=3 * args.d_model,
@@ -784,7 +784,6 @@ class ClfMixerAttnPlTBuilder(ModelBuilder):
         extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
         time_bias_type = getattr(args, 'time_bias_type', 'linear') if hasattr(args, 'time_bias_type') else 'linear'
         extractor_cfg = getattr(args, 'extractor_cfg', {})
-        print('using extractor:', extractor_name, "time_bias_type:", time_bias_type, "extractor_config:", extractor_cfg)
         if extractor_name == 'attn_time':
             extractor = AttentionPoolingWithTimeExtractor(
                 input_dim=args.d_model + 1,
@@ -886,7 +885,6 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
             extractor_name = getattr(args, 'extractor_name') if hasattr(args, 'extractor_name') else 'attn_time'
             time_bias_type = getattr(args, 'time_bias_type', 'linear') if hasattr(args, 'time_bias_type') else 'linear'
             extractor_cfg = getattr(args, 'extractor_cfg', {})
-            print('using extractor:', extractor_name, "time_bias_type:", time_bias_type, "extractor_config:", extractor_cfg)
             if extractor_name == 'attn_time':
                 extractor = AttentionPoolingWithTimeExtractor(
                     input_dim=args.d_model + 1,

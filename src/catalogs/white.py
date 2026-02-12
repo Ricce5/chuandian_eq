@@ -1,4 +1,5 @@
 import io
+import logging
 from pathlib import Path
 from typing import Tuple, Union
 
@@ -9,6 +10,8 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
 from ..utils.catalog_utils import train_val_test_split_sequence
+
+logger = logging.getLogger(__name__)
 
 
 def trim(x_min: float, x_max: float, percentile: float) -> Tuple[float, float]:
@@ -67,11 +70,11 @@ class White(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def generate_catalog(self):
-        print("Downloading...")
+        logger.info("Downloading...")
         stream = requests.get(self.url).content
         raw_df = pd.read_csv(
             io.StringIO(stream.decode("utf-8")),
-            delim_whitespace=True,
+            sep=r"\s+",
             index_col="event_id",
         )
         # hack: swapped column names in the Mendeley file

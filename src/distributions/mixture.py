@@ -6,14 +6,14 @@ from torch.distributions import MixtureSameFamily as TorchMixtureSameFamily
 from .distribution import Distribution
 
 
-class MixtureSameFamily(TorchMixtureSameFamily, Distribution):  
+class MixtureSameFamily(TorchMixtureSameFamily, Distribution):
     def __init__(
         self, mixture_distribution, component_distribution, validate_args=False
     ):
         super(MixtureSameFamily, self).__init__(
-            mixture_distribution=mixture_distribution,  # weights for the mixture components
-            component_distribution=component_distribution,   # distribution for each component
-            validate_args=False,
+            mixture_distribution=mixture_distribution,
+            component_distribution=component_distribution,
+            validate_args=validate_args,
         )
 
     def log_hazard(self, x: torch.Tensor) -> torch.Tensor:
@@ -27,9 +27,9 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):
 
     def sample_conditional(self, lower_bound, sample_shape=torch.Size()):
         with torch.no_grad():
-            sample_len = len(sample_shape) 
+            sample_len = len(sample_shape)
             batch_len = len(self.batch_shape)
-            gather_dim = sample_len + batch_len 
+            gather_dim = sample_len + batch_len
             es = self.event_shape
 
             # Since we know that the sample x > lower_bound, we have to adjust the
@@ -37,7 +37,15 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):
             # mixture samples [n, B]
             conditional_mix_probs = (
                 self.mixture_distribution.probs
-                * self.component_distribution.log_survival(lower_bound).exp() 
+                * self.component_distribution.log_survival(lower_bound).exp()
+            )
+            probs_sum = conditional_mix_probs.sum(dim=-1, keepdim=True)
+            eps = torch.finfo(conditional_mix_probs.dtype).eps
+            fallback_probs = self.mixture_distribution.probs
+            conditional_mix_probs = torch.where(
+                probs_sum > 0,
+                conditional_mix_probs / probs_sum.clamp_min(eps),
+                fallback_probs,
             )
             mix_sample = Categorical(probs=conditional_mix_probs).sample(sample_shape)
             mix_shape = mix_sample.shape  # [n, B]
@@ -49,13 +57,11 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):
 
             # Gather along the k dimension
             mix_sample_r = mix_sample.reshape(
-                mix_shape + torch.Size([1] * (len(es) + 1))  # 使得 mix_sample_r 的形状为 [n, B, 1, 1, ..., 1] (es 的长度+1个 1)
+                mix_shape + torch.Size([1] * (len(es) + 1))
             )
             mix_sample_r = mix_sample_r.repeat(
-                torch.Size([1] * len(mix_shape)) + torch.Size([1]) + es # [n,B,1,E]
+                torch.Size([1] * len(mix_shape)) + torch.Size([1]) + es
             )
 
-            samples = torch.gather(comp_samples, gather_dim, mix_sample_r) 
+            samples = torch.gather(comp_samples, gather_dim, mix_sample_r)
             return samples.squeeze(gather_dim)
-
-    

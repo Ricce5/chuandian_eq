@@ -1,3 +1,6 @@
-from . import proportional, ssm, mamba, conv_mlp, rnn, ncde,kernel
-from src.models.bg.base import BGModel
+"""Background model registry entrypoint."""
 
+from . import conv_mlp, kernel, mamba, ncde, proportional, rnn, ssm
+from .base import BGModel
+
+__all__ = ["BGModel"]

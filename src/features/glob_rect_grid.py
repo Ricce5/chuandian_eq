@@ -1,10 +1,13 @@
 import numpy as np
 from pyproj import Geod
 
-def GlobRectGrid(resol, lonbdn, latbnd):
+__all__ = ["glob_rect_grid", "GlobRectGrid"]
+
+
+def glob_rect_grid(resol, lonbdn, latbnd):
     """
     Python version of GlobRectGrid_ver3 (MATLAB).
-    
+
     Parameters
     ----------
     resol : [dLon, dLat]  resolution in degrees
@@ -18,6 +21,8 @@ def GlobRectGrid(resol, lonbdn, latbnd):
     areamat : 2D array of grid cell areas (km^2)
     grid_vec_format : N×3 array [lon, lat, area]
     """
+    if len(resol) != 2 or len(lonbdn) != 2 or len(latbnd) != 2:
+        raise ValueError("resol, lonbdn and latbnd must be length-2 sequences")
 
     # === 1. Generate lon/lat grid boundaries ===
     longrid = np.arange(lonbdn[0], lonbdn[1] + resol[0], resol[0])
@@ -62,3 +67,8 @@ def GlobRectGrid(resol, lonbdn, latbnd):
     grid_vec_format = np.vstack([LonGMat.ravel(), LatGMat.ravel(), area]).T
 
     return LonGMat, LatGMat, areamat, grid_vec_format
+
+
+def GlobRectGrid(resol, lonbdn, latbnd):
+    """Backward-compatible wrapper for legacy MATLAB-style naming."""
+    return glob_rect_grid(resol, lonbdn, latbnd)

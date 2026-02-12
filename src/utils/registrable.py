@@ -1,5 +1,8 @@
 # Reference: EasyTemporalPointProcess (https://github.com/ant-research/EasyTemporalPointProcess)
 from collections import defaultdict
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Registrable:
@@ -57,7 +60,7 @@ class Registrable:
                         f"{name} has already been registered as {registry[name][0].__name__}, but "
                         f"overwrite=True, so overwriting with {cls.__name__}"
                     )
-                    print(message)
+                    logger.warning(message)
                 else:
                     message = (
                         f"Cannot register {name} as {cls.__name__}; "

@@ -1,21 +1,30 @@
+import logging
 import torch
+
+logger = logging.getLogger(__name__)
+
 def watch_tensor(name, tensor):
     def hook_fn(grad):
         if torch.isnan(grad).any():
-            print(f"❌ NaN in gradient of {name}")
+            logger.error("NaN in gradient of %s", name)
         elif torch.isinf(grad).any():
-            print(f"❌ Inf in gradient of {name}")
+            logger.error("Inf in gradient of %s", name)
         else:
-            print(f"✅ Gradient of {name} OK: min={grad.min().item():.5f}, max={grad.max().item():.5f}")
+            logger.debug(
+                "Gradient of %s OK: min=%.5f, max=%.5f",
+                name,
+                grad.min().item(),
+                grad.max().item(),
+            )
     tensor.register_hook(hook_fn)
 
 def check_tensor_anomaly(tensor: torch.Tensor, name="tensor"):
-    print(f"[{name}] shape: {tensor.shape}")
+    logger.info("[%s] shape: %s", name, tensor.shape)
     if torch.isnan(tensor).any():
-        print(f"  ❗ contains NaN")
+        logger.warning("contains NaN")
     if torch.isinf(tensor).any():
-        print(f"  ❗ contains Inf")
-    print(f"  min: {tensor.min().item():.4e}")
-    print(f"  max: {tensor.max().item():.4e}")
-    print(f"  mean: {tensor.mean().item():.4e}")
-    print(f"  std: {tensor.std().item():.4e}")
+        logger.warning("contains Inf")
+    logger.info("min: %.4e", tensor.min().item())
+    logger.info("max: %.4e", tensor.max().item())
+    logger.info("mean: %.4e", tensor.mean().item())
+    logger.info("std: %.4e", tensor.std().item())

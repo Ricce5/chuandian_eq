@@ -41,7 +41,7 @@ class Causalconv(nn.Module):
         y = x.transpose(1, 2).contiguous()
 
         for w, b in zip(self.weights, self.biases):
-            # activation 可选：None / "silu"
+            # optional
             out = causal_conv1d_fn(y, w, b, activation=self.activation)
             out = out[:, :, : y.size(-1)]
             if self.residual:

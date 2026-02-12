@@ -1,5 +1,4 @@
 import torch
-import src.data.constants as Constants
 from src.data.constants import PAD
 from src.data.batch import pad_sequence
 from typing import Optional
@@ -195,4 +194,3 @@ def masked_select_per_row(matrixs, mask):
         new_masks.append(mask_tensor)
 
     return selected_matrices, new_masks
-

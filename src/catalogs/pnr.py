@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
-from src.utils.catalog_utils import train_val_test_split_sequence,train_test_split_sequence
+from src.utils.catalog_utils import train_test_split_sequence, train_val_test_split_sequence
 from src.utils.file_utils import build_catalog_root_dir
 
 
@@ -118,9 +118,6 @@ class PNRBase(Catalog):
         df["time"] = pd.to_datetime(df["ts"])
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.mag_completeness].copy()
-        print(f"Magnitude completeness threshold: {self.mag_completeness}")
-        print(f"freq: {self.metadata['freq']}")
-        print(f"Min magnitude after completeness filter: {df['Magnitude'].min()}")
         df.sort_values("time", inplace=True)
         duplicated_mask = df["time"].duplicated(keep=False)
         if duplicated_mask.any():
@@ -351,7 +348,8 @@ class PNRStandard(Catalog):
         self.test = TppDataset([seq_test])
 
     def generate_catalog(self):
-         pass
+        # No standalone generation: this catalog is composed from region-specific catalogs.
+        return None
     
     @property
     def required_files(self):

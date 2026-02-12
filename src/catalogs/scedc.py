@@ -1,5 +1,6 @@
 # Reference: https://zenodo.org/records/8161777 - Using Deep Learning for Flexible and Scalable Earthquake Forecasting.
 import io
+import logging
 from pathlib import Path
 from typing import Union
 
@@ -9,6 +10,8 @@ import requests
 import torch
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
 from ..utils.catalog_utils import train_val_test_split_sequence
+
+logger = logging.getLogger(__name__)
 
 COL_NAMES = [
     "date",
@@ -82,7 +85,7 @@ class SCEDC(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def generate_catalog(self):
-        print("Downloading...")
+        logger.info("Downloading...")
 
         raw_df = []
 
@@ -97,7 +100,7 @@ class SCEDC(Catalog):
             raw_df.append(
                 pd.read_csv(
                     io.StringIO(stream.decode("utf-8")),
-                    delim_whitespace=True,
+                    sep=r"\s+",
                     header=0,
                     names=COL_NAMES,
                     comment="#",

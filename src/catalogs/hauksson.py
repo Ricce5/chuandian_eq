@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
-from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
+from src.data import Catalog, TppDataset, Sequence
 from ..utils.catalog_utils import train_val_test_split_sequence
 
 COL_NAMES = [
@@ -39,6 +39,7 @@ COL_NAMES = [
 ]
 
 
+@Catalog.register(name="Hauksson-Standard")
 class Hauksson(Catalog):
     url = "https://service.scedc.caltech.edu/ftp/catalogs/hauksson/Socal_DD/sc_1981_2019_1d_3d_gc_soda_noqb_v0.gc"
 
@@ -56,7 +57,8 @@ class Hauksson(Catalog):
             "start_ts": pd.Timestamp("1981-01-01"),
             "end_ts": pd.Timestamp("2020-01-01"),
         }
-        super().__init__(root_dir=root_dir, metadata=metadata)
+        self.root_dir = Path(root_dir).expanduser().resolve()
+        super().__init__(root_dir=self.root_dir, metadata=metadata)
 
         # Load the full sequence
         self.full_sequence = TppDataset.load_from_disk(
@@ -81,11 +83,10 @@ class Hauksson(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def generate_catalog(self):
-        print("Downloading...")
         stream = requests.get(self.url).content
         raw_df = pd.read_csv(
             io.StringIO(stream.decode("utf-8")),
-            delim_whitespace=True,
+            sep=r"\s+",
             header=None,
             names=COL_NAMES,
             index_col=False,

@@ -5,6 +5,7 @@
 #    https://github.com/ant-research/EasyTemporalPointProcess
 
 import numpy as np
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,8 @@ from .attentions import StandardAttention, FlashAttentionWrapper, ProbAttention,
 from math import sqrt
 from typing import Optional, Dict
 from src.utils.mask_utils import TriangularCausalMask, get_self_attn_mask_from_non_pad_mask,get_attn_mask_with_cache
+
+logger = logging.getLogger(__name__)
 
 
 class MultiHeadAttention(nn.Module):
@@ -58,7 +61,7 @@ class MultiHeadAttention(nn.Module):
             if hasattr(module, "set_dropout"):
                 module.set_dropout(p)
             else:
-                print(f"[Warning] Attention type '{attn_type}' does not support dropout setting.")
+                logger.warning("Attention type '%s' does not support dropout setting.", attn_type)
 
 
     def forward(
@@ -189,5 +192,4 @@ class PositionwiseFeedForward(nn.Module):
         if not self.normalize_before:
             x = self.layer_norm(x)
         return x
-
 

@@ -1,5 +1,6 @@
 # Enhance encoders with building blocks
 # Reference: Spatio-temporal Diffusion Point Processes https://github.com/tsinghua-fib-lab/Spatio-temporal-Diffusion-Point-Processes
+import logging
 import torch
 import torch.nn as nn
 from typing import List, Dict, Callable, Optional, Tuple
@@ -7,6 +8,8 @@ from .layers import EncoderLayer,TimePositionalEncoding, RNN_layers
 from src.models.layers import LocalConv
 from src.utils.mask_utils import get_subsequent_mask, get_attn_key_pad_mask
 from src.utils.registrable import Registrable
+
+logger = logging.getLogger(__name__)
 
 
 class BaseEncoder(nn.Module, Registrable):
@@ -159,9 +162,14 @@ class Encoder(BaseEncoder):
         enc_output = self.event_emb(event_mark) * non_pad_mask
         out = self.event_emb(event_mark)
         if torch.isnan(out).any():
-            print("❌ event_emb output contains NaN!")
-            print("stats:", out.mean(), out.std(), out.min(), out.max())
-            raise ValueError("event_emb 输出包含 NaN")
+            logger.error(
+                "event_emb output contains NaN (mean=%s, std=%s, min=%s, max=%s)",
+                out.mean().item(),
+                out.std().item(),
+                out.min().item(),
+                out.max().item(),
+            )
+            raise ValueError("event_emb output contains NaN")
         enc_output += tem_enc 
         outputs = self.forward_multi_stack(
             inputs_dict={
@@ -213,9 +221,14 @@ class Encoder_Logdeltat(BaseEncoder):
         enc_output = self.event_emb(event_mark) * non_pad_mask
         out = self.event_emb(event_mark)
         if torch.isnan(out).any():
-            print("❌ event_emb output contains NaN!")
-            print("stats:", out.mean(), out.std(), out.min(), out.max())
-            raise ValueError("event_emb 输出包含 NaN")
+            logger.error(
+                "event_emb output contains NaN (mean=%s, std=%s, min=%s, max=%s)",
+                out.mean().item(),
+                out.std().item(),
+                out.min().item(),
+                out.max().item(),
+            )
+            raise ValueError("event_emb output contains NaN")
         enc_output += tem_enc 
    
         outputs = self.forward_multi_stack(
@@ -271,8 +284,13 @@ class Encoder_Conv(BaseEncoder):
         enc_output = self.event_emb(event_mark) * non_pad_mask
         out = self.event_emb(event_mark)
         if torch.isnan(out).any():
-            print("❌ event_emb output contains NaN!")
-            print("stats:", out.mean(), out.std(), out.min(), out.max())
+            logger.error(
+                "event_emb output contains NaN (mean=%s, std=%s, min=%s, max=%s)",
+                out.mean().item(),
+                out.std().item(),
+                out.min().item(),
+                out.max().item(),
+            )
             raise ValueError("event_emb output contains NaN")
         mask = ~non_pad_mask.squeeze(-1).bool()
         enc_output = self.conv(enc_output, event_time,mask)
@@ -494,6 +512,4 @@ class Encoder_SE(BaseEncoder):
         )
 
         return outputs["fusion"], outputs["temporal"], outputs["mark"]
-
-
 

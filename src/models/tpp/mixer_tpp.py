@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,6 +20,8 @@ from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 from src.models.mamba.scan_wrapper import  SelectiveScanWrapper
 import math 
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -64,8 +67,6 @@ class MixerTPP(TPPModel):
             return d
 
         self.context_size = _infer_d_model(base_model)
-
-        print(f"MixerTPP context size: {self.context_size}")
         self.num_extra_features = None
         self.input_magnitude = True
         self.base_model = base_model
@@ -81,7 +82,7 @@ class MixerTPP(TPPModel):
 
         self.num_inputs = (
             1  # inter-event times
-            + int(self.input_magnitude)  # magnitude features 取true或false
+            + int(self.input_magnitude)  # Comment in English.
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.predict_b = predict_b
@@ -100,7 +101,6 @@ class MixerTPP(TPPModel):
             self.weights.setdefault("b_weight", 1.0)
             self.weights.setdefault("b_smooth_weight", 0.0)
         if use_adaptive_loss_weights:
-            print("Using adaptive loss weights")
             self.log_sigma2_b = nn.Parameter(torch.zeros(()))
         self.reduction = loss_reduction if loss_reduction is not None else "sum"
         if b_range is not None:
@@ -272,9 +272,9 @@ class MixerTPP(TPPModel):
         eps: float = 1e-10,
     ):
         """
-        分别返回时间NLL、震级NLL和加权总NLL。
+        Return time NLL, magnitude NLL, and weighted total NLL.
         Returns:
-            dict(time=..., mag=..., total=...)  # 张量或标量，取决于 reduction
+            dict(time=..., mag=..., total=...)
         """
 
         weights = self.weights if weights is None else weights
@@ -489,7 +489,7 @@ class MixerTPP(TPPModel):
         end_idx = (1 - padding_mask.long()).sum(-1)
         last_surv_time = duration - inter_times.sum(-1)
         if (last_surv_time < 0).any():
-            print("Min last_surv_time:", last_surv_time.min().item())
+            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
             raise ValueError("last_surv_time < 0 detected")
         inter_times[torch.arange(batch_size), end_idx] = last_surv_time
 
@@ -528,6 +528,3 @@ class MixerTPP(TPPModel):
         offsets = torch.cat([torch.tensor([0.0]), sequence.arrival_times])
         grid = (x + offsets).T.reshape(-1)
         return grid, compensator
-
-
-

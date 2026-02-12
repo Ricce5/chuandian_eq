@@ -151,7 +151,6 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         h_intensity = torch.exp(log_h_intensity)            # (B, Nq)
         # protect against zeros in denominator
         denom = h_intensity.clamp_min(1e-8)
-        print(f"f_intensity max:     {f_intensity.max().item()}, h_intensity max: {h_intensity.max().item()}")
         ratio = f_intensity / denom                         # (B, Nq)
         # log change per event-time, only where events are present (mask)
         mask = getattr(batch, "nll_event_mask", None)
@@ -372,7 +371,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             return t_event_rel
 
         # --- dtype policy ---
-        # 只让“时间/索引/积分/CIF”走 fp64；强度 lam 可以保持 fp32（通常足够）
+        # Comment in English.
         t_dtype = torch.float64 if use_fp64 else torch.float32
 
         # --- main flow ---
@@ -406,13 +405,13 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
                 return [[] for _ in range(B)]
             return tau_fallback
 
-        # --- 相对时间：以窗口起点为 0 ---
+        # Comment in English.
         t_shift = ts_times[0]
         ts_rel = ts_times - t_shift        # (Tw,)
         t0_rel = t0_b - t_shift            # (B,)
         t1_rel = t1_b - t_shift            # (B,)
 
-        # build CIF on this window (基于 lam 和 dt_grid，与绝对时间无关)
+        # Comment in English.
         cif = build_cif_from_lam(lam, dt_grid)
         if cif is None:
             tau_fallback = dt_b.clone().to(self.device)
@@ -455,7 +454,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
             target = (Lambda0[has_event] + E[has_event]).clamp_min(0.0)
 
-            # 让 target 不要超过窗口 CIF 末端（更稳的 clamp）
+            # Comment in English.
             cif_end = cif[-1]
             target = target.clamp_max((cif_end - eps_lam).clamp_min(0.0))
 
@@ -465,11 +464,11 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
             return tau
 
-        # sample_sequence=True：返回整段事件序列（以及首事件时间）
+        # Comment in English.
         tau = dt_b.clone()
         cif_end = cif[-1]
 
-        total_L = Lambda_win.clamp_min(0.0) # 变换后的时间区间长度
+        total_L = Lambda_win.clamp_min(0.0)  # Comment in English.
         n_events = torch.poisson(total_L).long()
         n_events = torch.where(total_L < eps_lam, torch.zeros_like(n_events), n_events)
 
@@ -480,7 +479,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         event_idx = torch.arange(max_events, device=device).unsqueeze(0)
         event_mask = event_idx < n_events.unsqueeze(1)
 
-        U = torch.rand(B, max_events, device=device, dtype=t_dtype) # 变换后时间/total_L
+        U = torch.rand(B, max_events, device=device, dtype=t_dtype)  # Comment in English.
         U = torch.where(event_mask, U, torch.ones_like(U))
         U_sorted, _ = torch.sort(U, dim=1)
         U_sorted = torch.where(event_mask, U_sorted, torch.zeros_like(U_sorted))
@@ -490,11 +489,11 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         targets = targets.clamp_max(max_target)
         targets = torch.where(event_mask, targets, torch.zeros_like(targets))
 
-        flat_targets = targets[event_mask] # 把所有True位置取出来，按行展开
+        flat_targets = targets[event_mask]  # Comment in English.
         if flat_targets.numel() == 0:
             return [[] for _ in range(B)]
 
-        batch_ids = torch.repeat_interleave(torch.arange(B, device=device), n_events) # 每个事件对应的batch id
+        batch_ids = torch.repeat_interleave(torch.arange(B, device=device), n_events)  # Comment in English.
         t_events_rel_flat = invert_cif_targets(flat_targets, cif, lam, dt_grid, ts_rel)
 
         t0_flat = t0_rel[batch_ids]
@@ -506,7 +505,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         t_events_rel_flat = t_events_rel_flat[within]
         batch_ids = batch_ids[within]
 
-        counts_filtered = torch.bincount(batch_ids, minlength=B) # 统计保留的事件数
+        counts_filtered = torch.bincount(batch_ids, minlength=B)  # Comment in English.
         if counts_filtered.sum().item() == 0:
             return [[] for _ in range(B)]
 

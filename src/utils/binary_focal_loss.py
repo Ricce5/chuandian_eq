@@ -1,6 +1,8 @@
 import torch.nn as nn
-import torch.nn.functional as F
 from torchvision.ops import sigmoid_focal_loss
+
+__all__ = ["FocalLossWrapper"]
+
 
 class FocalLossWrapper(nn.Module):
     """ 
@@ -20,4 +22,3 @@ class FocalLossWrapper(nn.Module):
             gamma=self.gamma,
             reduction=self.reduction
         )
-
