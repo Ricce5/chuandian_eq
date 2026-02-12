@@ -1,6 +1,15 @@
 import logging
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve,average_precision_score
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    roc_curve,
+    average_precision_score,
+    precision_recall_curve,
+    confusion_matrix,
+)
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import binom
@@ -130,6 +139,86 @@ def plot_and_save_roc_curve(targets, preds, auc_value, save_dir, filename="roc_c
         plt.show()
     except Exception as e:
         logger.warning("Failed to plot ROC curve: %s", e)
+
+
+def plot_and_save_pr_curve(targets, preds, pr_auc_value, save_dir, filename="pr_curve.png"):
+    """
+    Plot and save the Precision-Recall curve image.
+    """
+    try:
+        targets = np.asarray(targets).reshape(-1)
+        preds = np.asarray(preds).reshape(-1)
+        precision, recall, _ = precision_recall_curve(targets, preds)
+        pos_rate = float(np.mean(targets == 1))
+
+        plt.figure()
+        plt.plot(recall, precision, label=f"PR Curve (AP = {pr_auc_value:.4f})")
+        plt.hlines(
+            pos_rate,
+            xmin=0.0,
+            xmax=1.0,
+            colors="k",
+            linestyles="--",
+            label=f"Baseline = {pos_rate:.4f}",
+        )
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.title("Precision-Recall Curve")
+        plt.legend(loc="lower left")
+        plt.grid(True)
+        plt.tight_layout()
+
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, filename)
+        plt.savefig(save_path)
+        logger.info("PR curve saved to %s", save_path)
+        plt.show()
+    except Exception as e:
+        logger.warning("Failed to plot PR curve: %s", e)
+
+
+def plot_and_save_confusion_matrix(
+    targets,
+    preds,
+    threshold=0.5,
+    save_dir=None,
+    filename="confusion_matrix.png",
+    apply_sigmoid=True,
+):
+    """
+    Plot and save confusion matrix using a probability threshold.
+    """
+    try:
+        targets = np.asarray(targets).reshape(-1).astype(int)
+        preds = np.asarray(preds).reshape(-1)
+        if apply_sigmoid:
+            preds = expit(preds)
+        preds_bin = (preds > threshold).astype(int)
+
+        cm = confusion_matrix(targets, preds_bin, labels=[0, 1])
+
+        plt.figure(figsize=(6, 5))
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            cbar=False,
+            xticklabels=["Pred 0", "Pred 1"],
+            yticklabels=["True 0", "True 1"],
+        )
+        plt.xlabel("Predicted Label")
+        plt.ylabel("True Label")
+        plt.title(f"Confusion Matrix (threshold={threshold:.4f})")
+        plt.tight_layout()
+
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, filename)
+        plt.savefig(save_path)
+        logger.info("Confusion matrix saved to %s", save_path)
+        plt.show()
+    except Exception as e:
+        logger.warning("Failed to plot confusion matrix: %s", e)
 
 def plot_classification_distribution(preds, labels, title="Prediction Distribution (Training Set)", save_path=None):
     preds = np.array(preds)

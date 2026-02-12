@@ -1,3 +1,0 @@
-加载带b值预测的SCEDC权重
-
-对齐/root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250906-194042

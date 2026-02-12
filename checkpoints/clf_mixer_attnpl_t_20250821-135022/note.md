@@ -1,2 +1,0 @@
-3层加载第一层权重
-对应 checkpoints/clf_mixer_attnpl_t_20250821-110726

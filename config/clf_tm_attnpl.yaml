@@ -1,8 +1,8 @@
-# # 模型设置
+# Model settings
 resume_path: ./checkpoints/classifier_tm_s_20250704-154411/last_model_1.pth
 load_specific_parts: ['encoder']
 model: clf_tm_attnpl
-# 训练参数
+# Training parameters
 
 batch_size: 32
 accumulation_steps: 4
@@ -17,7 +17,7 @@ scheduler_type: step_warmup
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
 
-# transfomer结构参数
+# Transformer structure parameters
 d_model: 128
 d_rnn: 128
 d_inner: 256
@@ -29,18 +29,18 @@ t_dropout: 0.1
 rnn_dropout: 0
 attn_type: flash
 
-# MLP 参数
+# MLP parameters
 mlp_out: 1
 mlp_dropout: 0.3
 mlp_hdw: [256, 128, 64]
 
-# 其他参数
+# Other parameters
 dim: 1
 epochs: 150
 save_dir: null
 cuda_id: "0"
 
-# 数据与控制参数
+# Data and control parameters
 dataset: SCEDC
 seed: 0
 Mc: 2 # 4.5

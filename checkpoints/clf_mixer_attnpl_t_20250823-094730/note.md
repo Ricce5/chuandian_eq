@@ -1,1 +1,0 @@
-rotary_emb_scale_base: 2048

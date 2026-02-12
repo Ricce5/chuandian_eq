@@ -3,7 +3,7 @@
 # freeze_parts: ['encoder']
 # encoder_param_keywords: ['base_model.encoder.layers.0','base_model.encoder.input_proj']
 model: reg_mixer_attnpl_t
-# 训练参数
+# Training parameters
 
 use_ema: false
 batch_size: 64
@@ -26,13 +26,13 @@ mixer_model_config:
   dropout_prob: 0.1
   d_model: 64
   n_layer: 3
-  d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
-  # 输入投影层配置：linear 或 mlp
+  d_intermediate: 128       # Typically 4x d_model; set to 0 to disable MLP
+  # Input projection type: linear or mlp
   input_proj_type: mlp
-  input_proj_hidden: 128     # MLP隐藏层维度，未设置则默认 max(d_model, input_dim)
-  input_proj_activation: silu  # 可选: gelu | relu | silu
+  input_proj_hidden: 128     # MLP hidden dimension; defaults to max(d_model, input_dim) if unset
+  input_proj_activation: silu  # Options: gelu | relu | silu
   input_proj_dropout: 0.1
-  # 输入层初始化方式：default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
+  # Input-layer initialization: default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
   input_init:  kaiming_uniform
   input_init_scale: 1.8
   attn_layer_idx: [1]
@@ -46,19 +46,19 @@ mixer_model_config:
     layer: MHA
     num_heads: 4
     # d_conv: 4
-    rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
+    rotary_emb_dim: 8   # Usually d_model // num_heads // 2
     rotary_emb_scale_base: 1024
     causal: true
 
   norm_epsilon: 1e-5
-  rms_norm: false            # 是否使用 RMSNorm 替代 LayerNorm
+  rms_norm: false            # Use RMSNorm instead of LayerNorm
 
   initializer_cfg:
-    initializer_range: 0.01  # 初始权重方差，保持默认即可
+    initializer_range: 0.01  # Initial weight std; keep default unless needed
 
-  fused_add_norm: false      # 是否使用 Triton 融合Norm（需支持）
+  fused_add_norm: false      # Use Triton fused norm (requires support)
 
-  residual_in_fp32: true     # 更稳定的残差精度
+  residual_in_fp32: true     # More stable residual precision
 
 extractor_name: attn_time_biased_mh
 time_bias_type: log
@@ -68,19 +68,19 @@ extractor_cfg:
   use_ln: true
   use_var_scale: true
 
-# MLP 参数
+# MLP parameters
 mlp_out: 1
 mlp_dropout: 0.3
 mlp_hdw: [128]
 
-# 其他参数
+# Other parameters
 dim: 1
 epochs: 150
 save_epochs: [60,80,100,120,140]
 save_dir: null
 cuda_id: "0"
 
-# 数据与控制参数
+# Data and control parameters
 dataset: ChuanDian
 criterion_name: smooth_l1
 criterion_cfg:

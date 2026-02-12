@@ -1,1 +1,0 @@
-同/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250822-191342

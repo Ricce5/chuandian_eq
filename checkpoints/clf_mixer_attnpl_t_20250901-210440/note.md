@@ -1,1 +1,0 @@
-time_bias_type: log

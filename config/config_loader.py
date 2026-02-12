@@ -3,17 +3,6 @@ from copy import deepcopy
 
 def load_args_from_yaml(path='config.yaml'):
     cfg = OmegaConf.load(path)
-
-    # cfg.learning_rate = float(cfg.learning_rate)
-    # cfg.weight_decay = float(cfg.weight_decay)
-    # cfg.scheduler_min_lr = float(cfg.scheduler_min_lr)
-    # if cfg.scheduler_type == "plateau":
-    #     cfg.scheduler_factor = float(cfg.scheduler_factor)
-    #     cfg.scheduler_patience = int(cfg.scheduler_patience)
-    #     cfg.scheduler_threshold = float(cfg.scheduler_threshold)
-    # cfg.batch_size = int(cfg.batch_size)
-    # cfg.cuda_id = int(cfg.cuda_id)
-
     if "time_order" in cfg:
         if isinstance(cfg.time_order, list):
             cfg.time_order = tuple(cfg.time_order)

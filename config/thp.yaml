@@ -1,10 +1,10 @@
 # resume_path: /home/yzzhang/pjt/chuandian_eq/checkpoints/thp_20250622-112950/last_model_1.pth
-# 模型设置
+# Model settings
 model: thp
 num_event_types: 1
 pad_token_id: 1
 task_type: tpp
-# 训练参数
+# Training parameters
 
 batch_size: 32
 accumulation_steps: 1
@@ -19,7 +19,7 @@ scheduler_type: step_warmup
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
-# transfomer结构参数
+# Transformer structure parameters
 d_model: 32
 d_rnn: 64
 d_inner: 64
@@ -36,13 +36,13 @@ attn_type: flash
 # 
 num_components: 32
 
-# 其他参数
+# Other parameters
 dataset: ChuanDian
 dim: 1
 epochs: 500
 save_dir: null
 cuda_id: "0"
 minibatch_training: true
-# 数据与控制参数
+# Data and control parameters
 split_by_time: true
 time_order:  [train, val, test]

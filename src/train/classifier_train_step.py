@@ -3,7 +3,14 @@ import torch
 import os
 import numpy as np
 from tqdm import tqdm
-from src.utils.metrics import classification_metrics, log_metrics, plot_and_save_roc_curve, plot_classification_distribution
+from src.utils.metrics import (
+    classification_metrics,
+    log_metrics,
+    plot_and_save_roc_curve,
+    plot_and_save_pr_curve,
+    plot_and_save_confusion_matrix,
+    plot_classification_distribution,
+)
 from .trainer import step_scheduler
 
 logger = logging.getLogger(__name__)
@@ -114,6 +121,15 @@ def test(data_loader, model, criterion, device, save_dir=None,threshold=None):
     metrics = classification_metrics(all_node_targets, all_node_preds, threshold=threshold)
     log_metrics(metrics, prefix="Test")
     plot_and_save_roc_curve(all_node_targets, all_node_preds,metrics['auc'], save_dir, filename="roc_curve.png")
+    plot_and_save_pr_curve(all_node_targets, all_node_preds, metrics["pr_auc"], save_dir, filename="pr_curve.png")
+    plot_and_save_confusion_matrix(
+        all_node_targets,
+        all_node_preds,
+        threshold=metrics["threshold"],
+        save_dir=save_dir,
+        filename="confusion_matrix.png",
+        apply_sigmoid=True,
+    )
     avg_test_loss = test_loss / len(data_loader)
 
     return avg_test_loss, metrics

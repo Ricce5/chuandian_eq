@@ -1,107 +1,105 @@
+# Checkpoint warm start
 resume_path: ./checkpoints/mixer_tpp_20260203-161948/last_model_1.pth
-load_specific_parts: ['encoder']
-# freeze_parts: ['encoder']
-# exclude_freeze_parts: ['input_linear']
-# 模型设置
+load_specific_parts: ["encoder"]
+# freeze_parts: ["encoder"]
+# exclude_freeze_parts: ["input_linear"]
+
+# Model / task
 model: mixer_tpp
+task_type: tpp
 num_event_types: 1
 pad_token_id: 1
-task_type: tpp
-# 训练参数
-
-batch_size: 1
-accumulation_steps: 1
-warmup_ratio: 0.1
-learning_rate: 1e-3 # 5e-4
-weight_decay: 1e-2
-scheduler_factor: null
-scheduler_patience: null
-scheduler_threshold: null
-scheduler_min_lr: 1e-6
-scheduler_type:  step_warmup
-step_lr_step_size_ratio: 0.2
-step_lr_gamma: 0.8
-
-
-dropout: 0.3
+dim: 1
 d_model: 64
+dropout: 0.3
+num_components: 32
+
 mixer_model_config:
   input_dim: 1
-  dropout_prob: 0.1
   d_model: 64
-  n_layer: 3     
-  d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
+  n_layer: 3
+  d_intermediate: 128  # Typically 4x d_model; set to 0 to disable MLP
+  dropout_prob: 0.1
   attn_layer_idx: [1]
-   # 输入投影层配置：linear 或 mlp
-  input_proj_type: mlp
-  input_proj_hidden: 128     # MLP隐藏层维度，未设置则默认 max(d_model, input_dim)
-  input_proj_activation: silu  # 可选: gelu | relu | silu
-  input_proj_dropout: 0.1
-  # 输入层初始化方式：default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
-  input_init:  kaiming_uniform
-  input_init_scale: 1.5
-  ssm_cfg:
-      layer: Mamba2Rotary   # 必须存在，用于选择使用 Mamba1
-      # d_conv: 4
-      use_conv: false
-      rotary_emb_scale_base: 1024
 
+  # Input projection type: linear or mlp
+  input_proj_type: mlp
+  input_proj_hidden: 128  # MLP hidden dimension; defaults to max(d_model, input_dim) if unset
+  input_proj_activation: silu  # Options: gelu | relu | silu
+  input_proj_dropout: 0.1
+
+  # Input-layer initialization: default | xavier_uniform | xavier_normal | kaiming_uniform | kaiming_normal | normal | uniform
+  input_init: kaiming_uniform
+  input_init_scale: 1.5
+
+  ssm_cfg:
+    layer: Mamba2Rotary  # Must be set to select the Mamba variant
+    # d_conv: 4
+    use_conv: false
+    rotary_emb_scale_base: 1024
 
   attn_cfg:
     layer: MHATime
     num_heads: 4
-    rotary_emb_dim: 8   # 一般为 d_model // num_heads // 2
+    rotary_emb_dim: 8  # Usually d_model // num_heads // 2
     rotary_emb_scale_base: 1024
     causal: true
 
   norm_epsilon: 1e-5
-  rms_norm: false            # 是否使用 RMSNorm 替代 LayerNorm
+  rms_norm: false  # Use RMSNorm instead of LayerNorm
 
   initializer_cfg:
-    initializer_range: 0.01  # 初始权重方差，保持默认即可
+    initializer_range: 0.01  # Initial weight std; keep default unless needed
 
-  fused_add_norm: false      # 是否使用 Triton 融合Norm（需支持）
+  fused_add_norm: false  # Use Triton fused norm (requires support)
+  residual_in_fp32: true  # More stable residual precision
 
-  residual_in_fp32: true     # 更稳定的残差精度
-
-
-# 
-num_components: 32
-
-# 其他参数
-dim: 1
+# Training
 epochs: 500
-save_dir: null
+batch_size: 1
+accumulation_steps: 1
+learning_rate: 1e-3  # 5e-4
+weight_decay: 1e-2
+warmup_ratio: 0.1
+
+scheduler_type: step_warmup
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.8
+
+# Runtime
 cuda_id: "0"
-
-
-# 数据与控制参数
-dataset:  ChuanDian
+save_dir: null
 seed: 0
+
+# Data
+dataset: ChuanDian
 minibatch_training: false
 split_by_time: true
-time_order:  [train, val, test]
-features_input_keys : ['mag']  # 
+time_order: [train, val, test]
+features_input_keys: ["mag"]
 normalize_time_by_token: true
 time_scale_base_key: tau_mean
-predict_b:  true
-use_ssm_filter: false
-B_range: [1e-4, 1e-2]
 
+# b-value / loss
+predict_b: true
+b_range: [0.2, 2]
 use_b_updater: true
-use_adaptive_loss_weights: false
-
 b_updater_cfg:
   delta: 0.98
   a0: 20
   init_b_target: 1
+
+use_ssm_filter: false
+B_range: [1e-4, 1e-2]
+use_adaptive_loss_weights: false
 
 loss_weights:
   time_weight: 1
   mag_weight: 1
   b_weight: 0.01
   b_smooth_weight: 1e-7
-
-
-loss_reduction: 'per_time'
-b_range: [0.2,2]
+loss_reduction: per_time

@@ -1,2 +1,0 @@
-改卷积核大小4 加载权重
-/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250821-145524

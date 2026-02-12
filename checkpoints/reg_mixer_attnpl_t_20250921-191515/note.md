@@ -1,1 +1,0 @@
-对齐checkpoints/reg_mixer_attnpl_t_20250907-183220 权重衰减换1e-2

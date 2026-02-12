@@ -1,7 +1,7 @@
-# 模型设置
+# Model settings
 model: classifier_se
 dataset: ChuanDian
-# 训练参数
+# Training parameters
 
 batch_size: 64
 accumulation_steps: 2
@@ -16,7 +16,7 @@ scheduler_type: step_warmup
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.5
 
-# transfomer结构参数
+# Transformer structure parameters
 d_model: 128
 d_rnn: 128
 d_inner: 256
@@ -27,18 +27,18 @@ d_v: 16
 t_dropout: 0.1
 attn_type: flash
 
-# MLP 参数
+# MLP parameters
 mlp_out: 1
 mlp_dropout: 0.3
 mlp_hdw: [256, 128, 64]
 
-# 其他参数
+# Other parameters
 loc_dim: 2
 epochs: 150
 save_dir: null
 cuda_id: "0"
 
-# 数据与控制参数
+# Data and control parameters
 seed: 0
 Mc: 3 # 4.5
 Mf: 4.5
