@@ -2,7 +2,7 @@
 import torch.nn as nn
 import torch
 import math
-from .subLayers import MultiHeadAttention, PositionwiseFeedForward
+from .sub_layers import MultiHeadAttention, PositionwiseFeedForward
 from src.utils.mask_utils import remove_all_zero_rows
 from typing import Optional, Tuple, Dict
 

@@ -137,39 +137,39 @@ ChuanDian	180	90	   10	5.5	2	      0.96	0.9	  1
 
 
 600 300
-lstm /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250906-152053
-* /root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250906-194042
+lstm ./checkpoints/lstm_20250906-152053
+* ./checkpoints/reg_mixer_attnpl_t_20250906-194042
 
 
 消融实验结束
-/root/autodl-tmp/chuandian_eq/checkpoints/reg_mixer_attnpl_t_20250907-133839
+./checkpoints/reg_mixer_attnpl_t_20250907-133839
 
 SCEDC
-无log两层 /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212136-/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212748
+无log两层 ./checkpoints/mixer_tpp_20250907-212136-./checkpoints/mixer_tpp_20250907-212748
 
 clf权重加载实验
 checkpoints/clf_mixer_attnpl_t_20250908-142508-checkpoints/clf_mixer_attnpl_t_20250908-143146
 
 
-AZDX无b：/root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250909-102301
-AZDX有b: /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250908-182617
-SCEDC无b: /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250908-202537
-SCEDCb: /root/autodl-tmp/chuandian_eq/checkpoints/clf_mixer_attnpl_t_20250908-183612
+AZDX无b：./checkpoints/clf_mixer_attnpl_t_20250909-102301
+AZDX有b: ./checkpoints/clf_mixer_attnpl_t_20250908-182617
+SCEDC无b: ./checkpoints/clf_mixer_attnpl_t_20250908-202537
+SCEDCb: ./checkpoints/clf_mixer_attnpl_t_20250908-183612
 
 
 SCEDC
-tpp: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212619
-tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-212748
-tpp+log+b:/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-190042
-tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-184838
-tpp-txpos: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-121137
+tpp: ./checkpoints/mixer_tpp_20250907-212619
+tpp+b: ./checkpoints/mixer_tpp_20250907-212748
+tpp+log+b:./checkpoints/mixer_tpp_20250907-190042
+tpp+log:  ./checkpoints/mixer_tpp_20250907-184838
+tpp-txpos: ./checkpoints/mixer_tpp_20250909-121137
 
 ChuanDian
-tpp+log+b:/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-193135
-tpp+log:  /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250907-192418
-tpp+b: /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-114545        用于test
+tpp+log+b:./checkpoints/mixer_tpp_20250907-193135
+tpp+log:  ./checkpoints/mixer_tpp_20250907-192418
+tpp+b: ./checkpoints/mixer_tpp_20250909-114545        用于test
 tpp-txpos: checkpoints/mixer_tpp_20250909-123136
-tpp /root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250909-112722
+tpp ./checkpoints/mixer_tpp_20250909-112722
 
 reg     checkpoints/reg_mixer_attnpl_t_20250907-183220
 lstm    checkpoints/lstm_20250906-152053
@@ -179,10 +179,10 @@ lstm    checkpoints/lstm_20250906-152053
 -pretrain checkpoints/reg_mixer_attnpl_t_20250906-204638
 
 
-mixer_tpp 采样成功/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250828-102630
+mixer_tpp 采样成功./checkpoints/mixer_tpp_20250828-102630
 
 rope xpos 消融实验： 
-/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250912-125450
+./checkpoints/mixer_tpp_20250912-125450
 
 
 

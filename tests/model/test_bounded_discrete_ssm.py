@@ -20,7 +20,7 @@ print(f"ssm_state shape: {ssm_state.shape}")
 print(f"Input shape: {x_input.shape}")
 print(f"Output shape: {output.shape}")
 
-output_dir = "/root/autodl-tmp/chuandian_eq/tests"
+output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 

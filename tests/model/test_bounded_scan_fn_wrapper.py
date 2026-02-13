@@ -110,7 +110,7 @@ print(f"Output shape: {output.shape}")
 # print(f"Output data: {output}")
 
 # Generate save path and folder
-output_dir = "/root/autodl-tmp/chuandian_eq/tests"
+output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 os.makedirs(output_dir, exist_ok=True)
 
 # Assume x_input and output are the model's input and output

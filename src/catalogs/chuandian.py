@@ -17,7 +17,7 @@ class ChuanDianBase(Catalog):
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
         elif catalog_file is None:
-            self.catalog_file = self.root_dir / "Chuandian2021.dat"
+            self.catalog_file = self.root_dir / "chuandian_2021.dat"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
@@ -27,7 +27,7 @@ class ChuanDianBase(Catalog):
             "mag_roundoff_error": 0.01,
             "mag_completeness": mag_completeness,
             "start_ts": pd.Timestamp("1970-01-01"),
-            "end_ts": pd.Timestamp("2021-05-24"),  # 需要比 catalog 中的最大时间戳大，否则inter_times会有负值
+            "end_ts": pd.Timestamp("2021-05-24"),  
         }
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
@@ -44,7 +44,7 @@ class ChuanDianBase(Catalog):
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
         df.sort_values("time", inplace=True)
-        # 微小扰动重复时间戳，避免 inter_time = 0
+ 
         duplicated_mask = df["time"].duplicated(keep=False)
         if duplicated_mask.any():
             df.loc[duplicated_mask, "time"] += pd.to_timedelta(

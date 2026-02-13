@@ -17,7 +17,7 @@ class ChinaArrayBase(Catalog):
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
         elif catalog_file is None:
-            self.catalog_file = self.root_dir / "processed_ChinaArray.csv"
+            self.catalog_file = self.root_dir / "processed_china_array.csv"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize

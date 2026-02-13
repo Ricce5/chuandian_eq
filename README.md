@@ -1,4 +1,4 @@
-# ChuanDian_EQ
+# em_eqf
 
 A unified deep-learning framework for earthquake-catalog forecasting, covering:
 - Classification and regression tasks (window-based samples)
@@ -175,14 +175,14 @@ python forecasting.py --checkpoint_dir checkpoints/mixer_tpp_YYYYMMDD-HHMMSS --c
 
 ## 10. Notebooks
 
-Notebook resources are under `notebooks/` (absolute path in this environment: `/root/autodl-tmp/chuandian_eq/notebooks`):
+Notebook resources are under `notebooks/` (project-relative path: `./notebooks`):
 
-- `Preprocessing*.ipynb`: preprocessing pipelines for different catalogs/datasets
-- `Classifier_baseline.ipynb`, `Classifier_analysis.ipynb`: classification baseline and result analysis
-- `Regressor_analysis.ipynb`, `Regression_plot.ipynb`: regression result analysis and plotting
-- `Tpp_analysis.ipynb`, `Tpp_evaluating.ipynb`: TPP behavior analysis and evaluation
-- `Forecasting*.ipynb`: interactive forecasting workflows
-- `b(t)-estimation.ipynb`: time-varying b-value estimation
+- `preprocessing*.ipynb`: preprocessing pipelines for different catalogs/datasets
+- `classifier_baseline.ipynb`, `classifier_analysis.ipynb`: classification baseline and result analysis
+- `regressor_analysis.ipynb`, `regression_plot.ipynb`: regression result analysis and plotting
+- `tpp_analysis.ipynb`, `tpp_evaluating.ipynb`: TPP behavior analysis and evaluation
+- `forecasting*.ipynb`: interactive forecasting workflows
+- `b_t_estimation.ipynb`: time-varying b-value estimation
 - Output figures and cached plotting data are organized in `notebooks/figs/` and `notebooks/figs_data/`
 
 ## 11. Testing
@@ -205,3 +205,7 @@ To improve CUDA reproducibility:
 ```bash
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 ```
+
+## 13. License
+
+This project is licensed under the MIT License. See `LICENSE`.

@@ -23,6 +23,10 @@ LON_RANGE = {
 VALID_REGIONS = set(LAT_RANGE.keys())
 
 
+def _to_snake_case(name: str) -> str:
+    return "".join(("_" + ch.lower()) if ch.isupper() and idx > 0 else ch.lower() for idx, ch in enumerate(name))
+
+
 class QTM(Catalog):
     url = "https://service.scedc.caltech.edu/ftp/QTMcatalog/qtm_final_12dev.hypo"
 
@@ -120,7 +124,8 @@ class QTM(Catalog):
             t_start=t_start,
             mag=torch.as_tensor(mag, dtype=torch.float32),
         )
-        zone_df.to_csv(self.root_dir / f"catalog_{self.metadata['region']}.csv")
+        region_slug = _to_snake_case(self.metadata["region"])
+        zone_df.to_csv(self.root_dir / f"catalog_{region_slug}.csv")
         full_sequence = TppDataset(sequences=[seq])
         full_sequence.save_to_disk(self.root_dir / "full_sequence.pt")
 

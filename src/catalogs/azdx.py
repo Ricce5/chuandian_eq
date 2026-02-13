@@ -17,7 +17,7 @@ class AZDXBase(Catalog):
         if isinstance(catalog_file, (str, Path)):
             self.catalog_file = Path(catalog_file)
         elif catalog_file is None:
-            self.catalog_file = self.root_dir / "size_3k_stress_0.6_dyn_0.8_mm_5.5_dm_0.5_b_0.4_yr_20k_EQ.dat"
+            self.catalog_file = self.root_dir / "size_3k_stress_0.6_dyn_0.8_mm_5.5_dm_0.5_b_0.4_yr_20k_eq.dat"
         else:
             raise TypeError("catalog_file must be a str or Path")
         self.normalize = normalize
