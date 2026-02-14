@@ -630,15 +630,6 @@ None: checkpoints/mixer_tpp_20260206-170240
 ```
 
 
-## 4.5  Ablations
- Mamaba-Transformer-Mamba+b: checkpoints/mixer_tpp_20260214-155713
- {'nll_train_time': 0.3222185969352722, 'nll_train_mag': 0.3515360355377197, 'nll_train_total': 0.6653570532798767, 'nll_train_b_smooth': 0.22093313932418823, 'nll_train_b': -0.8618493676185608, 'nll_val_time': 0.8121242523193359, 'nll_val_mag': 0.09252794831991196, 'nll_val_total': 0.900989830493927, 'nll_val_b_smooth': 0.011737565509974957, 'nll_val_b': -0.3674156069755554, 'nll_test_time': 0.5787126421928406, 'nll_test_mag': 0.257999062538147, 'nll_test_total': 0.8294956684112549, 'nll_test_b_smooth': 0.17975646257400513, 'nll_test_b': -0.7395869493484497, 'num_events_train': 4498, 'num_events_val': 567, 'num_events_test': 1043}
-Mamaba-Transformer+b: checkpoints/mixer_tpp_20260214-160212
-{'nll_train_time': 0.3467836380004883, 'nll_train_mag': 0.35419711470603943, 'nll_train_total': 0.6933996677398682, 'nll_train_b_smooth': 0.22821620106697083, 'nll_train_b': -0.7809317708015442, 'nll_val_time': 0.8140517473220825, 'nll_val_mag': 0.09297887980937958, 'nll_val_total': 0.9037079811096191, 'nll_val_b_smooth': 0.009493366815149784, 'nll_val_b': -0.33320996165275574, 'nll_test_time': 0.5956902503967285, 'nll_test_mag': 0.2581000328063965, 'nll_test_total': 0.8473722338676453, 'nll_test_b_smooth': 0.30752190947532654, 'nll_test_b': -0.6725601553916931, 'num_events_train': 4498, 'num_events_val': 567, 'num_events_test': 1043}
-Mamba+b: 
- {'nll_train_time': 0.38333022594451904, 'nll_train_mag': 0.3550114035606384, 'nll_train_total': 0.7324224710464478, 'nll_train_b_smooth': 0.35067859292030334, 'nll_train_b': -0.6269875168800354, 'nll_val_time': 0.81813645362854, 'nll_val_mag': 0.09139693528413773, 'nll_val_total': 0.9056593179702759, 'nll_val_b_smooth': 0.022382037714123726, 'nll_val_b': -0.38964638113975525, 'nll_test_time': 0.6036948561668396, 'nll_test_mag': 0.2565937638282776, 'nll_test_total': 0.8543782830238342, 'nll_test_b_smooth': 0.47344064712524414, 'nll_test_b': -0.6383724808692932, 'num_events_train': 4498, 'num_events_val': 567, 'num_events_test': 1043}
- Mamaba-Transformer-2Mamba+b: checkpoints/mixer_tpp_20260214-161022
- {'nll_train_time': 0.3067726790904999, 'nll_train_mag': 0.3506609797477722, 'nll_train_total': 0.6487233638763428, 'nll_train_b_smooth': 0.3302916884422302, 'nll_train_b': -0.9040578603744507, 'nll_val_time': 0.8086276650428772, 'nll_val_mag': 0.09409730136394501, 'nll_val_total': 0.8995781540870667, 'nll_val_b_smooth': 0.015538553707301617, 'nll_val_b': -0.31623610854148865, 'nll_test_time': 0.5846673846244812, 'nll_test_mag': 0.2593567967414856, 'nll_test_total': 0.8378639221191406, 'nll_test_b_smooth': 0.30819666385650635, 'nll_test_b': -0.6468420028686523, 'num_events_train': 4498, 'num_events_val': 567, 'num_events_test': 1043}
 
 ### 4.4  Forecst Catalog Generation
 

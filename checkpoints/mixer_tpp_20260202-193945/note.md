@@ -1,1 +1,0 @@
-对齐checkpoints/mixer_tpp_20260124-230802，输入改mlp，改初始化方差

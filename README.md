@@ -26,7 +26,6 @@ Use the official installation guides and make sure versions match your CUDA/PyTo
 ```text
 .
 ├── main.py                 # Main entry point (train/test/optuna)
-├── forecasting.py          # Sampling and forecast visualization script
 ├── config/                 # YAML configurations
 ├── data/                   # Data directory (raw/processed)
 ├── notebooks/              # Jupyter notebooks for preprocessing, analysis, and plotting
@@ -164,16 +163,8 @@ TensorBoard:
 tensorboard --logdir checkpoints/<exp>/tensorboard --port 6006
 ```
 
-## 9. Forecast script
 
-`forecasting.py` generates samples from a trained checkpoint and saves forecast visualizations.
-
-Example:
-```bash
-python forecasting.py --checkpoint_dir checkpoints/mixer_tpp_YYYYMMDD-HHMMSS --ckpt_select best
-```
-
-## 10. Notebooks
+## 9. Notebooks
 
 Notebook resources are under `notebooks/` (project-relative path: `./notebooks`):
 
@@ -185,7 +176,7 @@ Notebook resources are under `notebooks/` (project-relative path: `./notebooks`)
 - `b_t_estimation.ipynb`: time-varying b-value estimation
 - Output figures and cached plotting data are organized in `notebooks/figs/` and `notebooks/figs_data/`
 
-## 11. Testing
+## 10. Testing
 
 Run all tests:
 ```bash
@@ -194,18 +185,19 @@ pytest -q
 
 Run selected groups:
 ```bash
+pytest -q tests/distribution
 pytest -q tests/features
 pytest -q tests/data
 pytest -q tests/model
 ```
 
-## 12. Reproducibility hint
+## 11. Reproducibility hint
 
 To improve CUDA reproducibility:
 ```bash
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 ```
 
-## 13. License
+## 12. License
 
 This project is licensed under the MIT License. See `LICENSE`.

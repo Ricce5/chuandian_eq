@@ -1,1 +1,0 @@
-相对checkpoints/reg_mixer_attnpl_t_20260130-224106进行了预训练

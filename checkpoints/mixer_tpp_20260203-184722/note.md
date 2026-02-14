@@ -1,1 +1,0 @@
-mini batch scale调2048
