@@ -228,6 +228,7 @@ if __name__ == "__main__":
             )
             metrics["num_events_train"] = args.num_events_train
             metrics["num_events_val"] = args.num_events_val
+            metrics["num_events_test"] = args.num_events_test
         else:
             test_kwargs = {
                 "model": model,

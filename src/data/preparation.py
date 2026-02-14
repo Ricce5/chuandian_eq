@@ -248,8 +248,10 @@ def prepare_data_tpp(args, base_dir):
     else:
         args.num_events_train = sum(seq.num_nll_events for seq in catalog_ds.train)
         args.num_events_val = sum(seq.num_nll_events for seq in catalog_ds.val)
+        args.num_events_test = sum(seq.num_nll_events for seq in catalog_ds.test)
         logger.info("Number of training events: %s", args.num_events_train)
         logger.info("Number of validation events: %s", args.num_events_val)
+        logger.info("Number of test events: %s", args.num_events_test)
         if getattr(args, 'minibatch_training', True):
             logger.info("Splitting into minibatches")
             max_events = getattr(args, 'max_seq_len', 2000)
