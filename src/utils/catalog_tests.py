@@ -44,7 +44,7 @@ class CatalogNumberTestResult(EvaluationResult):
             'bins': bins
         }
         defaults.update(plot_args)  
-        ax = plots.plot_number_test(self, show=show, plot_args=defaults)
+        ax = plots.plot_number_test(self, axes=ax, show=show, plot_args=defaults)
         return ax
 
 class CatalogMagnitudeTestResult(EvaluationResult):
@@ -60,7 +60,7 @@ class CatalogMagnitudeTestResult(EvaluationResult):
             'bins': 'auto'
         }
         defaults.update(plot_args) 
-        ax = plots.plot_magnitude_test(self, show=show, plot_args=defaults)
+        ax = plots.plot_magnitude_test(self, axes=ax, show=show, plot_args=defaults)
         return ax
 
 
@@ -408,7 +408,6 @@ def run_magnitude_test_result(
     if plot:
         result.plot(**plot_args if plot_args else {})
     return result
-
 
 
 

@@ -685,6 +685,9 @@ def plot_event_magnitude_and_importance_clean(
     hspace: float = 0.08,
     height_ratios: Tuple[float, float] | None = (2.0, 1.5),  # relative heights of mag vs importance
     dpi: int = 300,
+    panel_labels: Tuple[str | None, str | None] | None = None,
+    panel_label_loc: Tuple[float, float] = (0.01, 0.98),
+    panel_label_kwargs: dict | None = None,
 ):
     """
     Paper-ready plot: two-row layout with shared x-axis.
@@ -816,6 +819,23 @@ def plot_event_magnitude_and_importance_clean(
         2, 1, figsize=figsize, sharex=True,
         gridspec_kw={"height_ratios": ratios, "hspace": hspace}
     )
+
+    if panel_labels is not None:
+        if len(panel_labels) != 2:
+            raise ValueError("panel_labels must have length 2")
+        label_kwargs = {
+            "fontsize": 12,
+            # "fontweight": "bold",
+            "ha": "left",
+            "va": "top",
+        }
+        if panel_label_kwargs:
+            label_kwargs.update(panel_label_kwargs)
+        label_x, label_y = panel_label_loc
+        if panel_labels[0]:
+            ax_mag.text(label_x, label_y, panel_labels[0], transform=ax_mag.transAxes, **label_kwargs)
+        if panel_labels[1]:
+            ax_imp.text(label_x, label_y, panel_labels[1], transform=ax_imp.transAxes, **label_kwargs)
 
     # Top: magnitude scatter (fixed marker size to avoid redundant encoding)
     ax_mag.scatter(t_plot, m, s=14, color=mag_color, alpha=0.75, edgecolors="none", label="Event magnitude")

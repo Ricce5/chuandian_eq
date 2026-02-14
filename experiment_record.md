@@ -410,6 +410,8 @@ tpp-txpos:  checkpoints/mixer_tpp_20260206-103125
 
 
 T-XPOS ablation
+
+1. swc
 2*Transformer+T-XPOS:  checkpoints/mixer_tpp_20260206-104534
 {
   "nll_train_time": 0.33136501908302307,

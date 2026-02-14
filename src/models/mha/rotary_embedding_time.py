@@ -8,6 +8,17 @@ from typing import Optional, Tuple, Union
 
 
 def rotate_half(x, interleaved=False):
+    """
+    Rotate the last dimension by half for rotary embedding.
+
+    Args:
+        x: Input tensor whose last dimension is rotary channels.
+        interleaved: Whether channels are arranged as interleaved pairs
+            (..., d0_even, d0_odd, d1_even, d1_odd, ...).
+
+    Returns:
+        Tensor with the same shape as ``x`` after half-rotation.
+    """
     if not interleaved:
         x1, x2 = x.chunk(2, dim=-1)
         return torch.cat([-x2, x1], dim=-1)
@@ -19,8 +30,18 @@ def rotate_half(x, interleaved=False):
 
 def apply_rotary_emb_torch(x, cos, sin, interleaved=False):
     """
-    x: (batch_size, seqlen, nheads, headdim)
-    cos, sin: (seqlen, rotary_dim / 2) or (batch_size, seqlen, rotary_dim / 2)
+    Apply rotary embedding to the rotary sub-dimension of attention states.
+
+    Args:
+        x: Tensor of shape ``(batch_size, seqlen, nheads, headdim)``.
+        cos: Rotary cosine cache with shape
+            ``(seqlen, rotary_dim/2)`` or ``(batch_size, seqlen, rotary_dim/2)``.
+        sin: Rotary sine cache with the same shape contract as ``cos``.
+        interleaved: Whether rotary channels use interleaved layout.
+
+    Returns:
+        Tensor with same shape as ``x`` where only the first ``rotary_dim``
+        channels are rotated and the remaining channels are kept unchanged.
     """
     ro_dim = cos.shape[-1] * 2
     assert ro_dim <= x.shape[-1]
@@ -74,6 +95,14 @@ def compute_nonzero_center_per_sample(times: torch.Tensor, mode: str = "midpoint
 
 
 class RotaryEmbeddingTime(nn.Module):
+    """
+    Rotary positional embedding module for continuous/event time.
+
+    This module supports both standard RoPE and scaled RoPE (separate scale
+    for query/key paths) using per-sample time centers computed from non-zero
+    timestamps.
+    """
+
     def __init__(
         self,
         dim: int,
@@ -106,6 +135,18 @@ class RotaryEmbeddingTime(nn.Module):
 
 
     def _update_cos_sin_cache(self, times: torch.Tensor, dtype: torch.dtype, device: torch.device):
+        """
+        Build or refresh cosine/sine caches from input times.
+
+        Args:
+            times: Time tensor with shape ``(seqlen,)`` or ``(batch, seqlen)``.
+            dtype: Target dtype for cached trigonometric tensors.
+            device: Target device where caches should live.
+
+        Notes:
+            When ``scale_base`` is enabled, query/key caches are scaled
+            inversely to preserve compatibility with xPos-style scaling.
+        """
         # times: (seqlen,) or (batch, seqlen)
         inv_freq = self.inv_freq.to(device)
         if times.ndim == 1:
@@ -142,9 +183,25 @@ class RotaryEmbeddingTime(nn.Module):
         num_heads_q: Optional[int] = None,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
-        qkv: (batch, seqlen, 3, nheads, headdim) or (batch, seqlen, num_heads_q + 2 * num_heads_k, headdim)
-             or just (batch, seqlen, nheads, headdim) if kv is provided (i.e., this is Q)
-        kv: optional, (batch, seqlen, 2, nheads, headdim)
+        Apply time-aware rotary embedding to query/key tensors.
+
+        Args:
+            qkv: One of the following:
+                - ``(B, S, 3, H, D)`` fused QKV layout,
+                - ``(B, S, H_total, D)`` grouped-head layout,
+                - ``(B, S, H, D)`` query-only when ``kv`` is provided.
+            kv: Optional KV tensor, shape ``(B, S, 2, H, D)`` or ``(B, S, H, D)``.
+            times: Time positions, shape ``(S,)`` or ``(B, S)``.
+            seqlen_offset: Offset used in streaming/incremental decoding.
+            max_seqlen: Optional max sequence length for center scaling.
+            num_heads_q: Required when ``qkv`` uses grouped-head layout.
+
+        Returns:
+            - If ``kv is None``: rotated tensor with same layout as ``qkv``.
+            - If ``kv is not None``: tuple ``(q_rot, kv_rot)``.
+
+        Raises:
+            AssertionError: If ``times`` is not provided.
         """
         # print(f"seqlen_offset {seqlen_offset} max_seqlen {max_seqlen}")
         if times.ndim == 1:
