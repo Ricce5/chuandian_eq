@@ -1,0 +1,53 @@
+2026-02-14 14:33:56,199 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-02-14 14:33:56,733 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-02-14 14:33:56,735 INFO src.data.preparation: stats {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-02-14 14:33:56,740 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/processed/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-02-14 14:33:57,978 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-02-14 14:33:57,979 INFO __main__: Loading checkpoint from: ./checkpoints/mixer_tpp_20260203-161948/last_model_1.pth
+2026-02-14 14:33:58,966 INFO src.models.input_adapters: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-02-14 14:33:58,966 INFO src.models.input_adapters: tau mean: tensor(1.3071)
+2026-02-14 14:33:58,980 INFO src.train.config_setup: load_specific_parts: ['encoder']
+2026-02-14 14:33:58,980 WARNING src.train.config_setup: richter_b not found in model
+2026-02-14 14:33:58,980 WARNING src.train.config_setup: mag_completeness not found in model
+2026-02-14 14:33:58,980 INFO src.train.config_setup: Loaded part: base_model.encoder.input_proj.0.weight
+2026-02-14 14:33:58,980 INFO src.train.config_setup: Loaded part: base_model.encoder.input_proj.0.bias
+2026-02-14 14:33:58,980 INFO src.train.config_setup: Loaded part: base_model.encoder.input_proj.3.weight
+2026-02-14 14:33:58,980 INFO src.train.config_setup: Loaded part: base_model.encoder.input_proj.3.bias
+2026-02-14 14:33:58,980 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.norm.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.norm.bias
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mixer.dt_bias
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mixer.A_log
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mixer.D
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mixer.in_proj.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mixer.norm.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mixer.out_proj.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.norm2.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.norm2.bias
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mlp.fc1.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.0.mlp.fc2.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.1.norm.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.1.norm.bias
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: base_model.encoder.layers.1.mixer.dt_bias not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: base_model.encoder.layers.1.mixer.A_log not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: base_model.encoder.layers.1.mixer.D not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: Shape mismatch for base_model.encoder.layers.1.mixer.in_proj.weight (checkpoint: torch.Size([514, 64]), model: torch.Size([192, 64]))
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: base_model.encoder.layers.1.mixer.norm.weight not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: Shape mismatch for base_model.encoder.layers.1.mixer.out_proj.weight (checkpoint: torch.Size([64, 128]), model: torch.Size([64, 64]))
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.1.norm2.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.1.norm2.bias
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.1.mlp.fc1.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.layers.1.mlp.fc2.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.norm_f.weight
+2026-02-14 14:33:58,981 INFO src.train.config_setup: Loaded part: base_model.encoder.norm_f.bias
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: hypernet_time.weight not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: hypernet_time.bias not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: hypernet_mag.0.weight not found in model
+2026-02-14 14:33:58,981 WARNING src.train.config_setup: hypernet_mag.0.bias not found in model
+2026-02-14 14:33:58,982 INFO src.train.config_setup: hyperparameters: {'model': 'mixer_tpp', 'num_event_types': 1, 'pad_token_id': 1, 'task_type': 'tpp', 'batch_size': 1, 'accumulation_steps': 1, 'warmup_ratio': 0.1, 'learning_rate': 0.001, 'weight_decay': 0.01, 'scheduler_factor': None, 'scheduler_patience': None, 'scheduler_threshold': None, 'scheduler_min_lr': 1e-06, 'scheduler_type': 'hf_cosine', 'step_lr_step_size_ratio': 0.2, 'step_lr_gamma': 0.8, 'use_amp': False, 'dropout': 0.3, 'd_model': 64, 'mixer_model_config': {'input_dim': 1, 'dropout_prob': 0.1, 'd_model': 64, 'n_layer': 2, 'd_intermediate': 128, 'input_proj_type': 'mlp', 'input_proj_hidden': 128, 'input_proj_activation': 'silu', 'input_proj_dropout': 0.1, 'input_init': 'kaiming_uniform', 'input_init_scale': 1.5, 'attn_layer_idx': [], 'ssm_cfg': {'layer': 'Mamba2Rotary', 'use_conv': False, 'rotary_emb_scale_base': 8192}, 'attn_cfg': {'layer': 'MHATime', 'num_heads': 4, 'rotary_emb_dim': 8, 'rotary_emb_scale_base': 8192, 'causal': True}, 'norm_epsilon': 1e-05, 'rms_norm': False, 'initializer_cfg': {'initializer_range': 0.02}, 'fused_add_norm': False, 'residual_in_fp32': True}, 'num_components': 32, 'dim': 1, 'epochs': 2000, 'save_dir': 'checkpoints/mixer_tpp_20260203-161948', 'cuda_id': '0', 'dataset': 'AZDX', 'seed': 0, 'minibatch_training': False, 'split_by_time': True, 'use_all_data': True, 'time_order': ['train', 'val', 'test'], 'features_input_keys': ['mag'], 'normalize_time_by_token': True, 'time_scale_base_key': 'tau_mean', 'predict_b': True, 'use_ssm_filter': False, 'B_range': [0.0001, 0.01], 'use_b_updater': True, 'use_adaptive_loss_weights': False, 'b_updater_cfg': {'delta': 0.98, 'a0': 50, 'init_b_target': 1}, 'loss_weights': {'time_weight': 1, 'mag_weight': 1, 'b_weight': 0.01, 'b_smooth_weight': 0.0}, 'loss_reduction': 'per_time', 'b_range': [0.2, 2], 'cuda': True, 'tau_mean': 0.13702379167079926, 'tau_min': 0.0010000000474974513, 'tau_max': 6.258999824523926, 'tau_q05': 0.10000000149011612, 'tau_q025': 0.009999999776482582, 'mag_mean': 4.849897384643555, 'time_max': 19885.998046875, 'time_mean': 7313.00341796875, 'mag_completeness': 4.5, 'richter_b_mle': 1.223718462561905, 'precision': 32, 'num_events_train': 136452, 'num_events_val': 0, 'start_epoch': 0, 'best_val_loss': inf}
+2026-02-14 14:33:58,982 INFO src.train.config_setup: train_metrics: {'avg_time_nll': -8.176608085632324, 'avg_mag_nll': -0.6273660659790039, 'avg_total_nll': -8.809625625610352, 'avg_b_nll': -0.565148651599884}
+2026-02-14 14:33:58,982 INFO src.train.config_setup: val_metrics: {}
+2026-02-14 14:33:58,983 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-02-14 14:33:58,983 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-02-14 14:33:58,983 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.layers.0', 'base_model.encoder.input_proj']
+2026-02-14 14:33:58,983 INFO src.train.config_setup: encoder_lr matches: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight', 'base_model.encoder.layers.0.mixer.conv1d.weight', 'base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.norm.weight', 'base_model.encoder.layers.0.mixer.out_proj.weight', 'base_model.encoder.layers.0.norm2.weight', 'base_model.encoder.layers.0.norm2.bias', 'base_model.encoder.layers.0.mlp.fc1.weight', 'base_model.encoder.layers.0.mlp.fc2.weight']
+2026-02-14 14:33:58,984 INFO src.train.trainer: Epoch 1

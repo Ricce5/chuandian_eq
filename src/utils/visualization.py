@@ -2,7 +2,8 @@ from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Rectangle
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch, Rectangle
 import pandas as pd
 
 from src.data import Sequence
@@ -267,10 +268,16 @@ def visualize_trajectories(
     axAA.tick_params(axis="y", labelsize=8)
     axAA.grid(False)
 
-    # Reduce x tick density to avoid cluttering
-    xt = axA.get_xticks()
+    # Reduce x tick density without expanding x-limits to out-of-window ticks.
+    xlo, xhi = axA.get_xlim()
+    xt = np.asarray(axA.get_xticks(), dtype=float)
+    xt = xt[(xt >= xlo) & (xt <= xhi)]
     if len(xt) > 6:
-        axA.set_xticks(xt[::2])
+        xt = xt[::2]
+    if len(xt) > 0:
+        axA.set_xticks(xt)
+    # set_xticks can expand limits if any tick is outside; restore exact window.
+    axA.set_xlim(xlo, xhi)
 
     # Right panel: Histogram of event counts per forecast
     counts_per_forecast = np.array([len(s) for s in forecast], dtype=float)
@@ -425,6 +432,68 @@ def visualize_forecast_with_tests(
             f"Last error: {errors[-1]!r}" if errors else "No plotting backend succeeded."
         )
 
+    def _add_test_stats_annotation(
+        result_obj, ax, kind: str, plot_args: Dict[str, Any]
+    ) -> None:
+        """
+        Add M/N-test stats text when chained plotting suppresses csep default annotations.
+        csep's plot_*_test annotates only when `axes is None`.
+        """
+        if result_obj is None:
+            return
+
+        # Avoid duplicate stats text if backend already wrote one.
+        existing_text = " ".join(t.get_text() for t in ax.texts)
+        if any(k in existing_text for k in ("\\gamma", "\\delta", "\\omega", "P(X")):
+            return
+
+        text_fontsize = plot_args.get("text_fontsize", 10)
+        annotation_kwargs = {"xycoords": "axes fraction", "fontsize": text_fontsize}
+
+        if kind == "m":
+            xy = plot_args.get("xy", (0.55, 0.6))
+            try:
+                quantile = result_obj.quantile
+                if isinstance(quantile, (list, tuple, np.ndarray)):
+                    quantile = np.asarray(quantile).reshape(-1)[0]
+                observed_statistic = float(result_obj.observed_statistic)
+                txt = (
+                    rf"$\gamma = P(X \geq x) = {float(quantile):.2f}$"
+                    + "\n"
+                    + rf"$\omega = {observed_statistic:.2f}$"
+                )
+                ax.annotate(txt, xy=xy, **annotation_kwargs)
+            except Exception:
+                return
+        else:
+            xy = plot_args.get("xy", (0.5, 0.3))
+            try:
+                quantile_arr = np.asarray(result_obj.quantile).reshape(-1)
+                observed_statistic = float(result_obj.observed_statistic)
+                if quantile_arr.size >= 2:
+                    if abs(observed_statistic - round(observed_statistic)) < 1e-9:
+                        observed_repr = f"{int(round(observed_statistic))}"
+                    else:
+                        observed_repr = f"{observed_statistic:.2f}"
+                    txt = (
+                        rf"$\delta_1 = P(X \geq x) = {float(quantile_arr[0]):.2f}$"
+                        + "\n"
+                        + rf"$\delta_2 = P(X \leq x) = {float(quantile_arr[1]):.2f}$"
+                        + "\n"
+                        + rf"$\omega = {observed_repr}$"
+                    )
+                elif quantile_arr.size == 1:
+                    txt = (
+                        rf"$\gamma = P(X \leq x) = {float(quantile_arr[0]):.2f}$"
+                        + "\n"
+                        + rf"$\omega = {observed_statistic:.2f}$"
+                    )
+                else:
+                    return
+                ax.annotate(txt, xy=xy, **annotation_kwargs)
+            except Exception:
+                return
+
     def _add_panel_label(ax, label: str) -> None:
         ax.text(
             0.02,
@@ -433,9 +502,46 @@ def visualize_forecast_with_tests(
             transform=ax.transAxes,
             ha="left",
             va="top",
-            fontsize=10,
-            bbox=dict(facecolor="white", alpha=0.65, edgecolor="none", pad=1.2),
+            fontsize=8,
+            bbox=dict(facecolor="white", alpha=0.65, edgecolor="none", pad=0.8),
             zorder=20,
+        )
+
+    def _force_upper_right_legend(ax, fontsize: float = 8) -> None:
+        """Force existing legend to the upper-right while preserving style."""
+        legend = ax.get_legend()
+        if legend is None:
+            return
+        frameon = legend.get_frame_on()
+        legend.remove()
+        kwargs = {"loc": "upper right", "frameon": frameon, "fontsize": fontsize}
+        ax.legend(**kwargs)
+
+    def _force_test_legend_blue(
+        ax, fontsize: float = 8, simulated_color: str = "C0"
+    ) -> None:
+        """
+        Force M/N-test legend handles so Simulated is always blue.
+        csep may color rejection-tail bars red, which can leak into auto legend handles.
+        """
+        legend = ax.get_legend()
+        labels = [t.get_text() for t in legend.get_texts()] if legend is not None else []
+        frameon = legend.get_frame_on() if legend is not None else True
+        if legend is not None:
+            legend.remove()
+
+        observed_label = next((x for x in labels if "obs" in x.lower()), "observed")
+        simulated_label = next((x for x in labels if "sim" in x.lower()), "Simulated")
+        handles = [
+            Line2D([0], [0], color="k", linestyle="--", lw=1.6),
+            Patch(facecolor=simulated_color, edgecolor=simulated_color),
+        ]
+        ax.legend(
+            handles,
+            [observed_label, simulated_label],
+            loc="upper right",
+            frameon=frameon,
+            fontsize=fontsize,
         )
 
     if len(forecast) == 0:
@@ -522,8 +628,12 @@ def visualize_forecast_with_tests(
     if m_test_result is not None:
         m_plot_args.setdefault("title", "M-Test")
         m_plot_args.setdefault("tight_layout", False)
+        m_plot_args.setdefault("text_fontsize", 10)
         try:
             _plot_test_panel(m_test_result, ax_m, kind="m", plot_args=m_plot_args)
+            _add_test_stats_annotation(
+                m_test_result, ax_m, kind="m", plot_args=m_plot_args
+            )
         except Exception:
             ax_m.text(0.5, 0.5, "M-test plot failed", ha="center", va="center")
             ax_m.set_axis_off()
@@ -534,8 +644,12 @@ def visualize_forecast_with_tests(
     if n_test_result is not None:
         n_plot_args.setdefault("title", "N-Test")
         n_plot_args.setdefault("tight_layout", False)
+        n_plot_args.setdefault("text_fontsize", 10)
         try:
             _plot_test_panel(n_test_result, ax_n, kind="n", plot_args=n_plot_args)
+            _add_test_stats_annotation(
+                n_test_result, ax_n, kind="n", plot_args=n_plot_args
+            )
         except Exception:
             ax_n.text(0.5, 0.5, "N-test plot failed", ha="center", va="center")
             ax_n.set_axis_off()
@@ -547,6 +661,10 @@ def visualize_forecast_with_tests(
     ax_fore_left.set_title(ax_fore_left.get_title(), fontsize=10)
     ax_fore_right.set_title(ax_fore_right.get_title(), fontsize=10)
     ax_fore_right_y.tick_params(axis="y", labelsize=8)
+    # Keep legends in merged figure fixed at upper-right.
+    _force_upper_right_legend(ax_fore_right, fontsize=8)
+    _force_test_legend_blue(ax_m, fontsize=8, simulated_color="C0")
+    _force_test_legend_blue(ax_n, fontsize=8, simulated_color="C0")
 
     # Panel labels: (a), (b), (c), (d)
     _add_panel_label(ax_fore_left, "(a)")
