@@ -2,6 +2,7 @@
 import sys
 import argparse
 import logging
+import inspect
 from pathlib import Path
 import torch
 import matplotlib.pyplot as plt
@@ -55,8 +56,29 @@ else:
 checkpoint_data = torch.load(checkpoint_file, weights_only=False)
 checkpoint_args = load_args_from_checkpoint(None, checkpoint_data)
 logger.info("Loaded checkpoint with args: %s", checkpoint_args)
-dataset_catalog_cls = catalog.Catalog.by_name(f"{checkpoint_args.dataset}-Standard")
-dataset_catalog = dataset_catalog_cls(root_dir=f'data/{checkpoint_args.dataset}/raw', catalog_file=None)
+
+
+def build_catalog_from_checkpoint(dataset_name: str):
+    cls = catalog.Catalog.by_name(f"{dataset_name}-Standard")
+    base_dir = Path("data") / dataset_name
+    init_sig = inspect.signature(cls.__init__).parameters
+    supports_data_dir = "data_dir" in init_sig
+
+    if supports_data_dir:
+        init_kwargs = {"root_dir": str(base_dir / "catalogs")}
+        # Only pass data_dir for concrete dataset folders with local processed files
+        # (or region catalogs like PNR_1z / PNR_2). Grouped family catalogs should
+        # keep their internal default discovery from data/*.
+        if (base_dir / "processed").exists() or dataset_name.startswith("PNR_"):
+            init_kwargs["data_dir"] = str(base_dir)
+    else:
+        # Legacy catalogs without data_dir still locate source files relative to root_dir.
+        init_kwargs = {"root_dir": str(base_dir / "raw")}
+
+    return cls(**init_kwargs)
+
+
+dataset_catalog = build_catalog_from_checkpoint(checkpoint_args.dataset)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model_builder = ModelBuilder.by_name(checkpoint_args.model.lower())()
 model = model_builder(checkpoint_args, device)

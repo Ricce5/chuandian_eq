@@ -6,7 +6,6 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence
 from src.utils.catalog_utils import train_val_test_split_sequence
-from src.data.utils import get_split_indices
 
 
 @Catalog.register(name="ChuanDian-Base")
@@ -126,65 +125,3 @@ class ChuanDianStandard(ChuanDianBase):
 
    
 
-
-@Catalog.register(name="ChuanDian-SlidingWindow")
-class ChuanDianSlidingWindow(ChuanDianBase):
-    def __init__(
-        self,
-        root_dir: Union[str, Path],
-        catalog_file: Union[str, Path] = None,
-        mag_completeness: float = 3.0,
-        window_size_days: int = 365,
-        step_size_days: int = 30,
-        train_ratio: float = 0.7,
-        val_ratio: float = 0.15,
-        test_ratio: float = 0.15,
-        use_event_sequence: bool = True,
-    ):
-        super().__init__(root_dir, catalog_file, mag_completeness)
-
-        assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, "Ratios must sum to 1"
-
-        self.metadata["window_size_days"] = window_size_days
-        self.metadata["step_size_days"] = step_size_days
-        self.metadata["train_ratio"] = train_ratio
-        self.metadata["val_ratio"] = val_ratio
-        self.metadata["test_ratio"] = test_ratio
-        self.metadata["use_event_sequence"] = use_event_sequence
-
-        self.train, self.val, self.test = self.generate_sliding_windows(
-            window_size_days, step_size_days
-        )
-
-    def generate_sliding_windows(self, window_size_days=365, step_size_days=30):
-        sequences = []
-        arrival_times = self.full_sequence.arrival_times
-        t_start = self.full_sequence.t_start
-        t_end = self.full_sequence.t_end
-
-        window_start = t_start
-        while window_start + window_size_days <= arrival_times[-1]:
-            window_end = window_start + window_size_days
-            seq = self.full_sequence.get_subsequence(
-                start=window_start,
-                end=window_end,
-            )
-            if self.metadata["use_event_sequence"]:
-                 seq = seq.to_event_sequence()
-            sequences.append(seq)
-            window_start += step_size_days
-
-        if len(sequences) < 3:
-            raise ValueError("Too few sequences to split into train/val/test.")
-
-        train_idx, val_idx, test_idx = get_split_indices(
-            total_length=len(sequences),
-            train_ratio=self.metadata['train_ratio'],
-            val_ratio=self.metadata['val_ratio'],
-        )
-
-        train_dataset = TppDataset([sequences[i] for i in train_idx])
-        val_dataset = TppDataset([sequences[i] for i in val_idx])
-        test_dataset = TppDataset([sequences[i] for i in test_idx])
-
-        return train_dataset, val_dataset, test_dataset

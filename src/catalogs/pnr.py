@@ -33,6 +33,27 @@ def _to_serializable_ts(ts):
     return ts
 
 
+def _resolve_pnr_source_file(
+    data_dir_path: Path,
+    filename: str,
+) -> Path:
+    """Resolve PNR source files from strict raw layout.
+
+    Expected layout:
+      data/PNR_1z/raw/PNR_1z_catalog.csv
+    """
+    candidates = [
+        data_dir_path / "raw" / filename,
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    raise FileNotFoundError(
+        f"PNR source file not found for {filename}. "
+        f"Tried: {[str(p) for p in candidates]}"
+    )
+
+
 @Catalog.register(name="PNR-Base")
 class PNRBase(Catalog):
     def __init__(
@@ -67,12 +88,6 @@ class PNRBase(Catalog):
         self.mag_completeness = mag_completeness
         self.root_dir = Path(sub_root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
-        def _resolve_path(file, default, name):
-            if file is None:
-                return default
-            if isinstance(file, (str, Path)):
-                return Path(file)
-            raise TypeError(f"{name} must be a str or Path")
 
         if data_dir is not None:
             if isinstance(data_dir, (str, Path)):
@@ -82,15 +97,13 @@ class PNRBase(Catalog):
         else:
             data_dir_path = Path(root_dir)
 
-        self.catalog_file = _resolve_path(
-            data_dir_path / f"PNR_{region}_catalog.csv" if data_dir_path is not None else None,
-            self.root_dir / f"PNR_{region}_catalog.csv",
-            "catalog_file",
+        self.catalog_file = _resolve_pnr_source_file(
+            data_dir_path=data_dir_path,
+            filename=f"PNR_{region}_catalog.csv",
         )
-        self.time_series_file = _resolve_path(
-            data_dir_path / f"PNR_{region}_injection_rate_per_min.csv" if data_dir_path is not None else None,
-            self.root_dir / f"PNR_{region}_injection_rate_per_min.csv",
-            "time_series_file",
+        self.time_series_file = _resolve_pnr_source_file(
+            data_dir_path=data_dir_path,
+            filename=f"PNR_{region}_injection_rate_per_min.csv",
         )
         self.normalize = normalize
         self.metadata = {
@@ -279,13 +292,17 @@ class PNRStandard(Catalog):
         else:
             data_root = default_catalogs_dir
 
-        data_dir_1z = data_root / "PNR_1z" / "raw"
-        data_dir_2 = data_root / "PNR_2" / "raw"
+        pnr_1z_dir = data_root / "PNR_1z"
+        pnr_2_dir = data_root / "PNR_2"
+        data_dir_1z = pnr_1z_dir / "catalogs"
+        data_dir_2 = pnr_2_dir / "catalogs"
 
 
         self.catalog_1z = PNR1zStandard(root_dir=data_dir_1z, 
+                                        data_dir=pnr_1z_dir,
                                         mag_completeness=mag_completeness,freq=freq)
         self.catalog_2 = PNR2Standard(root_dir=data_dir_2, 
+                                      data_dir=pnr_2_dir,
                                       mag_completeness=mag_completeness,freq=freq)   
 
 

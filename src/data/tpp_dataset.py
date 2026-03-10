@@ -5,8 +5,8 @@ from typing import List, Union
 import torch
 import torch.utils.data
 
-from .batch import Batch,EventBatch
-from .sequence import Sequence,EventSequence
+from .batch import Batch, EventBatch
+from .sequence import Sequence, EventSequence
 from functools import partial
 
 class TppDataset(torch.utils.data.Dataset):
