@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 
 from src.data import Catalog, Sequence, TppDataset
-from src.utils.catalog_utils import train_val_test_split_sequence_float
+from src.utils.catalog_utils import train_val_test_split_sequence
 from src.utils.file_utils import build_catalog_root_dir
 
 
@@ -19,26 +19,74 @@ def _to_serializable(value):
     return value
 
 
-def _clip_and_sort_split_points(
-    t_end: float,
-    train_start_ts: Optional[float],
-    val_start_ts: Optional[float],
-    test_start_ts: Optional[float],
-) -> tuple[float, float, float]:
-    if not np.isfinite(t_end) or t_end <= 0:
-        raise ValueError(f"Invalid t_end={t_end}.")
+def _coerce_timestamp(value: object) -> pd.Timestamp:
+    ts = pd.Timestamp(value)
+    if pd.isna(ts):
+        raise ValueError(f"Invalid timestamp value: {value!r}")
+    if ts.tz is not None:
+        ts = ts.tz_convert("UTC").tz_localize(None)
+    return ts
 
-    if train_start_ts is None:
-        train_start_ts = 0.0
-    if val_start_ts is None:
-        val_start_ts = t_end * 0.70
-    if test_start_ts is None:
-        test_start_ts = t_end * 0.85
 
-    train_start_ts = float(np.clip(train_start_ts, 0.0, t_end))
-    val_start_ts = float(np.clip(val_start_ts, train_start_ts, t_end))
-    test_start_ts = float(np.clip(test_start_ts, val_start_ts, t_end))
-    return train_start_ts, val_start_ts, test_start_ts
+def _resolve_absolute_bounds(summary: dict) -> tuple[pd.Timestamp, pd.Timestamp]:
+    start_iso = summary.get("start_time_iso")
+    end_iso = summary.get("end_time_iso")
+    if start_iso is None or end_iso is None:
+        raise ValueError(
+            "Missing required timestamp bounds in summary. "
+            "Expected keys: start_time_iso, end_time_iso."
+        )
+
+    start_ts = _coerce_timestamp(start_iso)
+    end_ts = _coerce_timestamp(end_iso)
+
+    if end_ts <= start_ts:
+        raise ValueError(
+            f"Invalid absolute time bounds: start_ts={start_ts}, end_ts={end_ts}."
+        )
+
+    return start_ts, end_ts
+
+
+def _clip_ts(ts: pd.Timestamp, low: pd.Timestamp, high: pd.Timestamp) -> pd.Timestamp:
+    if ts < low:
+        return low
+    if ts > high:
+        return high
+    return ts
+
+
+def _resolve_split_timestamps(
+    *,
+    start_ts: pd.Timestamp,
+    end_ts: pd.Timestamp,
+    train_start_ts: Optional[Union[str, pd.Timestamp]] = None,
+    val_start_ts: Optional[Union[str, pd.Timestamp]] = None,
+    test_start_ts: Optional[Union[str, pd.Timestamp]] = None,
+) -> tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]:
+    duration = end_ts - start_ts
+
+    default_train_ts = start_ts
+    default_val_ts = start_ts + duration * 0.70
+    default_test_ts = start_ts + duration * 0.85
+
+    def _as_ts(
+        value: Optional[Union[str, pd.Timestamp]],
+        default_ts: pd.Timestamp,
+    ) -> pd.Timestamp:
+        if value is None:
+            return default_ts
+
+        return _coerce_timestamp(value)
+
+    train_ts = _as_ts(train_start_ts, default_train_ts)
+    val_ts = _as_ts(val_start_ts, default_val_ts)
+    test_ts = _as_ts(test_start_ts, default_test_ts)
+
+    train_ts = _clip_ts(train_ts, start_ts, end_ts)
+    val_ts = _clip_ts(val_ts, train_ts, end_ts)
+    test_ts = _clip_ts(test_ts, val_ts, end_ts)
+    return train_ts, val_ts, test_ts
 
 
 def _prepare_numeric_field(values: pd.Series) -> tuple[Optional[np.ndarray], bool]:
@@ -68,9 +116,10 @@ class InducedTripletBase(Catalog):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[str, pd.Timestamp]] = None,
+        val_start_ts: Optional[Union[str, pd.Timestamp]] = None,
+        test_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         use_clean_injection: bool = True,
     ):
         self.dataset_name = dataset_name
@@ -97,39 +146,50 @@ class InducedTripletBase(Catalog):
         self.freq_min = int(self.summary.get("resample_freq_min", 1))
         if self.freq_min <= 0:
             raise ValueError(f"Invalid resample_freq_min={self.freq_min} for {dataset_name}.")
+        self.resample_freq_td = pd.to_timedelta(self.freq_min, unit="m")
+        self.freq = str(freq)
+        self.unit_td = pd.Timedelta(self.freq)
+        if self.unit_td <= pd.Timedelta(0):
+            raise ValueError(f"freq must be positive, got {freq!r}")
 
         if mag_completeness is None:                                                           
             mag_completeness = float(self.summary.get("mc", 0.0))
         self.mag_completeness = float(mag_completeness)
 
-        start_min = float(self.summary.get("start_min", 0.0))
-        end_min = float(self.summary.get("end_min", 0.0))
-        if not np.isfinite(end_min) or end_min <= start_min:
+        self.start_time = None
+        self.end_time = None
+        self.start_time, self.end_time = _resolve_absolute_bounds(self.summary)
+        self.t_start = 0.0
+        self.t_end = float((self.end_time - self.start_time) / self.unit_td)
+
+        if not np.isfinite(self.t_end) or self.t_end <= 0:
             raise ValueError(
-                f"Invalid [start_min, end_min]=[{start_min}, {end_min}] for {dataset_name}."
+                f"Invalid t_end={self.t_end} for dataset {dataset_name}. "
+                f"start_time={self.start_time}, end_time={self.end_time}, freq={self.unit_td}"
             )
 
-        self.start_min = start_min
-        self.end_min = end_min
-        self.t_start = 0.0
-        self.t_end = (self.end_min - self.start_min) / float(self.freq_min)
-
-        train_start_ts, val_start_ts, test_start_ts = _clip_and_sort_split_points(
-            self.t_end,
-            train_start_ts,
-            val_start_ts,
-            test_start_ts,
+        train_start_time, val_start_time, test_start_time = _resolve_split_timestamps(
+            start_ts=self.start_time,
+            end_ts=self.end_time,
+            train_start_ts=train_start_ts,
+            val_start_ts=val_start_ts,
+            test_start_ts=test_start_ts,
         )
+        train_start_t = float(np.clip((train_start_time - self.start_time) / self.unit_td, 0.0, self.t_end))
+        val_start_t = float(np.clip((val_start_time - self.start_time) / self.unit_td, train_start_t, self.t_end))
+        test_start_t = float(np.clip((test_start_time - self.start_time) / self.unit_td, val_start_t, self.t_end))
 
         catalog_cfg: Dict[str, object] = {
             "dataset_name": dataset_name,
             "normalize": normalize,
             "mag_completeness": self.mag_completeness,
+            "freq": self.freq,
             "freq_min": self.freq_min,
-            "train_start_ts": _to_serializable(train_start_ts),
-            "val_start_ts": _to_serializable(val_start_ts),
-            "test_start_ts": _to_serializable(test_start_ts),
+            "train_start_ts": _to_serializable(train_start_time),
+            "val_start_ts": _to_serializable(val_start_time),
+            "test_start_ts": _to_serializable(test_start_time),
             "use_clean_injection": use_clean_injection,
+            "clip_negative_injection": False,
         }
         sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
 
@@ -145,19 +205,23 @@ class InducedTripletBase(Catalog):
 
         self.metadata = {
             "name": dataset_name,
-            "freq": f"{self.freq_min}min",
+            "freq": self.freq,
             "freq_min": self.freq_min,
             "mag_roundoff_error": 0.01,
             "mag_completeness": self.mag_completeness,
-            "start_ts": float(self.t_start),
-            "end_ts": float(self.t_end),
-            "start_min": float(self.start_min),
-            "end_min": float(self.end_min),
-            "train_start_ts": float(train_start_ts),
-            "val_start_ts": float(val_start_ts),
-            "test_start_ts": float(test_start_ts),
+            "start_ts": self.start_time,
+            "end_ts": self.end_time,
+            "train_start_ts": train_start_time,
+            "val_start_ts": val_start_time,
+            "test_start_ts": test_start_time,
+            "start_t": float(self.t_start),
+            "end_t": float(self.t_end),
+            "train_start_t": train_start_t,
+            "val_start_t": val_start_t,
+            "test_start_t": test_start_t,
             "inj_fill_policy": self.summary.get("inj_fill_policy", "unknown"),
             "is_upsample": bool(self.summary.get("is_upsample", False)),
+            "clip_negative_injection": False,
         }
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
@@ -169,16 +233,27 @@ class InducedTripletBase(Catalog):
         return ["full_sequence.pt", "metadata.pt"]
 
     def _split_datasets(self):
-        seq_train, seq_val, seq_test = train_val_test_split_sequence_float(
+        seq_train, seq_val, seq_test = train_val_test_split_sequence(
             seq=self.full_sequence,
             start_ts=self.metadata["start_ts"],
             train_start_ts=self.metadata["train_start_ts"],
             val_start_ts=self.metadata["val_start_ts"],
             test_start_ts=self.metadata["test_start_ts"],
+            freq=self.unit_td,
         )
         self.train = TppDataset([seq_train])
         self.val = TppDataset([seq_val])
         self.test = TppDataset([seq_test])
+
+    def _relative_time_from_columns(self, df: pd.DataFrame) -> pd.Series:
+        if "time_iso" not in df.columns:
+            raise KeyError(
+                f"Missing 'time_iso' in {self.dataset_name} processed file. "
+                "Timestamp-based processing requires time_iso."
+            )
+        ts = pd.to_datetime(df["time_iso"], errors="coerce", utc=True).dt.tz_convert(None)
+        t = (ts - self.start_time) / self.unit_td
+        return pd.to_numeric(t, errors="coerce").astype(np.float64)
 
     def _build_event_fields(self, df: pd.DataFrame) -> dict:
         out: dict = {}
@@ -210,14 +285,14 @@ class InducedTripletBase(Catalog):
 
     def generate_catalog(self):
         df_eq = pd.read_csv(self.eq_file)
-        df_eq["time_min"] = pd.to_numeric(df_eq["time_min"], errors="coerce")
         df_eq["magnitude"] = pd.to_numeric(df_eq["magnitude"], errors="coerce")
+        df_eq["t"] = self._relative_time_from_columns(df_eq)
+        df_eq["t"] = pd.to_numeric(df_eq["t"], errors="coerce").round(9)
 
         # Keep valid events and enforce completeness threshold.
-        df_eq = df_eq[np.isfinite(df_eq["time_min"]) & np.isfinite(df_eq["magnitude"])].copy()
+        df_eq = df_eq[np.isfinite(df_eq["t"]) & np.isfinite(df_eq["magnitude"])].copy()
         df_eq = df_eq[df_eq["magnitude"] > self.mag_completeness].copy()
-        df_eq.sort_values("time_min", inplace=True)
-        df_eq["t"] = (df_eq["time_min"] - self.start_min) / float(self.freq_min)
+        df_eq.sort_values("t", inplace=True)
         df_eq = df_eq[(df_eq["t"] >= self.t_start) & (df_eq["t"] <= self.t_end + 1e-9)].copy()
 
         duplicated_mask = df_eq["t"].duplicated(keep=False)
@@ -239,26 +314,22 @@ class InducedTripletBase(Catalog):
         seq_kwargs.update(self._build_event_fields(df_eq))
 
         df_ts = pd.read_csv(self.inj_file)
-        df_ts["time_min"] = pd.to_numeric(df_ts["time_min"], errors="coerce")
-        if self.use_clean_injection and "inj_rate_clean_m3_min" in df_ts.columns:
-            rate_col = "inj_rate_clean_m3_min"
-        elif "inj_rate_m3_min" in df_ts.columns:
+        df_ts["t"] = self._relative_time_from_columns(df_ts)
+        df_ts["t"] = pd.to_numeric(df_ts["t"], errors="coerce").round(9)
+        if "inj_rate_m3_min" in df_ts.columns:
             rate_col = "inj_rate_m3_min"
         elif "IR_h" in df_ts.columns:
             rate_col = "IR_h"
         else:
             raise KeyError(
                 f"No supported injection-rate column found in {self.inj_file}. "
-                "Expected one of: inj_rate_clean_m3_min, inj_rate_m3_min, IR_h."
+                "Expected one of: inj_rate_m3_min, IR_h."
             )
 
         df_ts[rate_col] = pd.to_numeric(df_ts[rate_col], errors="coerce")
-        df_ts = df_ts[np.isfinite(df_ts["time_min"])].copy()
+        df_ts = df_ts[np.isfinite(df_ts["t"])].copy()
         df_ts["rate"] = df_ts[rate_col].fillna(0.0)
-        if self.use_clean_injection:
-            df_ts["rate"] = df_ts["rate"].clip(lower=0.0)
 
-        df_ts["t"] = (df_ts["time_min"] - self.start_min) / float(self.freq_min)
         df_ts = df_ts[(df_ts["t"] >= self.t_start) & (df_ts["t"] <= self.t_end + 1e-9)].copy()
         df_ts = df_ts.groupby("t", as_index=False)["rate"].mean()
         df_ts.sort_values("t", inplace=True)

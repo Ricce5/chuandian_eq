@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Mapping, Optional, Sequence, Union
+import pandas as pd
 
 from src.data import Catalog, default_catalogs_dir
 
@@ -40,6 +41,7 @@ class SSFSStandard(InducedTripletGroupedCatalog):
         split_groups: Optional[Mapping[str, Union[str, Sequence[str], Path]]] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
+        freq: str = "1h",
         use_clean_injection: bool = True,
     ):
         super().__init__(
@@ -53,6 +55,7 @@ class SSFSStandard(InducedTripletGroupedCatalog):
             mag_completeness_map=SSFS_DEFAULT_MC,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             use_clean_injection=use_clean_injection,
         )
 
@@ -65,9 +68,10 @@ class SSFSBase(InducedTripletBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         use_clean_injection: bool = True,
     ):
         if dataset_name not in SSFS_DATASETS:
@@ -83,6 +87,7 @@ class SSFSBase(InducedTripletBase):
             data_dir=data_dir,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
@@ -98,9 +103,10 @@ class SSFS1993Standard(SSFSBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         use_clean_injection: bool = True,
     ):
         super().__init__(
@@ -109,6 +115,7 @@ class SSFS1993Standard(SSFSBase):
             data_dir=data_dir,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
@@ -124,9 +131,10 @@ class SSFS2000Standard(SSFSBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         use_clean_injection: bool = True,
     ):
         super().__init__(
@@ -135,6 +143,7 @@ class SSFS2000Standard(SSFSBase):
             data_dir=data_dir,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
@@ -150,9 +159,10 @@ class SSFS2003Standard(SSFSBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         use_clean_injection: bool = True,
     ):
         super().__init__(
@@ -161,6 +171,7 @@ class SSFS2003Standard(SSFSBase):
             data_dir=data_dir,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
@@ -176,9 +187,10 @@ class SSFS2004Standard(SSFSBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         use_clean_injection: bool = True,
     ):
         super().__init__(
@@ -187,6 +199,7 @@ class SSFS2004Standard(SSFSBase):
             data_dir=data_dir,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
@@ -202,9 +215,10 @@ class SSFS2005Standard(SSFSBase):
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
-        train_start_ts: Optional[float] = None,
-        val_start_ts: Optional[float] = None,
-        test_start_ts: Optional[float] = None,
+        freq: str = "1h",
+        train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         use_clean_injection: bool = True,
     ):
         super().__init__(
@@ -213,6 +227,7 @@ class SSFS2005Standard(SSFSBase):
             data_dir=data_dir,
             mag_completeness=mag_completeness,
             normalize=normalize,
+            freq=freq,
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,

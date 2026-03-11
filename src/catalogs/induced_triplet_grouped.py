@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Mapping, Optional, Sequence, Union
 
 import numpy as np
+import pandas as pd
 import torch
 
 from src.data import Catalog, Sequence as TppSequence, TppDataset, default_catalogs_dir
@@ -113,32 +114,53 @@ def _merge_sequences(sequences: Sequence[TppSequence]) -> TppSequence:
             )
 
     offset = 0.0
-    arrival_chunks: list[torch.Tensor] = []
+    merged_inter_times: Optional[np.ndarray] = None
     attr_chunks: dict[str, list[torch.Tensor]] = {k: [] for k in attr_keys}
     ts_chunks: list[torch.Tensor] = []
     ts_time_chunks: list[torch.Tensor] = []
+    prev_ts_end: Optional[float] = None
 
     for seq in sequences:
         duration = float(seq.t_end - seq.t_start)
-        shifted_arrivals = seq.arrival_times - float(seq.t_start) + offset
-        arrival_chunks.append(shifted_arrivals)
+        seq_inter = seq.inter_times.detach().cpu().numpy().astype(np.float64)
+        if merged_inter_times is None:
+            merged_inter_times = seq_inter.copy()
+        else:
+            # Merge boundary gap:
+            # last survival gap of previous sequence + first event gap of current sequence.
+            merged_inter_times[-1] += seq_inter[0]
+            if seq_inter.shape[0] > 1:
+                merged_inter_times = np.concatenate([merged_inter_times, seq_inter[1:]], axis=0)
 
         for key in attr_keys:
             attr_chunks[key].append(seq[key])
 
         if has_time_series:
-            shifted_ts_times = seq.time_series_times - float(seq.t_start) + offset
+            shifted_ts_times = (
+                seq.time_series_times.detach().cpu().numpy().astype(np.float64)
+                - float(seq.t_start)
+                + offset
+            )
+            # Guard against tiny floating-point boundary regressions between components.
+            if (
+                shifted_ts_times.size > 0
+                and prev_ts_end is not None
+                and shifted_ts_times[0] <= prev_ts_end
+            ):
+                local_dt = np.diff(shifted_ts_times)
+                positive_dt = local_dt[local_dt > 0]
+                step = float(positive_dt.min()) if positive_dt.size else 1e-6
+                shifted_ts_times += (prev_ts_end - shifted_ts_times[0]) + step
+
+            if shifted_ts_times.size > 0:
+                prev_ts_end = float(shifted_ts_times[-1])
             ts_chunks.append(seq.time_series)
-            ts_time_chunks.append(shifted_ts_times)
+            ts_time_chunks.append(torch.tensor(shifted_ts_times, dtype=torch.float64))
 
         offset += duration
 
-    if arrival_chunks and sum(chunk.shape[0] for chunk in arrival_chunks) > 0:
-        merged_arrivals = torch.cat(arrival_chunks, dim=0).detach().cpu().numpy().astype(np.float64)
-    else:
-        merged_arrivals = np.array([], dtype=np.float64)
-
-    merged_inter_times = np.diff(merged_arrivals, prepend=[0.0], append=[offset])
+    if merged_inter_times is None:
+        merged_inter_times = np.array([offset], dtype=np.float64)
     seq_kwargs: dict = {
         "inter_times": torch.tensor(merged_inter_times, dtype=torch.float32),
         "t_start": 0.0,
@@ -169,6 +191,7 @@ class InducedTripletGroupedCatalog(Catalog):
         mag_completeness_map: Optional[Mapping[str, float]] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
+        freq: str = "1h",
         use_clean_injection: bool = True,
     ):
         self.family_name = family_name
@@ -176,6 +199,10 @@ class InducedTripletGroupedCatalog(Catalog):
         self.normalize = normalize
         self.use_clean_injection = use_clean_injection
         self.global_mag_completeness = mag_completeness
+        self.freq = str(freq)
+        freq_td = pd.Timedelta(self.freq)
+        if freq_td <= pd.Timedelta(0):
+            raise ValueError(f"freq must be positive, got {freq!r}")
 
         aliases = {k.lower(): v for k, v in (dataset_aliases or {}).items()}
         for name in self.valid_datasets:
@@ -195,6 +222,7 @@ class InducedTripletGroupedCatalog(Catalog):
             "split_groups": self.split_groups,
             "normalize": normalize,
             "mag_completeness": mag_completeness,
+            "freq": self.freq,
             "use_clean_injection": use_clean_injection,
         }
         sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
@@ -223,6 +251,7 @@ class InducedTripletGroupedCatalog(Catalog):
                 data_dir=component_data_dir,
                 mag_completeness=component_mc,
                 normalize=normalize,
+                freq=self.freq,
                 use_clean_injection=use_clean_injection,
             )
 
@@ -257,7 +286,7 @@ class InducedTripletGroupedCatalog(Catalog):
         selected_sorted = sorted(self._all_selected_datasets)
         metadata = {
             "name": family_name,
-            "freq": f"{freq_min}min",
+            "freq": self.freq,
             "freq_min": freq_min,
             "mag_roundoff_error": 0.01,
             "mag_completeness": merged_mc,
