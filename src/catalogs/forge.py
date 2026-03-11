@@ -21,7 +21,6 @@ class FORGE2022Standard(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="FORGE2022",
@@ -33,5 +32,4 @@ class FORGE2022Standard(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )

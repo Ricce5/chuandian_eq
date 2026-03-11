@@ -13,29 +13,43 @@ from src.utils.catalog_utils import train_val_test_split_sequence
 from src.utils.file_utils import build_catalog_root_dir
 
 
+REQUIRED_SUMMARY_KEYS = (
+    "resample_freq_min",
+    "mc",
+    "inj_fill_policy",
+    "is_upsample",
+    "start_time_iso",
+    "end_time_iso",
+)
+
+
 def _to_serializable(value):
+    """Convert value to a JSON-serializable format if needed."""
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
     return value
 
 
 def _coerce_timestamp(value: object) -> pd.Timestamp:
+    """Coerce a value to a timezone-naive pd.Timestamp in UTC."""
     ts = pd.Timestamp(value)
     if pd.isna(ts):
         raise ValueError(f"Invalid timestamp value: {value!r}")
-    if ts.tz is not None:
+    if ts.tz is not None: # tz: timezone-aware, convert to UTC and remove tz info
         ts = ts.tz_convert("UTC").tz_localize(None)
     return ts
 
 
 def _resolve_absolute_bounds(summary: dict) -> tuple[pd.Timestamp, pd.Timestamp]:
-    start_iso = summary.get("start_time_iso")
-    end_iso = summary.get("end_time_iso")
-    if start_iso is None or end_iso is None:
+    """Extract and validate absolute time bounds from summary dict."""
+    missing = [k for k in ("start_time_iso", "end_time_iso") if k not in summary]
+    if missing:
         raise ValueError(
             "Missing required timestamp bounds in summary. "
-            "Expected keys: start_time_iso, end_time_iso."
+            f"Expected keys: start_time_iso, end_time_iso. Missing: {missing}."
         )
+    start_iso = summary["start_time_iso"]
+    end_iso = summary["end_time_iso"]
 
     start_ts = _coerce_timestamp(start_iso)
     end_ts = _coerce_timestamp(end_iso)
@@ -90,7 +104,7 @@ def _resolve_split_timestamps(
 
 
 def _prepare_numeric_field(values: pd.Series) -> tuple[Optional[np.ndarray], bool]:
-    arr = pd.to_numeric(values, errors="coerce").to_numpy(dtype=np.float64)
+    arr = pd.to_numeric(values, errors="raise").to_numpy(dtype=np.float64)
     finite = np.isfinite(arr)
     if not finite.any():
         return None, False
@@ -120,11 +134,9 @@ class InducedTripletBase(Catalog):
         train_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         val_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         test_start_ts: Optional[Union[str, pd.Timestamp]] = None,
-        use_clean_injection: bool = True,
     ):
         self.dataset_name = dataset_name
         self.normalize = normalize
-        self.use_clean_injection = use_clean_injection
 
         if data_dir is None:
             data_dir_path = Path(root_dir)
@@ -142,8 +154,13 @@ class InducedTripletBase(Catalog):
             )
         with open(summary_path, "r", encoding="utf-8") as f:
             self.summary = json.load(f)
+        missing_summary_keys = [k for k in REQUIRED_SUMMARY_KEYS if k not in self.summary]
+        if missing_summary_keys:
+            raise KeyError(
+                f"Missing required summary keys for {dataset_name}: {missing_summary_keys}"
+            )
 
-        self.freq_min = int(self.summary.get("resample_freq_min", 1))
+        self.freq_min = int(self.summary["resample_freq_min"])
         if self.freq_min <= 0:
             raise ValueError(f"Invalid resample_freq_min={self.freq_min} for {dataset_name}.")
         self.resample_freq_td = pd.to_timedelta(self.freq_min, unit="m")
@@ -152,8 +169,8 @@ class InducedTripletBase(Catalog):
         if self.unit_td <= pd.Timedelta(0):
             raise ValueError(f"freq must be positive, got {freq!r}")
 
-        if mag_completeness is None:                                                           
-            mag_completeness = float(self.summary.get("mc", 0.0))
+        if mag_completeness is None:
+            mag_completeness = float(self.summary["mc"])
         self.mag_completeness = float(mag_completeness)
 
         self.start_time = None
@@ -188,8 +205,6 @@ class InducedTripletBase(Catalog):
             "train_start_ts": _to_serializable(train_start_time),
             "val_start_ts": _to_serializable(val_start_time),
             "test_start_ts": _to_serializable(test_start_time),
-            "use_clean_injection": use_clean_injection,
-            "clip_negative_injection": False,
         }
         sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
 
@@ -219,9 +234,8 @@ class InducedTripletBase(Catalog):
             "train_start_t": train_start_t,
             "val_start_t": val_start_t,
             "test_start_t": test_start_t,
-            "inj_fill_policy": self.summary.get("inj_fill_policy", "unknown"),
-            "is_upsample": bool(self.summary.get("is_upsample", False)),
-            "clip_negative_injection": False,
+            "inj_fill_policy": self.summary["inj_fill_policy"],
+            "is_upsample": bool(self.summary["is_upsample"]),
         }
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
@@ -251,9 +265,13 @@ class InducedTripletBase(Catalog):
                 f"Missing 'time_iso' in {self.dataset_name} processed file. "
                 "Timestamp-based processing requires time_iso."
             )
-        ts = pd.to_datetime(df["time_iso"], errors="coerce", utc=True).dt.tz_convert(None)
+        ts = pd.to_datetime(df["time_iso"], format="mixed", errors="raise", utc=True).dt.tz_convert(None)
         t = (ts - self.start_time) / self.unit_td
-        return pd.to_numeric(t, errors="coerce").astype(np.float64)
+        out = pd.to_numeric(t, errors="raise").astype(np.float64)
+        if not np.isfinite(out).all():
+            bad = np.where(~np.isfinite(out.to_numpy(dtype=np.float64)))[0][:10].tolist()
+            raise ValueError(f"Found non-finite relative times at rows {bad}.")
+        return out
 
     def _build_event_fields(self, df: pd.DataFrame) -> dict:
         out: dict = {}
@@ -285,12 +303,24 @@ class InducedTripletBase(Catalog):
 
     def generate_catalog(self):
         df_eq = pd.read_csv(self.eq_file)
-        df_eq["magnitude"] = pd.to_numeric(df_eq["magnitude"], errors="coerce")
-        df_eq["t"] = self._relative_time_from_columns(df_eq)
-        df_eq["t"] = pd.to_numeric(df_eq["t"], errors="coerce").round(9)
+        required_eq_cols = ("time_iso", "magnitude")
+        missing_eq_cols = [c for c in required_eq_cols if c not in df_eq.columns]
+        if missing_eq_cols:
+            raise KeyError(f"Missing required EQ columns in {self.eq_file}: {missing_eq_cols}")
 
-        # Keep valid events and enforce completeness threshold.
-        df_eq = df_eq[np.isfinite(df_eq["t"]) & np.isfinite(df_eq["magnitude"])].copy()
+        df_eq["magnitude"] = pd.to_numeric(df_eq["magnitude"], errors="raise")
+        df_eq["t"] = self._relative_time_from_columns(df_eq)
+        df_eq["t"] = pd.to_numeric(df_eq["t"], errors="raise").round(9)
+
+        invalid_t_mask = ~np.isfinite(df_eq["t"])
+        invalid_mag_mask = ~np.isfinite(df_eq["magnitude"])
+        if invalid_t_mask.any() or invalid_mag_mask.any():
+            raise ValueError(
+                f"Found invalid EQ rows: invalid_t={int(invalid_t_mask.sum())}, "
+                f"invalid_magnitude={int(invalid_mag_mask.sum())}."
+            )
+
+        # Enforce completeness threshold.
         df_eq = df_eq[df_eq["magnitude"] > self.mag_completeness].copy()
         df_eq.sort_values("t", inplace=True)
         df_eq = df_eq[(df_eq["t"] >= self.t_start) & (df_eq["t"] <= self.t_end + 1e-9)].copy()
@@ -301,7 +331,13 @@ class InducedTripletBase(Catalog):
             df_eq.sort_values("t", inplace=True)
 
         df_eq["t_diff"] = df_eq["t"].diff()
-        df_eq = df_eq[df_eq["t_diff"] > 0].copy()
+        non_increasing_mask = df_eq["t_diff"] <= 0
+        non_increasing_mask = non_increasing_mask.fillna(False)
+        if non_increasing_mask.any():
+            raise ValueError(
+                "EQ arrival times are not strictly increasing after duplicate-time jittering. "
+                f"invalid_rows={int(non_increasing_mask.sum())}."
+            )
 
         arrival_times = df_eq["t"].to_numpy(dtype=np.float64)
         inter_times = np.diff(arrival_times, prepend=[self.t_start], append=[self.t_end])
@@ -314,23 +350,30 @@ class InducedTripletBase(Catalog):
         seq_kwargs.update(self._build_event_fields(df_eq))
 
         df_ts = pd.read_csv(self.inj_file)
-        df_ts["t"] = self._relative_time_from_columns(df_ts)
-        df_ts["t"] = pd.to_numeric(df_ts["t"], errors="coerce").round(9)
-        if "inj_rate_m3_min" in df_ts.columns:
-            rate_col = "inj_rate_m3_min"
-        elif "IR_h" in df_ts.columns:
-            rate_col = "IR_h"
-        else:
+        required_inj_cols = ("time_iso", "inj_rate_m3_min")
+        missing_inj_cols = [c for c in required_inj_cols if c not in df_ts.columns]
+        if missing_inj_cols:
             raise KeyError(
-                f"No supported injection-rate column found in {self.inj_file}. "
-                "Expected one of: inj_rate_m3_min, IR_h."
+                f"Missing required injection columns in {self.inj_file}: {missing_inj_cols}"
             )
+        df_ts["t"] = self._relative_time_from_columns(df_ts)
+        df_ts["t"] = pd.to_numeric(df_ts["t"], errors="raise").round(9)
+        df_ts["inj_rate_m3_min"] = pd.to_numeric(df_ts["inj_rate_m3_min"], errors="raise")
+        invalid_ts_t_mask = ~np.isfinite(df_ts["t"])
+        invalid_ts_rate_mask = ~np.isfinite(df_ts["inj_rate_m3_min"])
+        if invalid_ts_t_mask.any() or invalid_ts_rate_mask.any():
+            raise ValueError(
+                f"Found invalid injection rows: invalid_t={int(invalid_ts_t_mask.sum())}, "
+                f"invalid_rate={int(invalid_ts_rate_mask.sum())}."
+            )
+        df_ts["rate"] = df_ts["inj_rate_m3_min"]
 
-        df_ts[rate_col] = pd.to_numeric(df_ts[rate_col], errors="coerce")
-        df_ts = df_ts[np.isfinite(df_ts["t"])].copy()
-        df_ts["rate"] = df_ts[rate_col].fillna(0.0)
-
-        df_ts = df_ts[(df_ts["t"] >= self.t_start) & (df_ts["t"] <= self.t_end + 1e-9)].copy()
+        out_of_range_ts_mask = (df_ts["t"] < self.t_start) | (df_ts["t"] > self.t_end + 1e-9)
+        if out_of_range_ts_mask.any():
+            raise ValueError(
+                f"Found injection rows outside [{self.t_start}, {self.t_end}]: "
+                f"count={int(out_of_range_ts_mask.sum())}."
+            )
         df_ts = df_ts.groupby("t", as_index=False)["rate"].mean()
         df_ts.sort_values("t", inplace=True)
 

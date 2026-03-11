@@ -41,7 +41,6 @@ class CooperBasinStandard(InducedTripletGroupedCatalog):
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
         freq: str = "1h",
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             family_name="CooperBasin",
@@ -55,7 +54,6 @@ class CooperBasinStandard(InducedTripletGroupedCatalog):
             mag_completeness=mag_completeness,
             normalize=normalize,
             freq=freq,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -71,7 +69,6 @@ class CooperBasinBase(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         if dataset_name not in COOPER_BASIN_DATASETS:
             raise ValueError(
@@ -91,7 +88,6 @@ class CooperBasinBase(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -107,7 +103,6 @@ class CBHAB1aStandard(CooperBasinBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="CB_HAB1a",
@@ -119,7 +114,6 @@ class CBHAB1aStandard(CooperBasinBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -135,7 +129,6 @@ class CBHAB1bStandard(CooperBasinBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="CB_HAB1b",
@@ -147,7 +140,6 @@ class CBHAB1bStandard(CooperBasinBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -163,7 +155,6 @@ class CBHAB4Standard(CooperBasinBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="CB_HAB4",
@@ -175,5 +166,4 @@ class CBHAB4Standard(CooperBasinBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )

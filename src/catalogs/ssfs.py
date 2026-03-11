@@ -42,7 +42,6 @@ class SSFSStandard(InducedTripletGroupedCatalog):
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
         freq: str = "1h",
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             family_name="SSFS",
@@ -56,7 +55,6 @@ class SSFSStandard(InducedTripletGroupedCatalog):
             mag_completeness=mag_completeness,
             normalize=normalize,
             freq=freq,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -72,7 +70,6 @@ class SSFSBase(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         if dataset_name not in SSFS_DATASETS:
             raise ValueError(
@@ -91,7 +88,6 @@ class SSFSBase(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -107,7 +103,6 @@ class SSFS1993Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="SSFS1993",
@@ -119,7 +114,6 @@ class SSFS1993Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -135,7 +129,6 @@ class SSFS2000Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="SSFS2000",
@@ -147,7 +140,6 @@ class SSFS2000Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -163,7 +155,6 @@ class SSFS2003Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="SSFS2003",
@@ -175,7 +166,6 @@ class SSFS2003Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -191,7 +181,6 @@ class SSFS2004Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="SSFS2004",
@@ -203,7 +192,6 @@ class SSFS2004Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -219,7 +207,6 @@ class SSFS2005Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="SSFS2005",
@@ -231,5 +218,4 @@ class SSFS2005Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )

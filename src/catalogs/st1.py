@@ -21,7 +21,6 @@ class St12018Standard(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="St1-2018",
@@ -33,7 +32,6 @@ class St12018Standard(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )
 
 
@@ -49,7 +47,6 @@ class St12020Standard(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        use_clean_injection: bool = True,
     ):
         super().__init__(
             dataset_name="St1-2020",
@@ -61,5 +58,4 @@ class St12020Standard(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
-            use_clean_injection=use_clean_injection,
         )

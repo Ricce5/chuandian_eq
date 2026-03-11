@@ -192,12 +192,10 @@ class InducedTripletGroupedCatalog(Catalog):
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
         freq: str = "1h",
-        use_clean_injection: bool = True,
     ):
         self.family_name = family_name
         self.valid_datasets = tuple(valid_datasets)
         self.normalize = normalize
-        self.use_clean_injection = use_clean_injection
         self.global_mag_completeness = mag_completeness
         self.freq = str(freq)
         freq_td = pd.Timedelta(self.freq)
@@ -223,7 +221,6 @@ class InducedTripletGroupedCatalog(Catalog):
             "normalize": normalize,
             "mag_completeness": mag_completeness,
             "freq": self.freq,
-            "use_clean_injection": use_clean_injection,
         }
         sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
         self.root_dir = Path(sub_root_dir).expanduser().resolve()
@@ -240,7 +237,11 @@ class InducedTripletGroupedCatalog(Catalog):
                 )
 
             if self.global_mag_completeness is None and mag_completeness_map is not None:
-                component_mc = mag_completeness_map.get(name)
+                if name not in mag_completeness_map:
+                    raise KeyError(
+                        f"Missing mag_completeness for grouped component '{name}'."
+                    )
+                component_mc = mag_completeness_map[name]
             else:
                 component_mc = self.global_mag_completeness
 
@@ -252,7 +253,6 @@ class InducedTripletGroupedCatalog(Catalog):
                 mag_completeness=component_mc,
                 normalize=normalize,
                 freq=self.freq,
-                use_clean_injection=use_clean_injection,
             )
 
         component_freqs = {
@@ -296,11 +296,11 @@ class InducedTripletGroupedCatalog(Catalog):
             "component_datasets": selected_sorted,
             "component_mag_completeness": component_mc_map,
             "component_inj_fill_policy": {
-                name: self._components[name].metadata.get("inj_fill_policy", "unknown")
+                name: self._components[name].metadata["inj_fill_policy"]
                 for name in selected_sorted
             },
             "component_is_upsample": {
-                name: bool(self._components[name].metadata.get("is_upsample", False))
+                name: bool(self._components[name].metadata["is_upsample"])
                 for name in selected_sorted
             },
         }
