@@ -8,6 +8,7 @@ __all__ = [
     "analysis",
     "binary_focal_loss",
     "catalog_tests",
+    "catalog_pathing",
     "catalog_utils",
     "debug_utils",
     "file_utils",

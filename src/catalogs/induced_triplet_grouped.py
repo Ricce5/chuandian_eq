@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 
 from src.data import Catalog, Sequence as TppSequence, TppDataset, default_catalogs_dir
-from src.utils.file_utils import build_catalog_root_dir
+from src.utils.catalog_pathing import build_hashed_catalog_root
 
 from .induced_triplet_base import InducedTripletBase
 
@@ -18,6 +18,7 @@ SplitGroups = Mapping[str, SplitGroupValue]
 
 
 def _normalize_group_items(value: SplitGroupValue) -> list[str]:
+    """Normalize a split-group spec into a non-empty list of dataset tokens."""
     if isinstance(value, Path):
         raw_items = [value.name]
     elif isinstance(value, str):
@@ -44,6 +45,7 @@ def _resolve_dataset_name(
     valid_datasets: Sequence[str],
     aliases: Mapping[str, str],
 ) -> str:
+    """Resolve one dataset token to a canonical dataset name."""
     if token in valid_datasets:
         return token
     token_l = token.lower()
@@ -62,6 +64,7 @@ def _normalize_split_groups(
     valid_datasets: Sequence[str],
     aliases: Mapping[str, str],
 ) -> Dict[str, list[str]]:
+    """Validate and normalize train/val/test grouped split definitions."""
     required = ("train", "val", "test")
     missing = [k for k in required if k not in split_groups]
     if missing:
@@ -92,14 +95,17 @@ def _normalize_split_groups(
 
 
 def _event_attr_keys(seq: TppSequence) -> set[str]:
+    """Return event-level attribute keys, excluding default sequence attributes."""
     return {k for k in seq.keys() if k not in TppSequence.default_sequence_attrs}
 
 
 def _has_time_series(seq: TppSequence) -> bool:
+    """Check whether a sequence contains aligned time-series features."""
     return "time_series" in seq and "time_series_times" in seq
 
 
 def _merge_sequences(sequences: Sequence[TppSequence]) -> TppSequence:
+    """Concatenate multiple sequences into one continuous sequence."""
     if not sequences:
         raise ValueError("Cannot merge an empty sequence list.")
 
@@ -193,6 +199,7 @@ class InducedTripletGroupedCatalog(Catalog):
         normalize: bool = True,
         freq: str = "1h",
     ):
+        """Build a grouped catalog from selected component datasets."""
         self.family_name = family_name
         self.valid_datasets = tuple(valid_datasets)
         self.normalize = normalize
@@ -222,8 +229,7 @@ class InducedTripletGroupedCatalog(Catalog):
             "mag_completeness": mag_completeness,
             "freq": self.freq,
         }
-        sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
-        self.root_dir = Path(sub_root_dir).expanduser().resolve()
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
 
         self._components: dict[str, InducedTripletBase] = {}
         for name in self.valid_datasets:
@@ -309,17 +315,21 @@ class InducedTripletGroupedCatalog(Catalog):
 
     @property
     def _all_selected_datasets(self) -> set[str]:
+        """Return the union of datasets used by train/val/test splits."""
         return set(self.split_groups["train"] + self.split_groups["val"] + self.split_groups["test"])
 
     @property
     def required_files(self):
+        """List files required to treat this catalog as materialized."""
         return ["metadata.pt"]
 
     def generate_catalog(self):
+        """No-op because this catalog reuses prebuilt component catalogs."""
         # This catalog composes already-generated component catalogs.
         return None
 
     def _split_datasets(self):
+        """Construct train/val/test datasets from grouped component sequences."""
         self.train = TppDataset([self._components[name].full_sequence for name in self.split_groups["train"]])
         self.val = TppDataset([self._components[name].full_sequence for name in self.split_groups["val"]])
         self.test = TppDataset([self._components[name].full_sequence for name in self.split_groups["test"]])

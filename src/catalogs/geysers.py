@@ -6,21 +6,33 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence
 from src.utils.catalog_utils import train_val_test_split_sequence
-from src.data.utils import get_split_indices
+from src.utils.catalog_pathing import (
+    build_hashed_catalog_root,
+    refresh_cached_metadata,
+    resolve_dataset_data_dir,
+    resolve_source_file,
+)
 
 
 @Catalog.register(name="Geysers-Base")
 class GeysersBase(Catalog):
-    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 2.2, normalize: bool = True):
-        self.root_dir = Path(root_dir)
-        self.root_dir.mkdir(parents=True, exist_ok=True)
-        if isinstance(catalog_file, (str, Path)):
-            self.catalog_file = Path(catalog_file)
-        elif catalog_file is None:
-            self.catalog_file = self.root_dir / "geysers_catalog.csv"
-            self.time_series_file = self.root_dir / "daily_injection_production.csv"
-        else:
-            raise TypeError("catalog_file must be a str or Path")
+    def __init__(self, root_dir: Union[str, Path], data_dir: Union[str, Path] = None, catalog_file: Union[str, Path] = None, mag_completeness: float = 2.2, normalize: bool = True):
+        dataset_dir = resolve_dataset_data_dir(root_dir=root_dir, data_dir=data_dir)
+        catalog_cfg = {
+            "normalize": normalize,
+            "mag_completeness": mag_completeness,
+        }
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
+        self.catalog_file = resolve_source_file(
+            dataset_dir=dataset_dir,
+            default_filename="geysers_catalog.csv",
+            explicit_path=catalog_file,
+        )
+        self.time_series_file = resolve_source_file(
+            dataset_dir=dataset_dir,
+            default_filename="daily_injection_production.csv",
+            explicit_path=None,
+        )
         self.normalize = normalize
         self.metadata = {
             "name": "Geysers",
@@ -31,6 +43,11 @@ class GeysersBase(Catalog):
             "end_ts": pd.Timestamp("2015-01-31"),
             
         }
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=self.metadata,
+            required_files=("full_sequence.pt",),
+        )
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
@@ -102,13 +119,19 @@ class GeysersStandard(GeysersBase):
     def __init__(
         self,
         root_dir: Union[str, Path],
+        data_dir: Union[str, Path] = None,
         catalog_file: Union[str, Path] = None,
         mag_completeness: float = 2.2,
         train_start_ts: pd.Timestamp = pd.Timestamp("2006-05-01"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2012-05-01"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2014-05-01"),
     ):
-        super().__init__(root_dir, catalog_file, mag_completeness)  # 传给父类的初始化参数
+        super().__init__(
+            root_dir=root_dir,
+            data_dir=data_dir,
+            catalog_file=catalog_file,
+            mag_completeness=mag_completeness,
+        )
 
         self.metadata["train_start_ts"] = train_start_ts
         self.metadata["val_start_ts"] = val_start_ts

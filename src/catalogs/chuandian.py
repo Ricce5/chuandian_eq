@@ -6,19 +6,28 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence
 from src.utils.catalog_utils import train_val_test_split_sequence
+from src.utils.catalog_pathing import (
+    build_hashed_catalog_root,
+    refresh_cached_metadata,
+    resolve_dataset_data_dir,
+    resolve_source_file,
+)
 
 
 @Catalog.register(name="ChuanDian-Base")
 class ChuanDianBase(Catalog):
-    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 3.0, normalize: bool = True):
-        self.root_dir = Path(root_dir)
-        self.root_dir.mkdir(parents=True, exist_ok=True)
-        if isinstance(catalog_file, (str, Path)):
-            self.catalog_file = Path(catalog_file)
-        elif catalog_file is None:
-            self.catalog_file = self.root_dir / "chuandian_2021.dat"
-        else:
-            raise TypeError("catalog_file must be a str or Path")
+    def __init__(self, root_dir: Union[str, Path], data_dir: Union[str, Path] = None, catalog_file: Union[str, Path] = None, mag_completeness: float = 3.0, normalize: bool = True):
+        dataset_dir = resolve_dataset_data_dir(root_dir=root_dir, data_dir=data_dir)
+        catalog_cfg = {
+            "normalize": normalize,
+            "mag_completeness": mag_completeness,
+        }
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
+        self.catalog_file = resolve_source_file(
+            dataset_dir=dataset_dir,
+            default_filename="chuandian_2021.dat",
+            explicit_path=catalog_file,
+        )
         self.normalize = normalize
         self.metadata = {
             "name": "ChuanDian",
@@ -28,6 +37,11 @@ class ChuanDianBase(Catalog):
             "start_ts": pd.Timestamp("1970-01-01"),
             "end_ts": pd.Timestamp("2021-05-24"),  
         }
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=self.metadata,
+            required_files=("full_sequence.pt",),
+        )
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
 
@@ -94,6 +108,7 @@ class ChuanDianStandard(ChuanDianBase):
     def __init__(
         self,
         root_dir: Union[str, Path] = None,
+        data_dir: Union[str, Path] = None,
         catalog_file: Union[str, Path] = None,
         mag_completeness: float = 3.0,
         train_start_ts: pd.Timestamp = pd.Timestamp("2000-01-01"),
@@ -101,7 +116,12 @@ class ChuanDianStandard(ChuanDianBase):
         test_start_ts: pd.Timestamp = pd.Timestamp("2018-01-01"),
         b_updater: any = None,
     ):
-        super().__init__(root_dir, catalog_file, mag_completeness)
+        super().__init__(
+            root_dir=root_dir,
+            data_dir=data_dir,
+            catalog_file=catalog_file,
+            mag_completeness=mag_completeness,
+        )
 
         self.metadata.update({
             "train_start_ts": train_start_ts,
@@ -124,4 +144,3 @@ class ChuanDianStandard(ChuanDianBase):
         self.test = TppDataset([seq_test])
 
    
-

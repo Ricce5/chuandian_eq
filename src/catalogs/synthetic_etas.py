@@ -3,6 +3,10 @@ from pathlib import Path
 from typing import Union
 
 from src.data import Catalog, TppDataset, default_catalogs_dir
+from src.utils.catalog_pathing import (
+    build_hashed_catalog_root,
+    refresh_cached_metadata,
+)
 
 
 @Catalog.register(name="ETAS-MultiCatalog")
@@ -11,7 +15,7 @@ class ETAS_MultiCatalog(Catalog):
 
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "ETAS_MultiCatalog",
+        root_dir: Union[str, Path] = default_catalogs_dir / "ETAS_MultiCatalog" / "catalogs",
         num_sequences: int = 1000,
         train_frac: float = 0.6,
         val_frac: float = 0.2,
@@ -27,7 +31,23 @@ class ETAS_MultiCatalog(Catalog):
         mag_completeness: float = 2.0,
         random_state: int = 123,
     ):
-        self.root_dir = Path(root_dir).expanduser().resolve()
+        catalog_cfg = {
+            "num_sequences": num_sequences,
+            "train_frac": train_frac,
+            "val_frac": val_frac,
+            "test_frac": test_frac,
+            "t_end": t_end,
+            "max_length": max_length,
+            "base_rate": base_rate,
+            "omori_p": omori_p,
+            "omori_c": omori_c,
+            "productivity_k": productivity_k,
+            "productivity_alpha": productivity_alpha,
+            "richter_b": richter_b,
+            "mag_completeness": mag_completeness,
+            "random_state": random_state,
+        }
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
         metadata = {
             "name": "ETAS_MultiCatalog",
             "num_sequences": num_sequences,
@@ -45,6 +65,11 @@ class ETAS_MultiCatalog(Catalog):
             "mag_completeness": mag_completeness,
             "random_state": random_state,
         }
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=metadata,
+            required_files=("train.pt", "val.pt", "test.pt"),
+        )
         super().__init__(root_dir=self.root_dir, metadata=metadata)
 
         self.train = TppDataset.load_from_disk(self.root_dir / "train.pt")
@@ -88,7 +113,7 @@ class ETAS_MultiCatalog(Catalog):
 class ETAS_SingleCatalog(Catalog):
     def __init__(
         self,
-        root_dir: Union[Path, str] = default_catalogs_dir / "ETAS_SingleCatalog",
+        root_dir: Union[Path, str] = default_catalogs_dir / "ETAS_SingleCatalog" / "catalogs",
         t_end: float = 3_000_000,
         max_length: int = 100_000,
         t_val_start: float = 2_000_000,
@@ -102,7 +127,21 @@ class ETAS_SingleCatalog(Catalog):
         richter_b: float = 1.0,
         mag_completeness: float = 2.0,
     ):
-        self.root_dir = Path(root_dir).expanduser().resolve()
+        catalog_cfg = {
+            "t_end": t_end,
+            "max_length": max_length,
+            "t_val_start": t_val_start,
+            "t_test_start": t_test_start,
+            "base_rate": base_rate,
+            "omori_p": omori_p,
+            "omori_c": omori_c,
+            "productivity_k": productivity_k,
+            "productivity_alpha": productivity_alpha,
+            "richter_b": richter_b,
+            "mag_completeness": mag_completeness,
+            "random_state": random_state,
+        }
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
         metadata = {
             "name": "ETAS_SingleCatalog",
             "t_end": t_end,
@@ -116,6 +155,11 @@ class ETAS_SingleCatalog(Catalog):
             "mag_completeness": mag_completeness,
             "random_state": random_state,
         }
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=metadata,
+            required_files=("full_sequence.pt",),
+        )
         super().__init__(root_dir=self.root_dir, metadata=metadata)
 
         # Split the sequence into train, test and val parts

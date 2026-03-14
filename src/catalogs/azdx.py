@@ -6,19 +6,28 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence
 from src.utils.catalog_utils import train_val_test_split_sequence_float
+from src.utils.catalog_pathing import (
+    build_hashed_catalog_root,
+    refresh_cached_metadata,
+    resolve_dataset_data_dir,
+    resolve_source_file,
+)
 
 
 @Catalog.register(name="AZDX-Base")
 class AZDXBase(Catalog):
-    def __init__(self, root_dir: Union[str, Path], catalog_file: Union[str, Path] = None, mag_completeness: float = 4.5, normalize: bool = True):
-        self.root_dir = Path(root_dir)
-        self.root_dir.mkdir(parents=True, exist_ok=True)
-        if isinstance(catalog_file, (str, Path)):
-            self.catalog_file = Path(catalog_file)
-        elif catalog_file is None:
-            self.catalog_file = self.root_dir / "size_3k_stress_0.6_dyn_0.8_mm_5.5_dm_0.5_b_0.4_yr_20k_eq.dat"
-        else:
-            raise TypeError("catalog_file must be a str or Path")
+    def __init__(self, root_dir: Union[str, Path], data_dir: Union[str, Path] = None, catalog_file: Union[str, Path] = None, mag_completeness: float = 4.5, normalize: bool = True):
+        dataset_dir = resolve_dataset_data_dir(root_dir=root_dir, data_dir=data_dir)
+        catalog_cfg = {
+            "normalize": normalize,
+            "mag_completeness": mag_completeness,
+        }
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
+        self.catalog_file = resolve_source_file(
+            dataset_dir=dataset_dir,
+            default_filename="size_3k_stress_0.6_dyn_0.8_mm_5.5_dm_0.5_b_0.4_yr_20k_eq.dat",
+            explicit_path=catalog_file,
+        )
         self.normalize = normalize
         self.metadata = {
             "name": "AZDX",
@@ -28,6 +37,11 @@ class AZDXBase(Catalog):
             "start_ts": 115,
             "end_ts": 20001,
         }
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=self.metadata,
+            required_files=("full_sequence.pt",),
+        )
 
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
@@ -84,13 +98,19 @@ class AZDXStandard(AZDXBase):
     def __init__(
         self,
         root_dir: Union[str, Path],
+        data_dir: Union[str, Path] = None,
         catalog_file: Union[str, Path] = None,
         mag_completeness: float = 4.5,
         train_start_ts: float = 2000,
         val_start_ts:   float = 10000,
         test_start_ts: float = 15000,
     ):
-        super().__init__(root_dir, catalog_file, mag_completeness)
+        super().__init__(
+            root_dir=root_dir,
+            data_dir=data_dir,
+            catalog_file=catalog_file,
+            mag_completeness=mag_completeness,
+        )
         self.metadata["train_start_ts"] = train_start_ts
         self.metadata["val_start_ts"] = val_start_ts
         self.metadata["test_start_ts"] = test_start_ts

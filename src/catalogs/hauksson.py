@@ -7,8 +7,13 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
-from src.data import Catalog, TppDataset, Sequence
+from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
 from ..utils.catalog_utils import train_val_test_split_sequence
+from src.utils.catalog_pathing import (
+    build_hashed_catalog_root,
+    refresh_cached_metadata,
+    to_serializable_ts,
+)
 
 COL_NAMES = [
     "year",
@@ -45,19 +50,33 @@ class Hauksson(Catalog):
 
     def __init__(
         self,
-        root_dir: Union[str, Path],
+        root_dir: Union[str, Path] = default_catalogs_dir / "Hauksson" / "catalogs",
         mag_completeness: float = 1.0,
         val_start_ts: pd.Timestamp = pd.Timestamp("2014-01-01"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2016-01-01"),
     ):
+        val_start_ts = pd.Timestamp(val_start_ts)
+        test_start_ts = pd.Timestamp(test_start_ts)
+        catalog_cfg = {
+            "mag_completeness": float(mag_completeness),
+            "val_start_ts": to_serializable_ts(val_start_ts),
+            "test_start_ts": to_serializable_ts(test_start_ts),
+        }
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
         metadata = {
             "name": f"HaukssonEtAl",
             "freq": "1D",
             "mag_completeness": mag_completeness,
             "start_ts": pd.Timestamp("1981-01-01"),
             "end_ts": pd.Timestamp("2020-01-01"),
+            "val_start_ts": val_start_ts,
+            "test_start_ts": test_start_ts,
         }
-        self.root_dir = Path(root_dir).expanduser().resolve()
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=metadata,
+            required_files=("full_sequence.pt",),
+        )
         super().__init__(root_dir=self.root_dir, metadata=metadata)
 
         # Load the full sequence
@@ -66,8 +85,6 @@ class Hauksson(Catalog):
         )[0]
 
         # Split full sequence into train / val / test parts
-        self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
-        self.metadata["test_start_ts"] = pd.Timestamp(test_start_ts)
         seq_train, seq_val, seq_test = train_val_test_split_sequence(
             seq=self.full_sequence,
             start_ts=self.metadata["start_ts"],

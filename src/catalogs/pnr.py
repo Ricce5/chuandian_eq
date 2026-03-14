@@ -6,7 +6,13 @@ import torch
 
 from src.data import Catalog, TppDataset, Sequence, default_catalogs_dir
 from src.utils.catalog_utils import train_test_split_sequence, train_val_test_split_sequence
-from src.utils.file_utils import build_catalog_root_dir
+from src.utils.catalog_pathing import (
+    build_hashed_catalog_root,
+    refresh_cached_metadata,
+    resolve_dataset_data_dir,
+    resolve_source_file,
+    to_serializable_ts,
+)
 
 
 VALID_REGIONS = {"1z", "2"}
@@ -24,34 +30,6 @@ MAG_COMPLETENESS = {
     "2": -1.8,
     "all": -1.8,
 }
-
-
-def _to_serializable_ts(ts):
-    """Helper: convert pandas/NumPy timestamps to string for JSON hashing."""
-    if isinstance(ts, pd.Timestamp):
-        return ts.isoformat()
-    return ts
-
-
-def _resolve_pnr_source_file(
-    data_dir_path: Path,
-    filename: str,
-) -> Path:
-    """Resolve PNR source files from strict raw layout.
-
-    Expected layout:
-      data/PNR_1z/raw/PNR_1z_catalog.csv
-    """
-    candidates = [
-        data_dir_path / "raw" / filename,
-    ]
-    for p in candidates:
-        if p.exists():
-            return p
-    raise FileNotFoundError(
-        f"PNR source file not found for {filename}. "
-        f"Tried: {[str(p) for p in candidates]}"
-    )
 
 
 @Catalog.register(name="PNR-Base")
@@ -73,11 +51,11 @@ class PNRBase(Catalog):
             "normalize": normalize,
             "mag_completeness": mag_completeness,
             "freq": freq,
-            "train_start_ts": _to_serializable_ts(train_start_ts),
-            "val_start_ts": _to_serializable_ts(val_start_ts),
-            "test_start_ts": _to_serializable_ts(test_start_ts),
+            "train_start_ts": to_serializable_ts(train_start_ts),
+            "val_start_ts": to_serializable_ts(val_start_ts),
+            "test_start_ts": to_serializable_ts(test_start_ts),
         }
-        sub_root_dir,_ = build_catalog_root_dir(root_dir, catalog_cfg)
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
         if region not in VALID_REGIONS:
             raise ValueError(f"Unsupported PNR region '{region}'. Supported: {sorted(VALID_REGIONS)}")
 
@@ -86,24 +64,14 @@ class PNRBase(Catalog):
 
         self.region = region
         self.mag_completeness = mag_completeness
-        self.root_dir = Path(sub_root_dir)
-        self.root_dir.mkdir(parents=True, exist_ok=True)
-
-        if data_dir is not None:
-            if isinstance(data_dir, (str, Path)):
-                data_dir_path = Path(data_dir)
-            else:
-                raise TypeError("data_dir must be a str, Path or None")
-        else:
-            data_dir_path = Path(root_dir)
-
-        self.catalog_file = _resolve_pnr_source_file(
-            data_dir_path=data_dir_path,
-            filename=f"PNR_{region}_catalog.csv",
+        dataset_dir = resolve_dataset_data_dir(root_dir=root_dir, data_dir=data_dir)
+        self.catalog_file = resolve_source_file(
+            dataset_dir=dataset_dir,
+            default_filename=f"PNR_{region}_catalog.csv",
         )
-        self.time_series_file = _resolve_pnr_source_file(
-            data_dir_path=data_dir_path,
-            filename=f"PNR_{region}_injection_rate_per_min.csv",
+        self.time_series_file = resolve_source_file(
+            dataset_dir=dataset_dir,
+            default_filename=f"PNR_{region}_injection_rate_per_min.csv",
         )
         self.normalize = normalize
         self.metadata = {
@@ -119,6 +87,11 @@ class PNRBase(Catalog):
             self.metadata["train_start_ts"] = pd.Timestamp(train_start_ts)
             self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
             self.metadata["test_start_ts"] = pd.Timestamp(test_start_ts)
+        refresh_cached_metadata(
+            root_dir=self.root_dir,
+            metadata=self.metadata,
+            required_files=("full_sequence.pt",),
+        )
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
 
@@ -277,18 +250,18 @@ class PNRStandard(Catalog):
             "region_split": region_split,
             "mag_completeness": mag_completeness,
             "freq": freq,
-            "train_start_ts": _to_serializable_ts(train_start_ts),
-            "val_start_ts": _to_serializable_ts(val_start_ts),
-            "test_start_ts": _to_serializable_ts(test_start_ts),
+            "train_start_ts": to_serializable_ts(train_start_ts),
+            "val_start_ts": to_serializable_ts(val_start_ts),
+            "test_start_ts": to_serializable_ts(test_start_ts),
         }
-        sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
 
-        base_root_dir = Path(root_dir)
-        self.root_dir = Path(sub_root_dir)
+        dataset_dir = resolve_dataset_data_dir(root_dir=root_dir, data_dir=data_dir)
         self.norm_stats = {}
-
-        if len(base_root_dir.parents) >= 2:
-            data_root = base_root_dir.parents[1]
+        if dataset_dir.name == "PNR":
+            data_root = dataset_dir.parent
+        elif (dataset_dir / "PNR_1z").exists() and (dataset_dir / "PNR_2").exists():
+            data_root = dataset_dir
         else:
             data_root = default_catalogs_dir
 

@@ -10,7 +10,7 @@ import torch
 
 from src.data import Catalog, Sequence, TppDataset
 from src.utils.catalog_utils import train_val_test_split_sequence
-from src.utils.file_utils import build_catalog_root_dir
+from src.utils.catalog_pathing import build_hashed_catalog_root, to_serializable_ts
 
 
 REQUIRED_SUMMARY_KEYS = (
@@ -21,13 +21,6 @@ REQUIRED_SUMMARY_KEYS = (
     "start_time_iso",
     "end_time_iso",
 )
-
-
-def _to_serializable(value):
-    """Convert value to a JSON-serializable format if needed."""
-    if isinstance(value, pd.Timestamp):
-        return value.isoformat()
-    return value
 
 
 def _coerce_timestamp(value: object) -> pd.Timestamp:
@@ -202,14 +195,11 @@ class InducedTripletBase(Catalog):
             "mag_completeness": self.mag_completeness,
             "freq": self.freq,
             "freq_min": self.freq_min,
-            "train_start_ts": _to_serializable(train_start_time),
-            "val_start_ts": _to_serializable(val_start_time),
-            "test_start_ts": _to_serializable(test_start_time),
+            "train_start_ts": to_serializable_ts(train_start_time),
+            "val_start_ts": to_serializable_ts(val_start_time),
+            "test_start_ts": to_serializable_ts(test_start_time),
         }
-        sub_root_dir, _ = build_catalog_root_dir(root_dir, catalog_cfg)
-
-        self.root_dir = Path(sub_root_dir).expanduser().resolve()
-        self.root_dir.mkdir(parents=True, exist_ok=True)
+        self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
 
         self.eq_file = self.data_dir / "processed" / f"{dataset_name}_eq_processed.csv"
         self.inj_file = self.data_dir / "processed" / f"{dataset_name}_inj_{self.freq_min}min_processed.csv"
