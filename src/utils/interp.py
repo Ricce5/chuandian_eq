@@ -8,11 +8,13 @@ def interp_uniform_time_series(t, x, t_query, clamp=False):
     return:  (B, Nq, F)  
     """
     _, T, F = x.shape
-    B,_ = t_query.shape
-    
+    B, _ = t_query.shape
+    dtype = t.dtype
+    eps = torch.finfo(dtype).eps
+
     # (B, 1)
     t0 = t[:, 0:1]
-    dt = (t[:, 1] - t[:, 0]).view(-1, 1)  #
+    dt = (t[:, 1] - t[:, 0]).view(-1, 1)
 
     if clamp:
         t_min = t[:, 0:1]
@@ -22,9 +24,10 @@ def interp_uniform_time_series(t, x, t_query, clamp=False):
         tq = t_query
 
     u = (tq - t0) / dt  # (B, Nq)
-    i = torch.floor(u).long()           
-    i = i.clamp(0, T - 2)              
-    s = (u - i).unsqueeze(-1)      
+    i = torch.floor(u).long()
+    i = i.clamp(0, T - 2)
+    # Keep interpolation factor stable even when query points are slightly out of range.
+    s = (u - i.to(u.dtype)).clamp(0.0, 1.0).unsqueeze(-1)
 
     idx_i = i.unsqueeze(-1).expand(-1, -1, F)       # (B, Nq, F)
     idx_ip1 = (i + 1).unsqueeze(-1).expand(-1, -1, F)

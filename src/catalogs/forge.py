@@ -13,7 +13,7 @@ from .induced_triplet_base import InducedTripletBase
 class FORGE2022Standard(InducedTripletBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "FORGE2022",
+        root_dir: Union[str, Path] = default_catalogs_dir / "FORGE2022" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: float = -1.3,
         normalize: bool = True,

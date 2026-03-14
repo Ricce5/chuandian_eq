@@ -36,7 +36,7 @@ SSFS_ALIASES = {
 class SSFSStandard(InducedTripletGroupedCatalog):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS",
+        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS" / "catalogs",
         data_dir: Union[str, Path, None] = None,
         split_groups: Optional[Mapping[str, Union[str, Sequence[str], Path]]] = None,
         mag_completeness: Optional[float] = None,
@@ -95,7 +95,7 @@ class SSFSBase(InducedTripletBase):
 class SSFS1993Standard(SSFSBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS1993",
+        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS1993" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
@@ -121,7 +121,7 @@ class SSFS1993Standard(SSFSBase):
 class SSFS2000Standard(SSFSBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2000",
+        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2000" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
@@ -147,7 +147,7 @@ class SSFS2000Standard(SSFSBase):
 class SSFS2003Standard(SSFSBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2003",
+        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2003" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
@@ -173,7 +173,7 @@ class SSFS2003Standard(SSFSBase):
 class SSFS2004Standard(SSFSBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2004",
+        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2004" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
@@ -199,7 +199,7 @@ class SSFS2004Standard(SSFSBase):
 class SSFS2005Standard(SSFSBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2005",
+        root_dir: Union[str, Path] = default_catalogs_dir / "SSFS2005" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,

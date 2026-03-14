@@ -7,9 +7,10 @@ Target layout:
   data/<dataset>/catalogs  - hashed catalog cache dirs
 
 Actions:
-1) Move top-level entries (except reserved dirs) into raw/.
+1) Route top-level entries (except reserved dirs): source-like -> raw/, catalog artifacts -> catalogs/.
 2) Move source/ contents into raw/ and remove source/.
-3) Move raw/<8-hex-hash>/ dirs into catalogs/.
+3) Move catalog artifacts into catalogs/.
+4) Move raw/<8-hex-hash>/ dirs into catalogs/.
 
 Conflicting files are not overwritten; they are reported.
 """
@@ -25,6 +26,15 @@ from pathlib import Path
 
 HASH_DIR_RE = re.compile(r"^[0-9a-f]{8}$")
 RESERVED_NAMES = {"raw", "processed", "catalogs", "source"}
+CATALOG_ARTIFACT_FILES = {
+    "catalog_cfg.json",
+    "full_sequence.pt",
+    "metadata.pt",
+    "norm_stats.pt",
+    "train.pt",
+    "val.pt",
+    "test.pt",
+}
 
 
 @dataclass
@@ -33,6 +43,22 @@ class Stats:
     dedup_removed: list[tuple[Path, Path]] = field(default_factory=list)
     conflicts: list[tuple[Path, Path, str]] = field(default_factory=list)
     skipped: list[Path] = field(default_factory=list)
+
+
+def is_catalog_hash_dir(path: Path) -> bool:
+    return path.is_dir() and HASH_DIR_RE.fullmatch(path.name) is not None
+
+
+def is_catalog_artifact_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    if path.name in CATALOG_ARTIFACT_FILES:
+        return True
+    if path.name == "catalog.csv":
+        return True
+    if path.name.startswith("catalog_") and path.suffix == ".csv":
+        return True
+    return False
 
 
 def sha256(path: Path) -> str:
@@ -120,11 +146,16 @@ def move_source_to_raw(dataset_dir: Path, stats: Stats, dry_run: bool) -> None:
 
 def move_top_level_to_raw(dataset_dir: Path, stats: Stats, dry_run: bool) -> None:
     raw = dataset_dir / "raw"
+    catalogs = dataset_dir / "catalogs"
     raw.mkdir(parents=True, exist_ok=True)
+    catalogs.mkdir(parents=True, exist_ok=True)
     for entry in sorted(dataset_dir.iterdir()):
         if entry.name.startswith("."):
             continue
         if entry.name in RESERVED_NAMES:
+            continue
+        if is_catalog_hash_dir(entry) or is_catalog_artifact_file(entry):
+            move_entry(entry, catalogs / entry.name, stats, dry_run)
             continue
         move_entry(entry, raw / entry.name, stats, dry_run)
 
@@ -137,6 +168,17 @@ def move_hash_dirs_raw_to_catalogs(dataset_dir: Path, stats: Stats, dry_run: boo
     catalogs.mkdir(parents=True, exist_ok=True)
     for entry in sorted(raw.iterdir()):
         if entry.is_dir() and HASH_DIR_RE.fullmatch(entry.name):
+            move_entry(entry, catalogs / entry.name, stats, dry_run)
+
+
+def move_catalog_files_raw_to_catalogs(dataset_dir: Path, stats: Stats, dry_run: bool) -> None:
+    raw = dataset_dir / "raw"
+    if not raw.exists():
+        return
+    catalogs = dataset_dir / "catalogs"
+    catalogs.mkdir(parents=True, exist_ok=True)
+    for entry in sorted(raw.iterdir()):
+        if is_catalog_artifact_file(entry):
             move_entry(entry, catalogs / entry.name, stats, dry_run)
 
 
@@ -154,6 +196,7 @@ def reorganize_dataset(dataset_dir: Path, stats: Stats, dry_run: bool) -> None:
     move_source_to_raw(dataset_dir, stats, dry_run)
     move_top_level_to_raw(dataset_dir, stats, dry_run)
     move_hash_dirs_raw_to_catalogs(dataset_dir, stats, dry_run)
+    move_catalog_files_raw_to_catalogs(dataset_dir, stats, dry_run)
 
 
 def build_parser() -> argparse.ArgumentParser:

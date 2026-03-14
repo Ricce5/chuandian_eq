@@ -35,7 +35,7 @@ COOPER_BASIN_ALIASES = {
 class CooperBasinStandard(InducedTripletGroupedCatalog):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "CooperBasin",
+        root_dir: Union[str, Path] = default_catalogs_dir / "CooperBasin" / "catalogs",
         data_dir: Union[str, Path, None] = None,
         split_groups: Optional[Mapping[str, Union[str, Sequence[str], Path]]] = None,
         mag_completeness: Optional[float] = None,
@@ -95,7 +95,7 @@ class CooperBasinBase(InducedTripletBase):
 class CBHAB1aStandard(CooperBasinBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "CB_HAB1a",
+        root_dir: Union[str, Path] = default_catalogs_dir / "CB_HAB1a" / "catalogs",
         data_dir: Union[str, Path, None] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
@@ -121,7 +121,7 @@ class CBHAB1aStandard(CooperBasinBase):
 class CBHAB1bStandard(CooperBasinBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "CB_HAB1b",
+        root_dir: Union[str, Path] = default_catalogs_dir / "CB_HAB1b" / "catalogs",
         data_dir: Union[str, Path, None] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
@@ -147,7 +147,7 @@ class CBHAB1bStandard(CooperBasinBase):
 class CBHAB4Standard(CooperBasinBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "CB_HAB4",
+        root_dir: Union[str, Path] = default_catalogs_dir / "CB_HAB4" / "catalogs",
         data_dir: Union[str, Path, None] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,

@@ -14,7 +14,7 @@ from .induced_triplet_base import InducedTripletBase
 class BaselStandard(InducedTripletBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "Basel",
+        root_dir: Union[str, Path] = default_catalogs_dir / "Basel" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,

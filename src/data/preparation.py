@@ -40,7 +40,7 @@ def prepare_data(args, base_dir):
     cached = save_or_load_data(
         base_path=base_dir,
         generate_fn=generate_data,
-        sub_dir=f"processed/{task_prefix}",
+        sub_dir=f"{task_prefix}",
         prefix=task_prefix,
         Mc=args.Mc,
         Mf=args.Mf,
@@ -118,7 +118,7 @@ def prepare_data_lstm(args, base_dir):
     cached_data = save_or_load_data(
         base_path=base_dir,
         generate_fn=generate_seismic_data,
-        sub_dir="processed/rf_classifier",
+        sub_dir="rf_classifier",
         prefix="rf",
         Mc=args.Mc,
         Mf=args.Mf,
@@ -151,39 +151,20 @@ def prepare_data_lstm(args, base_dir):
 
 
 def prepare_data_tpp(args, base_dir):
-    import os
-    import inspect
     import torch
-    from pathlib import Path
     from src.data.tpp_dataset import TppDataset
     import src.data.catalog as catalog
     import src.catalogs as catalogs # ensure catalogs are registered
+    from src.catalogs.pathing import build_tpp_catalog_init_kwargs
 
     catalog_ds_class = catalog.Catalog.by_name(f"{args.dataset}-Standard")
     catalog_cfg = getattr(args, 'catalog_cfg', {})
-
-    init_sig = inspect.signature(catalog_ds_class.__init__).parameters
-    supports_data_dir = "data_dir" in init_sig
-
-    # Deterministic path policy (no existence-based fallback):
-    # - catalogs that support separated data_dir: cache in catalogs/, source in raw/processed.
-    # - legacy catalogs without data_dir: keep using raw/ as root_dir.
-    if supports_data_dir:
-        base_root_dir = os.path.join(base_dir, "catalogs")
-        os.makedirs(base_root_dir, exist_ok=True)
-    else:
-        base_root_dir = os.path.join(base_dir, "raw")
-
-    init_kwargs = {"root_dir": base_root_dir, **catalog_cfg}
-
-    # Pass data_dir only when likely pointing to a concrete dataset folder.
-    # Grouped-family catalogs (e.g., SSFS/CooperBasin) should keep their own default discovery.
-    if supports_data_dir:
-        dataset_dir = Path(base_dir)
-        has_local_processed = (dataset_dir / "processed").exists()
-        is_pnr_region = str(args.dataset).startswith("PNR_")
-        if has_local_processed or is_pnr_region:
-            init_kwargs["data_dir"] = str(dataset_dir)
+    init_kwargs = build_tpp_catalog_init_kwargs(
+        catalog_ds_class=catalog_ds_class,
+        dataset_name=args.dataset,
+        base_dir=base_dir,
+        catalog_cfg=catalog_cfg,
+    )
 
     catalog_ds = catalog_ds_class(**init_kwargs)
         

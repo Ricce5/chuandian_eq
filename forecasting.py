@@ -2,7 +2,6 @@
 import sys
 import argparse
 import logging
-import inspect
 from pathlib import Path
 import torch
 import matplotlib.pyplot as plt
@@ -15,6 +14,7 @@ from src.utils.visualization import visualize_sequence, visualize_trajectories
 from src.utils.logging_utils import setup_logging
 import src
 import numpy as np
+from src.catalogs.pathing import build_tpp_catalog_init_kwargs
 
 logger = logging.getLogger(__name__)
 # %%
@@ -61,19 +61,12 @@ logger.info("Loaded checkpoint with args: %s", checkpoint_args)
 def build_catalog_from_checkpoint(dataset_name: str):
     cls = catalog.Catalog.by_name(f"{dataset_name}-Standard")
     base_dir = Path("data") / dataset_name
-    init_sig = inspect.signature(cls.__init__).parameters
-    supports_data_dir = "data_dir" in init_sig
-
-    if supports_data_dir:
-        init_kwargs = {"root_dir": str(base_dir / "catalogs")}
-        # Only pass data_dir for concrete dataset folders with local processed files
-        # (or region catalogs like PNR_1z / PNR_2). Grouped family catalogs should
-        # keep their internal default discovery from data/*.
-        if (base_dir / "processed").exists() or dataset_name.startswith("PNR_"):
-            init_kwargs["data_dir"] = str(base_dir)
-    else:
-        # Legacy catalogs without data_dir still locate source files relative to root_dir.
-        init_kwargs = {"root_dir": str(base_dir / "raw")}
+    init_kwargs = build_tpp_catalog_init_kwargs(
+        catalog_ds_class=cls,
+        dataset_name=dataset_name,
+        base_dir=base_dir,
+        catalog_cfg=None,
+    )
 
     return cls(**init_kwargs)
 

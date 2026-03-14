@@ -81,6 +81,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             t=time_series_times,
             x=intensity_traj,
             t_query=t_query,
+            clamp=True,
         )
         return intensity.squeeze(-1)  # (B, Nq)
 

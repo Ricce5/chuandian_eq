@@ -1,0 +1,73 @@
+{
+  "checkpoint_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260312-154442/best_model_1.pth",
+  "device": "cuda:0",
+  "compile": false,
+  "seed": 0,
+  "datasets": [
+    "SSFS",
+    "Basel",
+    "PNR_1z"
+  ],
+  "results": [
+    {
+      "dataset": "SSFS",
+      "catalog_registry_name": "SSFS-Standard",
+      "catalog_init_kwargs": {
+        "root_dir": "/root/autodl-tmp/em_eqf/data/SSFS/catalogs",
+        "freq": "1D",
+        "mag_completeness": null,
+        "split_groups": {
+          "train": [
+            "SSFS1993",
+            "SSFS2000"
+          ],
+          "val": [
+            "SSFS2003"
+          ],
+          "test": [
+            "SSFS2004",
+            "SSFS2005"
+          ]
+        }
+      },
+      "test_nll": -722.0640258789062,
+      "num_events_test": 2392,
+      "test_t_start": 0.0,
+      "test_t_end": 16.896528244018555,
+      "test_t_nll_start": 0.0,
+      "status": "ok"
+    },
+    {
+      "dataset": "Basel",
+      "catalog_registry_name": "Basel-Standard",
+      "catalog_init_kwargs": {
+        "root_dir": "/root/autodl-tmp/em_eqf/data/Basel/catalogs",
+        "freq": "1D",
+        "mag_completeness": 0.9,
+        "data_dir": "/root/autodl-tmp/em_eqf/data/Basel"
+      },
+      "test_nll": 0.3662920296192169,
+      "num_events_test": 1211,
+      "test_t_start": 0.0,
+      "test_t_end": 4267.265625,
+      "test_t_nll_start": 3627.1748958333333,
+      "status": "ok"
+    },
+    {
+      "dataset": "PNR_1z",
+      "catalog_registry_name": "PNR_1z-Standard",
+      "catalog_init_kwargs": {
+        "root_dir": "/root/autodl-tmp/em_eqf/data/PNR_1z/catalogs",
+        "freq": "1D",
+        "mag_completeness": -1.5,
+        "data_dir": "/root/autodl-tmp/em_eqf/data/PNR_1z"
+      },
+      "test_nll": -1141.90380859375,
+      "num_events_test": 6140,
+      "test_t_start": 0.0,
+      "test_t_end": 64.20832824707031,
+      "test_t_nll_start": 59.666666666666664,
+      "status": "ok"
+    }
+  ]
+}

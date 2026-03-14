@@ -205,11 +205,9 @@ class ETAS(TPPModel):
             )
             intensity += f_intensity
         
-        log_intensity = (
-            torch.log(
-                intensity
-            )* intensity_mask
-        ).sum(-1)
+        # Numerical guard: zero/negative intensity leads to -inf log-likelihood and NaN gradients.
+        intensity_safe = intensity.clamp_min(1e-8)
+        log_intensity = (torch.log(intensity_safe) * intensity_mask).sum(-1)
         # Integrated intensity
         one_minus_p = 1 - self.p
         t_end = batch.t_end.unsqueeze(-1)  # (B, 1)

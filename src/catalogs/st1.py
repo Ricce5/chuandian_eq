@@ -13,7 +13,7 @@ from .induced_triplet_base import InducedTripletBase
 class St12018Standard(InducedTripletBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "St1-2018",
+        root_dir: Union[str, Path] = default_catalogs_dir / "St1-2018" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: float = 0.0,
         normalize: bool = True,
@@ -39,7 +39,7 @@ class St12018Standard(InducedTripletBase):
 class St12020Standard(InducedTripletBase):
     def __init__(
         self,
-        root_dir: Union[str, Path] = default_catalogs_dir / "St1-2020",
+        root_dir: Union[str, Path] = default_catalogs_dir / "St1-2020" / "catalogs",
         data_dir: Union[str, Path] = None,
         mag_completeness: float = -1.3,
         normalize: bool = True,
