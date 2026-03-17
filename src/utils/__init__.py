@@ -18,6 +18,7 @@ __all__ = [
     "mask_utils",
     "metrics",
     "registrable",
+    "tpp_experiments",
     "utils",
     "visualization",
 ]

@@ -627,6 +627,7 @@ class ETASBuilder(ModelBuilder):
             bg_model=bg_model,
             fix_mu=getattr(args, "fix_mu", False),
             fixed_mu_value=getattr(args, "fixed_mu_value", None),
+            loss_reduction=getattr(args, "loss_reduction", "per_time"),
         )
 
         model.double()

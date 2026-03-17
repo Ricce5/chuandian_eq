@@ -1,5 +1,6 @@
 import abc
 import torch
+from src.distributions import clamp_preserve_gradients
 from src.utils.registrable import Registrable
 from src.data.dot_dict import DotDict
 import torchcde
@@ -124,17 +125,20 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         return integral.squeeze()
 
     
-    def nll(self, batch: DotDict) -> torch.Tensor: 
+    def nll(self, batch: DotDict, eps: float = 1e-8) -> torch.Tensor: 
         """
         Compute negative log-likelihood loss for the background model:
-        - log λ(t_i) at event times plus integral over observation window.
+        - sum log λ(t_i) over events selected by ``nll_event_mask``
+        - plus integral over the evaluation window ``[t_nll_start, t_end]``.
         Args:
-            batch: DotDict used for intensity evaluation (must provide arrival_times and event_mask)
+            batch: DotDict used for intensity evaluation. Must provide
+                ``arrival_times``, ``nll_event_mask``, ``t_nll_start`` and ``t_end``.
         Returns:
             Tensor of shape (B,) with negative log-likelihood (to be minimized).
         """
         f_intensity = self.intensity(batch)                 # (B, Nq)
-        log_intensity = torch.log(f_intensity.clamp_min(1e-8)) # (B, Nq)
+        f_intensity_safe = clamp_preserve_gradients(f_intensity, eps, float("inf"))
+        log_intensity = torch.log(f_intensity_safe)         # (B, Nq)
         f_intensity_integral = self.intensity_integral(batch)  # (B,)
         log_intensity = log_intensity * batch.nll_event_mask  # (B, Nq)
         log_like = log_intensity.sum(dim=1) - f_intensity_integral  # (B,)
@@ -143,7 +147,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         
 
 
-    def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor) -> torch.Tensor:
+    def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
         """
         log1p(f_intensity / h_intensity)- f_intensity_integral
         """
@@ -151,7 +155,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         f_intensity_integral = self.intensity_integral(batch)  # (B,)
         h_intensity = torch.exp(log_h_intensity)            # (B, Nq)
         # protect against zeros in denominator
-        denom = h_intensity.clamp_min(1e-8)
+        denom = clamp_preserve_gradients(h_intensity, eps, float("inf"))
         ratio = f_intensity / denom                         # (B, Nq)
         # log change per event-time, only where events are present (mask)
         mask = getattr(batch, "nll_event_mask", None)

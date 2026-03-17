@@ -79,6 +79,7 @@ class RecurrentTPP(TPPModel):
         # print_weight_sum(self.rnn, name="RNN weights", verbose=True)
         self.dropout = nn.Dropout(args.rnn_dropout)
         self.bg_model = bg_model
+        self.reduction = getattr(args, "loss_reduction", "per_time")
         self.to(self.device)
 
     def encode_time(self, inter_times):  # apply log transform and centering
@@ -160,8 +161,11 @@ class RecurrentTPP(TPPModel):
 
     def nll_loss(self, 
                  batch: src.data.Batch,
+                 *,
+                 reduction: str | None = None,
+                 return_dict: bool = False,
                  eps: float = 1e-10
-                 ) -> torch.Tensor:
+                 ) -> torch.Tensor | dict[str, torch.Tensor]:
         """
         Compute negative log-likelihood (NLL) for a batch of event sequences.
 
@@ -195,13 +199,25 @@ class RecurrentTPP(TPPModel):
             prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
             log_like = log_like - prev_log_surv
         
-        nll_total = -log_like  # (B,)
+        reduction = self.reduction if reduction is None else reduction
+
+        nll_time = -log_like  # (B,)
+        nll_total = nll_time
+        out = {
+            "time": nll_time,
+            "total": nll_total,
+        }
         if getattr(self, "bg_model", None) is not None:
             log_h_intensity = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))
             nll_bg = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
             nll_total = nll_total + nll_bg
+            out["bg"] = nll_bg
+            out["total"] = nll_total
 
-        return  nll_total / (batch.t_end - batch.t_nll_start)  # (B,) 
+        out = self.reduce_nll_dict(out, batch, reduction=reduction, eps=eps)
+        if return_dict:
+            return out
+        return out["total"]
 
 
     def sample_next_inter_time(

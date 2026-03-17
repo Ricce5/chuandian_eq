@@ -283,23 +283,6 @@ class MixerTPP(TPPModel):
         reduction = self.reduction if reduction is None else reduction
         device = batch.inter_times.device
 
-        def _reduce(x, mode: str):
-            # x: (B,)
-            if mode == "sum":
-                return x.sum()
-            elif mode == "mean":
-                return x.mean()
-            elif mode == "per_event":
-                num_events = batch.nll_event_mask.sum(-1)  # (B,)
-                return (x / num_events.clamp_min(1)).to(x.dtype)
-            elif mode == "per_time":
-                span = (batch.t_end - batch.t_nll_start)  # (B,)
-                return (x / span.clamp_min(eps)).to(x.dtype)
-            elif mode == "none":
-                return x  # (B,)
-            else:
-                raise ValueError(f"Unknown mode: {mode}")
-
         # ---------- Context ----------
         context = self.get_context(batch)  # (B, L, C)
 
@@ -365,20 +348,20 @@ class MixerTPP(TPPModel):
             nll_total = nll_total + nll_bg
         # ---------- Reductions (same rule for all) ---------
         out = {
-            "time": _reduce(nll_time, reduction),
-            "mag":  _reduce(nll_mag,  reduction),
-            "total": _reduce(nll_total, reduction),
+            "time": nll_time,
+            "mag": nll_mag,
+            "total": nll_total,
         }
 
         if b_smooth is not None:
-            out["b_smooth"] = _reduce(b_smooth, reduction)
+            out["b_smooth"] = b_smooth
 
         if use_b_updater:
-            out["b"] = _reduce(nll_b, reduction)
+            out["b"] = nll_b
         if getattr(self, "bg_model", None) is not None:
             # nll_bg was computed as per-batch tensor earlier when bg_model present
-            out["bg"] = _reduce(nll_bg, reduction)
-        return out
+            out["bg"] = nll_bg
+        return self.reduce_nll_dict(out, batch, reduction=reduction, eps=eps)
 
 
 

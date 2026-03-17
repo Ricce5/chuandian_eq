@@ -108,6 +108,7 @@ class ETAS(TPPModel):
         bg_model=None,
         fix_mu: bool = False,
         fixed_mu_value: Optional[float] = None,
+        loss_reduction: str = "per_time",
     ):
         super().__init__()
         self.fix_mu = fix_mu
@@ -135,6 +136,7 @@ class ETAS(TPPModel):
         self.report_params = report_params
         self.device = device
         self.bg_model = bg_model
+        self.reduction = loss_reduction
         self.to(device)
 
     @property
@@ -161,7 +163,14 @@ class ETAS(TPPModel):
 
    
 
-    def nll_loss(self, batch: Batch) -> torch.Tensor:
+    def nll_loss(
+        self,
+        batch: Batch,
+        *,
+        reduction: str | None = None,
+        return_dict: bool = False,
+        eps: float = 1e-8,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         """
         Compute negative log-likelihood (NLL) for a batch of event sequences.
 
@@ -171,6 +180,7 @@ class ETAS(TPPModel):
         Returns:
             nll: NLL of each sequence, shape (batch_size,)
         """
+        reduction = self.reduction if reduction is None else reduction
         t = batch.arrival_times                         # (B,L)
         # Mask of real (non-padding) events             
         survival_mask = get_mask(                       # (B,L)
@@ -206,7 +216,7 @@ class ETAS(TPPModel):
             intensity += f_intensity
         
         # Numerical guard: zero/negative intensity leads to -inf log-likelihood and NaN gradients.
-        intensity_safe = intensity.clamp_min(1e-8)
+        intensity_safe = intensity.clamp_min(eps)
         log_intensity = (torch.log(intensity_safe) * intensity_mask).sum(-1)
         # Integrated intensity
         one_minus_p = 1 - self.p
@@ -223,8 +233,19 @@ class ETAS(TPPModel):
         if self.bg_model is not None:
             f_integral = self.bg_model.intensity_integral(batch)  # (B,)
             integral += f_integral
-        nll_total = -log_intensity + integral
-        return nll_total / (batch.t_end - batch.t_nll_start)  # (B,)
+        nll_time = -log_intensity + integral
+        out = self.reduce_nll_dict(
+            {
+                "time": nll_time,
+                "total": nll_time,
+            },
+            batch,
+            reduction=reduction,
+            eps=eps,
+        )
+        if return_dict:
+            return out
+        return out["total"]
     
     
     def h_intensity(self, batch: Batch, t_query: torch.Tensor=None) -> torch.Tensor:
@@ -939,9 +960,9 @@ class ETAS(TPPModel):
             "M_c": float(self.M_c.detach().cpu().item()),
             "M_m": float(self.M_m.detach().cpu().item()),
         }
-        logger.info("ETAS model parameters:")
+        print("ETAS model parameters:")
         for name, value in params.items():
-            logger.info("  %s = %s", name, value)
+            print(f"  {name} = {value}")
 
     def set_params(
         self,

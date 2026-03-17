@@ -63,7 +63,6 @@ def build_catalog_from_checkpoint(dataset_name: str):
     base_dir = Path("data") / dataset_name
     init_kwargs = build_tpp_catalog_init_kwargs(
         catalog_ds_class=cls,
-        dataset_name=dataset_name,
         base_dir=base_dir,
         catalog_cfg=None,
     )

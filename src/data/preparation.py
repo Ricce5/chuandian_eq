@@ -161,7 +161,6 @@ def prepare_data_tpp(args, base_dir):
     catalog_cfg = getattr(args, 'catalog_cfg', {})
     init_kwargs = build_tpp_catalog_init_kwargs(
         catalog_ds_class=catalog_ds_class,
-        dataset_name=args.dataset,
         base_dir=base_dir,
         catalog_cfg=catalog_cfg,
     )

@@ -271,13 +271,14 @@ class InducedTripletGroupedCatalog(Catalog):
                 f"Got: {component_freqs}"
             )
 
-        merged_sequences = [
+        self.sequences = [
             self._components[name].full_sequence
             for name in (
                 self.split_groups["train"] + self.split_groups["val"] + self.split_groups["test"]
             )
         ]
-        self.full_sequence = _merge_sequences(merged_sequences)
+
+        self.full_sequence = _merge_sequences(self.sequences)
 
         component_mc_map = {
             name: float(catalog.metadata["mag_completeness"])

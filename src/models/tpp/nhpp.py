@@ -17,16 +17,34 @@ class NHPP(TPPModel):
         super().__init__()
         self.device = device if device else torch.device('cpu')
         self.bg_model = bg_model
+        self.reduction = getattr(args, "loss_reduction", "per_time")
         self.to(self.device)
 
 
     def nll_loss(self, 
                  batch: src.data.Batch,
+                 *,
+                 reduction: str | None = None,
+                 return_dict: bool = False,
                  eps: float = 1e-10
-                 ) -> torch.Tensor:
-        
-        nll_total = self.bg_model.nll(batch)
-        return  nll_total / (batch.t_end - batch.t_nll_start)  # negated as NLL
+                 ) -> torch.Tensor | dict[str, torch.Tensor]:
+        if self.bg_model is None:
+            raise ValueError("NHPP requires a background model to compute NLL.")
+
+        reduction = self.reduction if reduction is None else reduction
+        nll_bg = self.bg_model.nll(batch)
+        out = self.reduce_nll_dict(
+            {
+                "bg": nll_bg,
+                "total": nll_bg,
+            },
+            batch,
+            reduction=reduction,
+            eps=eps,
+        )
+        if return_dict:
+            return out
+        return out["total"]
 
 
     

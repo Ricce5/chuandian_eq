@@ -124,30 +124,51 @@ def refresh_cached_metadata(
 
 def build_tpp_catalog_init_kwargs(
     catalog_ds_class: type,
-    dataset_name: str,
     base_dir: str | Path,
     catalog_cfg: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build deterministic init kwargs for catalog constructors."""
-    _ = dataset_name  # kept for backward-compatible API
     dataset_dir = resolve_dataset_data_dir(root_dir=base_dir, data_dir=None)
-    cfg = dict(catalog_cfg or {})
+    raw_cfg = dict(catalog_cfg or {})
 
     init_sig = inspect.signature(catalog_ds_class.__init__).parameters
-    supports_data_dir = "data_dir" in init_sig
+    accepts_var_kwargs = any(
+        param.kind == inspect.Parameter.VAR_KEYWORD
+        for param in init_sig.values()
+    )
+    accepted_kwargs = {
+        name
+        for name, param in init_sig.items()
+        if name != "self"
+        and param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        )
+    }
+    cfg = (
+        raw_cfg
+        if accepts_var_kwargs
+        else {key: value for key, value in raw_cfg.items() if key in accepted_kwargs}
+    )
+
+    supports_data_dir = "data_dir" in accepted_kwargs or accepts_var_kwargs
     is_grouped_family = any(
         base.__name__ == "InducedTripletGroupedCatalog"
         for base in catalog_ds_class.__mro__
     )
 
-    root_dir = Path(cfg.get("root_dir", resolve_catalogs_dir(dataset_dir))).expanduser().resolve()
+    root_dir = Path(
+        raw_cfg.get("root_dir", resolve_catalogs_dir(dataset_dir))
+    ).expanduser().resolve()
     root_dir.mkdir(parents=True, exist_ok=True)
 
-    init_kwargs: dict[str, Any] = {"root_dir": str(root_dir), **cfg}
+    init_kwargs: dict[str, Any] = {
+        "root_dir": str(root_dir),
+        **{key: value for key, value in cfg.items() if key != "root_dir"},
+    }
 
     if supports_data_dir and "data_dir" not in init_kwargs:
         if not is_grouped_family:
             init_kwargs["data_dir"] = str(dataset_dir)
 
     return init_kwargs
-

@@ -135,11 +135,13 @@ def plot_intensity(
     alpha=1.0,
     T0=None,
     T=None,
-    dt=1.0,         
+    dt=1.0,
     logy=False,
+    figsize=(8, 3),  # 新增参数
 ):
     """plot intensity of a sequence"""
     if ax is None:
+        plt.figure(figsize=figsize)
         ax = plt.gca()
 
     if T0 is None:
@@ -161,6 +163,7 @@ def plot_intensity(
     ax.set_xlim(T0, T)
     ax.set_ylabel("Intensity")
     return ax
+
 
 
 

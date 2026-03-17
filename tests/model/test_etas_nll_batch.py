@@ -71,9 +71,9 @@ def test_nll_loss_with_background_constant_intensity():
     batch = Batch.from_list([seq1, seq2])
 
     # ETAS with zero background (mu=0, k≈0) so only bg_model contributes
-    base_state = ETAS(device=device, fix_mu_zero=True).state_dict()
+    base_state = ETAS(device=device, fix_mu=True).state_dict()
     bg_model = _DummyBGModel(device=device)
-    model = ETAS(device=device, bg_model=bg_model, fix_mu_zero=True)
+    model = ETAS(device=device, bg_model=bg_model, fix_mu=True)
     model.load_state_dict(base_state, strict=False)
     model.set_params(k=1e-12)  # suppress triggering component
 
