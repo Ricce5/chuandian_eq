@@ -3,7 +3,6 @@ import torch
 from src.distributions import clamp_preserve_gradients
 from src.utils.registrable import Registrable
 from src.data.dot_dict import DotDict
-import torchcde
 import warnings
 from src.utils.interp import (
     integrate_uniform_time_series,
@@ -376,7 +375,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             return t_event_rel
 
         # --- dtype policy ---
-        # Comment in English.
+       
         t_dtype = torch.float64 if use_fp64 else torch.float32
 
         # --- main flow ---
@@ -410,13 +409,13 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
                 return [[] for _ in range(B)]
             return tau_fallback
 
-        # Comment in English.
+       
         t_shift = ts_times[0]
         ts_rel = ts_times - t_shift        # (Tw,)
         t0_rel = t0_b - t_shift            # (B,)
         t1_rel = t1_b - t_shift            # (B,)
 
-        # Comment in English.
+       
         cif = build_cif_from_lam(lam, dt_grid)
         if cif is None:
             tau_fallback = dt_b.clone().to(self.device)
@@ -459,7 +458,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
             target = (Lambda0[has_event] + E[has_event]).clamp_min(0.0)
 
-            # Comment in English.
+           
             cif_end = cif[-1]
             target = target.clamp_max((cif_end - eps_lam).clamp_min(0.0))
 
@@ -469,11 +468,11 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
 
             return tau
 
-        # Comment in English.
+       
         tau = dt_b.clone()
         cif_end = cif[-1]
 
-        total_L = Lambda_win.clamp_min(0.0)  # Comment in English.
+        total_L = Lambda_win.clamp_min(0.0) 
         n_events = torch.poisson(total_L).long()
         n_events = torch.where(total_L < eps_lam, torch.zeros_like(n_events), n_events)
 
@@ -484,7 +483,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         event_idx = torch.arange(max_events, device=device).unsqueeze(0)
         event_mask = event_idx < n_events.unsqueeze(1)
 
-        U = torch.rand(B, max_events, device=device, dtype=t_dtype)  # Comment in English.
+        U = torch.rand(B, max_events, device=device, dtype=t_dtype) 
         U = torch.where(event_mask, U, torch.ones_like(U))
         U_sorted, _ = torch.sort(U, dim=1)
         U_sorted = torch.where(event_mask, U_sorted, torch.zeros_like(U_sorted))
@@ -494,11 +493,11 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         targets = targets.clamp_max(max_target)
         targets = torch.where(event_mask, targets, torch.zeros_like(targets))
 
-        flat_targets = targets[event_mask]  # Comment in English.
+        flat_targets = targets[event_mask] 
         if flat_targets.numel() == 0:
             return [[] for _ in range(B)]
 
-        batch_ids = torch.repeat_interleave(torch.arange(B, device=device), n_events)  # Comment in English.
+        batch_ids = torch.repeat_interleave(torch.arange(B, device=device), n_events) 
         t_events_rel_flat = invert_cif_targets(flat_targets, cif, lam, dt_grid, ts_rel)
 
         t0_flat = t0_rel[batch_ids]
@@ -510,7 +509,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         t_events_rel_flat = t_events_rel_flat[within]
         batch_ids = batch_ids[within]
 
-        counts_filtered = torch.bincount(batch_ids, minlength=B)  # Comment in English.
+        counts_filtered = torch.bincount(batch_ids, minlength=B) 
         if counts_filtered.sum().item() == 0:
             return [[] for _ in range(B)]
 

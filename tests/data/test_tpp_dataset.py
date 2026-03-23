@@ -58,3 +58,10 @@ def test_tpp_dataset_sequence_transform_returns_valid_batch():
     assert batch.nll_event_mask.sum().item() >= 1
     assert batch.input_mask.sum().item() >= 1
     assert batch.t_end[0].item() == pytest.approx(seq.t_end)
+
+
+def test_empty_tpp_dataset_get_dataloader_raises_clear_error():
+    dataset = TppDataset([])
+
+    with pytest.raises(ValueError, match="empty TppDataset"):
+        dataset.get_dataloader(batch_size=1, shuffle=False)

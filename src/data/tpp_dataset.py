@@ -72,6 +72,11 @@ class TppDataset(torch.utils.data.Dataset):
         return self.apply_(to_device)
 
     def get_dataloader(self, batch_size=1, shuffle=False, pad_token_id=None, **kwargs):
+        if not self.sequences:
+            raise ValueError(
+                "Cannot build a dataloader from an empty TppDataset. "
+                "This usually means minibatch splitting removed every window."
+            )
 
         first_seq = self.sequences[0]
         if isinstance(first_seq, EventSequence):

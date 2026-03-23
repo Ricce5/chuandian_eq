@@ -655,6 +655,14 @@ class BTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.btpp import BlockTPP
         return BlockTPP(args, device)
+
+
+@ModelBuilder.register("njdtpp")
+class NJDTPPBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.njdtpp import NJDTPP
+
+        return NJDTPP(args, device)
     
 
 

@@ -30,6 +30,7 @@ TPP_MODELS = {
     "btpp",
     "etas",
     "nhpp",
+    "njdtpp",
 }
 
 TPP_M_MODELS = {
