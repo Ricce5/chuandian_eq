@@ -218,6 +218,105 @@ class Sequence(DotDict):
             **other_attr,
         )
 
+    def _subset_by_event_mask(self, keep_mask: Union[torch.Tensor, np.ndarray, list]) -> "Sequence":
+        """Return a new sequence containing only events selected by ``keep_mask``."""
+        keep_mask = torch.as_tensor(keep_mask, dtype=torch.bool, device=self.arrival_times.device).flatten()
+        if keep_mask.numel() != self.num_events:
+            raise ValueError(
+                f"keep_mask must have length {self.num_events} (got {keep_mask.numel()})"
+            )
+
+        kept_arrival_times = self.arrival_times[keep_mask]
+        if kept_arrival_times.numel() > 0:
+            boundaries = torch.empty(
+                kept_arrival_times.numel() + 2,
+                dtype=self.inter_times.dtype,
+                device=self.inter_times.device,
+            )
+            boundaries[0] = self.t_start
+            boundaries[1:-1] = kept_arrival_times.to(dtype=self.inter_times.dtype)
+            boundaries[-1] = self.t_end
+            new_inter_times = torch.diff(boundaries)
+        else:
+            new_inter_times = torch.tensor(
+                [self.t_end - self.t_start],
+                dtype=self.inter_times.dtype,
+                device=self.inter_times.device,
+            )
+
+        other_attr = {}
+        for key, value in self.items():
+            if key not in self.default_sequence_attrs:
+                other_attr[key] = value[keep_mask].contiguous()
+
+        if hasattr(self, "time_series") and hasattr(self, "time_series_times"):
+            other_attr["time_series"] = self.time_series.clone()
+            other_attr["time_series_times"] = self.time_series_times.clone()
+
+        return Sequence(
+            inter_times=new_inter_times,
+            t_start=self.t_start,
+            t_nll_start=self.t_nll_start,
+            **other_attr,
+        )
+
+    def drop_events(
+        self,
+        drop_prob: float,
+        *,
+        generator: Optional[torch.Generator] = None,
+        min_total_events: int = 1,
+        min_nll_events: int = 1,
+    ) -> "Sequence":
+        """Randomly drop events and rebuild a valid sequence.
+
+        Args:
+            drop_prob: Probability of deleting each event independently.
+            generator: Optional torch random generator used for reproducible sampling.
+            min_total_events: Minimum number of events to keep in total.
+            min_nll_events: Minimum number of kept events with arrival time >= ``t_nll_start``.
+        """
+        if not 0.0 <= drop_prob <= 1.0:
+            raise ValueError(f"drop_prob must be in [0, 1] (got {drop_prob})")
+        if min_total_events < 0:
+            raise ValueError(f"min_total_events must be >= 0 (got {min_total_events})")
+        if min_nll_events < 0:
+            raise ValueError(f"min_nll_events must be >= 0 (got {min_nll_events})")
+        if self.num_events == 0 or drop_prob == 0.0:
+            return self._subset_by_event_mask(torch.ones(self.num_events, dtype=torch.bool, device=self.arrival_times.device))
+
+        keep_mask = torch.rand(
+            self.num_events,
+            generator=generator,
+            device=self.arrival_times.device,
+        ) >= drop_prob
+
+        def ensure_min_kept(mask: torch.Tensor, eligible_idx: torch.Tensor, min_keep: int) -> torch.Tensor:
+            if min_keep == 0 or eligible_idx.numel() == 0:
+                return mask
+            current = int(mask[eligible_idx].sum().item())
+            if current >= min_keep:
+                return mask
+            dropped_idx = eligible_idx[~mask[eligible_idx]]
+            need = min(min_keep - current, dropped_idx.numel())
+            if need <= 0:
+                return mask
+            selected = dropped_idx[
+                torch.randperm(
+                    dropped_idx.numel(),
+                    generator=generator,
+                    device=dropped_idx.device,
+                )[:need]
+            ]
+            mask[selected] = True
+            return mask
+
+        all_idx = torch.arange(self.num_events, device=self.arrival_times.device)
+        nll_idx = torch.nonzero(self.arrival_times >= self.t_nll_start, as_tuple=False).flatten()
+        keep_mask = ensure_min_kept(keep_mask, nll_idx, min_nll_events)
+        keep_mask = ensure_min_kept(keep_mask, all_idx, min_total_events)
+        return self._subset_by_event_mask(keep_mask)
+
     def init_sample_sequence(self) -> "Sequence":
         """Initialize a sample sequence for training."""
         last_event_time = self.arrival_times[-1]
@@ -286,7 +385,6 @@ class Sequence(DotDict):
             time_series_times=ts_times,
             **other_attr
         )
-
 
 
 

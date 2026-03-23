@@ -124,6 +124,7 @@ class InducedTripletBase(Catalog):
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
         freq: str = "1h",
+        end_ts: Optional[Union[str, pd.Timestamp]] = None,
         train_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         val_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         test_start_ts: Optional[Union[str, pd.Timestamp]] = None,
@@ -168,7 +169,16 @@ class InducedTripletBase(Catalog):
 
         self.start_time = None
         self.end_time = None
-        self.start_time, self.end_time = _resolve_absolute_bounds(self.summary)
+        self.start_time, summary_end_time = _resolve_absolute_bounds(self.summary)
+        self.end_time = summary_end_time
+        if end_ts is not None:
+            requested_end_time = _clip_ts(_coerce_timestamp(end_ts), self.start_time, summary_end_time)
+            if requested_end_time <= self.start_time:
+                raise ValueError(
+                    f"Invalid end_ts={requested_end_time}. end_ts must be after start_time={self.start_time}."
+                )
+            self.end_time = requested_end_time
+
         self.t_start = 0.0
         self.t_end = float((self.end_time - self.start_time) / self.unit_td)
 
@@ -195,6 +205,7 @@ class InducedTripletBase(Catalog):
             "mag_completeness": self.mag_completeness,
             "freq": self.freq,
             "freq_min": self.freq_min,
+            "end_ts": to_serializable_ts(self.end_time),
             "train_start_ts": to_serializable_ts(train_start_time),
             "val_start_ts": to_serializable_ts(val_start_time),
             "test_start_ts": to_serializable_ts(test_start_time),
@@ -358,14 +369,21 @@ class InducedTripletBase(Catalog):
             )
         df_ts["rate"] = df_ts["inj_rate_m3_min"]
 
-        out_of_range_ts_mask = (df_ts["t"] < self.t_start) | (df_ts["t"] > self.t_end + 1e-9)
-        if out_of_range_ts_mask.any():
+        # For user-provided end_ts, processed injection files may still cover the original
+        # summary horizon. Keep only the requested [t_start, t_end] window.
+        df_ts = df_ts[(df_ts["t"] >= self.t_start) & (df_ts["t"] <= self.t_end + 1e-9)].copy()
+        if df_ts.empty:
             raise ValueError(
-                f"Found injection rows outside [{self.t_start}, {self.t_end}]: "
-                f"count={int(out_of_range_ts_mask.sum())}."
+                f"No injection rows left within [{self.t_start}, {self.t_end}] after filtering."
             )
+
         df_ts = df_ts.groupby("t", as_index=False)["rate"].mean()
         df_ts.sort_values("t", inplace=True)
+        if len(df_ts) < 2:
+            raise ValueError(
+                "Injection time series must contain at least 2 timestamps after filtering. "
+                f"Got {len(df_ts)}."
+            )
 
         seq_kwargs["time_series"] = torch.tensor(df_ts[["rate"]].to_numpy(dtype=np.float64), dtype=torch.float32)
         seq_kwargs["time_series_times"] = torch.tensor(df_ts["t"].to_numpy(dtype=np.float64), dtype=torch.float32)

@@ -1,0 +1,57 @@
+# resume_path: ./checkpoints/thp_20250622-112950/last_model_1.pth
+# Model settings
+model: rtpp
+num_event_types: 1
+pad_token_id: 1
+task_type: tpp
+# Training parameters
+
+
+bg_model: mamba
+bg_model_cfg:
+ d_feature: 1 
+ d_state: 64
+ d_model: 16
+ model_type: mamba  # mamba | mamba2
+ scale_init: 1000.0
+ smooth_kernel_size: 3
+
+batch_size: 1
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-3 # 5e-4
+weight_decay: 1e-5
+loss_reduction: per_event
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type:  hf_cosine
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.8
+
+
+rnn_type: GRU
+d_model: 64
+rnn_dropout: 0.3
+# 
+num_components: 32
+
+# Other parameters
+dim: 1
+epochs: 1000
+save_dir: null
+cuda_id: "0"
+
+
+# Data and control parameters
+dataset: SSFS
+seed: 0
+minibatch_training: false
+split_by_time: true
+time_order:  [train, val, test]
+
+
+catalog_cfg:
+  freq: "1D"
+  mag_completeness: 0.1

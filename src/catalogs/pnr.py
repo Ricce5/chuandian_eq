@@ -278,7 +278,7 @@ class PNRStandard(Catalog):
                                       data_dir=pnr_2_dir,
                                       mag_completeness=mag_completeness,freq=freq)   
 
-
+        self.sequences  = [self.catalog_1z.full_sequence, self.catalog_2.full_sequence]
         self.full_sequence = self.catalog_2.full_sequence
 
         self.metadata = self.catalog_1z.metadata.copy()

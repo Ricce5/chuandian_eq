@@ -1,6 +1,6 @@
 # Reference: https://github.com/ant-research/EasyTemporalPointProcess/blob/main/easy_tpp/preprocess/dataset.py
 from pathlib import Path
-from typing import List, Union
+from typing import Callable, List, Optional, Union
 
 import torch
 import torch.utils.data
@@ -12,13 +12,21 @@ from functools import partial
 class TppDataset(torch.utils.data.Dataset):
     """Dataset represented by a list of event sequences stored in memory."""
 
-    def __init__(self, sequences: List[Union[Sequence, EventSequence]]):
+    def __init__(
+        self,
+        sequences: List[Union[Sequence, EventSequence]],
+        sequence_transform: Optional[Callable[[Union[Sequence, EventSequence]], Union[Sequence, EventSequence]]] = None,
+    ):
         if any(not isinstance(seq, (Sequence, EventSequence)) for seq in sequences):
             raise ValueError("sequences must be a list of Sequence or EventSequence")
         self.sequences = sequences
+        self.sequence_transform = sequence_transform
 
     def __getitem__(self, key: int) -> Union[Sequence, EventSequence]:
-        return self.sequences[key]
+        sequence = self.sequences[key]
+        if self.sequence_transform is not None:
+            sequence = self.sequence_transform(sequence)
+        return sequence
 
     def __len__(self):
         return len(self.sequences)

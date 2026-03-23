@@ -2,12 +2,42 @@ import math
 import hashlib
 import json
 import logging
+from functools import partial
 from src.utils.file_utils import save_or_load_data, build_catalog_root_dir
 from src.utils.catalog_utils import split_minibatches, split_sequence
 from src.data.preprocessing import load_and_filter_catalog, calculate_catalog_statistics 
 from  omegaconf import OmegaConf
 
 logger = logging.getLogger(__name__)
+
+
+def _drop_tpp_sequence_events(seq, drop_prob: float, min_nll_events: int):
+    if not hasattr(seq, "drop_events") or drop_prob <= 0:
+        return seq
+    return seq.drop_events(drop_prob=drop_prob, min_nll_events=min_nll_events)
+
+
+def _maybe_wrap_tpp_train_dataset(dataset, args):
+    drop_prob = float(getattr(args, "event_drop_prob", 0.0) or 0.0)
+    if drop_prob <= 0.0:
+        return dataset
+
+    min_nll_events = int(getattr(args, "event_drop_min_nll_events", 1))
+    logger.info(
+        "Applying train-time TPP event dropping with prob=%.4f and min_nll_events=%s",
+        drop_prob,
+        min_nll_events,
+    )
+    from src.data.tpp_dataset import TppDataset
+
+    return TppDataset(
+        dataset.sequences,
+        sequence_transform=partial(
+            _drop_tpp_sequence_events,
+            drop_prob=drop_prob,
+            min_nll_events=min_nll_events,
+        ),
+    )
 
 def prepare_data(args, base_dir):
     import src.data.event_loader as loader
@@ -241,6 +271,8 @@ def prepare_data_tpp(args, base_dir):
             train_dataset = split_sequence(catalog_ds.full_sequence, mean_nll_events, max_events)
         else:
             train_dataset = TppDataset([catalog_ds.full_sequence])
+        args.num_events_train = sum(seq.num_nll_events for seq in train_dataset)
+        train_dataset = _maybe_wrap_tpp_train_dataset(train_dataset, args)
         train_loader = train_dataset.get_dataloader(
             batch_size=args.batch_size,
             shuffle=False,
@@ -248,7 +280,6 @@ def prepare_data_tpp(args, base_dir):
         )
         val_loader = None
         test_loader = None
-        args.num_events_train = sum(seq.num_nll_events for seq in train_dataset)
         args.num_events_val = 0
     else:
         args.num_events_train = sum(seq.num_nll_events for seq in catalog_ds.train)
@@ -263,7 +294,8 @@ def prepare_data_tpp(args, base_dir):
             mean_nll_events = getattr(args, 'mean_nll_events', 300)
             catalog_ds = split_minibatches(catalog_ds, mean_nll_events, max_events)
 
-        train_loader = catalog_ds.train.get_dataloader(
+        train_dataset = _maybe_wrap_tpp_train_dataset(catalog_ds.train, args)
+        train_loader = train_dataset.get_dataloader(
             batch_size=args.batch_size,
             shuffle=False,
             pad_token_id=getattr(args, 'pad_token_id', None),

@@ -2277,3 +2277,17 @@
 2026-03-17 17:47:32,420 INFO src.train.config_setup: val_metrics: {'avg_nll': -1.877175211906433}
 2026-03-17 17:47:32,761 INFO __main__: Saved test metrics to checkpoints/nhpp_20260317-174553/metrics_test_best_1.json
 2026-03-17 17:47:32,762 INFO __main__: Metrics: {'nll_train': 1.0582150220870972, 'nll_val': -1.877175211906433, 'nll_test': 3.329867362976074, 'num_events_train': 333, 'num_events_val': 530, 'num_events_test': 4682}
+2026-03-18 10:08:40,743 INFO src.data.catalog: Loading existing catalog from /root/autodl-tmp/em_eqf/data/CB_HAB1a/catalogs/e8146f0b.
+2026-03-18 10:08:40,777 INFO src.data.catalog: Loading existing catalog from /root/autodl-tmp/em_eqf/data/CB_HAB1b/catalogs/cec0f87b.
+2026-03-18 10:08:40,782 INFO src.data.catalog: Loading existing catalog from /root/autodl-tmp/em_eqf/data/CB_HAB4/catalogs/c98cde95.
+2026-03-18 10:08:40,789 INFO src.data.catalog: Loading existing catalog from /root/autodl-tmp/em_eqf/data/CooperBasin/catalogs/537a116b.
+2026-03-18 10:08:40,792 INFO src.data.preparation: Number of training events: 333
+2026-03-18 10:08:40,792 INFO src.data.preparation: Number of validation events: 530
+2026-03-18 10:08:40,792 INFO src.data.preparation: Number of test events: 4682
+2026-03-18 10:08:41,402 INFO src.train.config_setup: load_specific_parts: None
+2026-03-18 10:08:41,402 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-03-18 10:08:41,403 INFO src.train.config_setup: hyperparameters: {'model': 'nhpp', 'num_event_types': 1, 'pad_token_id': 1, 'task_type': 'tpp', 'bg_model': 'mamba', 'bg_model_cfg': {'d_feature': 1, 'd_state': 64, 'd_model': 16, 'model_type': 'mamba', 'scale_init': 100.0, 'smooth_kernel_size': 3}, 'batch_size': 1, 'accumulation_steps': 1, 'warmup_ratio': 0.1, 'learning_rate': 0.001, 'weight_decay': 1e-05, 'loss_reduction': 'per_event', 'scheduler_factor': None, 'scheduler_patience': None, 'scheduler_threshold': None, 'scheduler_min_lr': 1e-06, 'scheduler_type': 'none', 'step_lr_step_size_ratio': 0.2, 'step_lr_gamma': 0.8, 'dim': 1, 'epochs': 1000, 'save_dir': 'checkpoints/nhpp_20260317-174553', 'cuda_id': '0', 'dataset': 'CooperBasin', 'seed': 0, 'minibatch_training': False, 'split_by_time': True, 'time_order': ['train', 'val', 'test'], 'catalog_cfg': {'freq': '1D', 'mag_completeness': 0.9}, 'cuda': True, 'tau_mean': 0.14026391506195068, 'tau_min': 5.730139918114219e-09, 'tau_max': 14.476909637451172, 'tau_q05': 0.011354167014360428, 'tau_q025': 2.1990606910549104e-05, 'mag_mean': 1.3644349575042725, 'time_max': 46.74861145019531, 'time_mean': 27.147066116333008, 'mag_completeness': 0.9, 'richter_b_mle': 0.9251430362411798, 'precision': 32, 'num_events_train': 333, 'num_events_val': 530, 'num_events_test': 4682, 'start_epoch': 0, 'best_val_loss': inf}
+2026-03-18 10:08:41,403 INFO src.train.config_setup: train_metrics: {'avg_nll': 1.058788537979126}
+2026-03-18 10:08:41,403 INFO src.train.config_setup: val_metrics: {'avg_nll': -1.877175211906433}
+2026-03-18 10:08:41,734 INFO __main__: Saved test metrics to checkpoints/nhpp_20260317-174553/metrics_test_best_1.json
+2026-03-18 10:08:41,734 INFO __main__: Metrics: {'nll_train': 1.0582150220870972, 'nll_val': -1.877175211906433, 'nll_test': 3.329867362976074, 'num_events_train': 333, 'num_events_val': 530, 'num_events_test': 4682}

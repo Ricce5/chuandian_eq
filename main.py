@@ -206,6 +206,9 @@ if __name__ == "__main__":
         args.load_specific_parts = None
         args.use_sampler = False
         args.model = args.model.lower()
+        if getattr(args, "task_type", None) == "tpp" and getattr(args, "event_drop_prob", 0.0):
+            LOGGER.info("Disabling train-time TPP event dropping during evaluation.")
+            args.event_drop_prob = 0.0
 
         train_step, _df, train_loader, val_loader, test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
         model, criterion, optimizer, scheduler, args = config_setup.setup_config(
