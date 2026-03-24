@@ -6,8 +6,45 @@ from torch.nn.utils import clip_grad_norm_
 from contextlib import nullcontext
 from torch import amp
 
-def train(data_loader, model, criterion, optimizer, scheduler, device,
-          accumulation_steps=2, ema_model=None, use_amp=False, max_grad_norm=3.0, pbar_desc='Training'):
+
+def _mean_if_tensor(x):
+    return x.mean().item() if torch.is_tensor(x) else float(x)
+
+
+def _avg_from_out_dict(out_dict):
+    return {key: _mean_if_tensor(value) for key, value in out_dict.items()}
+
+
+def _nll_out_dict(model, batch, nll_kwargs):
+    kwargs = {} if nll_kwargs is None else dict(nll_kwargs)
+    kwargs.setdefault("reduction", None)
+    kwargs.setdefault("return_dict", True)
+    try:
+        out = model.nll_loss(batch, **kwargs)
+    except TypeError:
+        kwargs.pop("return_dict", None)
+        out = model.nll_loss(batch, **kwargs)
+
+    if isinstance(out, dict):
+        return dict(out)
+
+    return {"total": out}
+
+def train(
+    data_loader,
+    model,
+    criterion,
+    optimizer,
+    scheduler,
+    device,
+    accumulation_steps=2,
+    ema_model=None,
+    use_amp=False,
+    max_grad_norm=3.0,
+    pbar_desc='Training',
+    loss_key='total',
+    nll_kwargs: dict | None = None,
+):
     """
     Compatible with training loops where "batch is a complete object":
       - Calculation: loss = model.nll_loss(batch).mean()
@@ -17,7 +54,6 @@ def train(data_loader, model, criterion, optimizer, scheduler, device,
     """
 
     model.train()
-    total_loss = 0.0
     step_in_accum = 0
     backend = device.type  
     scaler = amp.GradScaler(backend, enabled=(backend == 'cuda' and use_amp))
@@ -25,15 +61,27 @@ def train(data_loader, model, criterion, optimizer, scheduler, device,
                if (device.type == 'cuda' and use_amp) else nullcontext())
 
     optimizer.zero_grad(set_to_none=True)  
+    sum_metrics = {}
+    num_steps = 0
+
     for i, batch in enumerate(tqdm(data_loader, desc=pbar_desc)):
         batch = batch.to(device)
 
         with amp_ctx:
-            loss = model.nll_loss(batch).mean()
+            out = _nll_out_dict(model, batch, nll_kwargs)
+            if loss_key not in out:
+                raise KeyError(f"loss_key='{loss_key}' is not in the nll output. Available options: {list(out.keys())}")
+            loss = out[loss_key].mean()
 
         loss_to_backward = loss / accumulation_steps
         scaler.scale(loss_to_backward).backward()
-        total_loss += loss.item()
+
+        metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
+        for key, value in metrics_now.items():
+            if key not in sum_metrics:
+                sum_metrics[key] = 0.0
+            sum_metrics[key] += value
+        num_steps += 1
 
         step_in_accum += 1
         is_update_step = (step_in_accum % accumulation_steps == 0) or (i == len(data_loader) - 1)
@@ -53,77 +101,107 @@ def train(data_loader, model, criterion, optimizer, scheduler, device,
             if device.type == 'cuda':
                 torch.cuda.synchronize()
 
-    metrics = {
-        'avg_nll': total_loss / len(data_loader)
-    }
+    metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     log_metrics(metrics, prefix="Training")
-    return total_loss, metrics
+    return metrics.get(f'avg_{loss_key}_nll', 0.0), metrics
 
 
-def validate(data_loader, model, criterion, device, accumulation_steps=2):
+def validate(
+    data_loader,
+    model,
+    criterion,
+    device,
+    accumulation_steps=2,
+    loss_key='total',
+    nll_kwargs: dict | None = None,
+):
     """Epoch operation in validation phase (only nll_loss)."""
-    import numpy as np
-    from tqdm import tqdm
+    if data_loader is None:
+        return float('nan'), {}
 
     model.eval()
+    sum_metrics = {}
+    num_steps = 0
 
-    total_loss = 0 
-
-    step_count = 0  
     with torch.no_grad():
         for batch in tqdm(data_loader, desc='Validating'):
             batch = batch.to(device)
-            loss= model.nll_loss(batch).mean()
+            out = _nll_out_dict(model, batch, nll_kwargs)
+            metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
+            for key, value in metrics_now.items():
+                if key not in sum_metrics:
+                    sum_metrics[key] = 0.0
+                sum_metrics[key] += value
+            num_steps += 1
 
-            total_loss += loss.item()
-
-            step_count += 1
-
-    metrics = {
-        'avg_nll': total_loss/len(data_loader),  # Average event log-likelihood
-    }
+    metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
     
     log_metrics(metrics, prefix="Validation")
-    return total_loss, metrics
+    return metrics.get(f'avg_{loss_key}_nll', 0.0), metrics
 
 
 
 
 
-def test(train_loader=None, val_loader=None, test_loader=None, model=None, criterion=None, device=None, save_dir=None, **kwargs):
+def test(
+    train_loader=None,
+    val_loader=None,
+    test_loader=None,
+    model=None,
+    criterion=None,
+    device=None,
+    save_dir=None,
+    nll_kwargs: dict | None = None,
+):
     """
     Evaluate model on any subset of [train, val, test].
     Returns:
         total_loss_dict: {'train': float, 'val': float, 'test': float}
         metrics: {'nll_train': float, 'nll_val': float, 'nll_test': float}
     """
-    import os
-    import torch
-    from tqdm import tqdm
+    if nll_kwargs is None:
+        nll_kwargs = {}
+        nll_kwargs.setdefault('reduction', 'per_time')
 
-    def compute_nll(loader, name):
+    def compute(loader, name):
         if loader is None:
             return None, None
         model.eval()
-        total_loss = 0.0
-        step_count = 0
+        sum_metrics = {}
+        num_steps = 0
         with torch.no_grad():
             for batch in tqdm(loader, desc=f"Evaluating {name}"):
                 batch = batch.to(device)
-                loss = model.nll_loss(batch).mean()
-                total_loss += loss.item()
-                step_count += 1
-        avg_loss = total_loss / step_count if step_count > 0 else float("nan")
-        return total_loss, avg_loss
+                out = _nll_out_dict(model, batch, nll_kwargs)
+                metrics_now = _avg_from_out_dict({k: v.mean() for k, v in out.items()})
+                for key, value in metrics_now.items():
+                    if key not in sum_metrics:
+                        sum_metrics[key] = 0.0
+                    sum_metrics[key] += value
+                num_steps += 1
+        avg = {key: sum_value / max(1, num_steps) for key, sum_value in sum_metrics.items()}
+        return avg, sum_metrics
 
     results = {}
     metrics = {}
 
-    for split_name, loader in [('train', train_loader), ('val', val_loader), ('test', test_loader)]:
-        total_loss, avg_loss = compute_nll(loader, split_name)
-        if avg_loss is not None:
-            results[f'nll_{split_name}_total'] = total_loss
-            metrics[f'nll_{split_name}'] = avg_loss
+    avg, sums = compute(train_loader, 'train')
+    if avg is not None:
+        for key, value in sums.items():
+            results[f'nll_train_{key}'] = value
+            metrics[f'nll_train_{key}'] = avg.get(key, 0.0)
+
+    avg, sums = compute(val_loader, 'val')
+    if avg is not None:
+        for key, value in sums.items():
+            results[f'nll_val_{key}'] = value
+            metrics[f'nll_val_{key}'] = avg.get(key, 0.0)
+
+    avg, sums = compute(test_loader, 'test')
+    if avg is not None:
+        for key, value in sums.items():
+            results[f'nll_test_{key}'] = value
+            metrics[f'nll_test_{key}'] = avg.get(key, 0.0)
 
     log_metrics(metrics, prefix="Evaluation")
     return results, metrics

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from mamba_ssm import Mamba, Mamba2
 
 from src.data.dot_dict import DotDict
 from src.distributions import clamp_preserve_gradients
@@ -15,7 +16,7 @@ class LatentBGModel(BGModel):
     """Background model with latent variables over background trajectories.
 
     The model first extracts a deterministic hidden trajectory ``h_t`` with an
-    RNN backbone. It then infers either:
+    Mamba backbone. It then infers either:
     - a sequence-level posterior ``q(z | X)``, or
     - a time-varying posterior ``q(z_t | h_t)``
 
@@ -32,11 +33,14 @@ class LatentBGModel(BGModel):
         d_model: int,
         d_latent: int,
         scale_init: float = 200.0,
-        backbone_type: str = "gru",
+        backbone_type: str = "mamba",
         latent_mode: str = "time_varying",
         num_layers: int = 1,
+        d_state: int = 64,
         beta_kl: float = 1e-3,
         stochastic_eval: bool = False,
+        mc_samples_train: int = 1,
+        mc_samples_eval: int = 1,
         smooth_kernel_size: int | None = None,
         no_weight_decay: bool = False,
         device: torch.device | None = None,
@@ -52,24 +56,27 @@ class LatentBGModel(BGModel):
         self.latent_mode = str(latent_mode).lower()
         self.beta_kl = float(beta_kl)
         self.stochastic_eval = bool(stochastic_eval)
+        self.mc_samples_train = int(mc_samples_train)
+        self.mc_samples_eval = int(mc_samples_eval)
+
+        if self.mc_samples_train < 1 or self.mc_samples_eval < 1:
+            raise ValueError("mc_samples_train and mc_samples_eval must be >= 1.")
 
         if self.latent_mode not in {"sequence", "time_varying"}:
             raise ValueError(
                 f"Unknown latent_mode: {latent_mode}. Must be 'sequence' or 'time_varying'."
             )
 
-        rnn_cls = {"gru": nn.GRU, "lstm": nn.LSTM}.get(backbone_type.lower())
-        if rnn_cls is None:
-            raise ValueError(f"Unknown backbone_type: {backbone_type}. Must be 'gru' or 'lstm'.")
+        model_cls = {"mamba": Mamba, "mamba2": Mamba2}.get(backbone_type.lower())
+        if model_cls is None:
+            raise ValueError(f"Unknown backbone_type: {backbone_type}. Must be 'mamba' or 'mamba2'.")
 
         self.fc_in = nn.Linear(self.d_feature, self.d_model, bias=False)
-        self.backbone = rnn_cls(
-            input_size=self.d_model,
-            hidden_size=self.d_model,
-            num_layers=int(num_layers),
-            batch_first=True,
-            bidirectional=False,
-            bias=False,
+        self.backbone_layers = nn.ModuleList(
+            [
+                model_cls(d_model=self.d_model, d_state=int(d_state), d_conv=4)
+                for _ in range(int(num_layers))
+            ]
         )
         self.mu_head = nn.Linear(self.d_model, self.d_latent, bias=False)
         self.logvar_head = nn.Linear(self.d_model, self.d_latent, bias=False)
@@ -92,7 +99,7 @@ class LatentBGModel(BGModel):
             self.latent_to_model.weight._no_weight_decay = True
             self.decoder_in.weight._no_weight_decay = True
             self.decoder_out.weight._no_weight_decay = True
-            for param in self.backbone.parameters():
+            for param in self.backbone_layers.parameters():
                 param._no_weight_decay = True
 
         if device is not None:
@@ -104,6 +111,9 @@ class LatentBGModel(BGModel):
 
     def _should_sample_latent(self) -> bool:
         return self.training or self.stochastic_eval
+
+    def _num_mc_samples(self) -> int:
+        return self.mc_samples_train if self.training else self.mc_samples_eval
 
     def _masked_mean(self, x: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
         if mask is None:
@@ -117,7 +127,9 @@ class LatentBGModel(BGModel):
         mask: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         backbone_in = self.fc_in(time_series)
-        hidden = self.backbone(backbone_in.contiguous())[0]
+        hidden = backbone_in.contiguous()
+        for layer in self.backbone_layers:
+            hidden = layer(hidden)
 
         if self.latent_mode == "sequence":
             posterior_input = self._masked_mean(hidden, mask)
@@ -226,46 +238,80 @@ class LatentBGModel(BGModel):
         if time_series_mask is not None:
             time_series_mask = time_series_mask.to(self.device)
 
-        scaled_intensity, kl = self._build_scaled_intensity(
-            time_series,
-            mask=time_series_mask,
-            sample_latent=None,
-        )
-        intensity_traj = scaled_intensity * self._scale
-        intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
+        hidden, mu, logvar = self._encode(time_series, time_series_mask)
+        kl = self._kl_divergence(mu, logvar, time_series_mask)
+
+        sample_latent = self._should_sample_latent()
+        num_samples = self._num_mc_samples() if sample_latent else 1
 
         arrival_times = getattr(batch, "arrival_times", time_series_times).to(
             self.device,
             dtype=time_series_times.dtype,
         )
-        intensity = interp_uniform_time_series(
-            t=time_series_times,
-            x=intensity_traj,
-            t_query=arrival_times,
-            clamp=True,
-        ).squeeze(-1)
-        intensity = clamp_preserve_gradients(intensity, eps, float("inf"))
-        integral = integrate_uniform_time_series(
-            t=time_series_times,
-            x=intensity_traj,
-            t_start=batch.t_nll_start,
-            t_end=batch.t_end,
-        ).squeeze(-1).squeeze(-1)
+
+        intensity_samples = []
+        integral_samples = []
+        for _ in range(num_samples):
+            latent = self._sample_latent(mu, logvar, sample_latent=sample_latent)
+            scaled_intensity = self._decode(hidden, latent, time_series_mask)
+            intensity_traj = scaled_intensity * self._scale
+            intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
+
+            intensity = interp_uniform_time_series(
+                t=time_series_times,
+                x=intensity_traj,
+                t_query=arrival_times,
+                clamp=True,
+            ).squeeze(-1)
+            intensity = clamp_preserve_gradients(intensity, eps, float("inf"))
+            integral = integrate_uniform_time_series(
+                t=time_series_times,
+                x=intensity_traj,
+                t_start=batch.t_nll_start,
+                t_end=batch.t_end,
+            ).squeeze(-1).squeeze(-1)
+
+            intensity_samples.append(intensity)
+            integral_samples.append(integral)
+
+        intensity = torch.stack(intensity_samples, dim=0)
+        integral = torch.stack(integral_samples, dim=0)
         self._last_kl = kl.detach()
         return intensity, integral, kl
 
     def nll(self, batch: DotDict, eps: float = 1e-8) -> torch.Tensor:
-        intensity, integral, kl = self._compute_shared_nll_terms(batch, eps=eps)
-        log_intensity = torch.log(intensity) * batch.nll_event_mask
-        return -(log_intensity.sum(dim=1) - integral) + self.beta_kl * kl
+        intensity_samples, integral_samples, kl = self._compute_shared_nll_terms(batch, eps=eps)
+        event_mask = batch.nll_event_mask.unsqueeze(0).to(
+            device=intensity_samples.device,
+            dtype=intensity_samples.dtype,
+        )
+        log_intensity = torch.log(intensity_samples) * event_mask
+        expected_log_sum = log_intensity.sum(dim=2).mean(dim=0)
+        expected_integral = integral_samples.mean(dim=0)
+        return -(expected_log_sum - expected_integral) + self.beta_kl * kl
+
+    def kl_term(self, batch: DotDict, eps: float = 1e-8) -> torch.Tensor:
+        """Return KL regularization term only (beta_kl * KL) for each sequence."""
+        time_series = batch.time_series.to(self.device, dtype=torch.float32)
+        time_series_mask = getattr(batch, "time_series_mask", None)
+        if time_series_mask is not None:
+            time_series_mask = time_series_mask.to(self.device)
+
+        _, mu, logvar = self._encode(time_series, time_series_mask)
+        kl = self._kl_divergence(mu, logvar, time_series_mask)
+        self._last_kl = kl.detach()
+        return self.beta_kl * kl
 
     def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
-        intensity, integral, kl = self._compute_shared_nll_terms(batch, eps=eps)
+        intensity_samples, integral_samples, kl = self._compute_shared_nll_terms(batch, eps=eps)
         h_intensity = torch.exp(log_h_intensity)
         denom = clamp_preserve_gradients(h_intensity, eps, float("inf"))
-        ratio = intensity / denom
+        ratio = intensity_samples / denom.unsqueeze(0)
         mask = getattr(batch, "nll_event_mask", None)
         if mask is None:
             raise ValueError("batch must contain 'nll_event_mask' for nll_change computation.")
+        mask = mask.unsqueeze(0).to(device=ratio.device, dtype=ratio.dtype)
         log_change = torch.log1p(ratio) * mask
-        return -(log_change.sum(dim=1) - integral) + self.beta_kl * kl
+        expected_log_change = log_change.sum(dim=2).mean(dim=0)
+        expected_integral = integral_samples.mean(dim=0)
+        return -(expected_log_change - expected_integral) + self.beta_kl * kl

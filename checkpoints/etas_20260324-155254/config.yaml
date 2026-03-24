@@ -4,10 +4,21 @@ pad_token_id: 1
 task_type: tpp
 # 训练参数
 
-bg_model: stochastic_ssm
+bg_model: latent_bg
 bg_model_cfg:
  d_feature: 1 
  scale_init: 1000.0
+ d_model: 16
+ d_latent: 8
+ backbone_type: mamba  # mamba | mamba2
+ d_state: 128
+ num_layers: 1
+ latent_mode: time_varying  # time_varying | sequence
+ beta_kl: 1e-3
+ stochastic_eval: false
+ mc_samples_train: 8
+ mc_samples_eval: 1
+ smooth_kernel_size: 3
 
 
 bg_learning_rate: 5e-4

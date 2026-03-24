@@ -1,4 +1,5 @@
 import torch
+from unittest.mock import patch
 
 from src.data.dot_dict import DotDict
 from src.models.bg import BGModel
@@ -160,3 +161,27 @@ def test_latent_bg_model_sequence_mode_still_works():
     assert intensity.shape == (batch.time_series.shape[0], batch.arrival_times.shape[1])
     assert torch.isfinite(nll).all()
     assert torch.all(intensity >= 0.0)
+
+
+def test_latent_bg_model_uses_multiple_mc_samples_in_train_nll():
+    torch.manual_seed(0)
+    device = get_device()
+    batch = make_batch(device)
+
+    model = LatentBGModel(
+        d_feature=batch.time_series.shape[-1],
+        d_model=8,
+        d_latent=4,
+        stochastic_eval=False,
+        mc_samples_train=3,
+        mc_samples_eval=1,
+        device=device,
+    )
+    model.train()
+
+    with patch.object(model, "_sample_latent", wraps=model._sample_latent) as sample_spy:
+        nll = model.nll(batch)
+
+    assert nll.shape == (batch.time_series.shape[0],)
+    assert torch.isfinite(nll).all()
+    assert sample_spy.call_count == 3

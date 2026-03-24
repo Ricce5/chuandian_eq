@@ -220,6 +220,9 @@ if __name__ == "__main__":
         )
 
         if args.task_type == "tpp":
+            test_nll_kwargs = {
+                "reduction": getattr(args, "loss_reduction", None),
+            }
             _results, metrics = train_step.test(
                 model=model,
                 criterion=criterion,
@@ -228,6 +231,7 @@ if __name__ == "__main__":
                 test_loader=test_loader,
                 device=device,
                 save_dir=args.save_dir,
+                nll_kwargs=test_nll_kwargs,
             )
             metrics["num_events_train"] = args.num_events_train
             metrics["num_events_val"] = args.num_events_val

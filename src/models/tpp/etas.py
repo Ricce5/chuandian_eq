@@ -234,11 +234,23 @@ class ETAS(TPPModel):
             f_integral = self.bg_model.intensity_integral(batch)  # (B,)
             integral += f_integral
         nll_time = -log_intensity + integral
+
+        # Keep a single optimization key: total.
+        bg_kl = None
+        if self.bg_model is not None and hasattr(self.bg_model, "kl_term"):
+            bg_kl = self.bg_model.kl_term(batch, eps=eps)
+
+        nll_total = nll_time if bg_kl is None else (nll_time + bg_kl)
+
+        out_dict = {
+            "time": nll_time,
+            "total": nll_total,
+        }
+        if bg_kl is not None:
+            out_dict["bg_kl"] = bg_kl
+
         out = self.reduce_nll_dict(
-            {
-                "time": nll_time,
-                "total": nll_time,
-            },
+            out_dict,
             batch,
             reduction=reduction,
             eps=eps,
