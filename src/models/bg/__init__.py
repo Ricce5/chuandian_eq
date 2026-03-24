@@ -13,7 +13,7 @@ def _safe_import(module_name: str) -> None:
         return
 
 
-for _module_name in ("conv_mlp", "kernel", "mamba", "ncde", "proportional", "rnn", "ssm", "stochastic_ssm"):
+for _module_name in ("conv_mlp", "kernel", "latent_bg", "mamba", "ncde", "proportional", "rnn", "ssm", "stochastic_ssm"):
     _safe_import(_module_name)
 
 __all__ = ["BGModel"]
