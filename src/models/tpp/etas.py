@@ -194,7 +194,7 @@ class ETAS(TPPModel):
         # delta_t[0, i, j] = t_i - t_j
         delta_t = t_select.unsqueeze(-1) - t.unsqueeze(-2)       # (B, S, L)
         # prev_mask[0, i, j] = float(t_i < t_j)
-        prev_mask = (delta_t > 0).float()  # Comment in English.
+        prev_mask = (delta_t > 0).float() 
         # Logarithm of the intensity
         # omori[0, i, j] = contribution of event t_j on intensity at time t_i
         omori = (delta_t * prev_mask + self.c).pow(-self.p)      # (B, S, L)
@@ -304,7 +304,7 @@ class ETAS(TPPModel):
                     f"params/{param_name}",
                     getattr(self, param_name).item(),
                     on_step=False,
-                    on_epoch=True,  # Comment in English.
+                    on_epoch=True, 
                     prog_bar=True,
                     batch_size=batch.batch_size,
                 )
@@ -320,7 +320,7 @@ class ETAS(TPPModel):
         max_length: int = 50_000,
         n_jobs: int = -1,
         return_sequences: bool = False,
-        verbose: bool = False,  # Comment in English.
+        verbose: bool = False, 
     ) -> Union[Batch, List[Sequence]]:
         """Generate a sample from the model (conditional or unconditional).
 
@@ -372,16 +372,16 @@ class ETAS(TPPModel):
             t_end = t_start + duration
             # upper bound on the intensity - used to generate candidate events
             upper_bound = get_intensity(t_current, arrival_times, magnitudes)
-            tau_current = 0.0  # Comment in English.
+            tau_current = 0.0 
             inter_times = []
-            while True:  # Comment in English.
-                tau = np.random.exponential(1.0 / upper_bound)  # Comment in English.
+            while True: 
+                tau = np.random.exponential(1.0 / upper_bound) 
                 tau_current += tau
                 t_current = t_current + tau
                 if t_current > t_end:
                     break
 
-                lambda_current = get_intensity(t_current, arrival_times, magnitudes)  # Comment in English.
+                lambda_current = get_intensity(t_current, arrival_times, magnitudes) 
                 p_accept = lambda_current / upper_bound
                 if verbose:
                     logger.info(
@@ -408,7 +408,7 @@ class ETAS(TPPModel):
                     return None
 
             # Use max to avoid numerical errors
-            inter_times = np.append(inter_times, max(duration - np.sum(inter_times), 0))  # Comment in English.
+            inter_times = np.append(inter_times, max(duration - np.sum(inter_times), 0)) 
             valid_idx = (arrival_times > t_start) & (arrival_times <= t_end)
             return dict(
                 inter_times=inter_times,
@@ -424,7 +424,7 @@ class ETAS(TPPModel):
             num_seq_to_generate = batch_size - len(sequences)
             # Random seed is passed as an agument to the sampling function to ensure reproducibility
             new_sequences = Parallel(n_jobs=n_jobs)(
-                delayed(sample_single_seq)(t_start, seed)  # Comment in English.
+                delayed(sample_single_seq)(t_start, seed) 
                 for seed in trange(random_state, num_seq_to_generate + random_state)
             )
             filtered = [
@@ -504,7 +504,7 @@ class ETAS(TPPModel):
 
             t_end = t_start + duration
          
-            # Comment in English.
+           
             #########
             Nback = poisson.rvs(mu * (duration)) if self.bg_model is None else 0
 
@@ -549,7 +549,7 @@ class ETAS(TPPModel):
 
                 # Determine the number of offspring each parent will have:
                 k_prime = k * omori_int(0, t_max, c, p)  # k'
-                prod = productivity(parent_catalog[:, -1], k_prime, alpha, M_c)  # Comment in English.
+                prod = productivity(parent_catalog[:, -1], k_prime, alpha, M_c) 
 
                 # Determine how many of these events will be within the forecast interval:
 
@@ -561,9 +561,9 @@ class ETAS(TPPModel):
                 # N                   *           p(t)
                 # k'*10**(alpha(M-Mc)) * (t+c)**-p / int((t+c)**-p)
                 # where k' = k*int((t+c)**-p)    
-                TAU1 = t_start - parent_catalog[:, 0]  # Comment in English.
-                TAU1[TAU1 < 0] = 0  # Comment in English.
-                TAU2 = t_end - parent_catalog[:, 0]  # Comment in English.
+                TAU1 = t_start - parent_catalog[:, 0] 
+                TAU1[TAU1 < 0] = 0 
+                TAU2 = t_end - parent_catalog[:, 0] 
                 prod_in_interval = (
                     prod * omori_int(TAU1, TAU2, c, p) / omori_int(0, t_max, c, p)
                 )
@@ -585,7 +585,7 @@ class ETAS(TPPModel):
 
                     t_parent = ieq[0]  # parent event time
 
-                    dti = omori_inv(itau1, itau2, c, p, size=iNaft, t_max=t_max)  # Comment in English.
+                    dti = omori_inv(itau1, itau2, c, p, size=iNaft, t_max=t_max) 
                     t_aftershock = t_parent + dti  # new arrival time
 
                     aftershock_catalog = []
@@ -615,7 +615,7 @@ class ETAS(TPPModel):
                     return None
 
             whole_catalog = np.vstack(whole_catalog)
-            whole_catalog = whole_catalog[whole_catalog[:, 0].argsort()]  # Comment in English.
+            whole_catalog = whole_catalog[whole_catalog[:, 0].argsort()] 
 
             arrival_times = whole_catalog[:, 0]
             magnitudes = whole_catalog[:, -1]
@@ -663,7 +663,7 @@ class ETAS(TPPModel):
             # Filter out explosive sequences
             filtered = [seq for seq in new_sequences if seq is not None]
             sequences.extend(filtered)
-            starting_seed += num_seq_to_generate  # Comment in English.
+            starting_seed += num_seq_to_generate 
 
         if return_sequences:
             return sequences
@@ -727,7 +727,7 @@ class ETAS(TPPModel):
         max_length: Optional[int] = 50_000,
         t_max: float = 1e10,
         return_sequences: bool = False,
-        dtype: torch.dtype = torch.float64,  # Comment in English.
+        dtype: torch.dtype = torch.float64, 
     ) -> Union["Batch", List["Sequence"]]:
         """
         GPU-parallel branching-process sampler for ETAS.
@@ -1097,7 +1097,7 @@ def masked_select_per_row(matrix, mask):
     assert matrix.shape == mask.shape and matrix.ndim == 2
     selected_rows = []
     for matrix_row, mask_row in zip(matrix, mask.bool()):
-        selected_rows.append(matrix_row.masked_select(mask_row))  # Comment in English.
+        selected_rows.append(matrix_row.masked_select(mask_row)) 
 
     new_matrix = pad_sequence(selected_rows)
     new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])

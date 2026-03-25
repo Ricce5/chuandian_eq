@@ -199,4 +199,4 @@ checkpoints/reg_mixer_attnpl_t_20260131-112552
 单区域单时间段：
 PNR, CB_HAB1a
 存在问题:
-SSFS1993
+SSFS1993,  CB_HAB1b

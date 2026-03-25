@@ -1,18 +1,14 @@
-
 model: etas
 num_event_types: 1
 pad_token_id: 1
 task_type: tpp
 # 训练参数
 
-bg_model: mamba
+
+bg_model: proportional
 bg_model_cfg:
  d_feature: 1 
- d_state: 64
- d_model: 16
- model_type: mamba  # mamba | mamba2
  scale_init: 1000.0
- smooth_kernel_size: 3
  
 bg_learning_rate: 5e-4
 

@@ -207,11 +207,23 @@ def magnitude_test_from_counts(
     if not isinstance(forecast_catalogs, (list, tuple)):
         forecast_catalogs = list(forecast_catalogs)
 
+    # Cache per-catalog histograms so the two passes don't recompute get_counts(cat).
+    # This is especially helpful when get_counts performs tensor->cpu conversion and binning.
+    counts_cache: Dict[int, np.ndarray] = {}
+
+    def _get_counts_cached(cat: Any) -> np.ndarray:
+        key = id(cat)
+        cached = counts_cache.get(key)
+        if cached is None:
+            cached = np.asarray(get_counts(cat), dtype=float)
+            counts_cache[key] = cached
+        return cached
+
     sum_hist = None
     n_forecasts = 0
 
     for i, cat in enumerate(forecast_catalogs):
-        counts = np.asarray(get_counts(cat), dtype=float)
+        counts = _get_counts_cached(cat)
 
         if counts.shape != obs_hist.shape:
             raise ValueError(
@@ -273,7 +285,7 @@ def magnitude_test_from_counts(
     test_distribution: List[float] = []
 
     for j, cat in enumerate(forecast_catalogs):
-        counts = np.asarray(get_counts(cat), dtype=float)
+        counts = _get_counts_cached(cat)
         n_events = float(np.sum(counts))
 
         if not np.isfinite(n_events) or n_events < 0:
@@ -408,7 +420,6 @@ def run_magnitude_test_result(
     if plot:
         result.plot(**plot_args if plot_args else {})
     return result
-
 
 
 
