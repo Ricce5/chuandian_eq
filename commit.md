@@ -194,3 +194,9 @@ rotary_embedding_time的scale计算影响采样结果
 
 
 checkpoints/reg_mixer_attnpl_t_20260131-112552
+
+
+单区域单时间段：
+PNR, CB_HAB1a
+存在问题:
+SSFS1993

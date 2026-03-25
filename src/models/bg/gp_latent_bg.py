@@ -62,6 +62,10 @@ class GPLatentBGModel(BGModel):
             raise ValueError("mc_samples_train and mc_samples_eval must be >= 1.")
         if self.num_inducing < 2:
             raise ValueError("num_inducing must be >= 2 for gp_latent_bg.")
+        if float(gp_lengthscale_init) <= 0.0:
+            raise ValueError("gp_lengthscale_init must be > 0.")
+        if float(gp_kernel_scale_init) <= 0.0:
+            raise ValueError("gp_kernel_scale_init must be > 0.")
         if self.gp_jitter <= 0.0:
             raise ValueError("gp_jitter must be > 0.")
 
@@ -220,8 +224,8 @@ class GPLatentBGModel(BGModel):
         for layer in self.backbone_layers:
             hidden = layer(hidden)
 
-        summary = self._masked_mean(hidden, mask)
-        mu = self.inducing_mu_head(summary).view(-1, self.num_inducing, self.d_latent)
+        summary = self._masked_mean(hidden, mask) # (batch_size, d_model)
+        mu = self.inducing_mu_head(summary).view(-1, self.num_inducing, self.d_latent) # (batch_size, num_inducing, d_latent)
         logvar = self.inducing_logvar_head(summary).view(-1, self.num_inducing, self.d_latent)
         logvar = logvar.clamp(min=-8.0, max=8.0)
         return hidden, mu, logvar
@@ -271,8 +275,9 @@ class GPLatentBGModel(BGModel):
             device=time_grid.device,
             dtype=time_grid.dtype,
         )
-        cond_var = (amplitude_sq - quad).clamp_min(self.gp_jitter) 
-        # Var_{t|u} = K_{t,t} - K_{t,u} K_{u,u}^{-1} K_{u,t}, but K_{t,t} = amplitude^2 for RBF kernel with zero noise
+        # Jitter is only used for stabilizing K_uu inversion; using it as a
+        # variance floor can inject artificial noise when kernel amplitude is small.
+        cond_var = (amplitude_sq - quad).clamp_min(0.0)
         return latent_mean + cond_var.sqrt().unsqueeze(-1) * torch.randn_like(latent_mean)
 
     def _kl_divergence(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
