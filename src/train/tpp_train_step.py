@@ -2,6 +2,7 @@ import torch
 from tqdm import tqdm
 from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
+from .noise_augmentation import augment_tpp_batch_inplace
 from torch.nn.utils import clip_grad_norm_
 from contextlib import nullcontext
 from torch import amp
@@ -29,6 +30,7 @@ def _nll_out_dict(model, batch, nll_kwargs):
         return dict(out)
 
     return {"total": out}
+
 
 def train(
     data_loader,
@@ -66,6 +68,7 @@ def train(
 
     for i, batch in enumerate(tqdm(data_loader, desc=pbar_desc)):
         batch = batch.to(device)
+        augment_tpp_batch_inplace(batch, model)
 
         with amp_ctx:
             out = _nll_out_dict(model, batch, nll_kwargs)

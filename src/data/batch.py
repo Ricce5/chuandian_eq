@@ -161,7 +161,6 @@ class Batch(DotDict):
             input_mask=input_mask,
             start_idx=start_idx,
             end_idx=end_idx,
-            non_pad_mask=non_pad_mask,
             type_seq=type_seq,
             **other_attr,
         )
@@ -369,7 +368,6 @@ class EventBatch(DotDict):
     Attributes:
         arrival_times: Padded arrival times [batch_size, seq_len]
         inter_times: Padded inter-event times [batch_size, seq_len]
-        non_pad_mask: Mask indicating real (non-padded) entries [batch_size, seq_len]
         type_seq: Token IDs with padding handled [batch_size, seq_len]
         t_start: Start time of each sequence [batch_size]
         t_end: End time of each sequence [batch_size]
@@ -416,7 +414,6 @@ class EventBatch(DotDict):
         return EventBatch(
             arrival_times=arrival_times,
             inter_times=inter_times,
-            non_pad_mask=non_pad_mask,
             type_seq=type_seq,
             t_start=t_start,
             t_end=t_end,

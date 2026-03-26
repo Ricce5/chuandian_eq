@@ -1,0 +1,34 @@
+bg_model: gp_latent_bg
+bg_model_cfg:
+ d_feature: 1 
+ scale_init: 1000.0
+ d_model: 32
+ d_latent: 8
+ num_inducing: 16
+ backbone_type: mamba  # mamba | mamba2
+ d_state: 128
+ num_layers: 1
+ beta_kl: 1e-3
+ stochastic_eval: false
+ mc_samples_train: 8
+ mc_samples_eval: 8
+ gp_lengthscale_init: 0.2
+ gp_kernel_scale_init: 1.0
+ gp_jitter: 1e-4
+ sample_gp_residual: true
+ smooth_kernel_size: 3
+
+
+ bg_model: mamba
+bg_model_cfg:
+ d_feature: 1 
+ d_state: 64
+ d_model: 16
+ model_type: mamba  # mamba | mamba2
+ scale_init: 1000.0
+ smooth_kernel_size: 3
+
+bg_model: proportional
+bg_model_cfg:
+ d_feature: 1 
+ scale_init: 1000.0

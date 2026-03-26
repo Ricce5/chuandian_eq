@@ -147,6 +147,10 @@ def setup_config(args, device, train_dataloader=None, checkpoint=None, restore_w
     model_builder = ModelBuilder.by_name(args.model)()
     model = model_builder(args, device)
 
+    # Optional data-uncertainty augmentation knobs used by training steps.
+    setattr(model, 'mag_noise_scale', getattr(args, 'mag_noise_scale', 0.0))
+    setattr(model, 'mag_noise_type', getattr(args, 'mag_noise_type', 'gaussian'))
+
     args.start_epoch = 0
     args.best_val_loss = float('inf')
 

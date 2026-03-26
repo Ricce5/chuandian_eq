@@ -1,7 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import kl_divergence
 from mamba_ssm import Mamba, Mamba2
+
+try:
+    import gpytorch
+    from linear_operator.operators import DiagLinearOperator
+except ModuleNotFoundError:
+    gpytorch = None
+    DiagLinearOperator = None
 
 from src.data.dot_dict import DotDict
 from src.distributions import clamp_preserve_gradients
@@ -173,6 +181,7 @@ class GPLatentBGModel(BGModel):
             last_idx = lengths - 1
             t_last = time_series_times.gather(1, last_idx.unsqueeze(1))
             effective_times = torch.where(mask_bool, time_series_times, t_last.expand_as(time_series_times))
+            # In masked positions, we set time to the last valid time to avoid extrapolation in GP interpolation. The normalization will still be based on the actual last time point.
             t1 = t_last
 
         duration = (t1 - t0).clamp_min(1e-6)
@@ -278,7 +287,12 @@ class GPLatentBGModel(BGModel):
         # Jitter is only used for stabilizing K_uu inversion; using it as a
         # variance floor can inject artificial noise when kernel amplitude is small.
         cond_var = (amplitude_sq - quad).clamp_min(0.0)
-        return latent_mean + cond_var.sqrt().unsqueeze(-1) * torch.randn_like(latent_mean)
+        positive_mask = (cond_var > 0.0).to(dtype=cond_var.dtype)
+        sqrt_eps = torch.finfo(cond_var.dtype).eps
+        # Keep zero conditional variance exactly zero in forward while avoiding
+        # undefined/infinite sqrt gradients at zero in backward.
+        residual_std = torch.sqrt(cond_var + (1.0 - positive_mask) * sqrt_eps) * positive_mask
+        return latent_mean + residual_std.unsqueeze(-1) * torch.randn_like(latent_mean)
 
     def _kl_divergence(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         """Compute KL divergence between the variational distribution q(u) = N(mu, diag(exp(logvar))) and the GP prior p(u) = N(0, K_{u,u})."""
@@ -459,3 +473,416 @@ class GPLatentBGModel(BGModel):
         expected_log_change = log_change.sum(dim=2).mean(dim=0)
         expected_integral = integral_samples.mean(dim=0)
         return -(expected_log_change - expected_integral) + self.beta_kl * kl
+
+
+@BGModel.register("gp_latent_bg_gpytorch")
+class GPyTorchGPLatentBGModel(GPLatentBGModel):
+    """GP latent background model backed by gpytorch kernels."""
+
+    def __init__(
+        self,
+        d_feature: int,
+        d_model: int,
+        d_latent: int,
+        num_inducing: int = 16,
+        scale_init: float = 200.0,
+        backbone_type: str = "mamba",
+        num_layers: int = 1,
+        d_state: int = 64,
+        beta_kl: float = 1e-3,
+        stochastic_eval: bool = False,
+        mc_samples_train: int = 1,
+        mc_samples_eval: int = 1,
+        gp_lengthscale_init: float = 0.2,
+        gp_kernel_scale_init: float = 1.0,
+        gp_jitter: float = 1e-4,
+        sample_gp_residual: bool = True,
+        smooth_kernel_size: int | None = None,
+        no_weight_decay: bool = False,
+        device: torch.device | None = None,
+    ):
+        if gpytorch is None:
+            raise ModuleNotFoundError(
+                "gpytorch is required for GPyTorchGPLatentBGModel. "
+                "Install it with `pip install gpytorch`."
+            )
+        super().__init__(
+            d_feature=d_feature,
+            d_model=d_model,
+            d_latent=d_latent,
+            num_inducing=num_inducing,
+            scale_init=scale_init,
+            backbone_type=backbone_type,
+            num_layers=num_layers,
+            d_state=d_state,
+            beta_kl=beta_kl,
+            stochastic_eval=stochastic_eval,
+            mc_samples_train=mc_samples_train,
+            mc_samples_eval=mc_samples_eval,
+            gp_lengthscale_init=gp_lengthscale_init,
+            gp_kernel_scale_init=gp_kernel_scale_init,
+            gp_jitter=gp_jitter,
+            sample_gp_residual=sample_gp_residual,
+            smooth_kernel_size=smooth_kernel_size,
+            no_weight_decay=no_weight_decay,
+            device=device,
+        )
+        del self.log_gp_lengthscale
+        del self.log_gp_kernel_scale
+
+        self.gp_kernel_module = gpytorch.kernels.ScaleKernel(
+            gpytorch.kernels.RBFKernel(ard_num_dims=1)
+        )
+        self.gp_kernel_module.base_kernel.lengthscale = float(gp_lengthscale_init)
+        self.gp_kernel_module.outputscale = float(gp_kernel_scale_init) ** 2
+
+        if no_weight_decay:
+            for param in self.gp_kernel_module.parameters():
+                param._no_weight_decay = True
+
+        if device is not None:
+            self.to(device)
+
+    def _to_kernel_input(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            return x.unsqueeze(-1)
+        if x.dim() == 2:
+            return x.unsqueeze(-1)
+        if x.dim() == 3:
+            return x
+        raise ValueError(f"Expected x to have 1, 2 or 3 dims, got {x.dim()}.")
+
+    def _gp_kernel(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        x_in = self._to_kernel_input(x)
+        y_in = self._to_kernel_input(y)
+        return self.gp_kernel_module(x_in, y_in).to_dense()
+
+    def _gp_prior_operator(
+        self,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ):
+        inducing = self.inducing_positions.to(device=device, dtype=dtype)
+        inducing_in = self._to_kernel_input(inducing)
+        kuu_op = self.gp_kernel_module(inducing_in, inducing_in).add_jitter(self.gp_jitter)
+        return inducing, kuu_op
+
+    def _gp_prior_stats(
+        self,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        inducing, kuu_op = self._gp_prior_operator(device=device, dtype=dtype)
+        eye = torch.eye(self.num_inducing, device=device, dtype=dtype)
+        kuu_inv = kuu_op.solve(eye)
+        _, logdet_kuu = kuu_op.inv_quad_logdet(logdet=True)
+        return inducing, kuu_inv, logdet_kuu
+
+    def _project_inducing_to_grid(
+        self,
+        time_grid: torch.Tensor,
+        inducing_values: torch.Tensor,
+        *,
+        sample_latent: bool | None = None,
+    ) -> torch.Tensor:
+        inducing, kuu_op = self._gp_prior_operator(
+            device=time_grid.device,
+            dtype=time_grid.dtype,
+        )
+        time_input = self._to_kernel_input(time_grid)
+        inducing_input = self._to_kernel_input(inducing)
+        k_tu = self.gp_kernel_module(time_input, inducing_input).to_dense()
+        alpha = kuu_op.solve(inducing_values)
+        latent_mean = torch.einsum("btm,bmd->btd", k_tu, alpha)
+
+        should_sample = self._should_sample_latent() if sample_latent is None else bool(sample_latent)
+        if not (should_sample and self.sample_gp_residual):
+            return latent_mean
+
+        proj = kuu_op.solve(k_tu.transpose(-1, -2))
+        quad = (k_tu * proj.transpose(-1, -2)).sum(dim=-1)
+        k_tt_diag = self.gp_kernel_module(time_input, time_input, diag=True)
+        cond_var = (k_tt_diag - quad).clamp_min(0.0)
+        positive_mask = (cond_var > 0.0).to(dtype=cond_var.dtype)
+        sqrt_eps = torch.finfo(cond_var.dtype).eps
+        residual_std = torch.sqrt(cond_var + (1.0 - positive_mask) * sqrt_eps) * positive_mask
+        return latent_mean + residual_std.unsqueeze(-1) * torch.randn_like(latent_mean)
+
+    def _kl_divergence(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+        if DiagLinearOperator is None:
+            raise ModuleNotFoundError(
+                "linear_operator is required for GPyTorchGPLatentBGModel KL computation."
+            )
+
+        mu_bt = mu.transpose(1, 2).contiguous()
+        var_bt = logvar.transpose(1, 2).contiguous().exp()
+        flat_mu = mu_bt.view(-1, self.num_inducing)
+        flat_var = var_bt.view(-1, self.num_inducing)
+        flat_batch = flat_mu.shape[0]
+
+        _, kuu_op = self._gp_prior_operator(device=mu.device, dtype=mu.dtype)
+        prior = gpytorch.distributions.MultivariateNormal(
+            mean=torch.zeros_like(flat_mu),
+            covariance_matrix=kuu_op.expand(flat_batch, self.num_inducing, self.num_inducing),
+        )
+        posterior = gpytorch.distributions.MultivariateNormal(
+            mean=flat_mu,
+            covariance_matrix=DiagLinearOperator(flat_var),
+        )
+        kl_flat = kl_divergence(posterior, prior)
+        return kl_flat.view(mu.shape[0], self.d_latent).sum(dim=1)
+
+
+if gpytorch is not None:
+
+    class _StandardSVGPTemporalLatent(gpytorch.models.ApproximateGP):
+        """Standard multitask SVGP over normalized time in [0, 1]."""
+
+        def __init__(
+            self,
+            *,
+            d_latent: int,
+            num_inducing: int,
+            inducing_positions: torch.Tensor,
+            gp_lengthscale_init: float,
+            gp_kernel_scale_init: float,
+            gp_jitter: float,
+            learn_inducing_locations: bool,
+        ):
+            batch_shape = torch.Size([int(d_latent)])
+            inducing_points = inducing_positions.view(1, num_inducing, 1).repeat(int(d_latent), 1, 1)
+            variational_distribution = gpytorch.variational.CholeskyVariationalDistribution(
+                num_inducing_points=int(num_inducing),
+                batch_shape=batch_shape,
+            )
+            base_variational_strategy = gpytorch.variational.VariationalStrategy(
+                self,
+                inducing_points=inducing_points,
+                variational_distribution=variational_distribution,
+                learn_inducing_locations=bool(learn_inducing_locations),
+                jitter_val=float(gp_jitter),
+            )
+            variational_strategy = gpytorch.variational.IndependentMultitaskVariationalStrategy(
+                base_variational_strategy,
+                num_tasks=int(d_latent),
+                task_dim=0,
+            )
+            super().__init__(variational_strategy=variational_strategy)
+            self.mean_module = gpytorch.means.ZeroMean(batch_shape=batch_shape)
+            self.covar_module = gpytorch.kernels.ScaleKernel(
+                gpytorch.kernels.RBFKernel(batch_shape=batch_shape),
+                batch_shape=batch_shape,
+            )
+            self.covar_module.base_kernel.lengthscale = float(gp_lengthscale_init)
+            self.covar_module.outputscale = float(gp_kernel_scale_init) ** 2
+
+        def forward(self, x: torch.Tensor):
+            mean_x = self.mean_module(x)
+            covar_x = self.covar_module(x)
+            return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+else:
+    _StandardSVGPTemporalLatent = None
+
+
+@BGModel.register("gp_latent_bg_svgp")
+class StandardSVGPGPLatentBGModel(GPLatentBGModel):
+    """Background model with a pure standard multitask SVGP latent trajectory."""
+
+    def __init__(
+        self,
+        d_feature: int,
+        d_model: int,
+        d_latent: int,
+        num_inducing: int = 16,
+        scale_init: float = 200.0,
+        backbone_type: str = "mamba",
+        num_layers: int = 1,
+        d_state: int = 64,
+        beta_kl: float = 1e-3,
+        stochastic_eval: bool = False,
+        mc_samples_train: int = 1,
+        mc_samples_eval: int = 1,
+        gp_lengthscale_init: float = 0.2,
+        gp_kernel_scale_init: float = 1.0,
+        gp_jitter: float = 1e-4,
+        sample_gp_residual: bool = True,
+        smooth_kernel_size: int | None = None,
+        no_weight_decay: bool = False,
+        learn_inducing_locations: bool = True,
+        device: torch.device | None = None,
+    ):
+        if gpytorch is None:
+            raise ModuleNotFoundError(
+                "gpytorch is required for StandardSVGPGPLatentBGModel. "
+                "Install it with `pip install gpytorch`."
+            )
+        super().__init__(
+            d_feature=d_feature,
+            d_model=d_model,
+            d_latent=d_latent,
+            num_inducing=num_inducing,
+            scale_init=scale_init,
+            backbone_type=backbone_type,
+            num_layers=num_layers,
+            d_state=d_state,
+            beta_kl=beta_kl,
+            stochastic_eval=stochastic_eval,
+            mc_samples_train=mc_samples_train,
+            mc_samples_eval=mc_samples_eval,
+            gp_lengthscale_init=gp_lengthscale_init,
+            gp_kernel_scale_init=gp_kernel_scale_init,
+            gp_jitter=gp_jitter,
+            sample_gp_residual=sample_gp_residual,
+            smooth_kernel_size=smooth_kernel_size,
+            no_weight_decay=no_weight_decay,
+            device=device,
+        )
+        del self.inducing_mu_head
+        del self.inducing_logvar_head
+        del self.log_gp_lengthscale
+        del self.log_gp_kernel_scale
+
+        if _StandardSVGPTemporalLatent is None:
+            raise ModuleNotFoundError(
+                "gpytorch is required for StandardSVGPGPLatentBGModel."
+            )
+        self.svgp = _StandardSVGPTemporalLatent(
+            d_latent=self.d_latent,
+            num_inducing=self.num_inducing,
+            inducing_positions=self.inducing_positions.detach().clone(),
+            gp_lengthscale_init=gp_lengthscale_init,
+            gp_kernel_scale_init=gp_kernel_scale_init,
+            gp_jitter=self.gp_jitter,
+            learn_inducing_locations=learn_inducing_locations,
+        )
+
+        if no_weight_decay:
+            for param in self.svgp.parameters():
+                param._no_weight_decay = True
+
+        if device is not None:
+            self.to(device)
+
+    def _encode_hidden(self, time_series: torch.Tensor) -> torch.Tensor:
+        backbone_in = self.fc_in(time_series)
+        hidden = backbone_in.contiguous()
+        for layer in self.backbone_layers:
+            hidden = layer(hidden)
+        return hidden
+
+    def _svgp_dist(self, time_grid: torch.Tensor):
+        batch_size, seq_len = time_grid.shape
+        x_flat = time_grid.reshape(-1, 1).to(device=time_grid.device, dtype=torch.float32)
+        latent_dist = self.svgp(x_flat)
+        return latent_dist, batch_size, seq_len
+
+    def _svgp_kl(self, *, batch_size: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        base_strategy = self.svgp.variational_strategy.base_variational_strategy
+        kl_scalar = base_strategy.kl_divergence().sum().to(device=device, dtype=dtype)
+        return kl_scalar.expand(batch_size)
+
+    def _sample_latent_traj(
+        self,
+        time_grid: torch.Tensor,
+        *,
+        sample_latent: bool | None = None,
+    ) -> torch.Tensor:
+        latent_dist, batch_size, seq_len = self._svgp_dist(time_grid)
+        should_sample = self._should_sample_latent() if sample_latent is None else bool(sample_latent)
+        if should_sample and self.sample_gp_residual:
+            latent_flat = latent_dist.rsample()
+        else:
+            latent_flat = latent_dist.mean
+        return latent_flat.reshape(batch_size, seq_len, self.d_latent)
+
+    def _build_scaled_intensity(
+        self,
+        time_series: torch.Tensor,
+        time_series_times: torch.Tensor,
+        mask: torch.Tensor | None = None,
+        *,
+        sample_latent: bool | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        hidden = self._encode_hidden(time_series)
+        time_grid = self._normalize_times(time_series_times, mask)
+        latent_traj = self._sample_latent_traj(time_grid, sample_latent=sample_latent)
+        scaled_intensity = self._decode(hidden, latent_traj, mask)
+        kl = self._svgp_kl(
+            batch_size=time_series.shape[0],
+            device=scaled_intensity.device,
+            dtype=scaled_intensity.dtype,
+        )
+        return scaled_intensity, kl
+
+    def _compute_shared_nll_terms(
+        self,
+        batch: DotDict,
+        eps: float = 1e-8,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        time_series = batch.time_series.to(self.device, dtype=torch.float32)
+        time_series_times = batch.time_series_times.to(self.device)
+        time_series_mask = getattr(batch, "time_series_mask", None)
+        if time_series_mask is not None:
+            time_series_mask = time_series_mask.to(self.device)
+
+        hidden = self._encode_hidden(time_series)
+        time_grid = self._normalize_times(time_series_times, time_series_mask)
+
+        sample_latent = self._should_sample_latent()
+        num_samples = self._num_mc_samples() if sample_latent else 1
+
+        arrival_times = getattr(batch, "arrival_times", time_series_times).to(
+            self.device,
+            dtype=time_series_times.dtype,
+        )
+
+        intensity_samples = []
+        integral_samples = []
+        for _ in range(num_samples):
+            latent_traj = self._sample_latent_traj(
+                time_grid,
+                sample_latent=sample_latent,
+            )
+            scaled_intensity = self._decode(hidden, latent_traj, time_series_mask)
+            intensity_traj = scaled_intensity * self._scale
+            intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
+
+            intensity = interp_uniform_time_series(
+                t=time_series_times,
+                x=intensity_traj,
+                t_query=arrival_times,
+                clamp=True,
+            ).squeeze(-1)
+            intensity = clamp_preserve_gradients(intensity, eps, float("inf"))
+            integral = integrate_uniform_time_series(
+                t=time_series_times,
+                x=intensity_traj,
+                t_start=batch.t_nll_start,
+                t_end=batch.t_end,
+            ).squeeze(-1).squeeze(-1)
+
+            intensity_samples.append(intensity)
+            integral_samples.append(integral)
+
+        intensity = torch.stack(intensity_samples, dim=0)
+        integral = torch.stack(integral_samples, dim=0)
+        kl = self._svgp_kl(
+            batch_size=time_series.shape[0],
+            device=intensity.device,
+            dtype=intensity.dtype,
+        )
+        self._last_kl = kl.detach()
+        return intensity, integral, kl
+
+    def kl_term(self, batch: DotDict, eps: float = 1e-8) -> torch.Tensor:
+        del eps
+        batch_size = batch.time_series.shape[0]
+        kl = self._svgp_kl(
+            batch_size=batch_size,
+            device=self.device,
+            dtype=torch.float32,
+        )
+        self._last_kl = kl.detach()
+        return self.beta_kl * kl

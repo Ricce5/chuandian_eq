@@ -160,6 +160,70 @@ def test_gp_latent_bg_model_nll_variants_are_finite_and_track_kl():
     assert torch.all(model.last_kl >= 0.0)
 
 
+def test_gp_latent_bg_model_project_handles_zero_conditional_variance_backward():
+    torch.manual_seed(0)
+    device = get_device()
+    model = make_model(
+        device,
+        d_feature=1,
+        d_model=8,
+        d_latent=3,
+        num_inducing=2,
+        sample_gp_residual=True,
+    )
+    model.train()
+    model.zero_grad(set_to_none=True)
+
+    time_grid = torch.zeros(1, 5, device=device, dtype=torch.float32)
+    inducing_values = torch.randn(
+        1,
+        model.num_inducing,
+        model.d_latent,
+        device=device,
+        dtype=torch.float32,
+    )
+    inducing_values.requires_grad_(True)
+
+    amplitude_sq = float(torch.exp(2.0 * model.log_gp_kernel_scale.detach()).cpu())
+
+    def _fake_gp_prior_stats(*, device: torch.device, dtype: torch.dtype):
+        inducing = torch.linspace(0.0, 1.0, model.num_inducing, device=device, dtype=dtype)
+        kuu_inv = torch.eye(model.num_inducing, device=device, dtype=dtype)
+        kuu_inv[0, 0] = 1.0 / amplitude_sq
+        return inducing, kuu_inv, torch.tensor(0.0, device=device, dtype=dtype)
+
+    def _fake_gp_kernel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        del y
+        k_tu = torch.zeros(
+            x.shape[0],
+            x.shape[1],
+            model.num_inducing,
+            device=x.device,
+            dtype=x.dtype,
+        )
+        k_tu[..., 0] = amplitude_sq
+        return k_tu
+
+    with patch.object(model, "_gp_prior_stats", side_effect=_fake_gp_prior_stats), patch.object(
+        model,
+        "_gp_kernel",
+        side_effect=_fake_gp_kernel,
+    ):
+        latent = model._project_inducing_to_grid(
+            time_grid,
+            inducing_values,
+            sample_latent=True,
+        )
+        loss = latent.square().mean()
+        loss.backward()
+
+    assert torch.isfinite(latent).all()
+    assert inducing_values.grad is not None
+    assert torch.isfinite(inducing_values.grad).all()
+    assert model.log_gp_kernel_scale.grad is not None
+    assert torch.isfinite(model.log_gp_kernel_scale.grad).all()
+
+
 def test_gp_latent_bg_model_uses_multiple_mc_samples_in_train_nll():
     torch.manual_seed(0)
     device = get_device()

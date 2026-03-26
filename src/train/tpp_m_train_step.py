@@ -2,6 +2,7 @@ import torch
 from tqdm import tqdm
 from src.utils.metrics import  log_metrics
 from .trainer import step_scheduler
+from .noise_augmentation import augment_tpp_batch_inplace
 from torch.nn.utils import clip_grad_norm_
 from contextlib import nullcontext
 from torch import amp
@@ -11,6 +12,7 @@ def _mean_if_tensor(x):
 
 def _avg_from_out_dict(out_dict):
     return {key: _mean_if_tensor(value) for key, value in out_dict.items()}
+
 
 def train(
     data_loader, model, criterion, optimizer, scheduler, device,
@@ -36,6 +38,7 @@ def train(
 
     for i, batch in enumerate(tqdm(data_loader, desc=pbar_desc)):
         batch = batch.to(device)
+        augment_tpp_batch_inplace(batch, model)
 
         with amp_ctx:
             out = model.nll_loss(batch, **nll_kwargs)

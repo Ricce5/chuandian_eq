@@ -197,6 +197,17 @@ checkpoints/reg_mixer_attnpl_t_20260131-112552
 
 
 单区域单时间段：
-PNR, CB_HAB1a
+PNR, CB_HAB1a,CB_HAB4, St1-2018(-0.5)
 存在问题:
-SSFS1993,  CB_HAB1b
+SSFS1993(数据有问题),  CB_HAB1b,  St1-2018(0), St1-2020(注入阶段少) , SSFS2005
+注入阶段少：
+Basel, SSFS2000, SSFS2004
+数据少:
+SSFS2005
+数据分布明显变化：
+Forge2022
+
+
+单区域不同时间段 (考虑微调)
+1. PNR1z  PNR2
+2. St1-2018  St1-2020
