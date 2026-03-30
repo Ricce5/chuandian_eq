@@ -21,8 +21,8 @@ class St12018Standard(InducedTripletBase):
         end_ts: Optional[Union[pd.Timestamp, str]] = "2018-8-21T23:59:59", 
          # 后面数据没有注水但地震大量增加，应该是注水数据缺失了，所以截止到2018-8-21
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = "2018-7-14T00:00:00",
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = "2018-7-20T00:00:00",
     ):
         super().__init__(
             dataset_name="St1-2018",

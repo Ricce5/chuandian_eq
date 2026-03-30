@@ -647,3 +647,224 @@ SCEDC：checkpoints/mixer_tpp_20260206-112901
 
 ChuanDian：checkpoints/mixer_tpp_20260207-095619
 checkpoints/mixer_tpp_20260204-220105
+
+
+
+
+
+1. PNR_1z:
+ETAS+P: checkpoints/etas_20260330-231015
+{
+  "nll_train_time": -6.000354290008545,
+  "nll_train_total": -6.000354290008545,
+  "nll_val_time": -6.524806022644043,
+  "nll_val_total": -6.524806022644043,
+  "nll_test_time": -6.367061614990234,
+  "nll_test_total": -6.367061614990234,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+ETAS+conv_mlp: checkpoints/etas_20260330-231441
+{
+  "nll_train_time": -5.991494178771973,
+  "nll_train_total": -5.991494178771973,
+  "nll_val_time": -6.4781012535095215,
+  "nll_val_total": -6.4781012535095215,
+  "nll_test_time": -6.373833656311035,
+  "nll_test_total": -6.373833656311035,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+ETAS+mamba: checkpoints/etas_20260330-231612
+{
+  "nll_train_time": -6.013334274291992,
+  "nll_train_total": -6.013334274291992,
+  "nll_val_time": -6.540414810180664,
+  "nll_val_total": -6.540414810180664,
+  "nll_test_time": -6.382467269897461,
+  "nll_test_total": -6.382467269897461,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+ETAS+mamba+gp:
+{
+  "nll_train_time": -5.998855113983154,
+  "nll_train_total": -5.956877708435059,
+  "nll_train_bg_kl": 0.041977860033512115,
+  "nll_val_time": -6.542019844055176,
+  "nll_val_total": -6.433897018432617,
+  "nll_val_bg_kl": 0.10812271386384964,
+  "nll_test_time": -6.383713722229004,
+  "nll_test_total": -6.230784893035889,
+  "nll_test_bg_kl": 0.15292899310588837,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+
+2. CB_HAB1a(-0.4):
+ETAS+P: checkpoints/etas_20260330-155945
+{
+  "nll_train_time": -5.095571994781494,
+  "nll_train_total": -5.095571994781494,
+  "nll_val_time": -4.848620891571045,
+  "nll_val_total": -4.848620891571045,
+  "nll_test_time": -3.7083961963653564,
+  "nll_test_total": -3.7083961963653564,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+ETAS+conv_mlp: checkpoints/etas_20260330-161827
+{
+  "nll_train_time": -5.319257736206055,
+  "nll_train_total": -5.319257736206055,
+  "nll_val_time": -5.2232255935668945,
+  "nll_val_total": -5.2232255935668945,
+  "nll_test_time": -5.0861029624938965,
+  "nll_test_total": -5.0861029624938965,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+ETAS+mamba: checkpoints/etas_20260330-161340
+{
+  "nll_train_time": -5.321388244628906,
+  "nll_train_total": -5.321388244628906,
+  "nll_val_time": -5.216009140014648,
+  "nll_val_total": -5.216009140014648,
+  "nll_test_time": -5.0885725021362305,
+  "nll_test_total": -5.0885725021362305,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+ETAS+mamba+gp: checkpoints/etas_20260330-144040
+{
+  "nll_train_time": -5.328885555267334,
+  "nll_train_total": -5.302903652191162,
+  "nll_train_bg_kl": 0.02598220854997635,
+  "nll_val_time": -5.206945896148682,
+  "nll_val_total": -5.011465072631836,
+  "nll_val_bg_kl": 0.1954808086156845,
+  "nll_test_time": -5.100043773651123,
+  "nll_test_total": -4.795830249786377,
+  "nll_test_bg_kl": 0.3042137920856476,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+
+3. CB_HAB4:
+ETAS+P: checkpoints/etas_20260330-183028
+{
+  "nll_train_time": -4.635933876037598,
+  "nll_train_total": -4.635933876037598,
+  "nll_val_time": -5.55360746383667,
+  "nll_val_total": -5.55360746383667,
+  "nll_test_time": -3.8005523681640625,
+  "nll_test_total": -3.8005523681640625,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+ETAS+conv_mlp: checkpoints/etas_20260330-183526 checkpoints/etas_20260330-184009 (点太多，采样失败)
+{
+  "nll_train_time": -4.907235622406006,
+  "nll_train_total": -4.907235622406006,
+  "nll_val_time": -5.7752909660339355,
+  "nll_val_total": -5.7752909660339355,
+  "nll_test_time": -4.563719272613525,
+  "nll_test_total": -4.563719272613525,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+ETAS+mamba: checkpoints/etas_20260330-182010
+{
+  "nll_train_time": -5.182605743408203,
+  "nll_train_total": -5.182605743408203,
+  "nll_val_time": -6.006970405578613,
+  "nll_val_total": -6.006970405578613,
+  "nll_test_time": -4.775404930114746,
+  "nll_test_total": -4.775404930114746,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+
+ETAS+mamba+gp: checkpoints/etas_20260330-185654  
+{
+  "nll_train_time": -5.183523654937744,
+  "nll_train_total": -5.13915491104126,
+  "nll_train_bg_kl": 0.04436931386590004,
+  "nll_val_time": -6.001755237579346,
+  "nll_val_total": -5.871023178100586,
+  "nll_val_bg_kl": 0.1307324320077896,
+  "nll_test_time": -4.739864349365234,
+  "nll_test_total": -4.555238246917725,
+  "nll_test_bg_kl": 0.18462617695331573,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+
+
+
+
+4. St1-2018(-0.5):
+ETAS+P: checkpoints/etas_20260330-163949
+{
+  "nll_train_time": -5.54155969619751,
+  "nll_train_total": -5.54155969619751,
+  "nll_val_time": -5.576829433441162,
+  "nll_val_total": -5.576829433441162,
+  "nll_test_time": -4.8479838371276855,
+  "nll_test_total": -4.8479838371276855,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+ETAS+conv_mlp: checkpoints/etas_20260330-173120
+{
+  "nll_train_time": -5.544078826904297,
+  "nll_train_total": -5.544078826904297,
+  "nll_val_time": -5.576200485229492,
+  "nll_val_total": -5.576200485229492,
+  "nll_test_time": -4.846304416656494,
+  "nll_test_total": -4.846304416656494,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+ETAS+mamba: checkpoints/etas_20260330-142641
+{
+  "nll_train_time": -5.545408248901367,
+  "nll_train_total": -5.545408248901367,
+  "nll_val_time": -5.577223300933838,
+  "nll_val_total": -5.577223300933838,
+  "nll_test_time": -4.847962856292725,
+  "nll_test_total": -4.847962856292725,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+
+ETAS+mamba+gp: checkpoints/etas_20260330-175345
+{
+  "nll_train_time": -5.544462203979492,
+  "nll_train_total": -5.539621829986572,
+  "nll_train_bg_kl": 0.004840136505663395,
+  "nll_val_time": -5.576732158660889,
+  "nll_val_total": -5.550709247589111,
+  "nll_val_bg_kl": 0.02602260559797287,
+  "nll_test_time": -4.847546577453613,
+  "nll_test_total": -4.811316967010498,
+  "nll_test_bg_kl": 0.03622935712337494,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}

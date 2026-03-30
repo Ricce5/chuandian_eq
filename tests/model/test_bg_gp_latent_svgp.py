@@ -142,3 +142,30 @@ def test_svgp_gp_latent_bg_model_nll_is_finite_and_tracks_kl():
     assert torch.allclose(kl[0], kl[1])
     assert model.last_kl is not None
     assert torch.isfinite(model.last_kl).all()
+
+
+def test_svgp_gp_latent_bg_model_auto_initializes_global_time_bounds():
+    device = get_device()
+    batch = make_batch(device)
+    batch.time_series_times = torch.linspace(3.0, 15.0, batch.time_series_times.shape[1], device=device).unsqueeze(0).repeat(
+        batch.time_series_times.shape[0], 1
+    )
+
+    model = make_model(
+        device,
+        d_feature=batch.time_series.shape[-1],
+        d_model=8,
+        d_latent=4,
+        num_inducing=5,
+        time_normalization="global",
+        global_time_min=None,
+        global_time_max=None,
+    )
+    model.eval()
+
+    assert model.global_time_min is None
+    assert model.global_time_max is None
+    _ = model.intensity(batch)
+    assert model.global_time_min is not None
+    assert model.global_time_max is not None
+    assert model.global_time_max > model.global_time_min

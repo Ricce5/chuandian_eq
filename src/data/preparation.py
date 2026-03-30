@@ -180,6 +180,38 @@ def prepare_data_lstm(args, base_dir):
     return features_df,data_loaders['train'], data_loaders['val'], data_loaders['test'], dataset
 
 
+def _auto_configure_global_bg_time_bounds(args, stats_source):
+    """Populate bg_model_cfg global time bounds when global normalization is enabled."""
+    bg_cfg = getattr(args, "bg_model_cfg", None)
+    if bg_cfg is None:
+        return
+
+    time_normalization = str(getattr(bg_cfg, "time_normalization", "per_sequence")).strip().lower()
+    if time_normalization != "global":
+        return
+
+    has_min = getattr(bg_cfg, "global_time_min", None) is not None
+    has_max = getattr(bg_cfg, "global_time_max", None) is not None
+    if has_min and has_max:
+        return
+    if has_min != has_max:
+        raise ValueError(
+            "bg_model_cfg.global_time_min/global_time_max must be both set or both unset "
+            "when time_normalization='global'."
+        )
+
+    time_min = min(float(seq.t_start) for seq in stats_source)
+    time_max = max(float(seq.t_end) for seq in stats_source)
+    bg_cfg.global_time_min = float(time_min)
+    bg_cfg.global_time_max = float(time_max)
+    logger.info(
+        "Auto-configured bg_model_cfg global time bounds: "
+        "global_time_min=%.6f, global_time_max=%.6f",
+        bg_cfg.global_time_min,
+        bg_cfg.global_time_max,
+    )
+
+
 def prepare_data_tpp(args, base_dir):
     import torch
     from src.data.tpp_dataset import TppDataset
@@ -207,8 +239,10 @@ def prepare_data_tpp(args, base_dir):
             + catalog_ds.val.sequences
             + catalog_ds.test.sequences
         )
+    _auto_configure_global_bg_time_bounds(args, stats_source)
 
     args.tau_mean = torch.cat([seq.inter_times[:-1] for seq in stats_source]).mean().item()
+    args.time_min = torch.min(torch.tensor([seq.t_start for seq in stats_source])).item()
     args.tau_min = torch.cat([seq.inter_times[:-1] for seq in stats_source]).min().item()
     args.tau_max = torch.cat([seq.inter_times[:-1] for seq in stats_source]).max().item()
     args.tau_q05 = torch.cat([seq.inter_times[:-1] for seq in stats_source]).quantile(0.5).item()

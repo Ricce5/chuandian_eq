@@ -18,6 +18,7 @@ class ConvMLPBGModel(BGModel):
                  device=None,
                  conv_kernel_size=4,
                  conv_bias=True,
+                 mlp_bias=True,
                  conv_activation="silu",   #  "silu"/"swish"/None
                  num_conv_layers=1,     
                  ):
@@ -45,6 +46,7 @@ class ConvMLPBGModel(BGModel):
             activation=activation,
             dropout_rate=dropout,
             use_norm=False,
+            linear_bias=mlp_bias,
         )
 
         if device is not None:

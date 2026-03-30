@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,6 +19,8 @@ from src.utils.interp import integrate_uniform_time_series, interp_uniform_time_
 
 from .base import BGModel
 from .kernel import _causal_depthwise_conv1d
+
+logger = logging.getLogger(__name__)
 
 
 @BGModel.register("gp_latent_bg")
@@ -47,6 +51,10 @@ class GPLatentBGModel(BGModel):
         gp_jitter: float = 1e-4,
         sample_gp_residual: bool = True,
         smooth_kernel_size: int | None = None,
+        time_normalization: str = "per_sequence",
+        global_time_min: float | None = None,
+        global_time_max: float | None = None,
+        clamp_normalized_time: bool = True,
         no_weight_decay: bool = False,
         device: torch.device | None = None,
     ):
@@ -65,6 +73,12 @@ class GPLatentBGModel(BGModel):
         self.mc_samples_eval = int(mc_samples_eval)
         self.gp_jitter = float(gp_jitter)
         self.sample_gp_residual = bool(sample_gp_residual)
+        self.time_normalization = str(time_normalization).strip().lower()
+        self.global_time_min = None if global_time_min is None else float(global_time_min)
+        self.global_time_max = None if global_time_max is None else float(global_time_max)
+        self.clamp_normalized_time = bool(clamp_normalized_time)
+        self._auto_global_time_bounds = False
+        self._auto_global_time_bounds_logged = False
 
         if self.mc_samples_train < 1 or self.mc_samples_eval < 1:
             raise ValueError("mc_samples_train and mc_samples_eval must be >= 1.")
@@ -76,6 +90,25 @@ class GPLatentBGModel(BGModel):
             raise ValueError("gp_kernel_scale_init must be > 0.")
         if self.gp_jitter <= 0.0:
             raise ValueError("gp_jitter must be > 0.")
+        if self.time_normalization not in {"per_sequence", "global"}:
+            raise ValueError(
+                "time_normalization must be one of {'per_sequence', 'global'}."
+            )
+        if self.time_normalization == "global":
+            has_global_min = self.global_time_min is not None
+            has_global_max = self.global_time_max is not None
+            if has_global_min != has_global_max:
+                raise ValueError(
+                    "global_time_min and global_time_max must be both set or both "
+                    "unset when time_normalization='global'."
+                )
+            self._auto_global_time_bounds = not has_global_min
+        if (
+            self.global_time_min is not None
+            and self.global_time_max is not None
+            and self.global_time_max <= self.global_time_min
+        ):
+            raise ValueError("global_time_max must be > global_time_min.")
 
         model_cls = {"mamba": Mamba, "mamba2": Mamba2}.get(backbone_type.lower())
         if model_cls is None:
@@ -171,10 +204,9 @@ class GPLatentBGModel(BGModel):
         mask: torch.Tensor | None,
     ) -> torch.Tensor:
         time_series_times = time_series_times.to(dtype=torch.float32)
-        t0 = time_series_times[:, :1]
         if mask is None:
             effective_times = time_series_times
-            t1 = time_series_times[:, -1:]
+            t_last = time_series_times[:, -1:]
         else:
             mask_bool = mask.to(device=time_series_times.device).bool()
             lengths = mask_bool.long().sum(dim=1).clamp_min(1)
@@ -182,10 +214,54 @@ class GPLatentBGModel(BGModel):
             t_last = time_series_times.gather(1, last_idx.unsqueeze(1))
             effective_times = torch.where(mask_bool, time_series_times, t_last.expand_as(time_series_times))
             # In masked positions, we set time to the last valid time to avoid extrapolation in GP interpolation. The normalization will still be based on the actual last time point.
+
+        if self.time_normalization == "global":
+            self._maybe_init_global_time_bounds(effective_times, t_last)
+            t0 = torch.full_like(
+                t_last,
+                fill_value=float(self.global_time_min),
+            )
+            t1 = torch.full_like(
+                t_last,
+                fill_value=float(self.global_time_max),
+            )
+        else:
+            t0 = time_series_times[:, :1]
             t1 = t_last
 
         duration = (t1 - t0).clamp_min(1e-6)
-        return ((effective_times - t0) / duration).clamp(0.0, 1.0)
+        normalized_times = (effective_times - t0) / duration
+        if self.clamp_normalized_time:
+            normalized_times = normalized_times.clamp(0.0, 1.0)
+        return normalized_times
+
+    def _maybe_init_global_time_bounds(
+        self,
+        effective_times: torch.Tensor,
+        t_last: torch.Tensor,
+    ) -> None:
+        if not self._auto_global_time_bounds:
+            return
+        if self.global_time_min is not None and self.global_time_max is not None:
+            return
+
+        inferred_min = float(effective_times.amin().item())
+        inferred_max = float(t_last.amax().item())
+        if inferred_max <= inferred_min:
+            inferred_max = inferred_min + 1e-6
+
+        self.global_time_min = inferred_min
+        self.global_time_max = inferred_max
+        self._auto_global_time_bounds = False
+        if not self._auto_global_time_bounds_logged:
+            logger.info(
+                "Auto-initialized global time bounds for %s: "
+                "global_time_min=%.6f, global_time_max=%.6f",
+                self.__class__.__name__,
+                self.global_time_min,
+                self.global_time_max,
+            )
+            self._auto_global_time_bounds_logged = True
 
     def _gp_kernel(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Compute RBF kernel matrix between x and y with learnable lengthscale and amplitude.
@@ -245,12 +321,24 @@ class GPLatentBGModel(BGModel):
         logvar: torch.Tensor,
         *,
         sample_latent: bool | None = None,
+        num_samples: int = 1,
     ) -> torch.Tensor:
+        if num_samples < 1:
+            raise ValueError("num_samples must be >= 1.")
         should_sample = self._should_sample_latent() if sample_latent is None else bool(sample_latent)
         if not should_sample:
-            return mu
+            if num_samples == 1:
+                return mu
+            return mu.unsqueeze(0).repeat(num_samples, 1, 1, 1)
         std = torch.exp(0.5 * logvar)
-        return mu + std * torch.randn_like(std)
+        if num_samples == 1:
+            return mu + std * torch.randn_like(std)
+        noise = torch.randn(
+            (num_samples,) + std.shape,
+            device=std.device,
+            dtype=std.dtype,
+        )
+        return mu.unsqueeze(0) + std.unsqueeze(0) * noise
 
     def _project_inducing_to_grid(
         self,
@@ -265,13 +353,22 @@ class GPLatentBGModel(BGModel):
         Returns:
             latent_mean: (batch_size, seq_len, d_latent)
         """
+        # Project f(t) into subspace spanned by k(t, u) for u in inducing positions. 
         inducing, kuu_inv, _ = self._gp_prior_stats(
             device=time_grid.device,
             dtype=time_grid.dtype,
         )
         k_tu = self._gp_kernel(time_grid, inducing) # (batch_size, seq_len, num_inducing)
-        alpha = torch.einsum("mn,bnd->bmd", kuu_inv, inducing_values)
-        latent_mean = torch.einsum("btm,bmd->btd", k_tu, alpha) 
+        if inducing_values.dim() == 3:
+            alpha = torch.einsum("mn,bnd->bmd", kuu_inv, inducing_values)
+            latent_mean = torch.einsum("btm,bmd->btd", k_tu, alpha)
+        elif inducing_values.dim() == 4:
+            alpha = torch.einsum("mn,sbnd->sbmd", kuu_inv, inducing_values)
+            latent_mean = torch.einsum("btm,sbmd->sbtd", k_tu, alpha)
+        else:
+            raise ValueError(
+                "inducing_values must have shape (B, M, D) or (S, B, M, D)."
+            )
         # \mu_{t\mid u} = K_{t,u} K_{u,u}^{-1} u
 
         should_sample = self._should_sample_latent() if sample_latent is None else bool(sample_latent)
@@ -308,6 +405,88 @@ class GPLatentBGModel(BGModel):
             trace_term + quad_term - self.num_inducing + logdet_kuu - logdet_q
         )
         return kl_per_latent.sum(dim=1) # (batch_size, d_latent) -> (batch_size,)
+
+    def _repeat_batch_tensor(self, x: torch.Tensor | None, num_samples: int) -> torch.Tensor | None:
+        if x is None or num_samples == 1:
+            return x
+        if x.dim() == 0:
+            return x
+        return x.repeat((num_samples,) + (1,) * (x.dim() - 1))
+
+    def _finalize_intensity_traj(self, scaled_intensity: torch.Tensor) -> torch.Tensor:
+        intensity_traj = scaled_intensity * self._scale
+        return intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
+
+    def _decode_mc_samples(
+        self,
+        hidden: torch.Tensor,
+        latent_traj: torch.Tensor,
+        mask: torch.Tensor | None,
+    ) -> torch.Tensor:
+        if latent_traj.dim() == 3:
+            return self._decode(hidden, latent_traj, mask).unsqueeze(0)
+        if latent_traj.dim() != 4:
+            raise ValueError(
+                "latent_traj must have shape (B, T, D) or (S, B, T, D)."
+            )
+
+        num_samples, batch_size, seq_len, d_latent = latent_traj.shape
+        hidden_mc = hidden.repeat((num_samples, 1, 1))
+        mask_mc = self._repeat_batch_tensor(mask, num_samples)
+        scaled_flat = self._decode(
+            hidden_mc,
+            latent_traj.reshape(num_samples * batch_size, seq_len, d_latent),
+            mask_mc,
+        )
+        return scaled_flat.reshape(num_samples, batch_size, seq_len, -1)
+
+    def _mc_nll_observation_terms(
+        self,
+        *,
+        time_series_times: torch.Tensor,
+        intensity_traj: torch.Tensor,
+        arrival_times: torch.Tensor,
+        t_start: torch.Tensor,
+        t_end: torch.Tensor,
+        eps: float,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if intensity_traj.dim() == 3:
+            intensity_traj = intensity_traj.unsqueeze(0)
+        if intensity_traj.dim() != 4:
+            raise ValueError(
+                "intensity_traj must have shape (B, T, F) or (S, B, T, F)."
+            )
+
+        num_samples, batch_size, seq_len, num_features = intensity_traj.shape
+        flat_intensity_traj = intensity_traj.reshape(
+            num_samples * batch_size,
+            seq_len,
+            num_features,
+        )
+        flat_time_series_times = self._repeat_batch_tensor(time_series_times, num_samples)
+        flat_arrival_times = self._repeat_batch_tensor(arrival_times, num_samples)
+        flat_t_start = self._repeat_batch_tensor(t_start, num_samples)
+        flat_t_end = self._repeat_batch_tensor(t_end, num_samples)
+
+        intensity = interp_uniform_time_series(
+            t=flat_time_series_times,
+            x=flat_intensity_traj,
+            t_query=flat_arrival_times,
+            clamp=True,
+        ).squeeze(-1)
+        intensity = clamp_preserve_gradients(intensity, eps, float("inf"))
+
+        integral = integrate_uniform_time_series(
+            t=flat_time_series_times,
+            x=flat_intensity_traj,
+            t_start=flat_t_start,
+            t_end=flat_t_end,
+        ).squeeze(-1).squeeze(-1)
+
+        return (
+            intensity.reshape(num_samples, batch_size, -1),
+            integral.reshape(num_samples, batch_size),
+        )
 
     def _decode(
         self,
@@ -375,8 +554,7 @@ class GPLatentBGModel(BGModel):
             mask=time_series_mask,
             sample_latent=None,
         )
-        intensity_traj = scaled_intensity * self._scale
-        intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
+        intensity_traj = self._finalize_intensity_traj(scaled_intensity)
         return time_series_times, intensity_traj
 
     def _compute_shared_nll_terms(
@@ -402,38 +580,27 @@ class GPLatentBGModel(BGModel):
             dtype=time_series_times.dtype,
         )
 
-        intensity_samples = []
-        integral_samples = []
-        for _ in range(num_samples):
-            inducing_values = self._sample_inducing(mu, logvar, sample_latent=sample_latent)
-            latent_traj = self._project_inducing_to_grid(
-                time_grid,
-                inducing_values,
-                sample_latent=sample_latent,
-            )
-            scaled_intensity = self._decode(hidden, latent_traj, time_series_mask)
-            intensity_traj = scaled_intensity * self._scale
-            intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
-
-            intensity = interp_uniform_time_series(
-                t=time_series_times,
-                x=intensity_traj,
-                t_query=arrival_times,
-                clamp=True,
-            ).squeeze(-1)
-            intensity = clamp_preserve_gradients(intensity, eps, float("inf"))
-            integral = integrate_uniform_time_series(
-                t=time_series_times,
-                x=intensity_traj,
-                t_start=batch.t_nll_start,
-                t_end=batch.t_end,
-            ).squeeze(-1).squeeze(-1)
-
-            intensity_samples.append(intensity)
-            integral_samples.append(integral)
-
-        intensity = torch.stack(intensity_samples, dim=0)
-        integral = torch.stack(integral_samples, dim=0)
+        inducing_values = self._sample_inducing(
+            mu,
+            logvar,
+            sample_latent=sample_latent,
+            num_samples=num_samples,
+        )
+        latent_traj = self._project_inducing_to_grid(
+            time_grid,
+            inducing_values,
+            sample_latent=sample_latent,
+        )
+        scaled_intensity = self._decode_mc_samples(hidden, latent_traj, time_series_mask)
+        intensity_traj = self._finalize_intensity_traj(scaled_intensity)
+        intensity, integral = self._mc_nll_observation_terms(
+            time_series_times=time_series_times,
+            intensity_traj=intensity_traj,
+            arrival_times=arrival_times,
+            t_start=batch.t_nll_start,
+            t_end=batch.t_end,
+            eps=eps,
+        )
         self._last_kl = kl.detach()
         return intensity, integral, kl
 
@@ -498,6 +665,10 @@ class GPyTorchGPLatentBGModel(GPLatentBGModel):
         gp_jitter: float = 1e-4,
         sample_gp_residual: bool = True,
         smooth_kernel_size: int | None = None,
+        time_normalization: str = "per_sequence",
+        global_time_min: float | None = None,
+        global_time_max: float | None = None,
+        clamp_normalized_time: bool = True,
         no_weight_decay: bool = False,
         device: torch.device | None = None,
     ):
@@ -524,6 +695,10 @@ class GPyTorchGPLatentBGModel(GPLatentBGModel):
             gp_jitter=gp_jitter,
             sample_gp_residual=sample_gp_residual,
             smooth_kernel_size=smooth_kernel_size,
+            time_normalization=time_normalization,
+            global_time_min=global_time_min,
+            global_time_max=global_time_max,
+            clamp_normalized_time=clamp_normalized_time,
             no_weight_decay=no_weight_decay,
             device=device,
         )
@@ -594,8 +769,16 @@ class GPyTorchGPLatentBGModel(GPLatentBGModel):
         time_input = self._to_kernel_input(time_grid)
         inducing_input = self._to_kernel_input(inducing)
         k_tu = self.gp_kernel_module(time_input, inducing_input).to_dense()
-        alpha = kuu_op.solve(inducing_values)
-        latent_mean = torch.einsum("btm,bmd->btd", k_tu, alpha)
+        flat_inducing_values = inducing_values.reshape(-1, self.num_inducing, self.d_latent)
+        alpha = kuu_op.solve(flat_inducing_values).reshape(inducing_values.shape)
+        if inducing_values.dim() == 3:
+            latent_mean = torch.einsum("btm,bmd->btd", k_tu, alpha)
+        elif inducing_values.dim() == 4:
+            latent_mean = torch.einsum("btm,sbmd->sbtd", k_tu, alpha)
+        else:
+            raise ValueError(
+                "inducing_values must have shape (B, M, D) or (S, B, M, D)."
+            )
 
         should_sample = self._should_sample_latent() if sample_latent is None else bool(sample_latent)
         if not (should_sample and self.sample_gp_residual):
@@ -709,8 +892,13 @@ class StandardSVGPGPLatentBGModel(GPLatentBGModel):
         gp_jitter: float = 1e-4,
         sample_gp_residual: bool = True,
         smooth_kernel_size: int | None = None,
+        time_normalization: str = "global",
+        global_time_min: float | None = None,
+        global_time_max: float | None = None,
+        clamp_normalized_time: bool = True,
         no_weight_decay: bool = False,
         learn_inducing_locations: bool = True,
+        diagonal_sampling: bool = True,
         device: torch.device | None = None,
     ):
         if gpytorch is None:
@@ -736,6 +924,10 @@ class StandardSVGPGPLatentBGModel(GPLatentBGModel):
             gp_jitter=gp_jitter,
             sample_gp_residual=sample_gp_residual,
             smooth_kernel_size=smooth_kernel_size,
+            time_normalization=time_normalization,
+            global_time_min=global_time_min,
+            global_time_max=global_time_max,
+            clamp_normalized_time=clamp_normalized_time,
             no_weight_decay=no_weight_decay,
             device=device,
         )
@@ -757,6 +949,7 @@ class StandardSVGPGPLatentBGModel(GPLatentBGModel):
             gp_jitter=self.gp_jitter,
             learn_inducing_locations=learn_inducing_locations,
         )
+        self.diagonal_sampling = bool(diagonal_sampling)
 
         if no_weight_decay:
             for param in self.svgp.parameters():
@@ -788,14 +981,34 @@ class StandardSVGPGPLatentBGModel(GPLatentBGModel):
         time_grid: torch.Tensor,
         *,
         sample_latent: bool | None = None,
+        num_samples: int = 1,
     ) -> torch.Tensor:
+        if num_samples < 1:
+            raise ValueError("num_samples must be >= 1.")
         latent_dist, batch_size, seq_len = self._svgp_dist(time_grid)
+        latent_mean = latent_dist.mean.reshape(batch_size, seq_len, self.d_latent)
         should_sample = self._should_sample_latent() if sample_latent is None else bool(sample_latent)
         if should_sample and self.sample_gp_residual:
-            latent_flat = latent_dist.rsample()
-        else:
-            latent_flat = latent_dist.mean
-        return latent_flat.reshape(batch_size, seq_len, self.d_latent)
+            if self.diagonal_sampling:
+                latent_var = latent_dist.variance.reshape(batch_size, seq_len, self.d_latent)
+                latent_std = torch.sqrt(latent_var.clamp_min(self.gp_jitter))
+                if num_samples == 1:
+                    return latent_mean + latent_std * torch.randn_like(latent_mean)
+                noise = torch.randn(
+                    (num_samples,) + latent_mean.shape,
+                    device=latent_mean.device,
+                    dtype=latent_mean.dtype,
+                )
+                return latent_mean.unsqueeze(0) + latent_std.unsqueeze(0) * noise
+            if num_samples == 1:
+                latent_flat = latent_dist.rsample()
+                return latent_flat.reshape(batch_size, seq_len, self.d_latent)
+            latent_flat = latent_dist.rsample(sample_shape=torch.Size([num_samples]))
+            return latent_flat.reshape(num_samples, batch_size, seq_len, self.d_latent)
+
+        if num_samples == 1:
+            return latent_mean
+        return latent_mean.unsqueeze(0).repeat(num_samples, 1, 1, 1)
 
     def _build_scaled_intensity(
         self,
@@ -838,36 +1051,21 @@ class StandardSVGPGPLatentBGModel(GPLatentBGModel):
             dtype=time_series_times.dtype,
         )
 
-        intensity_samples = []
-        integral_samples = []
-        for _ in range(num_samples):
-            latent_traj = self._sample_latent_traj(
-                time_grid,
-                sample_latent=sample_latent,
-            )
-            scaled_intensity = self._decode(hidden, latent_traj, time_series_mask)
-            intensity_traj = scaled_intensity * self._scale
-            intensity_traj = intensity_traj + (intensity_traj.clamp_min(0.0) - intensity_traj).detach()
-
-            intensity = interp_uniform_time_series(
-                t=time_series_times,
-                x=intensity_traj,
-                t_query=arrival_times,
-                clamp=True,
-            ).squeeze(-1)
-            intensity = clamp_preserve_gradients(intensity, eps, float("inf"))
-            integral = integrate_uniform_time_series(
-                t=time_series_times,
-                x=intensity_traj,
-                t_start=batch.t_nll_start,
-                t_end=batch.t_end,
-            ).squeeze(-1).squeeze(-1)
-
-            intensity_samples.append(intensity)
-            integral_samples.append(integral)
-
-        intensity = torch.stack(intensity_samples, dim=0)
-        integral = torch.stack(integral_samples, dim=0)
+        latent_traj = self._sample_latent_traj(
+            time_grid,
+            sample_latent=sample_latent,
+            num_samples=num_samples,
+        )
+        scaled_intensity = self._decode_mc_samples(hidden, latent_traj, time_series_mask)
+        intensity_traj = self._finalize_intensity_traj(scaled_intensity)
+        intensity, integral = self._mc_nll_observation_terms(
+            time_series_times=time_series_times,
+            intensity_traj=intensity_traj,
+            arrival_times=arrival_times,
+            t_start=batch.t_nll_start,
+            t_end=batch.t_end,
+            eps=eps,
+        )
         kl = self._svgp_kl(
             batch_size=time_series.shape[0],
             device=intensity.device,

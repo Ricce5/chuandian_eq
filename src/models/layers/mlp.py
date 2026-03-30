@@ -13,7 +13,8 @@ class MLP(nn.Module):
                  dropout_rate: float = 0.2,
                  activation: Type[nn.Module] = nn.GELU,
                  use_norm: bool = True,
-                 norm_type: str = "layer"):
+                 norm_type: str = "layer",
+                 linear_bias: bool = True):
         """
         norm_type: 'layer' (LayerNorm) or 'batch' (BatchNorm1d). use_norm=False disables normalization.
         activation: the activation function class (not instance), e.g., nn.ReLU, nn.GELU, nn.Tanh
@@ -25,13 +26,20 @@ class MLP(nn.Module):
         self.dropout_rate = dropout_rate
         self.use_norm = use_norm
         self.norm_type = (norm_type or "").lower()
+        self.linear_bias = bool(linear_bias)
 
         layers: List[nn.Module] = []
         self.layers_width = [self.input_size] + self.hidden_layers_width
 
         for i in range(len(self.layers_width) - 1):
             out_features = self.layers_width[i + 1]
-            layers.append(nn.Linear(self.layers_width[i], out_features))
+            layers.append(
+                nn.Linear(
+                    self.layers_width[i],
+                    out_features,
+                    bias=self.linear_bias,
+                )
+            )
 
             if self.use_norm:
                 if self.norm_type in ("layer", "layernorm"):
@@ -44,7 +52,13 @@ class MLP(nn.Module):
             layers.append(activation())  # instantiate the activation function
             layers.append(nn.Dropout(self.dropout_rate))
 
-        layers.append(nn.Linear(self.layers_width[-1], self.output_size))
+        layers.append(
+            nn.Linear(
+                self.layers_width[-1],
+                self.output_size,
+                bias=self.linear_bias,
+            )
+        )
         self.fc = nn.Sequential(*layers)
 
     def forward(self, x):
