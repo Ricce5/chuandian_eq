@@ -81,3 +81,23 @@ def test_nll_loss_with_background_constant_intensity():
 
     # With λ_bg=1, NLL for each seq = integral/duration = (t_end - t_start)/(t_end - t_start) = 1
     torch.testing.assert_close(nll, torch.ones_like(nll), rtol=1e-4, atol=1e-4)
+
+
+def test_nll_loss_zero_length_window_is_finite_and_zero():
+    """When t_nll_start == t_end, ETAS nll should be finite and exactly zero."""
+
+    seq = Sequence(
+        inter_times=torch.tensor([1.0, 2.0, 3.0]),  # t_end = 6.0
+        t_start=0.0,
+        t_nll_start=6.0,
+        mag=torch.tensor([3.0, 3.2]),
+    )
+    batch = Batch.from_list([seq])
+    model = ETAS(device=torch.device("cpu"))
+
+    out = model.nll_loss(batch, reduction="none", return_dict=True)
+
+    assert torch.isfinite(out["time"]).all()
+    assert torch.isfinite(out["total"]).all()
+    torch.testing.assert_close(out["time"], torch.zeros_like(out["time"]), rtol=1e-6, atol=1e-6)
+    torch.testing.assert_close(out["total"], torch.zeros_like(out["total"]), rtol=1e-6, atol=1e-6)

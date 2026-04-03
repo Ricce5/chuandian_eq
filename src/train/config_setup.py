@@ -318,6 +318,9 @@ def get_scheduler(scheduler_type, optimizer, args, train_dataloader=None):
         return max(1, len(train_dataloader) * args.epochs // accumulation_steps)
 
     if scheduler_type == "plateau":
+        assert args.scheduler_patience is not None, "scheduler_patience must be set for ReduceLROnPlateau"
+        assert args.scheduler_threshold is not None, "scheduler_threshold must be set for ReduceLROnPlateau"
+        assert args.scheduler_min_lr is not None, "scheduler_min_lr must be set for ReduceLROnPlateau"
         return ReduceLROnPlateau(
             optimizer,
             mode="min",

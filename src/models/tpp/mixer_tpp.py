@@ -425,8 +425,46 @@ class MixerTPP(TPPModel):
             inter_time_dist = self.get_inter_time_dist(current_state)
             if time_remaining is None:
                 next_inter_times = inter_time_dist.sample()
+                if getattr(self, "bg_model", None) is not None:
+                    t_last_event = t_start + running_time
+                    dt = next_inter_times.squeeze(-1)
+                    bg_inter_time = self.bg_model.sample_nhpp_inverse(
+                        batch_size,
+                        t0=t_last_event,
+                        dt=dt,
+                    )
+                    if (bg_inter_time < 0.0).any():
+                        raise ValueError(
+                            f"Sampled inter-event time should be non-negative. Got minimum value {bg_inter_time.min()}"
+                        )
+                    next_inter_times = bg_inter_time.unsqueeze(-1)
             else:
-                next_inter_times = inter_time_dist.sample_conditional(lower_bound=time_remaining)
+                lower_bound = torch.as_tensor(
+                    time_remaining,
+                    device=self.device,
+                    dtype=running_time.dtype,
+                )
+                next_inter_times = inter_time_dist.sample_conditional(lower_bound=lower_bound)
+                if getattr(self, "bg_model", None) is not None:
+                    if past_seq is None:
+                        raise ValueError("past_seq must be provided when time_remaining is not None.")
+                    t_last_event = torch.as_tensor(
+                        past_seq.arrival_times[-1],
+                        device=self.device,
+                        dtype=running_time.dtype,
+                    ).repeat(batch_size)
+                    dt = (next_inter_times - lower_bound).squeeze(-1)
+                    bg_inter_time = self.bg_model.sample_nhpp_inverse(
+                        batch_size,
+                        t0=t_last_event + lower_bound,
+                        dt=dt,
+                    )
+                    if (bg_inter_time < 0.0).any():
+                        raise ValueError(
+                            f"Sampled inter-event time should be non-negative. Got minimum value {bg_inter_time.min()}"
+                        )
+                    next_inter_times = bg_inter_time.unsqueeze(-1) + lower_bound
+                time_remaining = lower_bound
 
             next_inter_times.clamp_max_(t_end - t_start)
             if time_remaining is not None:

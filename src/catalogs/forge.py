@@ -20,8 +20,8 @@ class FORGE2022Standard(InducedTripletBase):
         freq: str = "1h",
         end_ts: Optional[Union[pd.Timestamp, str]] = None,
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
-        test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        val_start_ts: Optional[Union[pd.Timestamp, str]] = '2022-04-21 20:00:00',
+        test_start_ts: Optional[Union[pd.Timestamp, str]] = '2022-04-21 23:00:00',
     ):
         super().__init__(
             dataset_name="FORGE2022",

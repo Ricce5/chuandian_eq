@@ -719,6 +719,7 @@ class RegressorAttnPlBuilder(ModelBuilder):
 class MixerTPPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.mixer_tpp import MixerTPP
+        from src.models.bg import BGModel
         from src.models.input_adapters import MixerBatchAdapter
         from src.models.heads import TaskHead
         from src.models.base_model import BaseModel
@@ -764,10 +765,17 @@ class MixerTPPBuilder(ModelBuilder):
         use_adaptive_loss_weights = getattr(args, 'use_adaptive_loss_weights', False)
         b_range = getattr(args, 'b_range', None)
         b_init = getattr(args, 'b_init', 1.0)
+        if getattr(args, 'bg_model', None) is not None:
+            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+        else:
+            bg_model = None
         return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,
                         predict_b=predict_b, use_b_updater=use_b_updater,
                         loss_weights=loss_weights, loss_reduction=loss_reduction,b_range=b_range,
-                        use_adaptive_loss_weights=use_adaptive_loss_weights,b_filter=b_filter,b_init=b_init)
+                        use_adaptive_loss_weights=use_adaptive_loss_weights,
+                        bg_model=bg_model,
+                        b_filter=b_filter,
+                        b_init=b_init)
 
 
 

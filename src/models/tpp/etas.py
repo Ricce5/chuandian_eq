@@ -207,12 +207,15 @@ class ETAS(TPPModel):
         ).sum(-1) + self.mu  # (B, S)
         if self.bg_model is not None:
             f_intensity = self.bg_model.intensity(batch,t_query=t_select) # (B, S)
-            logger.debug(
-                "intensity max: %s, f_intensity max: %s, mu max: %s",
-                intensity.max().item(),
-                f_intensity.max().item(),
-                self.mu.max().item(),
-            )
+            if intensity.numel() > 0:
+                logger.debug(
+                    "intensity max: %s, f_intensity max: %s, mu max: %s",
+                    intensity.max().item(),
+                    f_intensity.max().item(),
+                    self.mu.max().item(),
+                )
+            else:
+                logger.debug("Empty event-selection window in nll_loss; skipping max() stats.")
             intensity += f_intensity
         
         # Numerical guard: zero/negative intensity leads to -inf log-likelihood and NaN gradients.

@@ -79,7 +79,7 @@ class Batch(DotDict):
         # Get index of the first event that happened after t_nll_start
         
         arrival_times = torch.cumsum(inter_times, dim=-1) + t_start[:, None] #  arrival_times的pad位为t_end
-        start_idx = get_start_idx(arrival_times, t_nll_start)
+        start_idx = get_start_idx(arrival_times, t_nll_start, end_idx=end_idx)
         nll_event_mask = get_mask(inter_times, start_idx, end_idx)
         input_mask =  get_mask(inter_times,torch.zeros_like(end_idx), end_idx) 
 
@@ -313,11 +313,23 @@ class Batch(DotDict):
 
 
 def get_start_idx(
-    arrival_times: torch.Tensor, t_nll_start: torch.Tensor
+    arrival_times: torch.Tensor,
+    t_nll_start: torch.Tensor,
+    end_idx: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """Get index of the first event that happened after t_nll_start."""
+    """Get index of the first event that happened after t_nll_start.
+
+    If no event is strictly after t_nll_start in a row, fall back to end_idx so the
+    NLL event mask is empty for that sequence.
+    """
     x = torch.masked_fill(arrival_times, arrival_times <= t_nll_start[:, None], np.inf)
-    return x.argmin(-1)
+    start_idx = x.argmin(-1)
+    has_candidate = torch.isfinite(x).any(dim=-1)
+    if end_idx is None:
+        fallback_idx = torch.full_like(start_idx, arrival_times.shape[1] - 1)
+    else:
+        fallback_idx = end_idx
+    return torch.where(has_candidate, start_idx, fallback_idx)
 
 
 def get_mask(

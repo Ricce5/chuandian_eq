@@ -146,7 +146,7 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         
 
 
-    def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor, eps: float = 1e-10) -> torch.Tensor:
         """
         log1p(f_intensity / h_intensity)- f_intensity_integral
         """

@@ -94,3 +94,22 @@ def test_batch_from_list_with_time_series_some_missing():
     assert torch.all(ts[1, :] == PAD)
 
 
+def test_nll_start_idx_zero_length_window_is_end_idx():
+    # inter_times -> arrival_times [1.0, 3.0], t_end=6.0
+    seq = Sequence(inter_times=[1.0, 2.0, 3.0], t_start=0.0, t_nll_start=6.0)
+    batch = Batch.from_list([seq])
+
+    assert int(batch.start_idx.item()) == int(batch.end_idx.item())
+    assert float(batch.nll_event_mask.sum().item()) == 0.0
+
+
+def test_nll_start_idx_regular_window_keeps_first_future_event():
+    # inter_times -> arrival_times [1.0, 3.0], t_end=6.0, first event > 1.5 is at index 1.
+    seq = Sequence(inter_times=[1.0, 2.0, 3.0], t_start=0.0, t_nll_start=1.5)
+    batch = Batch.from_list([seq])
+
+    assert int(batch.start_idx.item()) == 1
+    assert int(batch.end_idx.item()) == 2
+    assert float(batch.nll_event_mask.sum().item()) == 1.0
+
+

@@ -689,7 +689,7 @@ ETAS+mamba: checkpoints/etas_20260330-231612
   "num_events_val": 1204,
   "num_events_test": 850
 }
-ETAS+mamba+gp:
+ETAS+mamba+gp: checkpoints/etas_20260330-232554 *
 {
   "nll_train_time": -5.998855113983154,
   "nll_train_total": -5.956877708435059,
@@ -704,6 +704,39 @@ ETAS+mamba+gp:
   "num_events_val": 1204,
   "num_events_test": 850
 }
+RECAST+P: checkpoints/rtpp_20260402-170440
+{
+  "nll_train_time": -5.778769493103027,
+  "nll_train_total": -5.869544982910156,
+  "nll_train_bg": -0.09077509492635727,
+  "nll_val_time": -6.11020040512085,
+  "nll_val_total": -6.373103618621826,
+  "nll_val_bg": -0.2629033029079437,
+  "nll_test_time": -6.049722194671631,
+  "nll_test_total": -6.150845527648926,
+  "nll_test_bg": -0.10112347453832626,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+
+
+RECAST+mamba: checkpoints/rtpp_20260402-160131
+{
+  "nll_train_time": -5.751069068908691,
+  "nll_train_total": -5.892369270324707,
+  "nll_train_bg": -0.14130006730556488,
+  "nll_val_time": -6.074784278869629,
+  "nll_val_total": -6.468404293060303,
+  "nll_val_bg": -0.3936195373535156,
+  "nll_test_time": -6.017630577087402,
+  "nll_test_total": -6.22796630859375,
+  "nll_test_bg": -0.21033605933189392,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+
 
 2. CB_HAB1a(-0.4):
 ETAS+P: checkpoints/etas_20260330-155945
@@ -742,7 +775,7 @@ ETAS+mamba: checkpoints/etas_20260330-161340
   "num_events_val": 734,
   "num_events_test": 472
 }
-ETAS+mamba+gp: checkpoints/etas_20260330-144040
+ETAS+mamba+gp: checkpoints/etas_20260330-144040 *
 {
   "nll_train_time": -5.328885555267334,
   "nll_train_total": -5.302903652191162,
@@ -783,7 +816,7 @@ ETAS+conv_mlp: checkpoints/etas_20260330-183526 checkpoints/etas_20260330-184009
   "num_events_val": 995,
   "num_events_test": 724
 }
-ETAS+mamba: checkpoints/etas_20260330-182010
+ETAS+mamba: checkpoints/etas_20260330-182010  *
 {
   "nll_train_time": -5.182605743408203,
   "nll_train_total": -5.182605743408203,
@@ -853,7 +886,7 @@ ETAS+mamba: checkpoints/etas_20260330-142641
   "num_events_test": 3380
 }
 
-ETAS+mamba+gp: checkpoints/etas_20260330-175345
+ETAS+mamba+gp: checkpoints/etas_20260330-175345 *
 {
   "nll_train_time": -5.544462203979492,
   "nll_train_total": -5.539621829986572,

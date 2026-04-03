@@ -39,6 +39,7 @@ class RecurrentTPP(TPPModel):
         self.num_extra_features = None
         self.context_size = args.d_model
         self.num_components = args.num_components
+        self.num_rnn_layers = getattr(args, "num_rnn_layers", 1)
         self.scale_range = getattr(args, "scale_range", "positive")
         if self.scale_range not in ["positive", "decay"]:
             raise ValueError("scale_range must be one of ['positive', 'decay']")
@@ -67,11 +68,11 @@ class RecurrentTPP(TPPModel):
             )
         self.num_rnn_inputs = (
             1  # inter-event times
-            + int(self.input_magnitude)  # Comment in English.
+            + int(self.input_magnitude)  
             + 0 if self.num_extra_features is None else self.num_extra_features
         )
         self.rnn = getattr(nn, args.rnn_type)(
-            self.num_rnn_inputs, self.context_size, batch_first=True,
+            self.num_rnn_inputs, self.context_size, num_layers=self.num_rnn_layers, batch_first=True,
         )
         # from src.utils.utils import init_rnn_weights 
         # init_rnn_weights(self.rnn,seed=42) 
@@ -111,10 +112,10 @@ class RecurrentTPP(TPPModel):
         # torch.save(batch.arrival_times, 'arrival_times2.pth')
         rnn_output = self.rnn(features.contiguous())[0]*batch.input_mask[:, :, None]
         # print(f"rnn_out { torch.sum(rnn_output) }{rnn_output.shape}")
-        rnn_output = rnn_output[:, :-1, :]  # Comment in English.
-        output = F.pad(rnn_output, (0, 0, 1, 0))  # Comment in English.
+        rnn_output = rnn_output[:, :-1, :]  
+        output = F.pad(rnn_output, (0, 0, 1, 0))  
         output = self.dropout(output)
-        return output  # Comment in English.
+        return output  
 
     def get_inter_time_dist(self, context):
         """Get the distribution over the inter-event times given the context."""
@@ -152,7 +153,7 @@ class RecurrentTPP(TPPModel):
         rnn_output = self.rnn(features.contiguous())
         return  rnn_output
 
-    # Comment in English.
+    
     def get_magnitude_dist(self, context):
         log_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
         b = self.richter_b * torch.ones_like(log_rate)
@@ -164,7 +165,7 @@ class RecurrentTPP(TPPModel):
                  *,
                  reduction: str | None = None,
                  return_dict: bool = False,
-                 eps: float = 1e-10
+                 eps: float = 0.0,
                  ) -> torch.Tensor | dict[str, torch.Tensor]:
         """
         Compute negative log-likelihood (NLL) for a batch of event sequences.
@@ -179,7 +180,7 @@ class RecurrentTPP(TPPModel):
         # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
         log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # avoid zero-probability at zero
-        log_like = (log_pdf * batch.nll_event_mask).sum(-1)  # Comment in English.
+        log_like = (log_pdf * batch.nll_event_mask).sum(-1)  
         # Survival time from last event until t_end
         arange = torch.arange(batch.batch_size)
         last_surv_context = context[arange, batch.end_idx, :]  # end_idx corresponds to the survival interval
@@ -193,7 +194,7 @@ class RecurrentTPP(TPPModel):
         if torch.any(batch.t_nll_start != batch.t_start):
             prev_surv_context = context[arange, batch.start_idx, :]
             prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (  # Comment in English.
+            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (  
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
             prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
@@ -313,7 +314,7 @@ class RecurrentTPP(TPPModel):
 
             rnn_input = torch.cat(rnn_input_list, dim=-1).contiguous()
 
-            # Comment in English.
+            
             current_state = self.rnn(rnn_input, current_state.transpose(0, 1).contiguous())[0]
             current_state = self.dropout(current_state)
             current_state = current_state.detach()  # important: prevent graph growth
