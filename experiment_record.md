@@ -653,6 +653,32 @@ checkpoints/mixer_tpp_20260204-220105
 
 
 1. PNR_1z:
+ETAS(mu=0): checkpoints/etas_20260403-123804
+{
+  "nll_train_time": -5.975103855133057,
+  "nll_train_total": -5.975103855133057,
+  "nll_val_time": -6.446558952331543,
+  "nll_val_total": -6.446558952331543,
+  "nll_test_time": -6.365136623382568,
+  "nll_test_total": -6.365136623382568,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+
+ETAS: checkpoints/etas_20260403-204045
+{
+  "nll_train_time": -5.987344741821289,
+  "nll_train_total": -5.987344741821289,
+  "nll_val_time": -6.466350078582764,
+  "nll_val_total": -6.466350078582764,
+  "nll_test_time": -6.384871482849121,
+  "nll_test_total": -6.384871482849121,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
+
 ETAS+P: checkpoints/etas_20260330-231015
 {
   "nll_train_time": -6.000354290008545,
@@ -719,8 +745,21 @@ RECAST+P: checkpoints/rtpp_20260402-170440
   "num_events_val": 1204,
   "num_events_test": 850
 }
-
-
+RECAST+conv_mlp: checkpoints/rtpp_20260402-212205
+{
+  "nll_train_time": -5.895451068878174,
+  "nll_train_total": -5.970457553863525,
+  "nll_train_bg": -0.07500695437192917,
+  "nll_val_time": -6.225480079650879,
+  "nll_val_total": -6.422011852264404,
+  "nll_val_bg": -0.1965317279100418,
+  "nll_test_time": -6.169680118560791,
+  "nll_test_total": -6.228274345397949,
+  "nll_test_bg": -0.058594394475221634,
+  "num_events_train": 3049,
+  "num_events_val": 1204,
+  "num_events_test": 850
+}
 RECAST+mamba: checkpoints/rtpp_20260402-160131
 {
   "nll_train_time": -5.751069068908691,
@@ -739,6 +778,31 @@ RECAST+mamba: checkpoints/rtpp_20260402-160131
 
 
 2. CB_HAB1a(-0.4):
+ETAS(mu=0): checkpoints/etas_20260403-202516 
+{
+  "nll_train_time": -5.319025993347168,
+  "nll_train_total": -5.319025993347168,
+  "nll_val_time": -5.221223831176758,
+  "nll_val_total": -5.221223831176758,
+  "nll_test_time": -5.096417427062988,
+  "nll_test_total": -5.096417427062988,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+ETAS: checkpoints/etas_20260403-203341
+{
+  "nll_train_time": -5.322861194610596,
+  "nll_train_total": -5.322861194610596,
+  "nll_val_time": -5.220753192901611,
+  "nll_val_total": -5.220753192901611,
+  "nll_test_time": -5.103967189788818,
+  "nll_test_total": -5.103967189788818,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+
 ETAS+P: checkpoints/etas_20260330-155945
 {
   "nll_train_time": -5.095571994781494,
@@ -791,7 +855,69 @@ ETAS+mamba+gp: checkpoints/etas_20260330-144040 *
   "num_events_test": 472
 }
 
+RECAST+P: checkpoints/rtpp_20260403-100551
+
+{
+  "nll_train_time": -5.162586212158203,
+  "nll_train_total": -5.250383377075195,
+  "nll_train_bg": -0.08779700845479965,
+  "nll_val_time": -5.003657341003418,
+  "nll_val_total": -5.044312000274658,
+  "nll_val_bg": -0.04065511003136635,
+  "nll_test_time": -4.913900375366211,
+  "nll_test_total": -4.694487571716309,
+  "nll_test_bg": 0.21941331028938293,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+RECAST+conv_mlp: checkpoints/rtpp_20260403-112025
+{
+  "nll_train_time": -5.177980422973633,
+  "nll_train_total": -5.257157802581787,
+  "nll_train_bg": -0.07917758077383041,
+  "nll_val_time": -5.024879455566406,
+  "nll_val_total": -5.049865245819092,
+  "nll_val_bg": -0.024985933676362038,
+  "nll_test_time": -4.9088358879089355,
+  "nll_test_total": -4.726556777954102,
+  "nll_test_bg": 0.18227897584438324,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+
+RECAST+mamba: checkpoints/rtpp_20260403-112626
+{
+  "nll_train_time": -5.039740562438965,
+  "nll_train_total": -5.240628719329834,
+  "nll_train_bg": -0.2008877992630005,
+  "nll_val_time": -4.890742301940918,
+  "nll_val_total": -5.1092305183410645,
+  "nll_val_bg": -0.21848855912685394,
+  "nll_test_time": -4.797508239746094,
+  "nll_test_total": -4.114445209503174,
+  "nll_test_bg": 0.6830629110336304,
+  "num_events_train": 5495,
+  "num_events_val": 734,
+  "num_events_test": 472
+}
+
 3. CB_HAB4:
+ETAS:   checkpoints/etas_20260404-111418
+{
+  "nll_train_time": -4.878288269042969,
+  "nll_train_total": -4.878288269042969,
+  "nll_val_time": -5.741217136383057,
+  "nll_val_total": -5.741217136383057,
+  "nll_test_time": -4.515438079833984,
+  "nll_test_total": -4.515438079833984,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+
+
 ETAS+P: checkpoints/etas_20260330-183028
 {
   "nll_train_time": -4.635933876037598,
@@ -845,7 +971,84 @@ ETAS+mamba+gp: checkpoints/etas_20260330-185654
   "num_events_test": 724
 }
 
+ 
+RECAST+P: checkpoints/rtpp_20260403-210053 
+{
+  "nll_train_time": -4.755245685577393,
+  "nll_train_total": -5.148390769958496,
+  "nll_train_bg": -0.3931451737880707,
+  "nll_val_time": -5.656795501708984,
+  "nll_val_total": -5.840083122253418,
+  "nll_val_bg": -0.18328756093978882,
+  "nll_test_time": -4.264465808868408,
+  "nll_test_total": -4.33951473236084,
+  "nll_test_bg": -0.07504881918430328,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
 
+
+RECAST+conv_mlp: checkpoints/rtpp_20260403-210825 checkpoints/rtpp_20260403-112025
+{
+  "nll_train_time": -5.125350475311279,
+  "nll_train_total": -5.172115325927734,
+  "nll_train_bg": -0.04676487669348717,
+  "nll_val_time": -5.8281121253967285,
+  "nll_val_total": -5.853720188140869,
+  "nll_val_bg": -0.025608005002141,
+  "nll_test_time": -4.7189764976501465,
+  "nll_test_total": -4.719761848449707,
+  "nll_test_bg": -0.0007853982388041914,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+{
+  "nll_train_time": -5.072784900665283,
+  "nll_train_total": -5.117547512054443,
+  "nll_train_bg": -0.044762562960386276,
+  "nll_val_time": -5.778948783874512,
+  "nll_val_total": -5.815385341644287,
+  "nll_val_bg": -0.03643663972616196,
+  "nll_test_time": -4.724032878875732,
+  "nll_test_total": -4.728349208831787,
+  "nll_test_bg": -0.004316633101552725,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+
+RECAST+mamba: checkpoints/rtpp_20260403-170646 checkpoints/rtpp_20260403-210901
+{
+  "nll_train_time": -4.897585391998291,
+  "nll_train_total": -5.023638725280762,
+  "nll_train_bg": -0.12605318427085876,
+  "nll_val_time": -5.674637794494629,
+  "nll_val_total": -5.82581090927124,
+  "nll_val_bg": -0.15117309987545013,
+  "nll_test_time": -4.551606178283691,
+  "nll_test_total": -4.584494590759277,
+  "nll_test_bg": -0.03288847580552101,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
+
+{
+  "nll_train_time": -4.881381034851074,
+  "nll_train_total": -5.008924961090088,
+  "nll_train_bg": -0.12754414975643158,
+  "nll_val_time": -5.646823406219482,
+  "nll_val_total": -5.8428568840026855,
+  "nll_val_bg": -0.1960335671901703,
+  "nll_test_time": -4.521599769592285,
+  "nll_test_total": -4.555234909057617,
+  "nll_test_bg": -0.03363494575023651,
+  "num_events_train": 2963,
+  "num_events_val": 995,
+  "num_events_test": 724
+}
 
 
 4. St1-2018(-0.5):
@@ -897,6 +1100,82 @@ ETAS+mamba+gp: checkpoints/etas_20260330-175345 *
   "nll_test_time": -4.847546577453613,
   "nll_test_total": -4.811316967010498,
   "nll_test_bg_kl": 0.03622935712337494,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+
+RECAST+P: checkpoints/rtpp_20260403-203753 checkpoints/rtpp_20260403-201221
+{
+  "nll_train_time": -5.299367904663086,
+  "nll_train_total": -5.419363975524902,
+  "nll_train_bg": -0.11999645084142685,
+  "nll_val_time": -5.338460445404053,
+  "nll_val_total": -5.460873603820801,
+  "nll_val_bg": -0.12241298705339432,
+  "nll_test_time": -4.5666656494140625,
+  "nll_test_total": -4.630105495452881,
+  "nll_test_bg": -0.06343961507081985,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+{
+  "nll_train_time": -5.180963039398193,
+  "nll_train_total": -5.369428634643555,
+  "nll_train_bg": -0.1884661763906479,
+  "nll_val_time": -5.221585750579834,
+  "nll_val_total": -5.415493965148926,
+  "nll_val_bg": -0.19390784204006195,
+  "nll_test_time": -4.512923717498779,
+  "nll_test_total": -4.617834091186523,
+  "nll_test_bg": -0.10491015017032623,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+
+RECAST+conv_mlp: checkpoints/rtpp_20260403-203150 checkpoints/rtpp_20260403-201551
+
+{
+  "nll_train_time": -5.283726692199707,
+  "nll_train_total": -5.410412788391113,
+  "nll_train_bg": -0.12668642401695251,
+  "nll_val_time": -5.324419021606445,
+  "nll_val_total": -5.454462051391602,
+  "nll_val_bg": -0.1300428807735443,
+  "nll_test_time": -4.551939010620117,
+  "nll_test_total": -4.618659973144531,
+  "nll_test_bg": -0.06672097742557526,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+{
+  "nll_train_time": -5.174332618713379,
+  "nll_train_total": -5.364466667175293,
+  "nll_train_bg": -0.1901341825723648,
+  "nll_val_time": -5.212795257568359,
+  "nll_val_total": -5.413140296936035,
+  "nll_val_bg": -0.2003452479839325,
+  "nll_test_time": -4.506704330444336,
+  "nll_test_total": -4.614500999450684,
+  "nll_test_bg": -0.10779624432325363,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+RECAST+mamba: checkpoints/rtpp_20260403-202405
+{
+  "nll_train_time": -5.183485984802246,
+  "nll_train_total": -5.4211201667785645,
+  "nll_train_bg": -0.23763450980186462,
+  "nll_val_time": -5.235789775848389,
+  "nll_val_total": -5.436279296875,
+  "nll_val_bg": -0.2004896104335785,
+  "nll_test_time": -4.533199787139893,
+  "nll_test_total": -4.632943153381348,
+  "nll_test_bg": -0.09974372386932373,
   "num_events_train": 22661,
   "num_events_val": 4211,
   "num_events_test": 3380

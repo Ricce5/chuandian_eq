@@ -129,7 +129,8 @@ class RecurrentTPP(TPPModel):
         )
         scale_raw = scale.clamp_min(-5.0)
         if self.scale_range == "decay":
-            scale = torch.sigmoid(scale_raw)
+            scale = F.softplus(scale_raw)
+            scale = scale + (scale.clamp_max(1.0) - scale).detach()
         elif self.scale_range == "positive":
             scale = F.softplus(scale_raw)
         else:
