@@ -29,6 +29,7 @@ TPP_MODELS = {
     "mhp",
     "btpp",
     "etas",
+    "etas_ogata",
     "nhpp",
     "njdtpp",
 }

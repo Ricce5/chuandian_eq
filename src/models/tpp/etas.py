@@ -23,18 +23,24 @@ logger = logging.getLogger(__name__)
 def _to_tensor(x, ref: torch.Tensor):
     return torch.as_tensor(x, device=ref.device, dtype=ref.dtype)
 
-def branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
-    """Compute branching ratio of the ETAS model (Sornette & Werner).""" 
-    # n=EM​[k10α(M−Mc​)]⋅∫0∞​(t+c)−pdt
-    if b == alpha:
+def _compute_branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
+    """Compute branching ratio of the ETAS model (Sornette & Werner)."""
+    # Magnitude-term only (truncated Gutenberg-Richter in [M_min, M_max]).
+    delta_m = M_max - M_min
+    if delta_m <= 0:
+        raise ValueError("M_max must be greater than M_min.")
+
+    denom = 1 - 10 ** (-b * delta_m)
+    if np.isclose(denom, 0.0):
+        raise ValueError("Invalid magnitude range or b value for branching ratio.")
+
+    if np.isclose(b, alpha):
         branching_ratio = (
-            k * b * np.log(10) * (M_max - M_min) / (1 - 10 ** (-b * (M_max - M_min)))
+            k * b * np.log(10) * delta_m / denom
         )
     else:
         branching_ratio = k * b / (b - alpha)
-        branching_ratio *= 1 - 10 ** (
-            -(b - alpha) * (M_max - M_min) / (1 - 10 ** (-b * (M_max - M_min)))
-        )
+        branching_ratio *= (1 - 10 ** (-(b - alpha) * delta_m)) / denom
     if branching_ratio > 1:
         logger.warning("Branching ratio: %s", branching_ratio)
     return branching_ratio
@@ -61,20 +67,41 @@ def omori_int(T1, T2, c, p):
 
     Used for the finite catalog correction in the productivity estimate (Brodsky 2011).
     """
-    if p == 1:
+    if np.isclose(p, 1.0):
         return np.log(T2 + c) - np.log(T1 + c)
     else:
         return ((T2 + c) ** (1 - p) - (T1 + c) ** (1 - p)) / (1 - p)
 
 
 def omori_inv(T1, T2, c, p, size=1, t_max=1e10):
-    """Draw sample from Omori's law using inverse transform."""
+    """Draw samples from Omori law on [T1, T2] using inverse transform.
+
+    Sampling is conditional on the interval [T1, T2], implemented via a global CDF
+    transform with truncation on [0, t_max].
+    """
+    if t_max <= 0:
+        raise ValueError("t_max must be positive.")
+    if c <= 0:
+        raise ValueError("c must be positive.")
+
+    T1 = np.clip(np.asarray(T1, dtype=np.float64), 0.0, t_max)
+    T2 = np.clip(np.asarray(T2, dtype=np.float64), 0.0, t_max)
+    if np.any(T2 < T1):
+        raise ValueError("T2 must be >= T1 after clipping to [0, t_max].")
+
     u = np.random.random(size=size)
-    F = lambda tau: omori_int(0, tau, c, p) / omori_int(0, t_max, c, p)
-    u_prime = u * (F(T2) - F(T1)) + F(T1)
-    return (
-        (u_prime * omori_int(0, t_max, c, p) + c ** (1 - p) / (1 - p)) * (1 - p)
-    ) ** (1 / (1 - p)) - c
+    total_mass = omori_int(0.0, t_max, c, p)
+    cdf_T1 = omori_int(0.0, T1, c, p) / total_mass
+    cdf_T2 = omori_int(0.0, T2, c, p) / total_mass
+    u_prime = u * (cdf_T2 - cdf_T1) + cdf_T1
+
+    if np.isclose(p, 1.0):
+        return c * np.exp(u_prime * (np.log(t_max + c) - np.log(c))) - c
+
+    one_minus_p = 1.0 - p
+    base = u_prime * total_mass * one_minus_p + c ** one_minus_p
+    base = np.maximum(base, np.finfo(np.float64).tiny)
+    return base ** (1.0 / one_minus_p) - c
 
 
 class ETAS(TPPModel):
@@ -160,6 +187,26 @@ class ETAS(TPPModel):
     @property
     def alpha(self):
         return torch.exp(self.log_alpha)
+
+    @property
+    def branching_ratio(self) -> float:
+        """Magnitude-only branching term under truncated Gutenberg-Richter."""
+        return float(
+            _compute_branching_ratio(
+                k=float(self.k.detach().cpu()),
+                b=float(self.b.detach().cpu()),
+                alpha=float(self.alpha.detach().cpu()),
+                M_min=float(self.M_c.detach().cpu()),
+                M_max=float(self.M_m.detach().cpu()),
+            )
+        )
+
+    def effective_branching_ratio(self, t_max: float = 1e4) -> float:
+        """Total offspring ratio including temporal Omori mass on [0, t_max]."""
+        p = float(self.p.detach().cpu())
+        c = float(self.c.detach().cpu())
+        temporal_mass = float(omori_int(0.0, float(t_max), c, p))
+        return self.branching_ratio * temporal_mass
 
    
 
@@ -396,7 +443,11 @@ class ETAS(TPPModel):
                     arrival_times = np.append(arrival_times, t_current)
                     magnitudes = np.append(
                         magnitudes,
-                        gen_mag(b=float(self.b), M_min=float(self.M_c)),
+                        gen_mag(
+                            b=float(self.b),
+                            M_min=float(self.M_c),
+                            M_max=float(self.M_m),
+                        ),
                     )
                     inter_times.append(tau_current)
                     tau_current = 0.0
@@ -470,8 +521,7 @@ class ETAS(TPPModel):
         Returns:
             batch: Sequences generated from the model.
         """
-        # Move scalar parameters to CPU before any NumPy math; branching_ratio expects
-        # host-side floats, and passing CUDA tensors causes conversion errors.
+        # Move scalar parameters to CPU before any NumPy math.
         p = float(self.p.detach().cpu())
         c = float(self.c.detach().cpu())
         mu = float(self.mu.detach().cpu())
@@ -485,12 +535,13 @@ class ETAS(TPPModel):
         else:
             t_start = t_start
 
-        # Determine the branching ratio (and assert that it is smaller than one)
-        branch = branching_ratio(k=k, b=b, alpha=alpha, M_min=M_c, M_max=M_m)
-        if branch > 1:
-            raise ValueError(
-                f"The process is explosive: branching ratio {branch:.2f} is > 1."
-            )
+        # Determine the effective branching ratio (and assert that it is smaller than one)
+        # branch = self.effective_branching_ratio(t_max=t_max)
+        # if branch > 1:
+        #     raise ValueError(
+        #         f"The process is explosive: branching ratio {branch:.2f} is > 1."
+        #     )
+        omori_norm = float(omori_int(0.0, t_max, c, p))
 
         def sample_single_seq(seed, bg_times: Optional[np.ndarray] = None):   
             np.random.seed(seed)
@@ -514,7 +565,9 @@ class ETAS(TPPModel):
             # background events occur randomly in the time domain
             if self.bg_model is None:   
                 background_events = [np.random.uniform(t_start, t_end, Nback).T]
-                background_events.append(gen_mag(shape=Nback, b=b, M_min=M_c))
+                background_events.append(
+                    gen_mag(shape=Nback, b=b, M_min=M_c, M_max=M_m)
+                )
                 background_catalog = np.column_stack(background_events) # (Nback, 2)
             else:
                 # precomputed NHPP samples avoid rebuilding the CIF per sequence
@@ -532,7 +585,7 @@ class ETAS(TPPModel):
 
                 Nback = t_back.size
                 if Nback > 0:
-                    m_back = gen_mag(shape=Nback, b=b, M_min=M_c)
+                    m_back = gen_mag(shape=Nback, b=b, M_min=M_c, M_max=M_m)
                     background_catalog = np.column_stack([t_back, m_back]).astype(np.float64)
                 else:
                     background_catalog = np.empty((0, 2), dtype=np.float64)
@@ -564,12 +617,9 @@ class ETAS(TPPModel):
                 # N                   *           p(t)
                 # k'*10**(alpha(M-Mc)) * (t+c)**-p / int((t+c)**-p)
                 # where k' = k*int((t+c)**-p)    
-                TAU1 = t_start - parent_catalog[:, 0] 
-                TAU1[TAU1 < 0] = 0 
-                TAU2 = t_end - parent_catalog[:, 0] 
-                prod_in_interval = (
-                    prod * omori_int(TAU1, TAU2, c, p) / omori_int(0, t_max, c, p)
-                )
+                TAU1 = np.clip(t_start - parent_catalog[:, 0], a_min=0.0, a_max=t_max)
+                TAU2 = np.clip(t_end - parent_catalog[:, 0], a_min=0.0, a_max=t_max)
+                prod_in_interval = prod * omori_int(TAU1, TAU2, c, p) / omori_norm
 
                 # to streamline things we only consider the events that do have aftershocks
                 N_aftershock = np.random.poisson(prod_in_interval)
@@ -595,7 +645,7 @@ class ETAS(TPPModel):
                     aftershock_catalog.append(t_aftershock)
 
                     # ...and magnitudes
-                    m_aftershock = gen_mag(iNaft, b=b, M_min=M_c)
+                    m_aftershock = gen_mag(iNaft, b=b, M_min=M_c, M_max=M_m)
                     aftershock_catalog.append(m_aftershock)
 
                     aftershock_catalog = np.column_stack(aftershock_catalog)
@@ -701,6 +751,10 @@ class ETAS(TPPModel):
 
         zero = torch.zeros((), device=device, dtype=dtype)
         tmax_t = torch.tensor(t_max, device=device, dtype=dtype)
+        T1 = torch.clamp(T1, min=0.0, max=float(t_max))
+        T2 = torch.clamp(T2, min=0.0, max=float(t_max))
+        if torch.any(T2 < T1):
+            raise ValueError("T2 must be >= T1 after clipping to [0, t_max].")
 
         F0 = ETAS._torch_omori_int(zero, tmax_t, c, p)  # ∫_0^{t_max} g(t)
 
@@ -754,14 +808,8 @@ class ETAS(TPPModel):
         M_c = self.M_c.to(device=device, dtype=dtype)
         M_m = self.M_m.to(device=device, dtype=dtype)
 
-        # ---- branching ratio check (CPU float) ----
-        branch = branching_ratio(
-            k=float(k.detach().cpu().item()),
-            b=float(b.detach().cpu().item()),
-            alpha=float(alpha.detach().cpu().item()),
-            M_min=float(M_c.detach().cpu().item()),
-            M_max=float(M_m.detach().cpu().item()),
-        )
+        # ---- effective branching ratio check (CPU float) ----
+        branch = self.effective_branching_ratio(t_max=t_max)
         if branch > 1:
             raise ValueError(f"The process is explosive: branching ratio {branch:.2f} is > 1.")
 
@@ -847,8 +895,8 @@ class ETAS(TPPModel):
             t_parent, m_parent, b_parent = parent_catalog
 
             # interval boundaries relative to each parent
-            TAU1 = (t_start_vec[b_parent] - t_parent).clamp_min(0.0)
-            TAU2 = (t_end_vec[b_parent] - t_parent).clamp_min(0.0)   # ✅ clamp to avoid negative
+            TAU1 = (t_start_vec[b_parent] - t_parent).clamp(min=0.0, max=t_max)
+            TAU2 = (t_end_vec[b_parent] - t_parent).clamp(min=0.0, max=t_max)
 
             # ----- offspring mean -----
             # Match CPU sampler:
@@ -1006,7 +1054,19 @@ class ETAS(TPPModel):
         Conversion (paper -> code):
             alpha = alpha_e / ln(10)
             k     = K * (p-1) * c^(p-1)   (depends on p,c)
+
+        Notes:
+            Do not mix code and paper parameterizations in one call.
+            If only one paper parameter is provided (K or alpha_e), only its mapped
+            code parameter is updated and the other remains unchanged.
         """
+        use_code_param = (k is not None) or (alpha is not None)
+        use_paper_param = (K is not None) or (alpha_e is not None)
+        if use_code_param and use_paper_param:
+            raise ValueError(
+                "Ambiguous parameterization: provide either (k, alpha) or (K, alpha_e), not both."
+            )
+
         with torch.no_grad():
             # 1) update p,c,mu first (because k conversion needs p,c)
             if p is not None:
@@ -1029,11 +1089,9 @@ class ETAS(TPPModel):
                 self.b.copy_(b_t)
 
             # 2) if paper params provided, convert -> (k, alpha)
-            if (K is not None) or (alpha_e is not None):
-                # if only one of them is provided, use current value for the other
-                if K is None:
-                    K_t = torch.exp(self.log_k)  # placeholder; will be overwritten below only if needed
-                else:
+            if use_paper_param:
+                # partial paper updates are allowed and applied independently
+                if K is not None:
                     K_t = _to_tensor(K, self.log_k)
 
                 if alpha_e is None:
@@ -1107,5 +1165,4 @@ def masked_select_per_row(matrix, mask):
     return new_matrix, new_mask.float()
 
 
-# αe​=α10​ln10
-#
+

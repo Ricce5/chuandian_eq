@@ -637,6 +637,46 @@ class ETASBuilder(ModelBuilder):
         return model
 
 
+@ModelBuilder.register("etas_ogata")
+class ETASOgataBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        import torch
+        from src.models.tpp.etas_ogata import ETASOgata
+
+        richter_b = args.richter_b_mle
+        mag_completeness = args.mag_completeness
+        mag_max = getattr(args, "mag_max", 10)
+
+        if getattr(args, "bg_model", None) is not None:
+            from src.models.bg import BGModel
+
+            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+            base_rate_init = torch.tensor(getattr(args, "base_rate_init", 0.0), dtype=torch.float64)
+        else:
+            bg_model = None
+            base_rate_init = torch.tensor(0.26, dtype=torch.float64)
+
+        model = ETASOgata(
+            base_rate_init=base_rate_init,
+            productivity_K_init=getattr(args, "productivity_K_init", 0.11),
+            productivity_alpha_e_init=getattr(args, "productivity_alpha_e_init", 2.302585092994046),
+            richter_b=richter_b,
+            mag_completeness=mag_completeness,
+            mag_max=mag_max,
+            device=device,
+            bg_model=bg_model,
+            fix_mu=getattr(args, "fix_mu", False),
+            fixed_mu_value=getattr(args, "fixed_mu_value", None),
+            loss_reduction=getattr(args, "loss_reduction", "per_time"),
+        )
+
+        model.double()
+        if model.bg_model is not None:
+            model.bg_model.float()
+
+        return model
+
+
 @ModelBuilder.register("mtpp")
 class MTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
