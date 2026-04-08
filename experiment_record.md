@@ -655,8 +655,23 @@ RECAST+kernel(Gamma): checkpoints/rtpp_20260407-130706
 {"nll_train_time": -5.191549301147461, "nll_train_total": -5.444743633270264, "nll_train_bg": -0.2531944215297699, "nll_val_time": -5.264633655548096, "nll_val_total": -5.497406482696533, "nll_val_bg": -0.23277229070663452, "nll_test_time": -4.544147491455078, "nll_test_total": -4.660856246948242, "nll_test_bg": -0.11670882254838943, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```
 
-RECAST+mamba: checkpoints/rtpp_20260403-202405
+RECAST+mamba: checkpoints/rtpp_20260408-205025 checkpoints/rtpp_20260403-202405
 
 ```python
+{
+  "nll_train_time": -5.222591876983643,
+  "nll_train_total": -5.434678554534912,
+  "nll_train_bg": -0.21208709478378296,
+  "nll_val_time": -5.2782769203186035,
+  "nll_val_total": -5.450173854827881,
+  "nll_val_bg": -0.1718968003988266,
+  "nll_test_time": -4.533393383026123,
+  "nll_test_total": -4.618219375610352,
+  "nll_test_bg": -0.08482575416564941,
+  "num_events_train": 22661,
+  "num_events_val": 4211,
+  "num_events_test": 3380
+}
+
 {"nll_train_time": -5.183485984802246, "nll_train_total": -5.4211201667785645, "nll_train_bg": -0.23763450980186462, "nll_val_time": -5.235789775848389, "nll_val_total": -5.436279296875, "nll_val_bg": -0.2004896104335785, "nll_test_time": -4.533199787139893, "nll_test_total": -4.632943153381348, "nll_test_bg": -0.09974372386932373, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```

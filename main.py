@@ -21,7 +21,6 @@ from src.utils.logging_utils import setup_logging
 from src.utils.utils import set_seed
 
 # torch.backends.cudnn.enabled = False
-torch.autograd.set_detect_anomaly(True)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -153,6 +152,7 @@ if __name__ == "__main__":
     args = config_loader.load_args_from_yaml(args_cli.config)
     assert args.model.lower() == args_cli.model.lower(), "Model name in config must match command line argument"
     args.model = args.model.lower()
+    torch.autograd.set_detect_anomaly(bool(getattr(args, "detect_anomaly", False)))
 
     seed = getattr(args, "seed", 0)
     set_seed(seed)
