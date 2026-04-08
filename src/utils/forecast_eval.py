@@ -105,6 +105,7 @@ def run_sliding_window_forecast(
     slide_step: float = 12,
     quantiles: tuple[float, float] = (2.5, 97.5),
     samples_per_batch: int = 1000,
+    return_sim_count_matrix: bool = False,
 ):
     start = float(seq.arrival_times[0].item())
     end = float(seq.arrival_times[-1].item())
@@ -113,6 +114,7 @@ def run_sliding_window_forecast(
     counts_list: list[int] = []
     q_list: list[np.ndarray] = []
     mean_list: list[float] = []
+    sim_count_rows: list[np.ndarray] = []
 
     model.eval()
     for t_forecast in t_forecast_list:
@@ -136,13 +138,73 @@ def run_sliding_window_forecast(
         q_list.append(q)
         mean_list.append(mean)
         counts_list.append(len(observed_seq))
+        if return_sim_count_matrix:
+            sim_count_rows.append(fc_counts)
 
-    return (
-        np.array(t_forecast_list),
-        np.array(counts_list),
-        np.array(q_list),
-        np.array(mean_list),
-    )
+    t_forecast_arr = np.array(t_forecast_list)
+    counts_arr = np.array(counts_list)
+    q_arr = np.array(q_list)
+    mean_arr = np.array(mean_list)
+
+    if return_sim_count_matrix:
+        if sim_count_rows:
+            sim_count_matrix = np.stack(sim_count_rows, axis=0)
+        else:
+            sim_count_matrix = np.empty((0, int(samples_per_batch)), dtype=np.int32)
+        return t_forecast_arr, counts_arr, q_arr, mean_arr, sim_count_matrix
+
+    return t_forecast_arr, counts_arr, q_arr, mean_arr
+
+
+def compute_mean_nb_log_prob(obs_counts, sim_count_matrix, *, eps: float = 1e-10):
+    """
+    Fit a per-bin negative binomial (method of moments) and compute
+    LP_NB = mean_i log P(N_obs^i | theta_hat_i).
+    """
+    obs = np.asarray(obs_counts, dtype=np.int64).reshape(-1)
+    sim = np.asarray(sim_count_matrix, dtype=np.float64)
+
+    if sim.ndim != 2:
+        raise ValueError("sim_count_matrix must be a 2D array with shape (n_bins, n_samples).")
+    if sim.shape[0] != obs.shape[0]:
+        raise ValueError("obs_counts and sim_count_matrix must have the same number of bins.")
+    if sim.shape[1] == 0:
+        raise ValueError("sim_count_matrix must contain at least one simulated sample per bin.")
+
+    mu = np.mean(sim, axis=1)
+    var = np.var(sim, axis=1, ddof=1) if sim.shape[1] > 1 else mu.copy()
+
+    log_prob_bins = np.full(obs.shape[0], np.nan, dtype=np.float64)
+
+    zero_mu = mu <= eps
+    obs_zero = obs == 0
+    log_prob_bins[zero_mu & obs_zero] = 0.0
+    log_prob_bins[zero_mu & (~obs_zero)] = -np.inf
+
+    active = ~zero_mu
+    if np.any(active):
+        mu_active = np.clip(mu[active], eps, None)
+        var_active = np.maximum(var[active], mu_active + eps)
+        total_count = np.clip((mu_active * mu_active) / (var_active - mu_active), eps, 1e12)
+
+        k_t = torch.as_tensor(obs[active], dtype=torch.float64)
+        mu_t = torch.as_tensor(mu_active, dtype=torch.float64)
+        total_count_t = torch.as_tensor(total_count, dtype=torch.float64)
+
+        # NB parameterized by mean mu and total_count r:
+        # log PMF = lgamma(k+r)-lgamma(r)-lgamma(k+1)
+        #           + r*log(r/(r+mu)) + k*log(mu/(r+mu))
+        log_prob_active = (
+            torch.lgamma(k_t + total_count_t)
+            - torch.lgamma(total_count_t)
+            - torch.lgamma(k_t + 1.0)
+            + total_count_t * (torch.log(total_count_t) - torch.log(total_count_t + mu_t))
+            + k_t * (torch.log(mu_t) - torch.log(total_count_t + mu_t))
+        )
+        log_prob_bins[active] = log_prob_active.cpu().numpy()
+
+    lp_nb = float(np.mean(log_prob_bins))
+    return lp_nb, log_prob_bins
 
 
 def to_absolute_time_axis(rel_times, base_ts, freq_td):
@@ -159,7 +221,26 @@ def format_time_axis(ax):
     ax.tick_params(axis="x", labelrotation=0)
 
 
-def style_axes(ax, *, xlabel: str = "Forecast start date", ylabel: str | None = None, integer_y: bool = False):
+def _format_compact_thousands(value: float) -> str:
+    abs_value = abs(float(value))
+    if abs_value >= 1000.0:
+        k_value = value / 1000.0
+        if np.isclose(k_value, round(k_value)):
+            return f"{int(round(k_value))}k"
+        return f"{k_value:.1f}k"
+    if np.isclose(value, round(value)):
+        return f"{int(round(value))}"
+    return f"{value:g}"
+
+
+def style_axes(
+    ax,
+    *,
+    xlabel: str = "Forecast start date",
+    ylabel: str | None = None,
+    integer_y: bool = False,
+    compact_y_thousands: bool = False,
+):
     ax.set_xlabel(xlabel)
     if ylabel is not None:
         ax.set_ylabel(ylabel)
@@ -243,6 +324,120 @@ def resolve_view_mode(config_value, *, auto_use_zoom: bool):
     return mode
 
 
+SLIDING_CACHE_VERSION = 1
+DEFAULT_SLIDING_CACHE_FILENAME = "sliding_window_cache.npz"
+
+
+def build_sliding_cache_metadata(
+    seq,
+    *,
+    duration: float,
+    slide_step: float,
+    quantiles: tuple[float, float],
+    samples_per_batch: int,
+):
+    return {
+        "cache_version": int(SLIDING_CACHE_VERSION),
+        "duration": float(duration),
+        "slide_step": float(slide_step),
+        "quantile_low": float(quantiles[0]),
+        "quantile_high": float(quantiles[1]),
+        "samples_per_batch": int(samples_per_batch),
+        "seq_start": float(seq.arrival_times[0].item()),
+        "seq_end": float(seq.arrival_times[-1].item()),
+    }
+
+
+def save_sliding_window_cache(
+    cache_path,
+    *,
+    metadata,
+    t_forecast_list,
+    counts_list,
+    q_list,
+    mean_list,
+    sim_count_matrix,
+):
+    cache_path = Path(cache_path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+    np.savez_compressed(
+        cache_path,
+        cache_version=np.int64(metadata["cache_version"]),
+        duration=np.float64(metadata["duration"]),
+        slide_step=np.float64(metadata["slide_step"]),
+        quantile_low=np.float64(metadata["quantile_low"]),
+        quantile_high=np.float64(metadata["quantile_high"]),
+        samples_per_batch=np.int64(metadata["samples_per_batch"]),
+        seq_start=np.float64(metadata["seq_start"]),
+        seq_end=np.float64(metadata["seq_end"]),
+        t_forecast_list=np.asarray(t_forecast_list, dtype=np.float64),
+        counts_list=np.asarray(counts_list, dtype=np.int64),
+        q_list=np.asarray(q_list, dtype=np.float64),
+        mean_list=np.asarray(mean_list, dtype=np.float64),
+        sim_count_matrix=np.asarray(sim_count_matrix, dtype=np.int32),
+    )
+    return cache_path
+
+
+def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float = 1e-9):
+    cache_path = Path(cache_path)
+    if not cache_path.exists():
+        return None
+
+    required_keys = {
+        "cache_version",
+        "duration",
+        "slide_step",
+        "quantile_low",
+        "quantile_high",
+        "samples_per_batch",
+        "seq_start",
+        "seq_end",
+        "t_forecast_list",
+        "counts_list",
+        "q_list",
+        "mean_list",
+        "sim_count_matrix",
+    }
+
+    try:
+        with np.load(cache_path, allow_pickle=False) as data:
+            if not required_keys.issubset(set(data.files)):
+                return None
+
+            if int(np.asarray(data["cache_version"]).item()) != int(metadata["cache_version"]):
+                return None
+            if int(np.asarray(data["samples_per_batch"]).item()) != int(metadata["samples_per_batch"]):
+                return None
+
+            float_keys = ("duration", "slide_step", "quantile_low", "quantile_high", "seq_start", "seq_end")
+            for k in float_keys:
+                cache_val = float(np.asarray(data[k]).item())
+                if not np.isclose(cache_val, float(metadata[k]), atol=atol, rtol=0.0):
+                    return None
+
+            t_forecast_list = np.asarray(data["t_forecast_list"])
+            counts_list = np.asarray(data["counts_list"])
+            q_list = np.asarray(data["q_list"])
+            mean_list = np.asarray(data["mean_list"])
+            sim_count_matrix = np.asarray(data["sim_count_matrix"])
+    except Exception:
+        return None
+
+    n_bins = int(counts_list.shape[0])
+    if t_forecast_list.shape[0] != n_bins:
+        return None
+    if mean_list.shape[0] != n_bins:
+        return None
+    if q_list.ndim != 2 or q_list.shape[0] != n_bins or q_list.shape[1] < 2:
+        return None
+    if sim_count_matrix.ndim != 2 or sim_count_matrix.shape[0] != n_bins:
+        return None
+
+    return t_forecast_list, counts_list, q_list, mean_list, sim_count_matrix
+
+
 def evaluate_sliding_window_forecast_plots(
     *,
     model,
@@ -255,26 +450,64 @@ def evaluate_sliding_window_forecast_plots(
     sliding_quantiles: tuple[float, float],
     samples_per_batch: int,
     sliding_view_mode: str = "auto",
+    load_sliding_cache: bool = True,
+    force_recompute_sliding: bool = False,
+    sliding_cache_filename: str = DEFAULT_SLIDING_CACHE_FILENAME,
     plot_colors: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     colors = dict(DEFAULT_PLOT_COLORS)
     if plot_colors is not None:
         colors.update(plot_colors)
 
-    t_forecast_list, counts_list, q_list, mean_list = run_sliding_window_forecast(
-        model=model,
-        seq=seq,
-        device=device,
+    checkpoint_dir = Path(checkpoint_dir)
+    sliding_cache_path = checkpoint_dir / str(sliding_cache_filename)
+    cache_meta = build_sliding_cache_metadata(
+        seq,
         duration=sliding_duration,
         slide_step=sliding_step,
         quantiles=sliding_quantiles,
         samples_per_batch=samples_per_batch,
     )
 
+    loaded_from_cache = False
+    cached_payload = None
+    if load_sliding_cache and not force_recompute_sliding:
+        cached_payload = load_sliding_window_cache_if_compatible(
+            sliding_cache_path,
+            metadata=cache_meta,
+        )
+
+    if cached_payload is not None:
+        t_forecast_list, counts_list, q_list, mean_list, sim_count_matrix = cached_payload
+        loaded_from_cache = True
+    else:
+        t_forecast_list, counts_list, q_list, mean_list, sim_count_matrix = run_sliding_window_forecast(
+            model=model,
+            seq=seq,
+            device=device,
+            duration=sliding_duration,
+            slide_step=sliding_step,
+            quantiles=sliding_quantiles,
+            samples_per_batch=samples_per_batch,
+            return_sim_count_matrix=True,
+        )
+        if load_sliding_cache:
+            save_sliding_window_cache(
+                sliding_cache_path,
+                metadata=cache_meta,
+                t_forecast_list=t_forecast_list,
+                counts_list=counts_list,
+                q_list=q_list,
+                mean_list=mean_list,
+                sim_count_matrix=sim_count_matrix,
+            )
+
     if len(t_forecast_list) == 0:
         return {
             "status": "empty",
             "message": "No sliding windows available with current duration/step settings.",
+            "sliding_cache_path": str(sliding_cache_path),
+            "sliding_loaded_from_cache": loaded_from_cache,
         }
 
     q_low, q_high = q_list[:, 0], q_list[:, 1]
@@ -282,6 +515,7 @@ def evaluate_sliding_window_forecast_plots(
     coverage = float(covered.mean())
     mae = float(np.mean(np.abs(counts_list - mean_list)))
     rmse = float(np.sqrt(np.mean((counts_list - mean_list) ** 2)))
+    lp_nb, _ = compute_mean_nb_log_prob(counts_list, sim_count_matrix)
 
     base_start_ts, freq_td_local = resolve_catalog_time_reference(catalog_ds)
     seq_start_rel = float(getattr(seq, "t_start", 0.0))
@@ -369,7 +603,7 @@ def evaluate_sliding_window_forecast_plots(
     ax.text(
         0.01,
         0.02,
-        f"Coverage: {coverage:.2%} | MAE: {mae:.2f} | RMSE: {rmse:.2f}{cap_note}",
+        f"Coverage: {coverage:.2%} | MAE: {mae:.2f} | RMSE: {rmse:.2f} | LP_NB: {lp_nb:.4f}{cap_note}",
         transform=ax.transAxes,
         va="bottom",
         ha="left",
@@ -378,7 +612,7 @@ def evaluate_sliding_window_forecast_plots(
     )
     ax.legend(frameon=False, ncol=2, loc="upper left")
     fig.tight_layout()
-    save_pub_figure(fig, Path(checkpoint_dir) / "forecast_counts_over_time.png")
+    save_pub_figure(fig, checkpoint_dir / "forecast_counts_over_time.png")
     plt.show()
 
     # 2) Error over time
@@ -454,7 +688,7 @@ def evaluate_sliding_window_forecast_plots(
     )
     ax.legend(frameon=False, loc="upper left")
     fig.tight_layout()
-    save_pub_figure(fig, Path(checkpoint_dir) / "forecast_error_over_time.png")
+    save_pub_figure(fig, checkpoint_dir / "forecast_error_over_time.png")
     plt.show()
 
     # 3) Coverage over time
@@ -487,7 +721,7 @@ def evaluate_sliding_window_forecast_plots(
     format_time_axis(ax)
     ax.legend(frameon=False, loc="lower left")
     fig.tight_layout()
-    save_pub_figure(fig, Path(checkpoint_dir) / "forecast_pi_coverage_over_time.png")
+    save_pub_figure(fig, checkpoint_dir / "forecast_pi_coverage_over_time.png")
     plt.show()
 
     # 4) Observed vs forecast scatter
@@ -553,7 +787,7 @@ def evaluate_sliding_window_forecast_plots(
     ax.set_aspect("equal", adjustable="box")
     ax.legend(frameon=False, loc="upper left")
     fig.tight_layout()
-    save_pub_figure(fig, Path(checkpoint_dir) / "obs_vs_forecast_scatter.png")
+    save_pub_figure(fig, checkpoint_dir / "obs_vs_forecast_scatter.png")
     plt.show()
 
     return {
@@ -565,4 +799,7 @@ def evaluate_sliding_window_forecast_plots(
         "coverage": coverage,
         "mae": mae,
         "rmse": rmse,
+        "lp_nb": lp_nb,
+        "sliding_cache_path": str(sliding_cache_path),
+        "sliding_loaded_from_cache": loaded_from_cache,
     }

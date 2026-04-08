@@ -63,7 +63,25 @@ def format_time_axis(ax):
     ax.tick_params(axis="x", labelrotation=0)
 
 
-def style_axes(ax, xlabel="Forecast start date", ylabel=None, integer_y=False):
+def _format_compact_thousands(value):
+    abs_value = abs(float(value))
+    if abs_value >= 1000.0:
+        k_value = value / 1000.0
+        if np.isclose(k_value, round(k_value)):
+            return f"{int(round(k_value))}k"
+        return f"{k_value:.1f}k"
+    if np.isclose(value, round(value)):
+        return f"{int(round(value))}"
+    return f"{value:g}"
+
+
+def style_axes(
+    ax,
+    xlabel="Forecast start date",
+    ylabel=None,
+    integer_y=False,
+    compact_y_thousands=False,
+):
     ax.set_xlabel(xlabel)
     if ylabel is not None:
         ax.set_ylabel(ylabel)

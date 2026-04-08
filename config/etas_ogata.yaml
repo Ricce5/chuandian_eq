@@ -6,14 +6,18 @@ task_type: tpp
 
 
 
-bg_model: mamba
+bg_model: kernel
 bg_model_cfg:
  d_feature: 1 
- d_state: 64
- d_model: 16
- model_type: mamba  # mamba | mamba2
- scale_init: 1000.0
- smooth_kernel_size: 3
+ scale_init: 300.0
+ kernel_type: mix
+ kernel_size: 256
+ normalize_kernel: true
+ use_mlp: true
+ hidden: 32
+ gamma_init_k: 4.0
+ gamma_init_beta: 0.08
+ exp_init_tau: 40.0
 
 
 bg_learning_rate: 5e-4

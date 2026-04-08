@@ -12,6 +12,7 @@ from src.data import Catalog
 __all__ = [
     "visualize_sequence",
     "visualize_trajectories",
+    "visualize_trajectories_multi_model",
     "visualize_catalog",
     "visualize_forecast_with_tests",
 ]
@@ -269,6 +270,9 @@ def visualize_trajectories(
 
     axAA.set_ylabel("Cumulative count", fontsize=9)
     axAA.tick_params(axis="y", labelsize=8)
+    # axAA.yaxis.set_major_formatter(
+    #     mticker.FuncFormatter(lambda y, _: _format_compact_thousands(y))
+    # )
     axAA.grid(False)
 
     # Reduce x tick density without expanding x-limits to out-of-window ticks.
@@ -327,6 +331,9 @@ def visualize_trajectories(
     axB.yaxis.set_label_position("right")
     axB.set_ylabel("Event count in window", fontsize=9)
     axB.tick_params(axis="both", labelsize=8)
+    # axB.yaxis.set_major_formatter(
+    #     mticker.FuncFormatter(lambda y, _: _format_compact_thousands(y))
+    # )
     axB.grid(axis="y", alpha=0.15)
     axB.legend(fontsize=8, loc="upper right", frameon=False)
 
@@ -349,6 +356,160 @@ def visualize_trajectories(
 
     return fig, (axA, axB, axAA)
 
+
+def visualize_trajectories_multi_model(
+    seq: Sequence,
+    forecasts_by_model: Dict[str, List[Sequence]],
+    figsize: tuple = (10.0, 0.0),
+    dpi: int = 150,
+    row_height: float = 2.8,
+    model_order: Optional[List[str]] = None,
+    save_path: Optional[str] = None,
+    **trajectory_kwargs,
+) -> tuple:
+    """
+    Visualize forecast trajectories for multiple models in vertical rows.
+
+    Each model occupies one row, and each row reuses the standard
+    `visualize_trajectories` layout (left trajectory panel + right count panel).
+    Rows are ordered from top to bottom according to `model_order`
+    (or insertion order of `forecasts_by_model` when None).
+
+    Returns:
+        tuple: (fig, axes_by_model)
+            where axes_by_model[model_name] = (ax_left, ax_right, ax_right_y)
+    """
+    if not forecasts_by_model:
+        raise ValueError("forecasts_by_model must be non-empty")
+
+    if model_order is None:
+        model_names = list(forecasts_by_model.keys())
+    else:
+        model_names = list(model_order)
+        missing = [name for name in model_names if name not in forecasts_by_model]
+        if missing:
+            raise KeyError(f"model_order contains unknown models: {missing}")
+
+    n_models = len(model_names)
+    if n_models == 0:
+        raise ValueError("No models to visualize")
+
+    fig_w = float(figsize[0])
+    fig_h = float(figsize[1]) if len(figsize) > 1 and float(figsize[1]) > 0 else row_height * n_models
+
+    fig = plt.figure(figsize=(fig_w, fig_h), dpi=dpi, layout="constrained")
+    try:
+        fig.set_constrained_layout_pads(w_pad=0.01, h_pad=0.01, wspace=0.02, hspace=0.02)
+    except Exception:
+        pass
+
+    gs = fig.add_gridspec(
+        n_models,
+        2,
+        width_ratios=(3.2, 1.3),
+        hspace=0.06,
+        wspace=0.02,
+    )
+
+    axes_by_model = {}
+    first_left = None
+
+    for idx, model_name in enumerate(model_names):
+        forecast_i = forecasts_by_model[model_name]
+        if len(forecast_i) == 0:
+            raise ValueError(f"Forecast list for model '{model_name}' is empty")
+
+        if first_left is None:
+            ax_left = fig.add_subplot(gs[idx, 0])
+            first_left = ax_left
+        else:
+            ax_left = fig.add_subplot(gs[idx, 0], sharex=first_left)
+        ax_right = fig.add_subplot(gs[idx, 1])
+
+        _, (ax_left, ax_right, ax_right_y) = visualize_trajectories(
+            seq=seq,
+            forecast=forecast_i,
+            ax=(ax_left, ax_right),
+            dpi=dpi,
+            save_path=None,
+            **trajectory_kwargs,
+        )
+
+        # Normalize header semantics:
+        # - column titles appear only on the first row
+        # - model name is shown as a row label on the left panel
+        ax_left.set_title("", loc="left")
+        ax_left.set_title("", loc="center")
+        ax_right.set_title("", loc="left")
+        ax_right.set_title("", loc="center")
+
+        if idx == 0:
+            ax_left.set_title(
+                "Observed Sequence and Example Forecast Trajectories",
+                loc="center",
+                fontsize=10,
+            )
+            ax_right.set_title("Forecast counts", loc="center", fontsize=10)
+
+        # ax_left.text(
+        #     0.0,
+        #     1.02,
+        #     str(model_name),
+        #     transform=ax_left.transAxes,
+        #     ha="left",
+        #     va="bottom",
+        #     fontsize=9,
+        #     fontweight="bold",
+        # )
+
+        # Subplot labels: label every panel separately
+        left_label = f"({chr(ord('a') + 2 * idx)})"
+        right_label = f"({chr(ord('a') + 2 * idx + 1)})"
+
+        ax_left.text(
+            0.02,
+            0.98,
+            left_label,
+            transform=ax_left.transAxes,
+            ha="left",
+            va="top",
+            fontsize=10,
+            bbox=dict(
+                boxstyle="round,pad=0.15",
+                facecolor="white",
+                edgecolor="0.8",
+                alpha=0.7,
+            ),
+        )
+
+        ax_right.text(
+            0.02,
+            0.98,
+            right_label,
+            transform=ax_right.transAxes,
+            ha="left",
+            va="top",
+            fontsize=10,
+            bbox=dict(
+                boxstyle="round,pad=0.15",
+                facecolor="white",
+                edgecolor="0.8",
+                alpha=0.7,
+            ),
+        )
+
+        if idx < n_models - 1:
+            ax_left.set_xlabel("")
+            ax_right.set_xlabel("")
+            ax_left.tick_params(axis="x", labelbottom=False)
+            ax_right.tick_params(axis="x", labelbottom=False)
+
+        axes_by_model[model_name] = (ax_left, ax_right, ax_right_y)
+
+    if save_path is not None:
+        fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
+
+    return fig, axes_by_model
 
 def visualize_forecast_with_tests(
     seq: Sequence,
