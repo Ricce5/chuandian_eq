@@ -337,6 +337,34 @@ class ETAS(TPPModel):
         h_intensity = (omori * productivity.unsqueeze(-2) * prev_mask * survival_mask.unsqueeze(-2)).sum(-1) + self.mu  # (B, S)
         return h_intensity
 
+    def prefix_h_integral(
+        self,
+        *,
+        t_all: torch.Tensor,
+        mag_all: torch.Tensor,
+        t0: torch.Tensor,
+        t_query: torch.Tensor,
+        query_block_size: int = 256,
+    ) -> torch.Tensor:
+        """Compute integral of ``h(s)`` from ``t0`` to each value in ``t_query``."""
+        one_minus_p = 1.0 - self.p
+        masked_mag = mag_all - self.M_c
+        productivity = self.k * 10 ** (self.alpha * masked_mag)
+
+        dt_start = (t0 - t_all).clamp_min(0.0)
+        dt_start_term = (dt_start + self.c).pow(one_minus_p)
+
+        out = torch.empty_like(t_query)
+        block_size = int(max(1, query_block_size))
+        for st in range(0, int(t_query.numel()), block_size):
+            t_chunk = t_query[st : st + block_size]
+            dt_end = (t_chunk.unsqueeze(1) - t_all.unsqueeze(0)).clamp_min(0.0)
+            omori_int = ((dt_end + self.c).pow(one_minus_p) - dt_start_term.unsqueeze(0)) / one_minus_p
+            int_h = (omori_int * productivity.unsqueeze(0)).sum(dim=1)
+            int_h = int_h + (t_chunk - t0) * self.mu
+            out[st : st + block_size] = int_h
+        return out
+
 
 
     def training_step(self, batch, batch_idx):
@@ -1163,6 +1191,4 @@ def masked_select_per_row(matrix, mask):
     new_matrix = pad_sequence(selected_rows)
     new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])
     return new_matrix, new_mask.float()
-
-
 

@@ -6,10 +6,84 @@ import numpy as np
 import torch
 
 from src.data import Batch
-from src.utils.interp import integrate_uniform_time_series
+
+
+def _resolve_device(model, device=None):
+    """Resolve execution device from explicit input or model parameters."""
+    if device is not None:
+        return device
+    return next(model.parameters()).device
+
+
+def _to_numpy_float(values):
+    """Convert tensor/list/array values to a float NumPy array."""
+    if torch.is_tensor(values):
+        return values.detach().cpu().to(torch.float64).numpy()
+    return np.asarray(values, dtype=float)
+
+
+def _get_inter_time_dist_silent(model, context):
+    """Call ``model.get_inter_time_dist`` while suppressing stdout noise."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        return model.get_inter_time_dist(context)
+
+
+def _prefix_cumsum_at_queries(event_times, cum_values, query_times):
+    """Gather cumulative values at right-closed prefix indices."""
+    prefix = torch.zeros_like(query_times)
+    if event_times.numel() == 0:
+        return prefix, None, None
+    idx = torch.searchsorted(event_times, query_times, right=True) - 1
+    has_event = idx >= 0
+    prefix[has_event] = cum_values[idx[has_event]]
+    return prefix, idx, has_event
+
+
+def _build_time_curve_output(times, cum_log_likelihood):
+    """Build standard output dict for time-only cumulative curve."""
+    out = {
+        "time": _to_numpy_float(times),
+        "cum_log_likelihood": _to_numpy_float(cum_log_likelihood),
+    }
+    out["cum_nll"] = -out["cum_log_likelihood"]
+    return out
+
+
+def _build_full_curve_output(times, cum_log_likelihood_time, cum_log_likelihood_total):
+    """Build standard output dict for time and total cumulative curves."""
+    ll_time = _to_numpy_float(cum_log_likelihood_time)
+    ll_total = _to_numpy_float(cum_log_likelihood_total)
+    out = {
+        "time": _to_numpy_float(times),
+        "cum_log_likelihood": ll_time.copy(),
+        "cum_log_likelihood_time": ll_time,
+        "cum_log_likelihood_total": ll_total,
+    }
+    out["cum_nll"] = -out["cum_log_likelihood"]
+    out["cum_nll_time"] = -out["cum_log_likelihood_time"]
+    out["cum_nll_total"] = -out["cum_log_likelihood_total"]
+    return out
+
+
+def _build_curve_meta(curve_method, num_events_in_nll, final_log_likelihood, final_log_likelihood_total=None, **extra):
+    """Build metadata dict shared by cumulative curve methods."""
+    meta = {
+        "num_events_in_nll": int(num_events_in_nll),
+        "final_log_likelihood": float(final_log_likelihood),
+        "curve_method": curve_method,
+    }
+    if final_log_likelihood_total is not None:
+        meta["final_log_likelihood_total"] = float(final_log_likelihood_total)
+    meta.update(extra)
+    return meta
 
 
 def _build_nll_kwargs(model):
+    """Build optional kwargs supported by ``model.nll_loss``.
+
+    The helper inspects ``model.nll_loss`` at runtime and only forwards flags
+    that exist in the target signature.
+    """
     sig = inspect.signature(model.nll_loss).parameters
     kwargs = {}
     if "reduction" in sig:
@@ -22,6 +96,7 @@ def _build_nll_kwargs(model):
 
 
 def _extract_time_total_from_out(out):
+    """Normalize ``nll_loss`` outputs into ``(time, total)`` values."""
     if isinstance(out, dict):
         time_val = out.get("time", out.get("total"))
         total_val = out.get("total", time_val)
@@ -30,11 +105,15 @@ def _extract_time_total_from_out(out):
 
 
 def _model_nll_values_batch(model, sequences, device=None):
+    """Compute per-sequence ``(nll_time, nll_total)`` for a sequence batch.
+
+    Returns Python lists aligned with ``sequences`` and validates that the
+    model returns exactly one value per input sequence.
+    """
     if len(sequences) == 0:
         return [], []
 
-    if device is None:
-        device = next(model.parameters()).device
+    device = _resolve_device(model, device)
 
     batch = Batch.from_list(sequences).to(device)
     kwargs = _build_nll_kwargs(model)
@@ -59,11 +138,20 @@ def _model_nll_values_batch(model, sequences, device=None):
 
 
 def _model_nll_values(model, sequence, device=None):
+    """Compute scalar ``(nll_time, nll_total)`` for one sequence."""
     time_list, total_list = _model_nll_values_batch(model, [sequence], device=device)
     return float(time_list[0]), float(total_list[0])
 
 
 def _build_eval_and_end_values(sequence):
+    """Build prefix evaluation times and clamped subsequence end values.
+
+    Returns:
+        tuple[list[float], list[float], torch.Tensor]:
+            ``(eval_times, end_eval_values, nll_event_times)`` where
+            ``end_eval_values`` are adjusted to satisfy minimum prefix span
+            constraints.
+    """
     event_times = sequence.arrival_times
     nll_event_times = event_times[(event_times > sequence.t_nll_start) & (event_times <= sequence.t_end)]
 
@@ -99,8 +187,9 @@ def _build_eval_and_end_values(sequence):
 
 
 def _bg_integral_prefix(bg_model, batch, end_eval_values):
-    if not hasattr(batch, "time_series") or not hasattr(batch, "time_series_times"):
-        raise ValueError("Fast BG integral requires batch.time_series and batch.time_series_times.")
+    """Integrate background intensity from ``t_nll_start`` to each endpoint."""
+    if not hasattr(bg_model, "intensity_integral_between"):
+        raise ValueError("Fast BG integral requires bg_model.intensity_integral_between.")
     if batch.batch_size != 1:
         raise ValueError("Fast BG integral currently supports batch_size == 1 only.")
 
@@ -109,44 +198,26 @@ def _bg_integral_prefix(bg_model, batch, end_eval_values):
         device=batch.arrival_times.device,
         dtype=batch.arrival_times.dtype,
     )
-    ts_t, intensity_traj = bg_model._compute_intensity_traj(batch)
     t_start = batch.t_nll_start.view(1, 1).expand(1, end_eval.numel())
     t_end = end_eval.view(1, -1)
-    out = integrate_uniform_time_series(
-        t=ts_t,
-        x=intensity_traj,
+    out = bg_model.intensity_integral_between(
+        ts_batch=batch,
         t_start=t_start,
         t_end=t_end,
-    )  # (1, N, 1)
-    return out.squeeze(0).squeeze(-1)  # (N,)
-
-
-def _apply_optional_bg_kl_as_constant(model, batch, cum_log_likelihood_total, eps=1e-10):
-    bg_model = getattr(model, "bg_model", None)
-    if bg_model is None or not hasattr(bg_model, "kl_term"):
-        return cum_log_likelihood_total
-    try:
-        with torch.inference_mode():
-            kl_val = bg_model.kl_term(batch, eps=eps)
-        kl_scalar = torch.as_tensor(kl_val, device=cum_log_likelihood_total.device).reshape(-1)[0]
-        # nll_total = nll_time + kl, so log-likelihood_total = log-likelihood_time - kl.
-        return cum_log_likelihood_total - kl_scalar
-    except Exception:
-        # Keep fast path robust: if KL computation fails, keep total unchanged.
-        return cum_log_likelihood_total
+    )  # (1, N) or (N,)
+    return out.reshape(-1)
 
 
 def _cumulative_curve_recurrent_fast(model, sequence, device=None, eps=1e-10):
-    if device is None:
-        device = next(model.parameters()).device
+    """Fast cumulative time log-likelihood curve for recurrent models."""
+    device = _resolve_device(model, device)
 
     batch = Batch.from_list([sequence]).to(device)
 
     with torch.inference_mode():
         context = model.get_context(batch)
 
-        with contextlib.redirect_stdout(io.StringIO()):
-            inter_time_dist = model.get_inter_time_dist(context)
+        inter_time_dist = _get_inter_time_dist_silent(model, context)
 
         log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(eps))[0]
         nll_mask = batch.nll_event_mask[0].bool()
@@ -158,16 +229,14 @@ def _cumulative_curve_recurrent_fast(model, sequence, device=None, eps=1e-10):
         arange = torch.arange(batch.batch_size, device=device)
 
         last_surv_context = context[arange, batch.end_idx, :]
-        with contextlib.redirect_stdout(io.StringIO()):
-            last_surv_dist = model.get_inter_time_dist(last_surv_context)
+        last_surv_dist = _get_inter_time_dist_silent(model, last_surv_context)
         last_surv_val = last_surv_dist.log_survival(batch.inter_times[arange, batch.end_idx].clamp_min(eps))
         last_log_surv = last_surv_val.reshape(-1)[0]
 
         offset_log_like = torch.tensor(0.0, device=device)
         if torch.any(batch.t_nll_start != batch.t_start):
             prev_surv_context = context[arange, batch.start_idx, :]
-            with contextlib.redirect_stdout(io.StringIO()):
-                prev_surv_dist = model.get_inter_time_dist(prev_surv_context)
+            prev_surv_dist = _get_inter_time_dist_silent(model, prev_surv_context)
             prev_surv_time = batch.inter_times[arange, batch.start_idx] - (
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
@@ -193,26 +262,21 @@ def _cumulative_curve_recurrent_fast(model, sequence, device=None, eps=1e-10):
     times.append(t_end)
     cum_ll.append(float(total_log_like.detach().cpu().item()))
 
-    out = {
-        "time": np.asarray(times, dtype=float),
-        "cum_log_likelihood": np.asarray(cum_ll, dtype=float),
-    }
-    out["cum_nll"] = -out["cum_log_likelihood"]
-
-    meta = {
-        "num_events_in_nll": int(nll_mask.sum().item()),
-        "offset_log_likelihood": float(offset_log_like.detach().cpu().item()),
-        "terminal_log_survival": float(last_log_surv.detach().cpu().item()),
-        "final_log_likelihood": float(total_log_like.detach().cpu().item()),
-        "curve_method": "recurrent_fast",
-    }
+    out = _build_time_curve_output(times, cum_ll)
+    meta = _build_curve_meta(
+        curve_method="recurrent_fast",
+        num_events_in_nll=nll_mask.sum().item(),
+        final_log_likelihood=total_log_like.detach().cpu().item(),
+        offset_log_likelihood=offset_log_like.detach().cpu().item(),
+        terminal_log_survival=last_log_surv.detach().cpu().item(),
+    )
 
     return out, meta
 
 
 def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-10):
-    if device is None:
-        device = next(model.parameters()).device
+    """Fast cumulative total log-likelihood for recurrent models with BG."""
+    device = _resolve_device(model, device)
     if getattr(model, "bg_model", None) is None:
         raise ValueError("Recurrent total fast path requires model.bg_model.")
 
@@ -222,8 +286,7 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
 
     with torch.inference_mode():
         context = model.get_context(batch)
-        with contextlib.redirect_stdout(io.StringIO()):
-            inter_time_dist = model.get_inter_time_dist(context)
+        inter_time_dist = _get_inter_time_dist_silent(model, context)
 
         log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(eps))[0]
         nll_mask = batch.nll_event_mask[0].bool()
@@ -231,14 +294,11 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
         event_log_like = log_pdf[nll_mask]
         cum_event_log_like = torch.cumsum(event_log_like, dim=0) if event_log_like.numel() > 0 else event_log_like
 
-        # Prefix event accumulation at each endpoint.
-        if event_times.numel() > 0:
-            idx_nll = torch.searchsorted(event_times, end_eval, right=True) - 1
-            has_nll_event = idx_nll >= 0
-            event_prefix = torch.zeros_like(end_eval)
-            event_prefix[has_nll_event] = cum_event_log_like[idx_nll[has_nll_event]]
-        else:
-            event_prefix = torch.zeros_like(end_eval)
+        event_prefix, idx_nll, has_nll_event = _prefix_cumsum_at_queries(
+            event_times=event_times,
+            cum_values=cum_event_log_like,
+            query_times=end_eval,
+        )
 
         # Survival contribution at each endpoint, matching per-prefix nll semantics.
         end_idx = int(batch.end_idx[0].item())
@@ -250,16 +310,14 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
         surv_dt = (end_eval - prev_time).clamp_min(eps)
 
         surv_context = context[0, prefix_end_idx, :]
-        with contextlib.redirect_stdout(io.StringIO()):
-            surv_dist = model.get_inter_time_dist(surv_context)
+        surv_dist = _get_inter_time_dist_silent(model, surv_context)
         log_surv_prefix = surv_dist.log_survival(surv_dt).reshape(-1)
 
         offset_log_like = torch.tensor(0.0, device=device, dtype=event_prefix.dtype)
         if torch.any(batch.t_nll_start != batch.t_start):
             arange = torch.arange(batch.batch_size, device=device)
             prev_surv_context = context[arange, batch.start_idx, :]
-            with contextlib.redirect_stdout(io.StringIO()):
-                prev_surv_dist = model.get_inter_time_dist(prev_surv_context)
+            prev_surv_dist = _get_inter_time_dist_silent(model, prev_surv_context)
             prev_surv_time = batch.inter_times[arange, batch.start_idx] - (
                 batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
             )
@@ -283,53 +341,35 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
 
         bg_int_prefix = _bg_integral_prefix(model.bg_model, batch, end_eval_values)
         cum_ll_total = cum_ll_time + bg_event_prefix - bg_int_prefix
-        cum_ll_total = _apply_optional_bg_kl_as_constant(
-            model=model,
-            batch=batch,
-            cum_log_likelihood_total=cum_ll_total,
-            eps=eps,
-        )
 
-    out = {
-        "time": np.asarray(eval_times, dtype=float),
-        "cum_log_likelihood": cum_ll_time.detach().cpu().to(torch.float64).numpy(),
-        "cum_log_likelihood_time": cum_ll_time.detach().cpu().to(torch.float64).numpy(),
-        "cum_log_likelihood_total": cum_ll_total.detach().cpu().to(torch.float64).numpy(),
-    }
-    out["cum_nll"] = -out["cum_log_likelihood"]
-    out["cum_nll_time"] = -out["cum_log_likelihood_time"]
-    out["cum_nll_total"] = -out["cum_log_likelihood_total"]
-
-    meta = {
-        "num_events_in_nll": int(nll_event_times.numel()),
-        "final_log_likelihood": float(out["cum_log_likelihood_time"][-1]),
-        "final_log_likelihood_total": float(out["cum_log_likelihood_total"][-1]),
-        "curve_method": "recurrent_total_fast",
-        "num_prefix_evals": int(len(eval_times)),
-    }
+    out = _build_full_curve_output(eval_times, cum_ll_time, cum_ll_total)
+    meta = _build_curve_meta(
+        curve_method="recurrent_total_fast",
+        num_events_in_nll=nll_event_times.numel(),
+        final_log_likelihood=out["cum_log_likelihood_time"][-1],
+        final_log_likelihood_total=out["cum_log_likelihood_total"][-1],
+        num_prefix_evals=len(eval_times),
+    )
     return out, meta
 
 
 def _is_etas_like(model):
-    return hasattr(model, "h_intensity") and hasattr(model, "p") and hasattr(model, "c") and hasattr(model, "mu")
+    """Return whether model exposes ETAS fast-curve interface."""
+    return hasattr(model, "h_intensity") and hasattr(model, "prefix_h_integral")
 
 
-def _etas_kernel_productivity(model, batch, end_idx):
-    mag_all = batch.mag[0, :end_idx]
-    if hasattr(model, "k") and hasattr(model, "alpha"):
-        productivity = model.k * 10 ** (model.alpha * (mag_all - model.M_c))
-        kernel_scale = torch.ones_like(productivity)
-        return productivity, kernel_scale
-    if hasattr(model, "K") and hasattr(model, "alpha_e"):
-        productivity = model.K * torch.exp(model.alpha_e * (mag_all - model.M_c))
-        kernel_scale = torch.full_like(productivity, float(model.omori_norm_factor))
-        return productivity, kernel_scale
-    raise ValueError("Unsupported ETAS-like parameterization for fast cumulative curve.")
+def _is_recurrent_curve_model(model):
+    """Return whether model exposes recurrent fast-curve interface."""
+    return hasattr(model, "get_context") and hasattr(model, "get_inter_time_dist")
 
 
 def _cumulative_curve_etas_total_fast(model, sequence, device=None, eps=1e-10, query_block_size=256):
-    if device is None:
-        device = next(model.parameters()).device
+    """Fast cumulative total log-likelihood curve for ETAS-like models.
+
+    Uses block-wise intensity queries to control peak memory for long
+    sequences.
+    """
+    device = _resolve_device(model, device)
     if not _is_etas_like(model):
         raise ValueError("ETAS total fast path requires an ETAS-like model.")
 
@@ -361,29 +401,21 @@ def _cumulative_curve_etas_total_fast(model, sequence, device=None, eps=1e-10, q
             torch.cumsum(event_log_like, dim=0) if event_log_like.numel() > 0 else event_log_like
         )
 
-        if t_nll_events.numel() > 0:
-            idx_nll = torch.searchsorted(t_nll_events, end_eval, right=True) - 1
-            has_nll_event = idx_nll >= 0
-            event_prefix = torch.zeros_like(end_eval)
-            event_prefix[has_nll_event] = cum_event_log_like[idx_nll[has_nll_event]]
-        else:
-            event_prefix = torch.zeros_like(end_eval)
+        event_prefix, idx_nll, has_nll_event = _prefix_cumsum_at_queries(
+            event_times=t_nll_events,
+            cum_values=cum_event_log_like,
+            query_times=end_eval,
+        )
 
-        productivity, kernel_scale = _etas_kernel_productivity(model, batch, end_idx)
-        one_minus_p = 1.0 - model.p
+        mag_all = batch.mag[0, :end_idx]
         t0 = batch.t_nll_start[0]
-        dt_start = (t0 - t_all).clamp_min(0.0)
-        dt_start_term = (dt_start + model.c).pow(one_minus_p)
-        prod_scaled = productivity * kernel_scale
-
-        int_h_prefix = torch.empty_like(end_eval)
-        for st in range(0, int(end_eval.numel()), int(query_block_size)):
-            t_query = end_eval[st : st + int(query_block_size)]
-            dt_end = (t_query.unsqueeze(1) - t_all.unsqueeze(0)).clamp_min(0.0)
-            omori_int = ((dt_end + model.c).pow(one_minus_p) - dt_start_term.unsqueeze(0)) / one_minus_p
-            int_h = (omori_int * prod_scaled.unsqueeze(0)).sum(dim=1)
-            int_h = int_h + (t_query - t0) * model.mu
-            int_h_prefix[st : st + int(query_block_size)] = int_h
+        int_h_prefix = model.prefix_h_integral(
+            t_all=t_all,
+            mag_all=mag_all,
+            t0=t0,
+            t_query=end_eval,
+            query_block_size=int(query_block_size),
+        )
 
         if getattr(model, "bg_model", None) is not None:
             int_f_prefix = _bg_integral_prefix(model.bg_model, batch, end_eval_values)
@@ -391,30 +423,16 @@ def _cumulative_curve_etas_total_fast(model, sequence, device=None, eps=1e-10, q
             int_f_prefix = torch.zeros_like(end_eval)
 
         cum_ll_time = event_prefix - (int_h_prefix + int_f_prefix)
-        cum_ll_total = _apply_optional_bg_kl_as_constant(
-            model=model,
-            batch=batch,
-            cum_log_likelihood_total=cum_ll_time.clone(),
-            eps=eps,
-        )
+        cum_ll_total = cum_ll_time.clone()
 
-    out = {
-        "time": np.asarray(eval_times, dtype=float),
-        "cum_log_likelihood": cum_ll_time.detach().cpu().to(torch.float64).numpy(),
-        "cum_log_likelihood_time": cum_ll_time.detach().cpu().to(torch.float64).numpy(),
-        "cum_log_likelihood_total": cum_ll_total.detach().cpu().to(torch.float64).numpy(),
-    }
-    out["cum_nll"] = -out["cum_log_likelihood"]
-    out["cum_nll_time"] = -out["cum_log_likelihood_time"]
-    out["cum_nll_total"] = -out["cum_log_likelihood_total"]
-
-    meta = {
-        "num_events_in_nll": int(nll_event_times.numel()),
-        "final_log_likelihood": float(out["cum_log_likelihood_time"][-1]),
-        "final_log_likelihood_total": float(out["cum_log_likelihood_total"][-1]),
-        "curve_method": "etas_total_fast",
-        "num_prefix_evals": int(len(eval_times)),
-    }
+    out = _build_full_curve_output(eval_times, cum_ll_time, cum_ll_total)
+    meta = _build_curve_meta(
+        curve_method="etas_total_fast",
+        num_events_in_nll=nll_event_times.numel(),
+        final_log_likelihood=out["cum_log_likelihood_time"][-1],
+        final_log_likelihood_total=out["cum_log_likelihood_total"][-1],
+        num_prefix_evals=len(eval_times),
+    )
     return out, meta
 
 
@@ -426,8 +444,12 @@ def _cumulative_curve_prefix_generic(
     show_progress=False,
     progress_desc=None,
 ):
-    if device is None:
-        device = next(model.parameters()).device
+    """Generic prefix-recompute fallback for cumulative log-likelihood curves.
+
+    Prefixes are processed in chunks, with adaptive chunk shrinking when CUDA
+    OOM is encountered.
+    """
+    device = _resolve_device(model, device)
 
     chunk_size = int(prefix_chunk_size)
     chunk_size = max(1, chunk_size)
@@ -441,17 +463,14 @@ def _cumulative_curve_prefix_generic(
 
     pbar = None
     if show_progress:
-        try:
-            from tqdm.auto import tqdm
+        from tqdm.auto import tqdm
 
-            pbar = tqdm(
-                total=len(end_eval_values),
-                desc=(progress_desc or "Prefix NLL"),
-                unit="prefix",
-                leave=False,
-            )
-        except Exception:
-            pbar = None
+        pbar = tqdm(
+            total=len(end_eval_values),
+            desc=(progress_desc or "Prefix NLL"),
+            unit="prefix",
+            leave=False,
+        )
 
     idx = 0
     try:
@@ -483,25 +502,46 @@ def _cumulative_curve_prefix_generic(
         if pbar is not None:
             pbar.close()
 
-    out = {
-        "time": np.asarray(eval_times, dtype=float),
-        "cum_log_likelihood": np.asarray(cum_ll_time, dtype=float),
-        "cum_log_likelihood_time": np.asarray(cum_ll_time, dtype=float),
-        "cum_log_likelihood_total": np.asarray(cum_ll_total, dtype=float),
-    }
-    out["cum_nll"] = -out["cum_log_likelihood"]
+    out = _build_full_curve_output(eval_times, cum_ll_time, cum_ll_total)
+    meta = _build_curve_meta(
+        curve_method="prefix_nll",
+        num_events_in_nll=nll_event_times.numel(),
+        final_log_likelihood=cum_ll_time[-1],
+        final_log_likelihood_total=cum_ll_total[-1],
+        prefix_chunk_size=chunk_size,
+        num_prefix_evals=len(eval_times),
+    )
+    return out, meta
+
+
+def _promote_time_curve_to_total(out, meta):
+    """Populate total-curve fields when total equals time."""
+    ll = np.asarray(out["cum_log_likelihood"], dtype=float)
+    out["cum_log_likelihood_time"] = ll.copy()
+    out["cum_log_likelihood_total"] = ll.copy()
     out["cum_nll_time"] = -out["cum_log_likelihood_time"]
     out["cum_nll_total"] = -out["cum_log_likelihood_total"]
-
-    meta = {
-        "num_events_in_nll": int(nll_event_times.numel()),
-        "final_log_likelihood": float(cum_ll_time[-1]),
-        "final_log_likelihood_total": float(cum_ll_total[-1]),
-        "curve_method": "prefix_nll",
-        "prefix_chunk_size": int(chunk_size),
-        "num_prefix_evals": int(len(eval_times)),
-    }
+    meta["final_log_likelihood_total"] = float(out["cum_log_likelihood_total"][-1])
     return out, meta
+
+
+def _run_prefix_curve_fallback(
+    model,
+    sequence,
+    device,
+    prefix_chunk_size,
+    show_progress,
+    progress_desc,
+):
+    """Run generic prefix-recompute curve path."""
+    return _cumulative_curve_prefix_generic(
+        model,
+        sequence,
+        device=device,
+        prefix_chunk_size=prefix_chunk_size,
+        show_progress=show_progress,
+        progress_desc=progress_desc,
+    )
 
 
 def cumulative_log_likelihood_curve(
@@ -514,54 +554,54 @@ def cumulative_log_likelihood_curve(
     show_progress=False,
     progress_desc=None,
 ):
+    """Compute cumulative log-likelihood curves for one event sequence.
+
+    Args:
+        model: Point-process model providing one or more supported interfaces.
+        sequence: Single sequence object used to build prefix evaluations.
+        device: Torch device for model execution. Defaults to model device.
+        eps: Small positive constant used for numerical clamping.
+        component: Which component to return, ``"time"`` or ``"total"``.
+        prefix_chunk_size: Prefix batch size for the generic fallback path.
+        show_progress: Whether to show a progress bar in fallback mode.
+        progress_desc: Optional progress-bar description.
+
+    Returns:
+        tuple[dict, dict]:
+            Curve outputs and metadata. The output dict always includes
+            ``time``, ``cum_log_likelihood``, ``cum_nll``,
+            ``cum_log_likelihood_time``, ``cum_nll_time``,
+            ``cum_log_likelihood_total``, and ``cum_nll_total``.
+    """
     if component not in {"time", "total"}:
         raise ValueError("component must be one of {'time', 'total'}.")
+    device = _resolve_device(model, device)
 
     if component == "total":
         # Exact fast paths:
         # - ETAS family: O(N^2) block-wise vectorization instead of prefix recomputation.
         # - Recurrent+BG family: single forward + cumulative decomposition.
         if _is_etas_like(model):
-            try:
-                return _cumulative_curve_etas_total_fast(
-                    model,
-                    sequence,
-                    device=device,
-                    eps=eps,
-                )
-            except Exception:
-                pass
-        if (
-            hasattr(model, "get_context")
-            and hasattr(model, "get_inter_time_dist")
-            and getattr(model, "bg_model", None) is not None
-        ):
-            try:
-                return _cumulative_curve_recurrent_total_fast(
-                    model,
-                    sequence,
-                    device=device,
-                    eps=eps,
-                )
-            except Exception:
-                pass
+            return _cumulative_curve_etas_total_fast(
+                model,
+                sequence,
+                device=device,
+                eps=eps,
+            )
+        if _is_recurrent_curve_model(model) and getattr(model, "bg_model", None) is not None:
+            return _cumulative_curve_recurrent_total_fast(
+                model,
+                sequence,
+                device=device,
+                eps=eps,
+            )
 
         # For recurrent models without BG terms, total == time.
-        if (
-            hasattr(model, "get_context")
-            and hasattr(model, "get_inter_time_dist")
-            and getattr(model, "bg_model", None) is None
-        ):
+        if _is_recurrent_curve_model(model) and getattr(model, "bg_model", None) is None:
             out, meta = _cumulative_curve_recurrent_fast(model, sequence, device=device, eps=eps)
-            ll = np.asarray(out["cum_log_likelihood"], dtype=float)
-            out["cum_log_likelihood_time"] = ll.copy()
-            out["cum_log_likelihood_total"] = ll.copy()
-            out["cum_nll_time"] = -out["cum_log_likelihood_time"]
-            out["cum_nll_total"] = -out["cum_log_likelihood_total"]
-            meta["final_log_likelihood_total"] = float(out["cum_log_likelihood_total"][-1])
-            return out, meta
+            return _promote_time_curve_to_total(out, meta)
 
-        return _cumulative_curve_prefix_generic(
+        return _run_prefix_curve_fallback(
             model,
             sequence,
             device=device,
@@ -570,19 +610,16 @@ def cumulative_log_likelihood_curve(
             progress_desc=progress_desc,
         )
 
-    if hasattr(model, "get_context") and hasattr(model, "get_inter_time_dist"):
-        return _cumulative_curve_recurrent_fast(model, sequence, device=device, eps=eps)
     if _is_etas_like(model):
-        try:
-            return _cumulative_curve_etas_total_fast(
-                model,
-                sequence,
-                device=device,
-                eps=eps,
-            )
-        except Exception:
-            pass
-    return _cumulative_curve_prefix_generic(
+        return _cumulative_curve_etas_total_fast(
+            model,
+            sequence,
+            device=device,
+            eps=eps,
+        )
+    if _is_recurrent_curve_model(model):
+        return _cumulative_curve_recurrent_fast(model, sequence, device=device, eps=eps)
+    return _run_prefix_curve_fallback(
         model,
         sequence,
         device=device,
@@ -590,7 +627,3 @@ def cumulative_log_likelihood_curve(
         show_progress=show_progress,
         progress_desc=progress_desc,
     )
-
-
-def reference_nll_from_model(model, sequence, device=None):
-    return _model_nll_values(model, sequence, device=device)

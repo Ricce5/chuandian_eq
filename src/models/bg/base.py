@@ -110,6 +110,31 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             t_end=batch.t_end,
         )  # (B, 1)
         return integral.squeeze(-1).squeeze(-1)  # (B,)
+
+    def intensity_integral_between(
+        self,
+        ts_batch: DotDict,
+        t_start: torch.Tensor,
+        t_end: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute integral of intensity over explicit ``[t_start, t_end]`` intervals.
+
+        Args:
+            ts_batch: Batch with ``time_series`` and ``time_series_times``.
+            t_start: Interval starts, shape ``(B,)`` or ``(B, N)``.
+            t_end: Interval ends, shape ``(B,)`` or ``(B, N)``.
+
+        Returns:
+            Tensor of shape ``(B,)`` or ``(B, N)`` with integrals.
+        """
+        time_series_times, intensity_traj = self._compute_intensity_traj(ts_batch)
+        integral = integrate_uniform_time_series(
+            t=time_series_times,
+            x=intensity_traj,
+            t_start=t_start,
+            t_end=t_end,
+        )  # (B, 1)
+        return integral.squeeze(-1).squeeze(-1)  # (B,)
     
     @torch.no_grad()
     def forecast_count(self, t_start: torch.Tensor, t_end: torch.Tensor) -> torch.Tensor:

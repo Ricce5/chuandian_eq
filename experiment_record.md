@@ -383,6 +383,9 @@ SCEDC：checkpoints/mixer_tpp_20260206-112901
 ChuanDian：checkpoints/mixer_tpp_20260207-095619
 checkpoints/mixer_tpp_20260204-220105
 
+
+### 4.6 
+
 1. PNR_1z:
 
 ETAS(mu=0): checkpoints/etas_20260403-123804
@@ -391,16 +394,30 @@ ETAS(mu=0): checkpoints/etas_20260403-123804
 {"nll_train_time": -5.975103855133057, "nll_train_total": -5.975103855133057, "nll_val_time": -6.446558952331543, "nll_val_total": -6.446558952331543, "nll_test_time": -6.365136623382568, "nll_test_total": -6.365136623382568, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
 
+```python
+{"status": "ok", "coverage": 0.9333333333333333, "mae": 172.5735, "rmse": 331.34805195267603, "lp_nb": -5.745138939724267, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260403-123804/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 ETAS: checkpoints/etas_20260403-204045
 
 ```python
 {"nll_train_time": -5.987344741821289, "nll_train_total": -5.987344741821289, "nll_val_time": -6.466350078582764, "nll_val_total": -6.466350078582764, "nll_test_time": -6.384871482849121, "nll_test_total": -6.384871482849121, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
 
+```python
+{"status": "ok", "coverage": 0.36666666666666664, "mae": 181.37890000000002, "rmse": 287.7162165410563, "lp_nb": -6.438656939295559, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260403-204045/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 ETAS+P: checkpoints/etas_20260330-231015
 
 ```python
 {"nll_train_time": -6.000354290008545, "nll_train_total": -6.000354290008545, "nll_val_time": -6.524806022644043, "nll_val_total": -6.524806022644043, "nll_test_time": -6.367061614990234, "nll_test_total": -6.367061614990234, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
+```
+
+```python
+{"status": "ok", "coverage": 0.9, "mae": 89.75679999999998, "rmse": 176.33591172985726, "lp_nb": -5.63508261387014, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-231015/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
 ```
 
 branching_ratio(10): 0.8860726303288199
@@ -411,10 +428,19 @@ ETAS+conv_mlp: checkpoints/etas_20260330-231441
 {"nll_train_time": -5.991494178771973, "nll_train_total": -5.991494178771973, "nll_val_time": -6.4781012535095215, "nll_val_total": -6.4781012535095215, "nll_test_time": -6.373833656311035, "nll_test_total": -6.373833656311035, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
 
+```python
+{"status": "ok", "coverage": 0.8666666666666667, "mae": 123.45896666666665, "rmse": 248.66930687059067, "lp_nb": -5.49318542280698, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-231441/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 ETAS+kernel(Gamma): checkpoints/etas_kernel_pnr_1z_20260407
 
 ```python
 {"nll_train_time": -5.975950241088867, "nll_train_total": -5.975950241088867, "nll_val_time": -6.4459052085876465, "nll_val_total": -6.4459052085876465, "nll_test_time": -6.364109516143799, "nll_test_total": -6.364109516143799, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
+```
+
+```python
+{"status": "ok", "coverage": 0.9333333333333333, "mae": 161.20003333333335, "rmse": 315.97086204917696, "lp_nb": -5.640436706699134, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_kernel_pnr_1z_20260407/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
 ```
 
 branching_ratio(10): 0.9574215764754445
@@ -425,12 +451,21 @@ ETAS+mamba: checkpoints/etas_20260330-231612
 {"nll_train_time": -6.013334274291992, "nll_train_total": -6.013334274291992, "nll_val_time": -6.540414810180664, "nll_val_total": -6.540414810180664, "nll_test_time": -6.382467269897461, "nll_test_total": -6.382467269897461, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
 
+```python
+{"status": "ok", "coverage": 0.8666666666666667, "mae": 88.67206666666668, "rmse": 174.09297063695593, "lp_nb": -5.434532283951722, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-231612/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
+
 branching_ratio(10): 0.8706774613662029
 
 ETAS+mamba+gp: checkpoints/etas_20260330-232554 \*
 
 ```python
 {"nll_train_time": -5.998855113983154, "nll_train_total": -5.956877708435059, "nll_train_bg_kl": 0.041977860033512115, "nll_val_time": -6.542019844055176, "nll_val_total": -6.433897018432617, "nll_val_bg_kl": 0.10812271386384964, "nll_test_time": -6.383713722229004, "nll_test_total": -6.230784893035889, "nll_test_bg_kl": 0.15292899310588837, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
+```
+
+```python
+{"status": "ok", "coverage": 0.8666666666666667, "mae": 80.29406666666667, "rmse": 160.7142135153785, "lp_nb": -5.9691333932437765, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-232554/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
 ```
 
 branching_ratio(10): 0.854715837013654
@@ -441,11 +476,21 @@ RECAST+P: checkpoints/rtpp_20260402-170440
 {"nll_train_time": -5.778769493103027, "nll_train_total": -5.869544982910156, "nll_train_bg": -0.09077509492635727, "nll_val_time": -6.11020040512085, "nll_val_total": -6.373103618621826, "nll_val_bg": -0.2629033029079437, "nll_test_time": -6.049722194671631, "nll_test_total": -6.150845527648926, "nll_test_bg": -0.10112347453832626, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
 
+```python
+{"status": "ok", "coverage": 0.7666666666666667, "mae": 88.46536666666667, "rmse": 226.89517505337125, "lp_nb": -7.278010667469726, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260402-170440/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 RECAST+conv_mlp: checkpoints/rtpp_20260402-212205
 
 ```python
 {"nll_train_time": -5.895451068878174, "nll_train_total": -5.970457553863525, "nll_train_bg": -0.07500695437192917, "nll_val_time": -6.225480079650879, "nll_val_total": -6.422011852264404, "nll_val_bg": -0.1965317279100418, "nll_test_time": -6.169680118560791, "nll_test_total": -6.228274345397949, "nll_test_bg": -0.058594394475221634, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
+
+```python
+{"status": "ok", "coverage": 0.8333333333333334, "mae": 74.29663333333335, "rmse": 212.74977864939524, "lp_nb": -6.214915918530949, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260402-212205/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
 
 RECAST+kernel(Gamma): checkpoints/rtpp_kernel_pnr_1z_20260407
 
@@ -453,11 +498,21 @@ RECAST+kernel(Gamma): checkpoints/rtpp_kernel_pnr_1z_20260407
 {"nll_train_time": -5.891434669494629, "nll_train_total": -5.9714179039001465, "nll_train_bg": -0.07998327910900116, "nll_val_time": -6.203549385070801, "nll_val_total": -6.2786865234375, "nll_val_bg": -0.07513731718063354, "nll_test_time": -6.156153678894043, "nll_test_total": -6.214244365692139, "nll_test_bg": -0.058091215789318085, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
 
+```python
+{"status": "ok", "coverage": 0.7333333333333333, "mae": 74.41266666666667, "rmse": 201.72816460656486, "lp_nb": -6.516608702322753, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_kernel_pnr_1z_20260407/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 RECAST+mamba: checkpoints/rtpp_20260402-160131
 
 ```python
 {"nll_train_time": -5.751069068908691, "nll_train_total": -5.892369270324707, "nll_train_bg": -0.14130006730556488, "nll_val_time": -6.074784278869629, "nll_val_total": -6.468404293060303, "nll_val_bg": -0.3936195373535156, "nll_test_time": -6.017630577087402, "nll_test_total": -6.22796630859375, "nll_test_bg": -0.21033605933189392, "num_events_train": 3049, "num_events_val": 1204, "num_events_test": 850}
 ```
+
+```python
+{"status": "ok", "coverage": 0.8666666666666667, "mae": 70.8163, "rmse": 191.78162484685546, "lp_nb": -6.571120268242326, "num_windows": 30, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260402-160131/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
 
 2. CB_HAB1a(-0.4):
 
@@ -467,11 +522,22 @@ ETAS(mu=0): checkpoints/etas_20260403-202516
 {"nll_train_time": -5.319025993347168, "nll_train_total": -5.319025993347168, "nll_val_time": -5.221223831176758, "nll_val_total": -5.221223831176758, "nll_test_time": -5.096417427062988, "nll_test_total": -5.096417427062988, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
 
+```python
+{"status": "ok", "coverage": 0.8571428571428571, "mae": 595.2535238095238, "rmse": 1104.7653487270497, "lp_nb": -6.20322783992592, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260403-202516/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 ETAS: checkpoints/etas_20260403-203341
 
 ```python
 {"nll_train_time": -5.322861194610596, "nll_train_total": -5.322861194610596, "nll_val_time": -5.220753192901611, "nll_val_total": -5.220753192901611, "nll_test_time": -5.103967189788818, "nll_test_total": -5.103967189788818, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
+sliding_window_eval_metrics: checkpoints/etas_20260403-203341/sliding_window_eval_metrics.json
+
+```python
+{"status": "ok", "coverage": 0.9523809523809523, "mae": 579.2222857142858, "rmse": 1051.621645918703, "lp_nb": -6.0182237919010095, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260403-203341/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
 
 ETAS+P: checkpoints/etas_20260330-155945
 
@@ -479,11 +545,21 @@ ETAS+P: checkpoints/etas_20260330-155945
 {"nll_train_time": -5.095571994781494, "nll_train_total": -5.095571994781494, "nll_val_time": -4.848620891571045, "nll_val_total": -4.848620891571045, "nll_test_time": -3.7083961963653564, "nll_test_total": -3.7083961963653564, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
 
+```python
+{"status": "ok", "coverage": 0.23809523809523808, "mae": 279.94423809523806, "rmse": 481.95024992069364, "lp_nb": -31.354834041082796, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-155945/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
+
 ETAS+conv_mlp: checkpoints/etas_20260330-161827
 
 ```python
 {"nll_train_time": -5.319257736206055, "nll_train_total": -5.319257736206055, "nll_val_time": -5.2232255935668945, "nll_val_total": -5.2232255935668945, "nll_test_time": -5.0861029624938965, "nll_test_total": -5.0861029624938965, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
+
+```python
+{"status": "ok", "coverage": 0.8571428571428571, "mae": 259.4428571428571, "rmse": 451.03885635919386, "lp_nb": -6.169341595338941, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-161827/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
 
 ETAS+kernel(Gamma): checkpoints/etas_kernel_cb_hab1a_20260407
 
@@ -491,11 +567,21 @@ ETAS+kernel(Gamma): checkpoints/etas_kernel_cb_hab1a_20260407
 {"nll_train_time": -5.321628093719482, "nll_train_total": -5.321628093719482, "nll_val_time": -5.217365741729736, "nll_val_total": -5.217365741729736, "nll_test_time": -5.085361480712891, "nll_test_total": -5.085361480712891, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
 
+```python
+{"status": "ok", "coverage": 0.9047619047619048, "mae": 299.5488095238095, "rmse": 495.33174528299236, "lp_nb": -5.437695049821424, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_kernel_cb_hab1a_20260407/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
+
 ETAS+mamba: checkpoints/etas_20260330-161340
 
 ```python
 {"nll_train_time": -5.321388244628906, "nll_train_total": -5.321388244628906, "nll_val_time": -5.216009140014648, "nll_val_total": -5.216009140014648, "nll_test_time": -5.0885725021362305, "nll_test_total": -5.0885725021362305, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
+
+```python
+{"status": "ok", "coverage": 0.9047619047619048, "mae": 302.50766666666675, "rmse": 582.5223545819222, "lp_nb": -5.507037104414327, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-161340/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
 
 ETAS+mamba+gp: checkpoints/etas_20260330-144040 \*
 
@@ -503,11 +589,21 @@ ETAS+mamba+gp: checkpoints/etas_20260330-144040 \*
 {"nll_train_time": -5.328885555267334, "nll_train_total": -5.302903652191162, "nll_train_bg_kl": 0.02598220854997635, "nll_val_time": -5.206945896148682, "nll_val_total": -5.011465072631836, "nll_val_bg_kl": 0.1954808086156845, "nll_test_time": -5.100043773651123, "nll_test_total": -4.795830249786377, "nll_test_bg_kl": 0.3042137920856476, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
 
+```python
+{"status": "ok", "coverage": 0.8571428571428571, "mae": 107.58966666666667, "rmse": 165.25299734231464, "lp_nb": -5.165810906722411, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-144040/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 RECAST+P: checkpoints/rtpp_20260403-100551
 
 ```python
 {"nll_train_time": -5.162586212158203, "nll_train_total": -5.250383377075195, "nll_train_bg": -0.08779700845479965, "nll_val_time": -5.003657341003418, "nll_val_total": -5.044312000274658, "nll_val_bg": -0.04065511003136635, "nll_test_time": -4.913900375366211, "nll_test_total": -4.694487571716309, "nll_test_bg": 0.21941331028938293, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
+
+```python
+{"status": "ok", "coverage": 0.47619047619047616, "mae": 111.85119047619052, "rmse": 163.05448065556848, "lp_nb": -8.84562597131683, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-100551/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
 
 RECAST+conv_mlp: checkpoints/rtpp_20260403-112025
 
@@ -515,17 +611,31 @@ RECAST+conv_mlp: checkpoints/rtpp_20260403-112025
 {"nll_train_time": -5.177980422973633, "nll_train_total": -5.257157802581787, "nll_train_bg": -0.07917758077383041, "nll_val_time": -5.024879455566406, "nll_val_total": -5.049865245819092, "nll_val_bg": -0.024985933676362038, "nll_test_time": -4.9088358879089355, "nll_test_total": -4.726556777954102, "nll_test_bg": 0.18227897584438324, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
 
+```python
+{"status": "ok", "coverage": 0.5238095238095238, "mae": 87.74485714285714, "rmse": 122.23259363898929, "lp_nb": -7.0608470752606465, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-112025/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 RECAST+kernel(Gamma): checkpoints/rtpp_kernel_cb_hab1a_20260407
 
 ```python
 {"nll_train_time": -5.091848373413086, "nll_train_total": -5.24493932723999, "nll_train_bg": -0.1530907154083252, "nll_val_time": -4.935190200805664, "nll_val_total": -5.048030376434326, "nll_val_bg": -0.11284016072750092, "nll_test_time": -4.725852012634277, "nll_test_total": -4.654197692871094, "nll_test_bg": 0.07165437191724777, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
+```python
+{"status": "ok", "coverage": 0.5714285714285714, "mae": 89.89099999999999, "rmse": 126.10299549989928, "lp_nb": -7.307970963899969, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_kernel_cb_hab1a_20260407/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
 
 RECAST+mamba: checkpoints/rtpp_20260403-112626
 
 ```python
 {"nll_train_time": -5.039740562438965, "nll_train_total": -5.240628719329834, "nll_train_bg": -0.2008877992630005, "nll_val_time": -4.890742301940918, "nll_val_total": -5.1092305183410645, "nll_val_bg": -0.21848855912685394, "nll_test_time": -4.797508239746094, "nll_test_total": -4.114445209503174, "nll_test_bg": 0.6830629110336304, "num_events_train": 5495, "num_events_val": 734, "num_events_test": 472}
 ```
+
+```python
+{"status": "ok", "coverage": 0.7142857142857143, "mae": 92.69466666666668, "rmse": 171.46136319632728, "lp_nb": -9.104251985931986, "num_windows": 21, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-112626/sliding_window_cache.npz", "sliding_loaded_from_cache": true}
+```
+
 
 3. CB_HAB4:
 
@@ -541,6 +651,11 @@ ETAS+P: checkpoints/etas_20260330-183028
 {"nll_train_time": -4.635933876037598, "nll_train_total": -4.635933876037598, "nll_val_time": -5.55360746383667, "nll_val_total": -5.55360746383667, "nll_test_time": -3.8005523681640625, "nll_test_total": -3.8005523681640625, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
 ```
 
+```python
+{"status": "ok", "coverage": 0.0, "mae": 210.98711111111112, "rmse": 227.93734202188108, "lp_nb": -25.19578300867526, "num_windows": 9, "settings": {"duration": 2.0, "step": 2.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-183028/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
+```
+
+
 ETAS+conv_mlp: checkpoints/etas_20260330-183526 checkpoints/etas_20260330-184009 (点太多，采样失败)
 
 ```python
@@ -553,10 +668,18 @@ ETAS+kernel(Gamma): checkpoints/etas_kernel_cb_hab4_20260407
 {"nll_train_time": -4.93198823928833, "nll_train_total": -4.93198823928833, "nll_val_time": -5.803674697875977, "nll_val_total": -5.803674697875977, "nll_test_time": -4.603829383850098, "nll_test_total": -4.603829383850098, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
 ```
 
+```python
+{"status":"ok","coverage":0.8947368421052632,"mae":2431.7895263157893,"rmse":2980.248371073979,"lp_nb":-7.079214148195451,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/etas_kernel_cb_hab4_20260407/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+```
+
 ETAS+mamba: checkpoints/etas_20260330-182010 \*
 
 ```python
 {"nll_train_time": -5.182605743408203, "nll_train_total": -5.182605743408203, "nll_val_time": -6.006970405578613, "nll_val_total": -6.006970405578613, "nll_test_time": -4.775404930114746, "nll_test_total": -4.775404930114746, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
+```
+
+```python
+{"status":"ok","coverage":0.8421052631578947,"mae":75.5101052631579,"rmse":97.03540041437942,"lp_nb":-5.719695003983212,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-182010/sliding_window_cache.npz","sliding_loaded_from_cache":false}
 ```
 
 ETAS+mamba+gp: checkpoints/etas_20260330-185654
@@ -569,6 +692,10 @@ RECAST+P: checkpoints/rtpp_20260403-210053
 
 ```python
 {"nll_train_time": -4.755245685577393, "nll_train_total": -5.148390769958496, "nll_train_bg": -0.3931451737880707, "nll_val_time": -5.656795501708984, "nll_val_total": -5.840083122253418, "nll_val_bg": -0.18328756093978882, "nll_test_time": -4.264465808868408, "nll_test_total": -4.33951473236084, "nll_test_bg": -0.07504881918430328, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
+```
+
+```python
+{"status":"ok","coverage":0.631578947368421,"mae":83.25742105263159,"rmse":108.48330535811054,"lp_nb":-16.569775132630912,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-210053/sliding_window_cache.npz","sliding_loaded_from_cache":false}
 ```
 
 RECAST+conv_mlp: checkpoints/rtpp_20260403-210825 checkpoints/rtpp_20260403-112025
@@ -587,10 +714,18 @@ RECAST+kernel(Gamma): checkpoints/rtpp_kernel_cb_hab4_20260407
 {"nll_train_time": -4.9665656089782715, "nll_train_total": -5.189393997192383, "nll_train_bg": -0.2228284329175949, "nll_val_time": -5.728132724761963, "nll_val_total": -5.863674163818359, "nll_val_bg": -0.13554148375988007, "nll_test_time": -4.541913986206055, "nll_test_total": -4.5930047035217285, "nll_test_bg": -0.05109091475605965, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
 ```
 
+```python
+{"status":"ok","coverage":0.7368421052631579,"mae":67.08636842105264,"rmse":101.43548106970316,"lp_nb":-6.728047518808794,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_kernel_cb_hab4_20260407/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+```
+
 RECAST+mamba: checkpoints/rtpp_20260403-170646 checkpoints/rtpp_20260403-210901
 
 ```python
 {"nll_train_time": -4.897585391998291, "nll_train_total": -5.023638725280762, "nll_train_bg": -0.12605318427085876, "nll_val_time": -5.674637794494629, "nll_val_total": -5.82581090927124, "nll_val_bg": -0.15117309987545013, "nll_test_time": -4.551606178283691, "nll_test_total": -4.584494590759277, "nll_test_bg": -0.03288847580552101, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
+```
+
+```python
+{"status":"ok","coverage":0.3684210526315789,"mae":115.6852105263158,"rmse":149.7717735217224,"lp_nb":-16.68617605092327,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-170646/sliding_window_cache.npz","sliding_loaded_from_cache":true}
 ```
 
 ```python
@@ -605,6 +740,10 @@ ETAS+P: checkpoints/etas_20260330-163949
 {"nll_train_time": -5.54155969619751, "nll_train_total": -5.54155969619751, "nll_val_time": -5.576829433441162, "nll_val_total": -5.576829433441162, "nll_test_time": -4.8479838371276855, "nll_test_total": -4.8479838371276855, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```
 
+```python
+{"status":"ok","coverage":0.8333333333333334,"mae":179.80225,"rmse":246.2674202464896,"lp_nb":-6.592710105571999,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-163949/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+```
+
 ETAS+conv_mlp: checkpoints/etas_20260330-173120
 
 ```python
@@ -617,10 +756,18 @@ ETAS+kernel(Gamma): checkpoints/etas_20260407-122517
 {"nll_train_time": -5.5440263748168945, "nll_train_total": -5.5440263748168945, "nll_val_time": -5.575652599334717, "nll_val_total": -5.575652599334717, "nll_test_time": -4.8469624519348145, "nll_test_total": -4.8469624519348145, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```
 
+```python
+{"status":"ok","coverage":1,"mae":128.49524999999997,"rmse":194.84513721507423,"lp_nb":-6.3701901165844275,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/etas_20260407-122517/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+```
+
 ETAS+mamba: checkpoints/etas_20260330-142641
 
 ```python
 {"nll_train_time": -5.545408248901367, "nll_train_total": -5.545408248901367, "nll_val_time": -5.577223300933838, "nll_val_total": -5.577223300933838, "nll_test_time": -4.847962856292725, "nll_test_total": -4.847962856292725, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
+```
+
+```python
+{"status":"ok","coverage":1,"mae":112.61869444444443,"rmse":154.71048583285776,"lp_nb":-6.202012709931211,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/etas_20260330-142641/sliding_window_cache.npz","sliding_loaded_from_cache":false}
 ```
 
 ETAS+mamba+gp: checkpoints/etas_20260330-175345 \*
@@ -636,6 +783,10 @@ RECAST+P: checkpoints/rtpp_20260403-203753 checkpoints/rtpp_20260403-201221
 ```
 
 ```python
+{"status":"ok","coverage":0.2222222222222222,"mae":268.98016666666666,"rmse":372.16601866587865,"lp_nb":-29.271350739070456,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-203753/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+```
+
+```python
 {"nll_train_time": -5.180963039398193, "nll_train_total": -5.369428634643555, "nll_train_bg": -0.1884661763906479, "nll_val_time": -5.221585750579834, "nll_val_total": -5.415493965148926, "nll_val_bg": -0.19390784204006195, "nll_test_time": -4.512923717498779, "nll_test_total": -4.617834091186523, "nll_test_bg": -0.10491015017032623, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```
 
@@ -643,6 +794,10 @@ RECAST+conv_mlp: checkpoints/rtpp_20260403-203150 checkpoints/rtpp_20260403-2015
 
 ```python
 {"nll_train_time": -5.283726692199707, "nll_train_total": -5.410412788391113, "nll_train_bg": -0.12668642401695251, "nll_val_time": -5.324419021606445, "nll_val_total": -5.454462051391602, "nll_val_bg": -0.1300428807735443, "nll_test_time": -4.551939010620117, "nll_test_total": -4.618659973144531, "nll_test_bg": -0.06672097742557526, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
+```
+
+```python
+{"status":"ok","coverage":0.25,"mae":278.82566666666673,"rmse":388.6756284942354,"lp_nb":-34.490267938944136,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-203150/sliding_window_cache.npz","sliding_loaded_from_cache":false}
 ```
 
 ```python
@@ -655,23 +810,20 @@ RECAST+kernel(Gamma): checkpoints/rtpp_20260407-130706
 {"nll_train_time": -5.191549301147461, "nll_train_total": -5.444743633270264, "nll_train_bg": -0.2531944215297699, "nll_val_time": -5.264633655548096, "nll_val_total": -5.497406482696533, "nll_val_bg": -0.23277229070663452, "nll_test_time": -4.544147491455078, "nll_test_total": -4.660856246948242, "nll_test_bg": -0.11670882254838943, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```
 
+```python
+{"status":"ok","coverage":0.3611111111111111,"mae":196.48472222222222,"rmse":277.33922364347717,"lp_nb":-24.98232029474184,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260407-130706/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+```
+
 RECAST+mamba: checkpoints/rtpp_20260408-205025 checkpoints/rtpp_20260403-202405
 
 ```python
-{
-  "nll_train_time": -5.222591876983643,
-  "nll_train_total": -5.434678554534912,
-  "nll_train_bg": -0.21208709478378296,
-  "nll_val_time": -5.2782769203186035,
-  "nll_val_total": -5.450173854827881,
-  "nll_val_bg": -0.1718968003988266,
-  "nll_test_time": -4.533393383026123,
-  "nll_test_total": -4.618219375610352,
-  "nll_test_bg": -0.08482575416564941,
-  "num_events_train": 22661,
-  "num_events_val": 4211,
-  "num_events_test": 3380
-}
+{"nll_train_time": -5.222591876983643, "nll_train_total": -5.434678554534912, "nll_train_bg": -0.21208709478378296, "nll_val_time": -5.2782769203186035, "nll_val_total": -5.450173854827881, "nll_val_bg": -0.1718968003988266, "nll_test_time": -4.533393383026123, "nll_test_total": -4.618219375610352, "nll_test_bg": -0.08482575416564941, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
+```
 
+```python
+{"status":"ok","coverage":0.2777777777777778,"mae":183.1134166666667,"rmse":216.85159264709893,"lp_nb":-21.618232708799887,"num_windows":36,"settings":{"duration":2,"step":2,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260408-205025/sliding_window_cache.npz","sliding_loaded_from_cache":true}
+```
+
+```python
 {"nll_train_time": -5.183485984802246, "nll_train_total": -5.4211201667785645, "nll_train_bg": -0.23763450980186462, "nll_val_time": -5.235789775848389, "nll_val_total": -5.436279296875, "nll_val_bg": -0.2004896104335785, "nll_test_time": -4.533199787139893, "nll_test_total": -4.632943153381348, "nll_test_bg": -0.09974372386932373, "num_events_train": 22661, "num_events_val": 4211, "num_events_test": 3380}
 ```

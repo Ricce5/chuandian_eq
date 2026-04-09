@@ -1,0 +1,257 @@
+[NbConvertApp] Converting notebook notebooks/forecasting_induced_eq_triplet.ipynb to notebook
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+Traceback (most recent call last):
+  File "/root/miniconda3/bin/jupyter-nbconvert", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/jupyter_core/application.py", line 283, in launch_instance
+    super().launch_instance(argv=argv, **kwargs)
+  File "/root/miniconda3/lib/python3.12/site-packages/traitlets/config/application.py", line 1075, in launch_instance
+    app.start()
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 420, in start
+    self.convert_notebooks()
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 597, in convert_notebooks
+    self.convert_single_notebook(notebook_filename)
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 563, in convert_single_notebook
+    output, resources = self.export_single_notebook(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/nbconvertapp.py", line 487, in export_single_notebook
+    output, resources = self.exporter.from_filename(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 201, in from_filename
+    return self.from_file(f, resources=resources, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 220, in from_file
+    return self.from_notebook_node(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/exporters/notebook.py", line 36, in from_notebook_node
+    nb_copy, resources = super().from_notebook_node(nb, resources, **kw)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 154, in from_notebook_node
+    nb_copy, resources = self._preprocess(nb_copy, resources)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/exporters/exporter.py", line 353, in _preprocess
+    nbc, resc = preprocessor(nbc, resc)
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/preprocessors/base.py", line 48, in __call__
+    return self.preprocess(nb, resources)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/preprocessors/execute.py", line 103, in preprocess
+    self.preprocess_cell(cell, resources, index)
+  File "/root/miniconda3/lib/python3.12/site-packages/nbconvert/preprocessors/execute.py", line 124, in preprocess_cell
+    cell = self.execute_cell(cell, index, store_history=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/jupyter_core/utils/__init__.py", line 165, in wrapped
+    return loop.run_until_complete(inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/nbclient/client.py", line 1062, in async_execute_cell
+    await self._check_raise_for_error(cell, cell_index, exec_reply)
+  File "/root/miniconda3/lib/python3.12/site-packages/nbclient/client.py", line 918, in _check_raise_for_error
+    raise CellExecutionError.from_cell_and_msg(cell, exec_reply_content)
+nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
+------------------
+def generate_forecasts(model, past_seq, duration, num_samples, samples_per_batch, seed=3):
+    return sample_tpp_forecasts(
+        model,
+        past_seq,
+        duration=duration,
+        num_samples=int(num_samples),
+        samples_per_batch=samples_per_batch,
+        seed=seed,
+    )
+
+
+past_seq_device = past_seq.to(DEVICE) if torch.cuda.is_available() else past_seq
+all_forecasts = generate_forecasts(
+    model=model,
+    past_seq=past_seq_device,
+    duration=FORECAST_DURATION,
+    num_samples=NUM_SAMPLES,
+    samples_per_batch=SAMPLES_PER_BATCH,
+    seed=3,
+)
+
+zero_indices = []
+for idx, fc in enumerate(all_forecasts):
+    inter_times = torch.as_tensor(fc.inter_times).cpu()
+    if (inter_times == 0).any():
+        zero_indices.append(idx)
+
+print('Total forecasts:', len(all_forecasts))
+print('Forecasts containing zero inter_times:', len(zero_indices))
+date_strs = catalog_ds.metadata['start_ts'].strftime('%Y-%m-%d') if hasattr(catalog_ds.metadata['start_ts'], 'strftime') else 'start'
+visualize_trajectories(
+    seq,
+    all_forecasts,
+    save_path=CHECKPOINT_DIR / 'all_forecasts.pdf',
+    figsize=(10, 3),
+    xlabel='Days since ' + date_strs,
+    reset_t_nll_to_end=True,
+)
+------------------
+
+----- stderr -----
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+----- stderr -----
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+----- stderr -----
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+----- stderr -----
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+----- stderr -----
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+----- stderr -----
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+
+libgomp: Invalid value for environment variable OMP_NUM_THREADS
+----- stdout -----
+Total forecasts: 1000
+Forecasts containing zero inter_times: 0
+------------------
+
+[0;31m---------------------------------------------------------------------------[0m
+[0;31mValueError[0m                                Traceback (most recent call last)
+Cell [0;32mIn[12], line 31[0m
+[1;32m     29[0m [38;5;28mprint[39m([38;5;124m'[39m[38;5;124mForecasts containing zero inter_times:[39m[38;5;124m'[39m, [38;5;28mlen[39m(zero_indices))
+[1;32m     30[0m date_strs [38;5;241m=[39m catalog_ds[38;5;241m.[39mmetadata[[38;5;124m'[39m[38;5;124mstart_ts[39m[38;5;124m'[39m][38;5;241m.[39mstrftime([38;5;124m'[39m[38;5;124m%[39m[38;5;124mY-[39m[38;5;124m%[39m[38;5;124mm-[39m[38;5;132;01m%d[39;00m[38;5;124m'[39m) [38;5;28;01mif[39;00m [38;5;28mhasattr[39m(catalog_ds[38;5;241m.[39mmetadata[[38;5;124m'[39m[38;5;124mstart_ts[39m[38;5;124m'[39m], [38;5;124m'[39m[38;5;124mstrftime[39m[38;5;124m'[39m) [38;5;28;01melse[39;00m [38;5;124m'[39m[38;5;124mstart[39m[38;5;124m'[39m
+[0;32m---> 31[0m [43mvisualize_trajectories[49m[43m([49m
+[1;32m     32[0m [43m    [49m[43mseq[49m[43m,[49m
+[1;32m     33[0m [43m    [49m[43mall_forecasts[49m[43m,[49m
+[1;32m     34[0m [43m    [49m[43msave_path[49m[38;5;241;43m=[39;49m[43mCHECKPOINT_DIR[49m[43m [49m[38;5;241;43m/[39;49m[43m [49m[38;5;124;43m'[39;49m[38;5;124;43mall_forecasts.pdf[39;49m[38;5;124;43m'[39;49m[43m,[49m
+[1;32m     35[0m [43m    [49m[43mfigsize[49m[38;5;241;43m=[39;49m[43m([49m[38;5;241;43m10[39;49m[43m,[49m[43m [49m[38;5;241;43m3[39;49m[43m)[49m[43m,[49m
+[1;32m     36[0m [43m    [49m[43mxlabel[49m[38;5;241;43m=[39;49m[38;5;124;43m'[39;49m[38;5;124;43mDays since [39;49m[38;5;124;43m'[39;49m[43m [49m[38;5;241;43m+[39;49m[43m [49m[43mdate_strs[49m[43m,[49m
+[1;32m     37[0m [43m    [49m[43mreset_t_nll_to_end[49m[38;5;241;43m=[39;49m[38;5;28;43;01mTrue[39;49;00m[43m,[49m
+[1;32m     38[0m [43m)[49m
+
+File [0;32m~/autodl-tmp/em_eqf/src/utils/visualization.py:257[0m, in [0;36mvisualize_trajectories[0;34m(seq, forecast, ax, figsize, dpi, event_color, t_start, t_end, t_before, num_examples, offset, save_path, xlabel, reset_t_nll_to_end, bins, align_count_axes)[0m
+[1;32m    254[0m axA[38;5;241m.[39maxvspan(t_start, t_end, color[38;5;241m=[39m[38;5;124m"[39m[38;5;124mC1[39m[38;5;124m"[39m, alpha[38;5;241m=[39m[38;5;241m0.06[39m, lw[38;5;241m=[39m[38;5;241m0[39m)
+[1;32m    255[0m axA[38;5;241m.[39maxvline(t_start, c[38;5;241m=[39m[38;5;124m"[39m[38;5;124mk[39m[38;5;124m"[39m, lw[38;5;241m=[39m[38;5;241m1[39m, ls[38;5;241m=[39m[38;5;124m"[39m[38;5;124m--[39m[38;5;124m"[39m, alpha[38;5;241m=[39m[38;5;241m0.8[39m)
+[0;32m--> 257[0m [43mvisualize_sequence[49m[43m([49m
+[1;32m    258[0m [43m    [49m[43mseq[49m[38;5;241;43m=[39;49m[43ms_viz[49m[43m,[49m[43m [49m[43max[49m[38;5;241;43m=[39;49m[43maxA[49m[43m,[49m[43m [49m[43mevent_color[49m[38;5;241;43m=[39;49m[43mevent_color[49m[43m,[49m[43m [49m[43mshow_legend[49m[38;5;241;43m=[39;49m[38;5;28;43;01mFalse[39;49;00m[43m,[49m[43m [49m[43mxlabel[49m[38;5;241;43m=[39;49m[43mxlabel[49m
+[1;32m    259[0m [43m[49m[43m)[49m
+[1;32m    260[0m axA[38;5;241m.[39mset_title([38;5;124m"[39m[38;5;124mObserved Sequence and Example Forecast Trajectories[39m[38;5;124m"[39m, fontsize[38;5;241m=[39m[38;5;241m10[39m)
+[1;32m    261[0m axA[38;5;241m.[39mset_xlabel(xlabel, fontsize[38;5;241m=[39m[38;5;241m9[39m)
+
+File [0;32m~/autodl-tmp/em_eqf/src/utils/visualization.py:93[0m, in [0;36mvisualize_sequence[0;34m(seq, ax, show_nll, mag_completeness, figsize, dpi, event_color, nll_interval_color, t_start, t_end, show_legend, time_transform, xlabel)[0m
+[1;32m     91[0m mag [38;5;241m=[39m seq[38;5;241m.[39mmag[38;5;241m.[39mcpu()[38;5;241m.[39mnumpy()
+[1;32m     92[0m [38;5;28;01mif[39;00m mag_completeness [38;5;129;01mis[39;00m [38;5;28;01mNone[39;00m:
+[0;32m---> 93[0m     mag_completeness [38;5;241m=[39m [43mnp[49m[38;5;241;43m.[39;49m[43mmin[49m[43m([49m[43mmag[49m[43m)[49m
+[1;32m     95[0m [38;5;28;01mif[39;00m ax [38;5;129;01mis[39;00m [38;5;28;01mNone[39;00m:
+[1;32m     96[0m     plt[38;5;241m.[39mfigure(figsize[38;5;241m=[39mfigsize, dpi[38;5;241m=[39mdpi)
+
+File [0;32m~/miniconda3/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:3343[0m, in [0;36mmin[0;34m(a, axis, out, keepdims, initial, where)[0m
+[1;32m   3225[0m [38;5;129m@array_function_dispatch[39m(_min_dispatcher)
+[1;32m   3226[0m [38;5;28;01mdef[39;00m [38;5;21mmin[39m(a, axis[38;5;241m=[39m[38;5;28;01mNone[39;00m, out[38;5;241m=[39m[38;5;28;01mNone[39;00m, keepdims[38;5;241m=[39mnp[38;5;241m.[39m_NoValue, initial[38;5;241m=[39mnp[38;5;241m.[39m_NoValue,
+[1;32m   3227[0m         where[38;5;241m=[39mnp[38;5;241m.[39m_NoValue):
+[1;32m   3228[0m [38;5;250m    [39m[38;5;124;03m"""[39;00m
+[1;32m   3229[0m [38;5;124;03m    Return the minimum of an array or minimum along an axis.[39;00m
+[1;32m   3230[0m 
+[0;32m   (...)[0m
+[1;32m   3341[0m [38;5;124;03m    6[39;00m
+[1;32m   3342[0m [38;5;124;03m    """[39;00m
+[0;32m-> 3343[0m     [38;5;28;01mreturn[39;00m [43m_wrapreduction[49m[43m([49m[43ma[49m[43m,[49m[43m [49m[43mnp[49m[38;5;241;43m.[39;49m[43mminimum[49m[43m,[49m[43m [49m[38;5;124;43m'[39;49m[38;5;124;43mmin[39;49m[38;5;124;43m'[39;49m[43m,[49m[43m [49m[43maxis[49m[43m,[49m[43m [49m[38;5;28;43;01mNone[39;49;00m[43m,[49m[43m [49m[43mout[49m[43m,[49m
+[1;32m   3344[0m [43m                          [49m[43mkeepdims[49m[38;5;241;43m=[39;49m[43mkeepdims[49m[43m,[49m[43m [49m[43minitial[49m[38;5;241;43m=[39;49m[43minitial[49m[43m,[49m[43m [49m[43mwhere[49m[38;5;241;43m=[39;49m[43mwhere[49m[43m)[49m
+
+File [0;32m~/miniconda3/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:86[0m, in [0;36m_wrapreduction[0;34m(obj, ufunc, method, axis, dtype, out, **kwargs)[0m
+[1;32m     83[0m         [38;5;28;01melse[39;00m:
+[1;32m     84[0m             [38;5;28;01mreturn[39;00m reduction(axis[38;5;241m=[39maxis, out[38;5;241m=[39mout, [38;5;241m*[39m[38;5;241m*[39mpasskwargs)
+[0;32m---> 86[0m [38;5;28;01mreturn[39;00m [43mufunc[49m[38;5;241;43m.[39;49m[43mreduce[49m[43m([49m[43mobj[49m[43m,[49m[43m [49m[43maxis[49m[43m,[49m[43m [49m[43mdtype[49m[43m,[49m[43m [49m[43mout[49m[43m,[49m[43m [49m[38;5;241;43m*[39;49m[38;5;241;43m*[39;49m[43mpasskwargs[49m[43m)[49m
+
+[0;31mValueError[0m: zero-size array to reduction operation minimum which has no identity
+

@@ -87,16 +87,29 @@ def visualize_sequence(
         t_end = seq.t_end
 
     t = time_transform(seq.arrival_times.cpu().numpy())
-    
+
     mag = seq.mag.cpu().numpy()
+    has_events = mag.size > 0
     if mag_completeness is None:
-        mag_completeness = np.min(mag)
+        mag_completeness = float(np.min(mag)) if has_events else 0.0
 
     if ax is None:
         plt.figure(figsize=figsize, dpi=dpi)
         ax = plt.gca()
-    ax.scatter(t, mag, s=np.exp(2 * mag - 6) , c=event_color, label="Events")  # =np.exp(2 * mag - 6)  0.1*np.exp(2 * mag - 2)
+    if has_events:
+        ax.scatter(
+            t,
+            mag,
+            s=np.exp(2 * mag - 6),
+            c=event_color,
+            label="Events",
+        )  # =np.exp(2 * mag - 6)  0.1*np.exp(2 * mag - 2)
+    else:
+        # Keep the plotting pipeline alive for empty subsequences.
+        ax.scatter([], [], c=event_color, label="Events")
     _, y_max = ax.get_ylim()
+    if y_max <= mag_completeness:
+        y_max = mag_completeness + 1.0
     if show_nll:
         ax.add_patch(
             Rectangle(
