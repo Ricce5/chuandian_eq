@@ -662,14 +662,13 @@ ETAS+conv_mlp: checkpoints/etas_20260330-183526 checkpoints/etas_20260330-184009
 {"nll_train_time": -4.907235622406006, "nll_train_total": -4.907235622406006, "nll_val_time": -5.7752909660339355, "nll_val_total": -5.7752909660339355, "nll_test_time": -4.563719272613525, "nll_test_total": -4.563719272613525, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
 ```
 
-ETAS+kernel(Gamma): checkpoints/etas_kernel_cb_hab4_20260407
-
+ETAS+kernel(Gamma): checkpoints/etas_20260409-215531 checkpoints/etas_kernel_cb_hab4_20260407
 ```python
-{"nll_train_time": -4.93198823928833, "nll_train_total": -4.93198823928833, "nll_val_time": -5.803674697875977, "nll_val_total": -5.803674697875977, "nll_test_time": -4.603829383850098, "nll_test_total": -4.603829383850098, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
+{"nll_train_time": -5.171771049499512, "nll_train_total": -5.171771049499512, "nll_val_time": -6.008909225463867, "nll_val_total": -6.008909225463867, "nll_test_time": -4.784082889556885, "nll_test_total": -4.784082889556885, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
 ```
 
 ```python
-{"status":"ok","coverage":0.8947368421052632,"mae":2431.7895263157893,"rmse":2980.248371073979,"lp_nb":-7.079214148195451,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/etas_kernel_cb_hab4_20260407/sliding_window_cache.npz","sliding_loaded_from_cache":false}
+{"status": "ok", "coverage": 0.7894736842105263, "mae": 73.31705263157895, "rmse": 95.71814546887126, "lp_nb": -5.822384701713899, "num_windows": 19, "settings": {"duration": 1.0, "step": 1.0, "quantiles": [2.5, 97.5], "samples_per_batch": 1000, "view_mode": "zoomed", "cache_filename": "sliding_window_cache.npz", "load_sliding_cache": true, "force_recompute_sliding": false}, "sliding_cache_path": "/root/autodl-tmp/em_eqf/checkpoints/etas_20260409-215531/sliding_window_cache.npz", "sliding_loaded_from_cache": false}
 ```
 
 ETAS+mamba: checkpoints/etas_20260330-182010 \*
@@ -718,7 +717,7 @@ RECAST+kernel(Gamma): checkpoints/rtpp_kernel_cb_hab4_20260407
 {"status":"ok","coverage":0.7368421052631579,"mae":67.08636842105264,"rmse":101.43548106970316,"lp_nb":-6.728047518808794,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_kernel_cb_hab4_20260407/sliding_window_cache.npz","sliding_loaded_from_cache":false}
 ```
 
-RECAST+mamba: checkpoints/rtpp_20260403-170646 checkpoints/rtpp_20260403-210901
+RECAST+mamba: checkpoints/rtpp_20260403-170646 
 
 ```python
 {"nll_train_time": -4.897585391998291, "nll_train_total": -5.023638725280762, "nll_train_bg": -0.12605318427085876, "nll_val_time": -5.674637794494629, "nll_val_total": -5.82581090927124, "nll_val_bg": -0.15117309987545013, "nll_test_time": -4.551606178283691, "nll_test_total": -4.584494590759277, "nll_test_bg": -0.03288847580552101, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
@@ -726,10 +725,6 @@ RECAST+mamba: checkpoints/rtpp_20260403-170646 checkpoints/rtpp_20260403-210901
 
 ```python
 {"status":"ok","coverage":0.3684210526315789,"mae":115.6852105263158,"rmse":149.7717735217224,"lp_nb":-16.68617605092327,"num_windows":19,"settings":{"duration":1,"step":1,"quantiles":[2.5,97.5],"samples_per_batch":1000,"view_mode":"zoomed","cache_filename":"sliding_window_cache.npz","load_sliding_cache":true,"force_recompute_sliding":false},"sliding_cache_path":"/root/autodl-tmp/em_eqf/checkpoints/rtpp_20260403-170646/sliding_window_cache.npz","sliding_loaded_from_cache":true}
-```
-
-```python
-{"nll_train_time": -4.881381034851074, "nll_train_total": -5.008924961090088, "nll_train_bg": -0.12754414975643158, "nll_val_time": -5.646823406219482, "nll_val_total": -5.8428568840026855, "nll_val_bg": -0.1960335671901703, "nll_test_time": -4.521599769592285, "nll_test_total": -4.555234909057617, "nll_test_bg": -0.03363494575023651, "num_events_train": 2963, "num_events_val": 995, "num_events_test": 724}
 ```
 
 4. St1-2018(-0.5):

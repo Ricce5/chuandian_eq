@@ -211,7 +211,7 @@ class RecurrentTPP(TPPModel):
         }
         if getattr(self, "bg_model", None) is not None:
             log_h_intensity = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))
-            nll_bg = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
+            nll_bg = self.bg_model.nll_change(batch, log_h_intensity, include_kl=True)  # (B,)
             nll_total = nll_total + nll_bg
             out["bg"] = nll_bg
             out["total"] = nll_total

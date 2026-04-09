@@ -171,26 +171,32 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         
 
 
-    def nll_change(self, batch: DotDict, log_h_intensity: torch.Tensor, eps: float = 1e-10) -> torch.Tensor:
-        """
-        log1p(f_intensity / h_intensity)- f_intensity_integral
-        """
-        f_intensity = self.intensity(batch)                 # (B, Nq)
-        f_intensity_integral = self.intensity_integral(batch)  # (B,)
-        h_intensity = torch.exp(log_h_intensity)            # (B, Nq)
-        # protect against zeros in denominator
+    def nll_change(
+        self,
+        batch: DotDict,
+        log_h_intensity: torch.Tensor,
+        eps: float = 1e-10,
+        include_kl: bool = False,
+    ) -> torch.Tensor:
+        f_intensity = self.intensity(batch)
+        f_intensity_integral = self.intensity_integral(batch)
+        h_intensity = torch.exp(log_h_intensity)
         denom = clamp_preserve_gradients(h_intensity, eps, float("inf"))
-        ratio = f_intensity / denom                         # (B, Nq)
-        # log change per event-time, only where events are present (mask)
+        ratio = f_intensity / denom
+
         mask = getattr(batch, "nll_event_mask", None)
         if mask is None:
             raise ValueError("batch must contain 'nll_event_mask' for nll_change computation.")
-        log_change = torch.log1p(ratio) * mask              # (B, Nq)
-        # sum over query/event times and subtract integral contribution
-        log_like_change = log_change.sum(dim=1) - f_intensity_integral  # (B,)
-        # return negative log-likelihood change (for minimization)
-        # print(f"NLL change: { -log_like_change.mean().item() }")
-        return -log_like_change
+        log_change = torch.log1p(ratio) * mask
+        log_like_change = log_change.sum(dim=1) - f_intensity_integral
+        nll_delta = -log_like_change
+
+        if include_kl and hasattr(self, "kl_term"):
+            nll_delta = nll_delta + self.kl_term(batch, eps=eps)
+
+        return nll_delta
+
+
 
     def cache_batch(self, time_series, time_series_times,cache_lambda=True):
         assert time_series.shape[0] == time_series_times.shape[0]==1, "Batch size should be 1."

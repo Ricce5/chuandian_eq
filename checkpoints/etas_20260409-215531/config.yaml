@@ -1,0 +1,63 @@
+model: etas
+num_event_types: 1
+pad_token_id: 1
+task_type: tpp
+# 训练参数
+
+bg_model: kernel
+bg_model_cfg:
+ d_feature: 1 
+ scale_init: 300.0
+ kernel_type: gamma
+ kernel_size: 256
+ normalize_kernel: true
+ use_mlp: true
+ hidden: 32
+ gamma_init_k: 4.0
+ gamma_init_beta: 0.08
+ exp_init_tau: 40.0
+
+
+
+bg_learning_rate: 5e-4
+
+fix_mu: true
+fixed_mu_value: 0
+richter_b: null
+
+base_rate_init: 0.26
+
+batch_size: 1
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-2 # 5e-4
+weight_decay: 5e-3
+loss_reduction: per_event
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type:  step_warmup
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.8
+# 
+
+
+# 其他参数
+dim: 1
+epochs: 1000
+save_dir: null
+cuda_id: "0"
+
+
+# 数据与控制参数
+dataset: CB_HAB4
+seed: 0
+minibatch_training: false
+split_by_time: true
+time_order:  [train, val, test]
+
+
+catalog_cfg:
+  freq: "1D"
+  mag_completeness:  0.9
