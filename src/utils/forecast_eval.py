@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Any, Mapping
 
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import torch
-from matplotlib import cycler
-from matplotlib import ticker as mticker
+from tqdm import tqdm
+from .plot_style import apply_publication_style, format_time_axis, save_pub_figure, style_axes
 
 
 DEFAULT_PLOT_COLORS: dict[str, str] = {
@@ -21,64 +22,6 @@ DEFAULT_PLOT_COLORS: dict[str, str] = {
     "below": "#e45756",
     "above": "#9467bd",
 }
-
-
-def apply_publication_style() -> None:
-    import matplotlib as mpl
-
-    mpl.rcParams.update(
-        {
-            "font.family": "serif",
-            "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
-            "mathtext.fontset": "stix",
-            "font.size": 10,
-            "axes.titlesize": 11,
-            "axes.labelsize": 10,
-            "xtick.labelsize": 9,
-            "ytick.labelsize": 9,
-            "legend.fontsize": 9,
-            "lines.linewidth": 1.1,
-            "lines.markersize": 4,
-            "axes.spines.top": False,
-            "axes.spines.right": False,
-            "grid.linestyle": "--",
-            "grid.linewidth": 0.6,
-            "grid.alpha": 0.25,
-            "figure.dpi": 120,
-            "savefig.dpi": 300,
-            "savefig.bbox": "tight",
-            "savefig.pad_inches": 0.02,
-            "pdf.fonttype": 42,
-            "ps.fonttype": 42,
-            "axes.unicode_minus": False,
-            "axes.prop_cycle": cycler(
-                color=[
-                    "#4E79A7",
-                    "#F28E2B",
-                    "#59A14F",
-                    "#E15759",
-                    "#76B7B2",
-                    "#B07AA1",
-                    "#EDC948",
-                    "#9C755F",
-                    "#BAB0AC",
-                ]
-            ),
-        }
-    )
-
-
-def save_pub_figure(fig, output_path, dpi: int = 300, file_format: str = "pdf") -> Path:
-    output_path = Path(output_path)
-    file_format = str(file_format).lower().lstrip(".")
-    if file_format not in {"pdf", "png"}:
-        raise ValueError("file_format must be 'pdf' or 'png'")
-    target_path = output_path.with_suffix(f".{file_format}")
-    save_kwargs: dict[str, Any] = {"bbox_inches": "tight"}
-    if file_format == "png":
-        save_kwargs["dpi"] = dpi
-    fig.savefig(target_path, format=file_format, **save_kwargs)
-    return target_path
 
 
 def style_current_figure(*, title: str | None = None):
@@ -103,12 +46,17 @@ def run_sliding_window_forecast(
     *,
     duration: float = 12,
     slide_step: float = 12,
+    start_time: float | None = None,
+    end_time: float | None = None,
     quantiles: tuple[float, float] = (2.5, 97.5),
     samples_per_batch: int = 1000,
+    max_sample_len: int | None = None,
     return_sim_count_matrix: bool = False,
 ):
-    start = float(seq.arrival_times[0].item())
-    end = float(seq.arrival_times[-1].item())
+    start = float(seq.arrival_times[0].item()) if start_time is None else float(start_time)
+    end = float(seq.arrival_times[-1].item()) if end_time is None else float(end_time)
+    if end <= start:
+        raise ValueError(f"Invalid sliding range: end ({end}) must be greater than start ({start}).")
     t_forecast_list = np.arange(start + duration, end - duration, slide_step)
 
     counts_list: list[int] = []
@@ -117,20 +65,54 @@ def run_sliding_window_forecast(
     sim_count_rows: list[np.ndarray] = []
 
     model.eval()
-    for t_forecast in t_forecast_list:
+    try:
+        sample_sig = inspect.signature(model.sample).parameters
+        accepts_var_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in sample_sig.values()
+        )
+    except Exception:
+        sample_sig = {}
+        accepts_var_kwargs = False
+
+    def _supports(name: str) -> bool:
+        return accepts_var_kwargs or name in sample_sig
+
+    resolved_max_sample_len = None if max_sample_len is None else int(max_sample_len)
+
+    pbar = tqdm(t_forecast_list, desc="Sliding window forecast")
+    for t_forecast in pbar:
+        pbar.set_postfix(t_forecast=f"{float(t_forecast):.3f}")
         t_end = min(t_forecast + duration, end)
-        past_seq = seq.get_subsequence(0, t_forecast, reset_t_nll_to_end=True).to(device)
+        past_seq = seq.get_subsequence(seq.t_start, t_forecast).to(device)
         observed_seq = seq.get_subsequence(
             t_forecast,
             t_end,
-            reset_t_nll_to_end=True,
         ).to(device)
-        forecasts = model.sample(
-            batch_size=samples_per_batch,
-            duration=(t_end - t_forecast),
-            past_seq=past_seq,
-            return_sequences=True,
-        )
+
+        sample_kwargs: dict[str, Any] = {
+            "batch_size": samples_per_batch,
+            "duration": (t_end - t_forecast),
+            "past_seq": past_seq,
+            "return_sequences": True,
+        }
+        if resolved_max_sample_len is not None:
+            if _supports("max_sample_len"):
+                sample_kwargs["max_sample_len"] = resolved_max_sample_len
+            if _supports("max_length"):
+                sample_kwargs["max_length"] = resolved_max_sample_len
+
+        try:
+            forecasts = model.sample(**sample_kwargs)
+        except RuntimeError as exc:
+            if "Exceeded max_sample_len" in str(exc):
+                raise RuntimeError(
+                    "Exceeded max_sample_len during sliding-window sampling. "
+                    f"window_start={float(t_forecast):.6f}, window_end={float(t_end):.6f}, "
+                    f"configured_max_sample_len={resolved_max_sample_len}. "
+                    "Increase sliding_max_sample_len."
+                ) from exc
+            raise
         fc_counts = np.fromiter((len(fc) for fc in forecasts), dtype=np.int32)
         q = np.percentile(fc_counts, quantiles)
         mean = float(fc_counts.mean())
@@ -211,44 +193,6 @@ def to_absolute_time_axis(rel_times, base_ts, freq_td):
     rel = np.asarray(rel_times, dtype=float).reshape(-1)
     delta = pd.to_timedelta(rel * freq_td.total_seconds(), unit="s")
     return pd.DatetimeIndex(pd.Timestamp(base_ts) + delta)
-
-
-def format_time_axis(ax):
-    locator = mdates.AutoDateLocator(minticks=4, maxticks=10)
-    formatter = mdates.ConciseDateFormatter(locator)
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-    ax.tick_params(axis="x", labelrotation=0)
-
-
-def _format_compact_thousands(value: float) -> str:
-    abs_value = abs(float(value))
-    if abs_value >= 1000.0:
-        k_value = value / 1000.0
-        if np.isclose(k_value, round(k_value)):
-            return f"{int(round(k_value))}k"
-        return f"{k_value:.1f}k"
-    if np.isclose(value, round(value)):
-        return f"{int(round(value))}"
-    return f"{value:g}"
-
-
-def style_axes(
-    ax,
-    *,
-    xlabel: str = "Forecast start date",
-    ylabel: str | None = None,
-    integer_y: bool = False,
-    compact_y_thousands: bool = False,
-):
-    ax.set_xlabel(xlabel)
-    if ylabel is not None:
-        ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.25, linestyle="--", linewidth=0.6)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    if integer_y:
-        ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
 
 def resolve_catalog_time_reference(catalog_ds):
@@ -333,8 +277,11 @@ def build_sliding_cache_metadata(
     *,
     duration: float,
     slide_step: float,
+    sliding_start: float,
+    sliding_end: float,
     quantiles: tuple[float, float],
     samples_per_batch: int,
+    max_sample_len: int | None,
 ):
     return {
         "cache_version": int(SLIDING_CACHE_VERSION),
@@ -343,8 +290,9 @@ def build_sliding_cache_metadata(
         "quantile_low": float(quantiles[0]),
         "quantile_high": float(quantiles[1]),
         "samples_per_batch": int(samples_per_batch),
-        "seq_start": float(seq.arrival_times[0].item()),
-        "seq_end": float(seq.arrival_times[-1].item()),
+        "max_sample_len": int(max_sample_len) if max_sample_len is not None else -1,
+        "seq_start": float(sliding_start),
+        "seq_end": float(sliding_end),
     }
 
 
@@ -369,6 +317,7 @@ def save_sliding_window_cache(
         quantile_low=np.float64(metadata["quantile_low"]),
         quantile_high=np.float64(metadata["quantile_high"]),
         samples_per_batch=np.int64(metadata["samples_per_batch"]),
+        max_sample_len=np.int64(metadata["max_sample_len"]),
         seq_start=np.float64(metadata["seq_start"]),
         seq_end=np.float64(metadata["seq_end"]),
         t_forecast_list=np.asarray(t_forecast_list, dtype=np.float64),
@@ -392,6 +341,7 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
         "quantile_low",
         "quantile_high",
         "samples_per_batch",
+        "max_sample_len",
         "seq_start",
         "seq_end",
         "t_forecast_list",
@@ -409,6 +359,8 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
             if int(np.asarray(data["cache_version"]).item()) != int(metadata["cache_version"]):
                 return None
             if int(np.asarray(data["samples_per_batch"]).item()) != int(metadata["samples_per_batch"]):
+                return None
+            if int(np.asarray(data["max_sample_len"]).item()) != int(metadata["max_sample_len"]):
                 return None
 
             float_keys = ("duration", "slide_step", "quantile_low", "quantile_high", "seq_start", "seq_end")
@@ -447,8 +399,11 @@ def evaluate_sliding_window_forecast_plots(
     checkpoint_dir,
     sliding_duration: float,
     sliding_step: float,
+    sliding_start: float | None = None,
+    sliding_end: float | None = None,
     sliding_quantiles: tuple[float, float],
     samples_per_batch: int,
+    sliding_max_sample_len: int | None = None,
     sliding_view_mode: str = "auto",
     load_sliding_cache: bool = True,
     force_recompute_sliding: bool = False,
@@ -460,13 +415,32 @@ def evaluate_sliding_window_forecast_plots(
         colors.update(plot_colors)
 
     checkpoint_dir = Path(checkpoint_dir)
+    resolved_sliding_start = (
+        float(seq.arrival_times[0].item())
+        if sliding_start is None
+        else float(sliding_start)
+    )
+    resolved_sliding_end = (
+        float(seq.arrival_times[-1].item())
+        if sliding_end is None
+        else float(sliding_end)
+    )
+    if resolved_sliding_end <= resolved_sliding_start:
+        raise ValueError(
+            "sliding_end must be greater than sliding_start, got "
+            f"{resolved_sliding_end} <= {resolved_sliding_start}."
+        )
+
     sliding_cache_path = checkpoint_dir / str(sliding_cache_filename)
     cache_meta = build_sliding_cache_metadata(
         seq,
         duration=sliding_duration,
         slide_step=sliding_step,
+        sliding_start=resolved_sliding_start,
+        sliding_end=resolved_sliding_end,
         quantiles=sliding_quantiles,
         samples_per_batch=samples_per_batch,
+        max_sample_len=sliding_max_sample_len,
     )
 
     loaded_from_cache = False
@@ -487,8 +461,11 @@ def evaluate_sliding_window_forecast_plots(
             device=device,
             duration=sliding_duration,
             slide_step=sliding_step,
+            start_time=resolved_sliding_start,
+            end_time=resolved_sliding_end,
             quantiles=sliding_quantiles,
             samples_per_batch=samples_per_batch,
+            max_sample_len=sliding_max_sample_len,
             return_sim_count_matrix=True,
         )
         if load_sliding_cache:

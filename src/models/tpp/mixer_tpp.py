@@ -398,6 +398,7 @@ class MixerTPP(TPPModel):
                 past_batch[:, :-1], inference_params=inference_params, return_all=True
             )  # (1, L, C)
             current_state = state_all[:, -1:, :].expand(batch_size, -1, -1)  # (B, 1, C)
+            assert not torch.isnan(current_state).any(), "current_state contains NaN"
             time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
             # warm up SSM filter state over the observed history
             if self.b_filter is not None and filter_params is not None:

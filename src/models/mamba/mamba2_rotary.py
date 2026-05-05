@@ -257,6 +257,7 @@ class Mamba2Rotary(nn.Module, PyTorchModelHubMixin):
             B, C = self.rotary_emb(
                 B, C, times=times, seqlen_offset=seqlen_offset, max_seqlen=rotary_max_seqlen
             )
+        assert not torch.isnan(B).any() and not torch.isnan(C).any(), "B or C contain NaN"
         y = mamba_chunk_scan_combined(
             rearrange(x, "b l (h p) -> b l h p", p=self.headdim),
             dt,

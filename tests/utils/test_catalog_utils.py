@@ -61,6 +61,26 @@ def test_split_sequence_refines_dense_windows_instead_of_skipping_them():
     assert sum(subseq.num_nll_events for subseq in dataset) == seq.num_nll_events
 
 
+def test_split_sequence_without_max_events_preserves_window_start():
+    history = np.linspace(1.0, 48.0, 120, dtype=np.float32)
+    dense_cluster = np.linspace(50.0, 50.2, 600, dtype=np.float32)
+    sparse_tail = np.linspace(60.0, 70.0, 60, dtype=np.float32)
+    seq = make_sequence_from_arrivals(
+        np.concatenate([history, dense_cluster, sparse_tail]),
+        t_nll_start=50.0,
+        t_end=71.0,
+    )
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Found 1 zero inter-event times.*")
+        dataset = catalog_utils.split_sequence(seq, mean_batch_size=2000, max_events=None)
+
+    assert len(dataset) == 1
+    assert dataset[0].t_start == seq.t_nll_start
+    assert dataset[0].t_nll_start == seq.t_nll_start
+    assert dataset[0].num_events > 512
+
+
 def test_split_minibatches_falls_back_to_original_sequence_for_empty_split(monkeypatch):
     train_seq = make_sequence_from_arrivals(np.linspace(1.0, 10.0, 12, dtype=np.float32), t_nll_start=5.0, t_end=11.0)
     val_seq = make_sequence_from_arrivals(np.linspace(1.0, 8.0, 10, dtype=np.float32), t_nll_start=4.0, t_end=9.0)

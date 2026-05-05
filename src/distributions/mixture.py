@@ -35,17 +35,47 @@ class MixtureSameFamily(TorchMixtureSameFamily, Distribution):
             # Since we know that the sample x > lower_bound, we have to adjust the
             # mixing probabilities as p(z_i = k) * Pr(x >= lower_bound | z_i = k)
             # mixture samples [n, B]
-            conditional_mix_probs = (
-                self.mixture_distribution.probs
-                * self.component_distribution.log_survival(lower_bound).exp()
-            )
-            probs_sum = conditional_mix_probs.sum(dim=-1, keepdim=True)
+            mix_probs = self.mixture_distribution.probs
+            log_survival = self.component_distribution.log_survival(lower_bound)
+            conditional_mix_probs = mix_probs * log_survival.exp()
             eps = torch.finfo(conditional_mix_probs.dtype).eps
-            fallback_probs = self.mixture_distribution.probs
+
+            conditional_mix_probs = torch.nan_to_num(
+                conditional_mix_probs, nan=0.0, posinf=0.0, neginf=0.0
+            )
+            conditional_mix_probs = conditional_mix_probs.clamp_min(0.0)
+            probs_sum = conditional_mix_probs.sum(dim=-1, keepdim=True)
+
+            fallback_probs = torch.nan_to_num(
+                mix_probs, nan=0.0, posinf=0.0, neginf=0.0
+            ).clamp_min(0.0)
+            fallback_sum = fallback_probs.sum(dim=-1, keepdim=True)
+            num_components = fallback_probs.size(-1)
+            uniform_probs = torch.full_like(
+                fallback_probs, 1.0 / max(1, num_components)
+            )
+            fallback_probs = torch.where(
+                fallback_sum > 0,
+                fallback_probs / fallback_sum.clamp_min(eps),
+                uniform_probs,
+            )
+
             conditional_mix_probs = torch.where(
                 probs_sum > 0,
                 conditional_mix_probs / probs_sum.clamp_min(eps),
                 fallback_probs,
+            )
+            conditional_mix_probs = torch.nan_to_num(
+                conditional_mix_probs,
+                nan=1.0 / max(1, num_components),
+                posinf=1.0 / max(1, num_components),
+                neginf=0.0,
+            ).clamp_min(0.0)
+            final_sum = conditional_mix_probs.sum(dim=-1, keepdim=True)
+            conditional_mix_probs = torch.where(
+                final_sum > 0,
+                conditional_mix_probs / final_sum.clamp_min(eps),
+                uniform_probs,
             )
             mix_sample = Categorical(probs=conditional_mix_probs).sample(sample_shape)
             mix_shape = mix_sample.shape  # [n, B]

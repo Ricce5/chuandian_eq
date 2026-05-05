@@ -18,7 +18,7 @@ python main.py --model etas_ogata --mode test
 python main.py --model btpp --mode train
 python main.py --model mtpp --mode train
 python main.py --model mhp --mode train
-python main.py --model mixer_tpp --mode train  
+python main.py --model mixer_tpp --mode test --checkpoint checkpoints/mixer_tpp_20260205-110204
 python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train
 python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/reg_mixer_attnpl_t_20250907-183220

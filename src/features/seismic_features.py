@@ -2,6 +2,7 @@
 # Reference: https://www.mdpi.com/2076-3417/13/11/6424
 import logging
 import math
+from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
@@ -11,6 +12,28 @@ logger = logging.getLogger(__name__)
 
 LOG10_E = np.log10(np.exp(1.0))
 _EMPTY_NUM_MAG = np.empty(0, dtype=float)
+
+_DEFAULT_MAG_ELAPS = [6.0, 6.5]
+_DEFAULT_MAG_ELAPS_ELAPSED = [6.0, 6.5, 7.0, 7.5]
+
+
+@dataclass(frozen=True)
+class FeatureConfig:
+    Mc: float
+    Mf: float
+    Twindow: float
+    Tfore: float
+    dt: float
+    dMag: float
+    Mag_elaps: list[float]
+    L_max: int
+    context_len: int
+
+
+@dataclass(frozen=True)
+class CatalogData:
+    jd: np.ndarray
+    mag: np.ndarray
 
 
 def _coerce_scalar_window(value, name: str) -> float:
@@ -23,6 +46,191 @@ def _coerce_scalar_window(value, name: str) -> float:
     if value <= 0:
         raise ValueError(f"{name} must be > 0, got {value}")
     return value
+
+
+def _build_feature_config(
+    Mc,
+    Mf,
+    Twindow,
+    Tfore,
+    dt,
+    dMag,
+    Mag_elaps,
+    L_max,
+    context_len,
+) -> FeatureConfig:
+    twindow = _coerce_scalar_window(Twindow, "Twindow")
+    tfore = _coerce_scalar_window(Tfore, "Tfore")
+    step = _coerce_scalar_window(dt, "dt")
+    dmag = _coerce_scalar_window(dMag, "dMag")
+    if L_max <= 0:
+        raise ValueError(f"L_max must be > 0, got {L_max}")
+    mag_elaps = _DEFAULT_MAG_ELAPS if Mag_elaps is None else list(Mag_elaps)
+    return FeatureConfig(
+        Mc=float(Mc),
+        Mf=float(Mf),
+        Twindow=twindow,
+        Tfore=tfore,
+        dt=step,
+        dMag=dmag,
+        Mag_elaps=mag_elaps,
+        L_max=int(L_max),
+        context_len=int(context_len),
+    )
+
+
+def _prepare_catalog_data(data_input, Mc: float) -> CatalogData:
+    data = np.asarray(data_input)
+    if data.ndim != 2 or data.shape[1] < 2:
+        raise ValueError("data_input must be a 2D array with at least two columns [JD, mag, ...]")
+
+    data1 = data[data[:, 1] >= Mc]
+    if len(data1) == 0:
+        raise ValueError("No earthquake events meet the Mc condition")
+
+    jd = data1[:, 0].astype(float)
+    mag = data1[:, 1].astype(float)
+
+    order = np.argsort(jd)
+    return CatalogData(jd=jd[order], mag=mag[order])
+
+
+def _build_time_array(jd: np.ndarray, twindow: float, tfore: float, dt: float, t_arrary=None) -> np.ndarray:
+    if t_arrary is not None:
+        t_arrary = np.asarray(t_arrary, dtype=float)
+        if t_arrary.size == 0:
+            raise ValueError("t_arrary cannot be empty")
+        valid = (t_arrary >= jd[0] + twindow) & (t_arrary <= jd[-1])
+        if not np.all(valid):
+            logger.warning("t_arrary contains values outside valid range; those values are ignored.")
+        t_array_final = t_arrary[valid]
+        if t_array_final.size == 0:
+            raise ValueError("No valid times remained in t_arrary after range filtering.")
+        return t_array_final
+
+    span = jd[-1] - jd[0] - twindow - tfore
+    if span < 0:
+        raise ValueError(
+            "Catalog time span is shorter than Twindow + Tfore; cannot build any forecasting samples."
+        )
+    n_loop = int(np.ceil(span / dt))
+    if n_loop <= 0:
+        raise ValueError("No forecasting samples were generated; check Twindow, Tfore and dt.")
+    return twindow + jd[0] + np.arange(n_loop) * dt
+
+
+def _init_feature_arrays(n_loop: int, mag_elaps: list[float], t_array_final: np.ndarray) -> dict[str, np.ndarray]:
+    features = {
+        "t": t_array_final.copy(),
+        "Num": np.full(n_loop, np.nan),
+        "Mag_max": np.full(n_loop, np.nan),
+        "Mag_max_obs": np.full(n_loop, np.nan),
+        "Mag_mean": np.full(n_loop, np.nan),
+        "b_lsq": np.full(n_loop, np.nan),
+        "a_lsq": np.full(n_loop, np.nan),
+        "b_std_lsq": np.full(n_loop, np.nan),
+        "std_gr_lsq": np.full(n_loop, np.nan),
+        "b_mlk": np.full(n_loop, np.nan),
+        "a_mlk": np.full(n_loop, np.nan),
+        "b_std_mlk": np.full(n_loop, np.nan),
+        "std_gr_mlk": np.full(n_loop, np.nan),
+        "dM_lsq": np.full(n_loop, np.nan),
+        "dM_mlk": np.full(n_loop, np.nan),
+        "Energy_sqrt": np.full(n_loop, np.nan),
+        "prob_x7_lsq": np.full(n_loop, np.nan),
+        "prob_x7_mlk": np.full(n_loop, np.nan),
+        "zvalue": np.full(n_loop, np.nan),
+        "beta": np.full(n_loop, np.nan),
+        "shock_len": np.zeros(n_loop),
+        "Negative": np.zeros(n_loop),
+    }
+    for mag_threshold in mag_elaps:
+        features[f"T_elaps{mag_threshold}"] = np.full(n_loop, np.nan)
+    return features
+
+
+def _window_range(jd: np.ndarray, start: float, end: float) -> tuple[int, int]:
+    left = int(np.searchsorted(jd, start, side="left"))
+    right = int(np.searchsorted(jd, end, side="left"))
+    return left, right
+
+
+def _compute_negative_label(jd: np.ndarray, mag: np.ndarray, t_now: float, cfg: FeatureConfig) -> float:
+    shock_start, shock_end = _window_range(jd, t_now, t_now + cfg.Tfore)
+    shock_len = int(np.sum(mag[shock_start:shock_end] >= cfg.Mf))
+
+    near_start, near_end = _window_range(
+        jd,
+        t_now - cfg.context_len * cfg.Tfore,
+        t_now + cfg.context_len * cfg.Tfore,
+    )
+    near_mag = mag[near_start:near_end]
+    negative = (near_mag.size == 0) or (np.max(near_mag) < cfg.Mf)
+    return float(shock_len), float(shock_len == 0) if cfg.context_len == 0 else float(negative)
+
+
+def _fill_window_features(
+    features: dict[str, np.ndarray],
+    num_mag: np.ndarray,
+    i: int,
+    t_now: float,
+    jd: np.ndarray,
+    mag: np.ndarray,
+    cfg: FeatureConfig,
+) -> None:
+    history_start, history_end = _window_range(jd, t_now - cfg.Twindow, t_now)
+    sub_jd = jd[history_start:history_end]
+    sub_mag = mag[history_start:history_end]
+
+    shock_len, negative = _compute_negative_label(jd, mag, t_now, cfg)
+    features["shock_len"][i] = shock_len
+    features["Negative"][i] = negative
+
+    if sub_jd.size == 0:
+        return
+
+    (
+        b_lsq,
+        a_lsq,
+        std_gr_lsq,
+        b_mlk,
+        a_mlk,
+        std_gr_mlk,
+        dM_lsq,
+        dM_mlk,
+        b_std_lsq,
+        b_std_mlk,
+        num_mag_int,
+    ) = calculate_magnitudes_and_features(sub_mag, cfg.Mc, cfg.dMag)
+    t_elaps = calculate_elapsed_times(jd, t_now, mag, cfg.Mag_elaps)
+    beta, zvalue = calculate_seismic_change_rate(sub_jd, cfg.Twindow, t_now)
+    mag_max_obs = get_max_magnitude_in_forecast(jd, mag, t_now, cfg.Tfore)
+
+    features["Num"][i] = sub_mag.size
+    features["Mag_max"][i] = np.max(sub_mag)
+    features["Mag_mean"][i] = np.mean(sub_mag)
+    features["b_lsq"][i] = b_lsq
+    features["a_lsq"][i] = a_lsq
+    features["std_gr_lsq"][i] = std_gr_lsq
+    features["b_mlk"][i] = b_mlk
+    features["a_mlk"][i] = a_mlk
+    features["std_gr_mlk"][i] = std_gr_mlk
+    features["dM_lsq"][i] = dM_lsq
+    features["dM_mlk"][i] = dM_mlk
+    features["b_std_lsq"][i] = b_std_lsq
+    features["b_std_mlk"][i] = b_std_mlk
+    features["prob_x7_lsq"][i] = np.exp(-3 * b_lsq / LOG10_E) if np.isfinite(b_lsq) else np.nan
+    features["prob_x7_mlk"][i] = np.exp(-3 * b_mlk / LOG10_E) if np.isfinite(b_mlk) else np.nan
+    features["Energy_sqrt"][i] = np.sqrt(np.sum(10 ** (12 + 1.8 * sub_mag)))
+    features["beta"][i] = beta
+    features["zvalue"][i] = zvalue
+    features["Mag_max_obs"][i] = mag_max_obs
+
+    for j, mag_threshold in enumerate(cfg.Mag_elaps):
+        features[f"T_elaps{mag_threshold}"][i] = t_elaps[j]
+
+    max_bins = min(len(num_mag_int), cfg.L_max)
+    num_mag[i, :max_bins] = num_mag_int[:max_bins]
 
 
 def cal2jd(date):
@@ -130,7 +338,7 @@ def calculate_elapsed_times(jd, t, mag, Mag_elaps=None):
     Calculate elapsed times since the last event above each magnitude threshold.
     """
     if Mag_elaps is None:
-        Mag_elaps = [6.0, 6.5, 7.0, 7.5]
+        Mag_elaps = _DEFAULT_MAG_ELAPS_ELAPSED
 
     jd = np.asarray(jd, dtype=float)
     mag = np.asarray(mag, dtype=float)
@@ -228,142 +436,34 @@ def calculate_seismic_features(
     - Keeps legacy argument name `t_arrary` for compatibility.
     - Accepts legacy `Twindow=[20]` format by coercing a single-value sequence.
     """
-    Twindow = _coerce_scalar_window(Twindow, "Twindow")
-    Tfore = _coerce_scalar_window(Tfore, "Tfore")
-    dt = _coerce_scalar_window(dt, "dt")
-    dMag = _coerce_scalar_window(dMag, "dMag")
-    context_len = int(context_len)
-    if L_max <= 0:
-        raise ValueError(f"L_max must be > 0, got {L_max}")
-
-    if Mag_elaps is None:
-        Mag_elaps = [6.0, 6.5]
-
-    data = np.asarray(data_input)
-    if data.ndim != 2 or data.shape[1] < 2:
-        raise ValueError("data_input must be a 2D array with at least two columns [JD, mag, ...]")
-
-    data1 = data[data[:, 1] >= Mc]
-    if len(data1) == 0:
-        raise ValueError("No earthquake events meet the Mc condition")
-
-    jd = data1[:, 0].astype(float)
-    mag = data1[:, 1].astype(float)
-
-    order = np.argsort(jd)
-    jd = jd[order]
-    mag = mag[order]
-
-    if t_arrary is not None:
-        t_arrary = np.asarray(t_arrary, dtype=float)
-        if t_arrary.size == 0:
-            raise ValueError("t_arrary cannot be empty")
-        valid = (t_arrary >= jd[0] + Twindow) & (t_arrary <= jd[-1])
-        if not np.all(valid):
-            logger.warning("t_arrary contains values outside valid range; those values are ignored.")
-        t_array_final = t_arrary[valid]
-        if t_array_final.size == 0:
-            raise ValueError("No valid times remained in t_arrary after range filtering.")
-    else:
-        span = jd[-1] - jd[0] - Twindow - Tfore
-        if span < 0:
-            raise ValueError(
-                "Catalog time span is shorter than Twindow + Tfore; cannot build any forecasting samples."
-            )
-        n_loop = int(np.ceil(span / dt))
-        if n_loop <= 0:
-            raise ValueError("No forecasting samples were generated; check Twindow, Tfore and dt.")
-        t_array_final = Twindow + jd[0] + np.arange(n_loop) * dt
+    cfg = _build_feature_config(
+        Mc=Mc,
+        Mf=Mf,
+        Twindow=Twindow,
+        Tfore=Tfore,
+        dt=dt,
+        dMag=dMag,
+        Mag_elaps=Mag_elaps,
+        L_max=L_max,
+        context_len=context_len,
+    )
+    catalog = _prepare_catalog_data(data_input, cfg.Mc)
+    t_array_final = _build_time_array(catalog.jd, cfg.Twindow, cfg.Tfore, cfg.dt, t_arrary=t_arrary)
 
     n_loop = len(t_array_final)
-    features = {
-        "t": t_array_final.copy(),
-        "Num": np.full(n_loop, np.nan),
-        "Mag_max": np.full(n_loop, np.nan),
-        "Mag_max_obs": np.full(n_loop, np.nan),
-        "Mag_mean": np.full(n_loop, np.nan),
-        "b_lsq": np.full(n_loop, np.nan),
-        "a_lsq": np.full(n_loop, np.nan),
-        "b_std_lsq": np.full(n_loop, np.nan),
-        "std_gr_lsq": np.full(n_loop, np.nan),
-        "b_mlk": np.full(n_loop, np.nan),
-        "a_mlk": np.full(n_loop, np.nan),
-        "b_std_mlk": np.full(n_loop, np.nan),
-        "std_gr_mlk": np.full(n_loop, np.nan),
-        "dM_lsq": np.full(n_loop, np.nan),
-        "dM_mlk": np.full(n_loop, np.nan),
-        "Energy_sqrt": np.full(n_loop, np.nan),
-        "prob_x7_lsq": np.full(n_loop, np.nan),
-        "prob_x7_mlk": np.full(n_loop, np.nan),
-        "zvalue": np.full(n_loop, np.nan),
-        "beta": np.full(n_loop, np.nan),
-        "shock_len": np.zeros(n_loop),
-        "Negative": np.zeros(n_loop),
-    }
+    features = _init_feature_arrays(n_loop, cfg.Mag_elaps, t_array_final)
+    num_mag = np.zeros((n_loop, cfg.L_max))
 
-    for mag_threshold in Mag_elaps:
-        features[f"T_elaps{mag_threshold}"] = np.full(n_loop, np.nan)
-
-    num_mag = np.zeros((n_loop, L_max))
-
-    for i in range(n_loop):
-        t_now = t_array_final[i]
-        idx_window = np.where((jd >= t_now - Twindow) & (jd < t_now))[0]
-
-        shock_len = len(np.where((jd >= t_now) & (jd < t_now + Tfore) & (mag >= Mf))[0])
-        idx_near = np.where((jd >= t_now - context_len * Tfore) & (jd < t_now + context_len * Tfore))[0]
-        negative = (len(idx_near) == 0) or (np.max(mag[idx_near]) < Mf)
-
-        features["shock_len"][i] = shock_len
-        features["Negative"][i] = float(shock_len == 0) if context_len == 0 else float(negative)
-
-        if len(idx_window) == 0:
-            continue
-
-        sub_jd = jd[idx_window]
-        sub_mag = mag[idx_window]
-        (
-            b_lsq,
-            a_lsq,
-            std_gr_lsq,
-            b_mlk,
-            a_mlk,
-            std_gr_mlk,
-            dM_lsq,
-            dM_mlk,
-            b_std_lsq,
-            b_std_mlk,
-            num_mag_int,
-        ) = calculate_magnitudes_and_features(sub_mag, Mc, dMag)
-        t_elaps = calculate_elapsed_times(jd, t_now, mag, Mag_elaps)
-        beta, zvalue = calculate_seismic_change_rate(sub_jd, Twindow, t_now)
-        mag_max_obs = get_max_magnitude_in_forecast(jd, mag, t_now, Tfore)
-
-        features["Num"][i] = len(idx_window)
-        features["Mag_max"][i] = np.max(sub_mag)
-        features["Mag_mean"][i] = np.mean(sub_mag)
-        features["b_lsq"][i] = b_lsq
-        features["a_lsq"][i] = a_lsq
-        features["std_gr_lsq"][i] = std_gr_lsq
-        features["b_mlk"][i] = b_mlk
-        features["a_mlk"][i] = a_mlk
-        features["std_gr_mlk"][i] = std_gr_mlk
-        features["dM_lsq"][i] = dM_lsq
-        features["dM_mlk"][i] = dM_mlk
-        features["b_std_lsq"][i] = b_std_lsq
-        features["b_std_mlk"][i] = b_std_mlk
-        features["prob_x7_lsq"][i] = np.exp(-3 * b_lsq / LOG10_E) if np.isfinite(b_lsq) else np.nan
-        features["prob_x7_mlk"][i] = np.exp(-3 * b_mlk / LOG10_E) if np.isfinite(b_mlk) else np.nan
-        features["Energy_sqrt"][i] = np.sqrt(np.sum(10 ** (12 + 1.8 * sub_mag)))
-        features["beta"][i] = beta
-        features["zvalue"][i] = zvalue
-        features["Mag_max_obs"][i] = mag_max_obs
-
-        for j, mag_threshold in enumerate(Mag_elaps):
-            features[f"T_elaps{mag_threshold}"][i] = t_elaps[j]
-
-        max_bins = min(len(num_mag_int), L_max)
-        num_mag[i, :max_bins] = num_mag_int[:max_bins]
+    for i, t_now in enumerate(t_array_final):
+        _fill_window_features(
+            features=features,
+            num_mag=num_mag,
+            i=i,
+            t_now=t_now,
+            jd=catalog.jd,
+            mag=catalog.mag,
+            cfg=cfg,
+        )
 
     features_df = pd.DataFrame(features)
     return features_df, num_mag
@@ -386,7 +486,7 @@ def calculate_seismic_features_n(
     if Twindow_list is None:
         Twindow_list = [200]
     if Mag_elaps is None:
-        Mag_elaps = [6.0, 6.5]
+        Mag_elaps = _DEFAULT_MAG_ELAPS
 
     Twindow_list = sorted(Twindow_list, reverse=True)
     results = {}

@@ -2,9 +2,19 @@
 
 ## 1. CLF
 
-**配置字段：** `dataset | Twindow | Tfore | dt | Mf | context_len | p/n`
+**Config fields:** `dataset | Twindow | Tfore | dt | Mf | context_len | p/n`
 
 ### 1.1 ChuanDian 180 10 10 4 1 1
+
+Class balance:
+
+| Split | Positive | Negative | Pos/Neg | Positive ratio | Negative ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overall | 780 | 683 | 1.14 | 53.33% | 46.67% |
+| Train | 594 | 576 | 1.03 | 50.77% | 49.23% |
+| Validation | 107 | 39 | 2.74 | 73.29% | 26.71% |
+| Test | 79 | 68 | 1.16 | 53.74% | 46.26% |
+
 
     RF: /root/autodl-tmp/em_eqf/checkpoints/rf_6a2dcdd9
     Validation metrics:
@@ -39,6 +49,15 @@
 ```
 
 ### 1.2 ChuanDian 180 20 10 4.5 1 1
+
+Class balance:
+
+| Split | Positive | Negative | Pos/Neg | Positive ratio | Negative ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overall | 623 | 845 | 0.74 | 42.43% | 57.57% |
+| Train | 528 | 646 | 0.82 | 44.99% | 55.01% |
+| Validation | 60 | 86 | 0.70 | 41.10% | 58.90% |
+| Test | 35 | 113 | 0.31 | 23.65% | 76.35% |
 
     RF: checkpoints/rf_052673bb
     Validation metrics:
@@ -75,6 +94,15 @@
 
 ### 1.3 ChuanDian 180 30 10 4.5 1 1.5 ~
 
+Class balance:
+
+| Split | Positive | Negative | Pos/Neg | Positive ratio | Negative ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overall | 836 | 594 | 1.41 | 58.44% | 41.56% |
+| Train | 706 | 438 | 1.61 | 61.68% | 38.32% |
+| Validation | 83 | 60 | 1.38 | 58.04% | 41.96% |
+| Test | 47 | 96 | 0.49 | 32.87% | 67.13% |
+
     RF: checkpoints/rf_ba7d0dba
     Validation metrics:
 
@@ -107,7 +135,17 @@
 {'precision': 0.5287356321839081, 'recall': 0.9787234042553191, 'f1': 0.6865671641791045, 'auc': 0.8993794326241135, 'pr_auc': 0.8516222215159499, 'fpr': 0.4270833333333333, 'tpr': 0.9787234042553191, 'R': 0.5516400709219857, 'conf': 0.999999999986129, 'threshold': 0.2959364354610443}
 ```
 
-### 1.4 ChuanDian 180 60 10 5 1 1 ~\*
+### 1.4 ChuanDian 180 60 10 5 1 1 ~
+
+Class balance:
+
+| Split | Positive | Negative | Pos/Neg | Positive ratio | Negative ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overall | 808 | 651 | 1.24 | 55.38% | 44.62% |
+| Train | 673 | 494 | 1.36 | 57.69% | 42.31% |
+| Validation | 87 | 58 | 1.50 | 60.00% | 40.00% |
+| Test | 48 | 99 | 0.48 | 32.65% | 67.35% |
+
 
     RF: checkpoints/rf_fd4476d8
         Validation metrics:
@@ -142,6 +180,15 @@
 ```
 
 ### 1.5 ChuanDian 180 90 10 5.5 1 0.5 ~
+
+Class balance:
+
+| Split | Positive | Negative | Pos/Neg | Positive ratio | Negative ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Overall | 471 | 1055 | 0.45 | 30.87% | 69.13% |
+| Train | 390 | 830 | 0.47 | 31.97% | 68.03% |
+| Validation | 62 | 90 | 0.69 | 40.79% | 59.21% |
+| Test | 19 | 135 | 0.14 | 12.34% | 87.66% |
 
      RF: checkpoints/rf_af684ff4
       Validation metrics:

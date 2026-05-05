@@ -7,6 +7,11 @@
 3. 输入可分性
 
 
+1. 修复rotary_time采样下时间中心计算错误问题
+2. lstm/rf pipeline对齐em-eqf
+3. forecasting.ipynb增加滑动窗预测
+4. 增加notebooks/tpp_comparison.ipynb
+
 selective_state_update 中0被替换为(0,0), 处理None下的情况
 mamba2 xBC.contiguous().transpose(1, 2), 加入contiguous
 

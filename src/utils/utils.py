@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import matplotlib.dates as mdates
 import numpy as np
 import torch
+from .runtime_utils import resolve_project_root, unwrap_compiled_model
 
 __all__ = [
     "set_seed",
@@ -13,6 +14,8 @@ __all__ = [
     "_to_np_datetime64_seconds",
     "_to_py_datetime",
     "set_xaxis_time_locator",
+    "resolve_project_root",
+    "unwrap_compiled_model",
 ]
 
 def set_seed(seed: int = 42):

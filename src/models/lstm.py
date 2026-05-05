@@ -11,6 +11,7 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(self.feature_size, self.hidden_size, self.num_layers, batch_first=True).to(self.device)
         self.fc = nn.Linear(self.hidden_size, self.output_size).to(self.device)
         self.dropout = nn.Dropout(p=lstm_dropout)
+        self.output_activation = nn.Sigmoid()
 
     def forward(self, x, hidden=None):
         batch_size = x.shape[0]
@@ -23,4 +24,5 @@ class LSTM(nn.Module):
         output, (h_0, c_0) = self.lstm(x, (h_0, c_0))
         output = self.dropout(output)
         output = self.fc(output)
+        output = self.output_activation(output)
         return output[:, -1, :].squeeze(1)

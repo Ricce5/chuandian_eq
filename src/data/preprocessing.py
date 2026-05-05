@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
 import src.features.seismic_features as sf
 import matplotlib.pyplot as plt
 
@@ -67,20 +68,133 @@ def load_and_filter_catalog(base_dir, Mc):
     return df
 
 
+def _resolve_recast_csv_path(csv_file):
+    candidate = Path(csv_file)
+    if candidate.exists():
+        return candidate
+
+    raw_dir = candidate.parent
+    if not raw_dir.exists():
+        raise FileNotFoundError(f"Raw directory not found for CSV lookup: {raw_dir}")
+
+    csv_candidates = sorted(
+        path
+        for path in raw_dir.glob("*.csv")
+        if not path.name.lower().startswith("processed_")
+    )
+    if not csv_candidates:
+        raise FileNotFoundError(f"No CSV files found in directory: {raw_dir}")
+
+    target_stem = candidate.stem.lower()
+    preferred_matches = [
+        path
+        for path in csv_candidates
+        if path.stem.lower() == target_stem and "catalog" not in path.stem.lower()
+    ]
+    if preferred_matches:
+        return preferred_matches[0]
+
+    stem_matches = [path for path in csv_candidates if path.stem.lower() == target_stem]
+    if stem_matches:
+        return stem_matches[0]
+
+    non_catalog = [path for path in csv_candidates if "catalog" not in path.stem.lower()]
+    if len(non_catalog) == 1:
+        return non_catalog[0]
+
+    if len(csv_candidates) == 1:
+        return csv_candidates[0]
+
+    display = [path.name for path in csv_candidates]
+    raise FileNotFoundError(
+        f"Could not resolve recast CSV for expected path '{candidate}'. "
+        f"Available CSV files in '{raw_dir}': {display}"
+    )
+
+
+def _resolve_recast_metadata_path(metadata_file, csv_path):
+    metadata_path = Path(metadata_file)
+    if metadata_path.exists():
+        return metadata_path
+
+    dataset_dir = csv_path.parent.parent
+    catalogs_dir = dataset_dir / "catalogs"
+    if catalogs_dir.exists():
+        hashed_metadata = sorted(
+            path
+            for path in catalogs_dir.glob("*/metadata.pt")
+            if path.is_file()
+        )
+        if len(hashed_metadata) == 1:
+            return hashed_metadata[0]
+        if len(hashed_metadata) > 1:
+            raise FileNotFoundError(
+                f"Multiple metadata.pt files found under '{catalogs_dir}'; "
+                "please specify metadata_file explicitly. "
+                f"Found: {[str(path) for path in hashed_metadata]}"
+            )
+
+    raise FileNotFoundError(
+        f"Metadata file not found: {metadata_path}. "
+        "Also searched for hashed metadata under "
+        f"'{catalogs_dir}'."
+    )
+
+
+def _resolve_recast_time_column(df):
+    for col in ("time", "date_time", "datetime", "ts"):
+        if col in df.columns:
+            return col
+    raise ValueError(
+        "Could not find a timestamp column for recast catalog. "
+        "Expected one of: ['time', 'date_time', 'datetime', 'ts']"
+    )
+
+
+def _infer_start_ts_from_df(df):
+    time_col = _resolve_recast_time_column(df)
+    ts = pd.to_datetime(df[time_col], errors="coerce")
+    valid_ts = ts.dropna()
+    if valid_ts.empty:
+        raise ValueError(
+            f"Could not parse timestamps from column '{time_col}' to infer start_ts."
+        )
+    return valid_ts.min().floor("D")
+
+
 def process_recast_catalog(csv_file, metadata_file):
     import torch
-    from pathlib import Path
-    df = pd.read_csv(csv_file)
-    meta_data = torch.load(metadata_file, weights_only=False)
-    start_ts = pd.to_datetime(meta_data['start_ts'])
-    df['ts'] = pd.to_datetime(df['time'])
+
+    resolved_csv = _resolve_recast_csv_path(csv_file)
+    df = pd.read_csv(resolved_csv)
+
+    try:
+        resolved_metadata = _resolve_recast_metadata_path(metadata_file, resolved_csv)
+    except FileNotFoundError as exc:
+        start_ts = _infer_start_ts_from_df(df)
+        logger.warning(
+            "Metadata not found for '%s'; inferred start_ts=%s from catalog timestamps. Details: %s",
+            resolved_csv,
+            start_ts,
+            exc,
+        )
+    else:
+        meta_data = torch.load(resolved_metadata, weights_only=False)
+        start_ts = pd.to_datetime(meta_data['start_ts'])
+
+    time_col = _resolve_recast_time_column(df)
+    df['ts'] = pd.to_datetime(df[time_col], errors="coerce")
+    if df['ts'].isna().all():
+        raise ValueError(f"All timestamps are NaT after parsing column '{time_col}'.")
+
     jd0 = sf.cal2jd(start_ts)
-    jd = np.array([sf.cal2jd(d) - jd0 for d in df['ts']])
+    valid_ts = df['ts'].dropna()
+    jd = np.full(len(df), np.nan, dtype=float)
+    jd[valid_ts.index] = np.array([sf.cal2jd(d) - jd0 for d in valid_ts])
     df['t'] = jd
     df['dt'] = df['t'].diff().fillna(0)
     df = df[['t', 'magnitude', 'latitude', 'longitude', 'depth', 'dt', 'ts']]
-    csv_file = Path(csv_file)
-    save_file = csv_file.parent / f'processed_{csv_file.stem}.csv'
+    save_file = resolved_csv.parent / f'processed_{resolved_csv.stem}.csv'
     df.rename(columns={'magnitude': 'Magnitude', 'latitude': 'Latitude', 'longitude': 'Longitude', 'depth': 'Depth'}, inplace=True)
     df.to_csv(save_file, index=False)
     return df
@@ -138,6 +252,7 @@ def calculate_catalog_statistics(df):
     logger.info("Catalog statistics: %s", stats)
     return stats
 
+
 def plot_dt_distributions(dfs, names=None, bins=100, figsize=(20, 4)):
     if names is None:
         names = [f'df{i+1}' for i in range(len(dfs))]
@@ -191,3 +306,49 @@ def estimate_mc_max_curvature(mags, bin_width=0.1, plot=True):
         plt.tight_layout()
         plt.show()
     return mc, bin_centers, counts
+
+def plot_magnitude_distribution(df_or_mags, bin_width=0.1, mc=None, figsize=(6, 4), ax=None, save_path=None, show=True):
+    if isinstance(df_or_mags, pd.DataFrame):
+        if 'Magnitude' not in df_or_mags.columns:
+            raise ValueError("DataFrame must contain a 'Magnitude' column.")
+        mags = df_or_mags['Magnitude'].dropna().to_numpy()
+    else:
+        mags = np.asarray(df_or_mags)
+        mags = mags[~np.isnan(mags)]
+
+    if mags.size == 0:
+        raise ValueError("Magnitude array is empty, cannot plot distribution.")
+
+    created_fig = False
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+        created_fig = True
+    else:
+        fig = ax.figure
+
+    m_min = np.floor(mags.min() / bin_width) * bin_width
+    m_max = np.ceil(mags.max() / bin_width) * bin_width
+    bins = np.arange(m_min, m_max + bin_width, bin_width)
+
+    ax.hist(mags, bins=bins, color='C0', alpha=0.75, edgecolor='white', linewidth=0.6)
+    ax.set_xlabel('Magnitude')
+    ax.set_ylabel('Count')
+    ax.set_title('Magnitude Distribution')
+
+    mean_mag = float(np.mean(mags))
+    ax.axvline(mean_mag, color='C3', linestyle='--', linewidth=1.5, label=f'Mean: {mean_mag:.2f}')
+
+    if mc is not None:
+        ax.axvline(mc, color='C2', linestyle='-', linewidth=1.5, label=f'Mc: {mc:.2f}')
+
+    ax.legend()
+    fig.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(save_path, dpi=200, bbox_inches='tight')
+    if show:
+        plt.show()
+    elif created_fig:
+        plt.close(fig)
+
+    return fig, ax

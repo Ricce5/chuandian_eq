@@ -1,18 +1,47 @@
 import logging
-import torch
-import torch.nn.functional as F
-from torch.utils.data import WeightedRandomSampler
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-plt.rcParams['axes.unicode_minus'] = False
-from torch.utils.data import WeightedRandomSampler,Subset
-from src.data.utils import get_split_indices
-from torch.utils.data import WeightedRandomSampler
+from torch.utils.data import Subset, WeightedRandomSampler
+
 from .constants import PAD
+from .normalization import (
+    DEFAULT_MAG_MAX,
+    DEFAULT_MAG_MIN,
+    inverse_normalize_magnitude_range,
+    normalize_magnitude_range,
+    validate_magnitude_bounds,
+)
+from src.data.utils import get_split_indices
+
+plt.rcParams['axes.unicode_minus'] = False
 
 logger = logging.getLogger(__name__)
+
+FUTURE_CONTEXT_FIELDS = ["t", "Magnitude", "Latitude", "Longitude", "Depth"]
+HISTORY_BASE_FIELDS = ["t", "Magnitude", "Latitude", "Longitude", "Depth", "dt"]
+HISTORY_ARRAY_FIELDS = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth", "dt"]
+
+
+def compute_classification_label(arr_f_t, arr_c_mag, Mf):
+    if np.count_nonzero(arr_f_t) > 0:
+        return 1
+    if len(arr_c_mag) == 0 or np.max(arr_c_mag) < Mf:
+        return 0
+    return np.nan
+
+
+def build_classification_labels(array_dict, Mf):
+    future_t = array_dict["future"]["t"]
+    context_mag = array_dict["context"]["Magnitude"]
+    labels = np.array(
+        [compute_classification_label(arr_f_t, arr_c_mag, Mf) for arr_f_t, arr_c_mag in zip(future_t, context_mag)],
+        dtype=float,
+    )
+    valid_mask = ~np.isnan(labels)
+    return labels, valid_mask
 
 
 
@@ -58,34 +87,23 @@ def generate_time_array(df, Twindow, Tfore, dt, t_array=None):
 
 
 def generate_single_sample(df, df_nl, t_now, Twindow, Tfore, Mf, context_len):
-    history = df[(df["t"] < t_now) & (df["t"] >= t_now - Twindow)]
-    future_shocks = df[(df["t"] >= t_now) & (df["t"] < t_now + Tfore) & (df["Magnitude"] >= Mf)]
-    context = df[(df["t"] >= t_now - context_len * Tfore) & (df["t"] < t_now + context_len * Tfore)]
+    t_values = df["t"]
+    history = df[(t_values < t_now) & (t_values >= t_now - Twindow)]
+    future_shocks = df[(t_values >= t_now) & (t_values < t_now + Tfore) & (df["Magnitude"] >= Mf)]
+    context = df[(t_values >= t_now - context_len * Tfore) & (t_values < t_now + context_len * Tfore)]
 
-    sample = {
-        "history_dict": [],
-        "future_dict": [],
-        "context_dict": [],
+    history_dict = []
+    if not history.empty:
+        history_frame = df_nl.loc[history.index, HISTORY_BASE_FIELDS].copy()
+        history_frame["t_nl"] = (history["t"].to_numpy() - t_now) / Twindow + 1
+        history_dict = history_frame.to_dict(orient="records")
+
+    return {
+        "history_dict": history_dict,
+        "future_dict": future_shocks[FUTURE_CONTEXT_FIELDS].to_dict(orient="records"),
+        "context_dict": context[FUTURE_CONTEXT_FIELDS].to_dict(orient="records"),
         "t": t_now,
     }
-
-    for _, quake in future_shocks.iterrows():
-        future_sample = {col: quake[col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
-        sample["future_dict"].append(future_sample)
-
-    
-
-    for _, quake in history.iterrows():
-        history_sample = {col: df_nl.loc[quake.name, col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth","dt"]}
-        history_sample["t_nl"] = (quake["t"] - t_now) / Twindow + 1
-        sample["history_dict"].append(history_sample)
-
-
-    for _, quake in context.iterrows():
-        context_sample = {col: quake[col] for col in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]}
-        sample["context_dict"].append(context_sample)
-
-    return sample
 
 
 def construct_samples_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t_array=None, context_len=0):
@@ -95,23 +113,23 @@ def construct_samples_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t
     df_filtered = df[df['Magnitude'] >= Mc].copy()
     t_array_final = generate_time_array(df_filtered, Twindow, Tfore, dt, t_array)
 
-    samples_list = []
-    for t_now in t_array_final:
-        sample = generate_single_sample(df_filtered, df_nl, t_now, Twindow, Tfore, Mf, context_len)
-        samples_list.append(sample)
+    samples_list = [
+        generate_single_sample(df_filtered, df_nl, t_now, Twindow, Tfore, Mf, context_len)
+        for t_now in t_array_final
+    ]
 
     array_dict = {
         "history": {
             field: [extract_field_array(sample["history_dict"], field) for sample in samples_list]
-            for field in ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth", "dt"]
+            for field in HISTORY_ARRAY_FIELDS
         },
         "future": {
             field: [extract_field_array(sample["future_dict"], field) for sample in samples_list]
-            for field in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]
+            for field in FUTURE_CONTEXT_FIELDS
         },
         "context": {
             field: [extract_field_array(sample["context_dict"], field) for sample in samples_list]
-            for field in ["t", "Magnitude", "Latitude", "Longitude", "Depth"]
+            for field in FUTURE_CONTEXT_FIELDS
         }
     }
 
@@ -119,14 +137,20 @@ def construct_samples_list(df, df_nl, Mc, Mf=None, Twindow=20, Tfore=2, dt=10, t
 
 
 class EventDataset(torch.utils.data.Dataset):
-    def __init__(self, array_dict, Mf=None,task_type ='classification',mag_min=3, mag_max=9.0):
+    def __init__(
+        self,
+        array_dict,
+        Mf=None,
+        task_type='classification',
+        mag_min=DEFAULT_MAG_MIN,
+        mag_max=DEFAULT_MAG_MAX,
+    ):
         assert task_type in ["classification", "regression", "count"], "Unsupported task type"
         self.task_type = task_type
         self.array_dict = array_dict
         self.Mf = Mf
-        self.mag_min = mag_min
-        self.mag_max = mag_max
-        self.data_fields = ["t", "t_nl", "Magnitude", "Latitude", "Longitude", "Depth", "dt"]
+        self.mag_min, self.mag_max = validate_magnitude_bounds(mag_min, mag_max)
+        self.data_fields = HISTORY_ARRAY_FIELDS
 
         self.samples = []
         self.labels = []            # labels normalized by fixed [mag_min, mag_max]
@@ -166,11 +190,7 @@ class EventDataset(torch.utils.data.Dataset):
         return self.samples[idx], self.labels[idx]
     
     def compute_flag_label(self, arr_f_t, arr_c_mag):
-        if np.count_nonzero(arr_f_t) > 0:
-            return 1
-        elif len(arr_c_mag) == 0 or np.max(arr_c_mag) < self.Mf:
-            return 0
-        return np.nan
+        return compute_classification_label(arr_f_t, arr_c_mag, self.Mf)
     
     def compute_count_label(self, arr_f_t):
         return np.count_nonzero(arr_f_t)
@@ -178,11 +198,11 @@ class EventDataset(torch.utils.data.Dataset):
     def compute_max_magnitude_label(self, arr_f_mag):
         if len(arr_f_mag) > 0:
             max_mag = np.max(arr_f_mag)
-            return (max_mag - self.mag_min) / (self.mag_max - self.mag_min)
+            return float(normalize_magnitude_range(max_mag, mag_min=self.mag_min, mag_max=self.mag_max))
         return np.nan
 
     def inverse_normalize_label(self, norm_value):
-        return np.asarray(norm_value) * (self.mag_max - self.mag_min) + self.mag_min
+        return inverse_normalize_magnitude_range(norm_value, mag_min=self.mag_min, mag_max=self.mag_max)
 
     
     @property

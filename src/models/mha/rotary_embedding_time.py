@@ -215,8 +215,7 @@ class RotaryEmbeddingTime(nn.Module):
             self._center_cached = compute_nonzero_center_per_sample(times, 'midpoint')[:, None]
             if max_seqlen is not None:
                 t_min = times[:, [0]]
-                # scale = (max_seqlen//2 + seq_len) / seq_len
-                scale = (max_seqlen + seq_len) / seq_len
+                scale = max_seqlen  / seq_len
                 diff = self._center_cached - t_min 
                 diff = torch.where(diff > 0, diff, torch.ones_like(diff))
                 self._center_cached = diff * scale + t_min

@@ -7,11 +7,12 @@ from sklearn.preprocessing import MinMaxScaler
 plt.rcParams['axes.unicode_minus'] = False
 from torch.utils.data import Subset, Dataset
 from src.data.utils import get_split_indices
+from src.data.normalization import inverse_normalize_magnitude_range
 
 logger = logging.getLogger(__name__)
 
 class LSTMDataset(Dataset):
-    def __init__(self, X, y, scalars=None):
+    def __init__(self, X, y, scalars=None, label_norm_cfg=None):
         """
         Initialize the custom dataset.
         :param X: Input feature data.
@@ -21,6 +22,7 @@ class LSTMDataset(Dataset):
         self.X = X
         self.y = y
         self.scalars = scalars 
+        self.label_norm_cfg = label_norm_cfg or {}
     
     def __len__(self):
         return len(self.X)
@@ -34,7 +36,16 @@ class LSTMDataset(Dataset):
         :param norm_value: Normalized value with shape (B, F) or (B,)
         :return: Inverse normalized value with the same shape as norm_value
         """
-        if 'Mag_max_obs' in self.scalars:
+        norm_type = self.label_norm_cfg.get("type")
+        if norm_type == "fixed_range":
+            value = inverse_normalize_magnitude_range(
+                norm_value,
+                mag_min=self.label_norm_cfg["mag_min"],
+                mag_max=self.label_norm_cfg["mag_max"],
+            )
+            return torch.tensor(np.asarray(value), dtype=torch.float32)
+
+        if self.scalars and 'Mag_max_obs' in self.scalars:
             scalar = self.scalars['Mag_max_obs']
             norm_value_np = np.array(norm_value)
             orig_shape = norm_value_np.shape
