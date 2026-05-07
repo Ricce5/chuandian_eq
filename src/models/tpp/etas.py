@@ -8,6 +8,8 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 from joblib import Parallel, delayed
 from scipy.stats import poisson
 from tqdm.auto import trange
@@ -136,8 +138,33 @@ class ETAS(TPPModel):
         fix_mu: bool = False,
         fixed_mu_value: Optional[float] = None,
         loss_reduction: str = "per_time",
+        query_chunk_size: int = 0,
+        history_chunk_size: int = 0,
+        use_grad_checkpoint: bool = False,
+        enforce_subcritical: bool = False,
+        max_branching_ratio: float = 0.95,
+        effective_branching_t_max: float = 1e4,
+        enforce_p_gt_one: bool = False,
+        min_omori_p: float = 1.001,
+        constraint_softness: float = 1e-3,
     ):
         super().__init__()
+        if max_branching_ratio <= 0.0 or max_branching_ratio >= 1.0:
+            raise ValueError("max_branching_ratio must be in (0, 1).")
+        if min_omori_p <= 1.0:
+            raise ValueError("min_omori_p must be strictly larger than 1.")
+        if constraint_softness <= 0.0:
+            raise ValueError("constraint_softness must be positive.")
+        if effective_branching_t_max <= 0.0:
+            raise ValueError("effective_branching_t_max must be positive.")
+
+        self.enforce_subcritical = bool(enforce_subcritical)
+        self.max_branching_ratio = float(max_branching_ratio)
+        self.effective_branching_t_max = float(effective_branching_t_max)
+        self.enforce_p_gt_one = bool(enforce_p_gt_one)
+        self.min_omori_p = float(min_omori_p)
+        self.constraint_softness = float(constraint_softness)
+
         self.fix_mu = fix_mu
         base_rate_init_t = torch.as_tensor(
             base_rate_init, device=device, dtype=torch.get_default_dtype()
@@ -164,11 +191,23 @@ class ETAS(TPPModel):
         self.device = device
         self.bg_model = bg_model
         self.reduction = loss_reduction
+        self.query_chunk_size = int(query_chunk_size)
+        self.history_chunk_size = int(history_chunk_size)
+        self.use_grad_checkpoint = bool(use_grad_checkpoint)
         self.to(device)
 
     @property
     def p(self):
-        return torch.exp(self.log_p)
+        raw_p = torch.exp(self.log_p)
+        if not self.enforce_p_gt_one:
+            return raw_p
+        min_p = torch.as_tensor(
+            self.min_omori_p, device=raw_p.device, dtype=raw_p.dtype
+        )
+        softness = torch.as_tensor(
+            self.constraint_softness, device=raw_p.device, dtype=raw_p.dtype
+        )
+        return self._soft_lower_bound(raw_p, min_p, softness)
 
     @property
     def c(self):
@@ -182,11 +221,94 @@ class ETAS(TPPModel):
 
     @property
     def k(self):
-        return torch.exp(self.log_k)
+        raw_k = torch.exp(self.log_k)
+        if not self.enforce_subcritical:
+            return raw_k
+        prefactor = self._branching_ratio_prefactor(self.alpha)
+        temporal_mass = self._omori_mass(
+            p_t=self.p,
+            c_t=self.c,
+            t_max=self.effective_branching_t_max,
+        )
+        effective_prefactor = prefactor * temporal_mass
+        eps = torch.finfo(raw_k.dtype).eps
+        max_ratio = torch.as_tensor(
+            self.max_branching_ratio, device=raw_k.device, dtype=raw_k.dtype
+        ).clamp_min(eps)
+        k_cap = (max_ratio / effective_prefactor.clamp_min(eps)).clamp_min(eps)
+        softness = torch.as_tensor(
+            self.constraint_softness, device=raw_k.device, dtype=raw_k.dtype
+        ) * k_cap
+        softness = softness.clamp_min(eps)
+        return self._soft_upper_bound(raw_k, k_cap, softness)
 
     @property
     def alpha(self):
         return torch.exp(self.log_alpha)
+
+    @staticmethod
+    def _soft_upper_bound(x: torch.Tensor, upper: torch.Tensor, softness: torch.Tensor) -> torch.Tensor:
+        """Smooth approximation of ``min(x, upper)``.
+
+        Notes:
+            - Always returns values <= ``upper``.
+            - At ``x == upper``, output is ``upper - softness * log(2)``
+              (i.e., a boundary offset of about ``softness * log(2)``).
+            - Smaller ``softness`` makes this closer to a hard clamp.
+        """
+        return upper - softness * F.softplus((upper - x) / softness)
+
+    @staticmethod
+    def _soft_lower_bound(x: torch.Tensor, lower: torch.Tensor, softness: torch.Tensor) -> torch.Tensor:
+        """Smooth approximation of ``max(x, lower)``.
+
+        Notes:
+            - Always returns values >= ``lower``.
+            - At ``x == lower``, output is ``lower + softness * log(2)``
+              (i.e., a boundary offset of about ``softness * log(2)``).
+            - Smaller ``softness`` makes this closer to a hard clamp.
+        """
+        return lower + softness * F.softplus((x - lower) / softness)
+
+    def _branching_ratio_prefactor(self, alpha_t: torch.Tensor) -> torch.Tensor:
+        b = self.b.to(device=alpha_t.device, dtype=alpha_t.dtype)
+        M_c = self.M_c.to(device=alpha_t.device, dtype=alpha_t.dtype)
+        M_m = self.M_m.to(device=alpha_t.device, dtype=alpha_t.dtype)
+        delta_m = M_m - M_c
+        eps = torch.finfo(alpha_t.dtype).eps
+
+        denom = 1.0 - torch.pow(torch.as_tensor(10.0, device=alpha_t.device, dtype=alpha_t.dtype), -b * delta_m)
+        denom = denom.clamp_min(eps)
+        diff = b - alpha_t
+
+        pref_equal = b * math.log(10.0) * delta_m / denom
+        safe_diff = torch.where(
+            torch.isclose(diff, torch.zeros_like(diff), rtol=1e-6, atol=1e-8),
+            torch.ones_like(diff),
+            diff,
+        )
+        ratio_term = 1.0 - torch.pow(
+            torch.as_tensor(10.0, device=alpha_t.device, dtype=alpha_t.dtype),
+            -diff * delta_m,
+        )
+        pref_diff = (b / safe_diff) * (ratio_term / denom)
+        near_equal = torch.isclose(
+            diff, torch.zeros_like(diff), rtol=1e-6, atol=1e-8
+        )
+        pref = torch.where(near_equal, pref_equal, pref_diff)
+        return pref.clamp_min(eps)
+
+    @staticmethod
+    def _omori_mass(*, p_t: torch.Tensor, c_t: torch.Tensor, t_max: float) -> torch.Tensor:
+        t_max_t = torch.as_tensor(t_max, device=p_t.device, dtype=p_t.dtype)
+        one = torch.ones_like(p_t)
+        one_minus_p = one - p_t
+        near_one = torch.isclose(one_minus_p, torch.zeros_like(one_minus_p), rtol=1e-6, atol=1e-8)
+        safe_one_minus_p = torch.where(near_one, torch.ones_like(one_minus_p), one_minus_p)
+
+        mass_log = torch.log(t_max_t + c_t) - torch.log(c_t)
+        mass_pow = ((t_max_t + c_t).pow(one_minus_p) - c_t.pow(one_minus_p)) / safe_one_minus_p
+        return torch.where(near_one, mass_log, mass_pow)
 
     @property
     def branching_ratio(self) -> float:
@@ -208,7 +330,87 @@ class ETAS(TPPModel):
         temporal_mass = float(omori_int(0.0, float(t_max), c, p))
         return self.branching_ratio * temporal_mass
 
-   
+    @staticmethod
+    def _resolve_chunk_size(total: int, configured: int) -> int:
+        if configured and configured > 0:
+            return max(1, min(int(configured), int(total)))
+        return max(1, int(total))
+
+    @staticmethod
+    def _iter_chunks(total: int, chunk_size: int):
+        for start in range(0, int(total), int(chunk_size)):
+            end = min(start + int(chunk_size), int(total))
+            yield start, end
+
+    def _etas_history_contrib(
+        self,
+        t_query_chunk: torch.Tensor,
+        t_hist_chunk: torch.Tensor,
+        prod_hist_chunk: torch.Tensor,
+        surv_hist_chunk: torch.Tensor,
+    ) -> torch.Tensor:
+        delta_t = t_query_chunk.unsqueeze(-1) - t_hist_chunk.unsqueeze(-2)  # (B, q, h)
+        prev_mask = (delta_t > 0) & surv_hist_chunk.unsqueeze(-2)  # (B, q, h)
+        omori = (delta_t.clamp_min(0.0) + self.c).pow(-self.p)  # (B, q, h)
+        return (omori * prod_hist_chunk.unsqueeze(-2) * prev_mask).sum(-1)
+
+    def _maybe_checkpoint_history_contrib(
+        self,
+        *,
+        t_query_chunk: torch.Tensor,
+        t_hist_chunk: torch.Tensor,
+        prod_hist_chunk: torch.Tensor,
+        surv_hist_chunk: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.use_grad_checkpoint and self.training:
+            return checkpoint(
+                self._etas_history_contrib,
+                t_query_chunk,
+                t_hist_chunk,
+                prod_hist_chunk,
+                surv_hist_chunk,
+                use_reentrant=False,
+            )
+        return self._etas_history_contrib(
+            t_query_chunk,
+            t_hist_chunk,
+            prod_hist_chunk,
+            surv_hist_chunk,
+        )
+
+    def _intensity_from_history(
+        self,
+        *,
+        t_query: torch.Tensor,
+        t_history: torch.Tensor,
+        productivity: torch.Tensor,
+        survival_mask_bool: torch.Tensor,
+        query_chunk_size: int,
+        history_chunk_size: int,
+    ) -> torch.Tensor:
+        s_total = t_query.size(1)
+        l_total = t_history.size(1)
+        out = torch.zeros_like(t_query) + self.mu
+        query_chunk_size = self._resolve_chunk_size(s_total, query_chunk_size)
+        history_chunk_size = self._resolve_chunk_size(l_total, history_chunk_size)
+
+        for q_start, q_end in self._iter_chunks(s_total, query_chunk_size):
+            t_query_chunk = t_query[:, q_start:q_end]  # (B, q)
+            intensity_chunk = torch.zeros_like(t_query_chunk) + self.mu
+
+            for h_start, h_end in self._iter_chunks(l_total, history_chunk_size):
+                t_hist = t_history[:, h_start:h_end]  # (B, h)
+                productivity_hist = productivity[:, h_start:h_end]  # (B, h)
+                survival_hist = survival_mask_bool[:, h_start:h_end]  # (B, h)
+                intensity_chunk = intensity_chunk + self._maybe_checkpoint_history_contrib(
+                    t_query_chunk=t_query_chunk,
+                    t_hist_chunk=t_hist,
+                    prod_hist_chunk=productivity_hist,
+                    surv_hist_chunk=survival_hist,
+                )
+
+            out[:, q_start:q_end] = intensity_chunk
+        return out
 
     def nll_loss(
         self,
@@ -238,22 +440,20 @@ class ETAS(TPPModel):
         # t_select - arrival times of events for which intensity must be computed, shape (B, S)
         # (where S = L if t_start == t_nll_start, and S <= L otherwise)
         t_select, intensity_mask = masked_select_per_row(t, batch.nll_event_mask)
-        # delta_t[0, i, j] = t_i - t_j
-        delta_t = t_select.unsqueeze(-1) - t.unsqueeze(-2)       # (B, S, L)
-        # prev_mask[0, i, j] = float(t_i < t_j)
-        prev_mask = (delta_t > 0).float() 
-        # Logarithm of the intensity
-        # omori[0, i, j] = contribution of event t_j on intensity at time t_i
-        omori = (delta_t * prev_mask + self.c).pow(-self.p)      # (B, S, L)
         # productivity[0, j] = expected number of aftershocks after event t_j
         masked_mag = (batch.mag - self.M_c) * survival_mask      # (B, L)
         productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
-        #
-        intensity = (
-            omori * productivity.unsqueeze(-2) * prev_mask * survival_mask.unsqueeze(-2)
-        ).sum(-1) + self.mu  # (B, S)
+        survival_mask_bool = survival_mask.bool()
+        intensity = self._intensity_from_history(
+            t_query=t_select,
+            t_history=t,
+            productivity=productivity,
+            survival_mask_bool=survival_mask_bool,
+            query_chunk_size=self.query_chunk_size,
+            history_chunk_size=self.history_chunk_size,
+        )
         if self.bg_model is not None:
-            f_intensity = self.bg_model.intensity(batch,t_query=t_select) # (B, S)
+            f_intensity = self.bg_model.intensity(batch, t_query=t_select)  # (B, S)
             if intensity.numel() > 0:
                 logger.debug(
                     "intensity max: %s, f_intensity max: %s, mu max: %s",
@@ -264,7 +464,7 @@ class ETAS(TPPModel):
             else:
                 logger.debug("Empty event-selection window in nll_loss; skipping max() stats.")
             intensity += f_intensity
-        
+
         # Numerical guard: zero/negative intensity leads to -inf log-likelihood and NaN gradients.
         intensity_safe = intensity.clamp_min(eps)
         log_intensity = (torch.log(intensity_safe) * intensity_mask).sum(-1)
@@ -329,13 +529,16 @@ class ETAS(TPPModel):
         )
         if t_query is None:
             t_query = t
-        delta_t = t_query.unsqueeze(-1) - t.unsqueeze(-2)  # (B, S, L)
-        prev_mask = (delta_t > 0).float()  # (B, S, L)
-        omori = (delta_t * prev_mask + self.c).pow(-self.p)  # (B, S, L)
         masked_mag = (mag - self.M_c) * survival_mask
         productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
-        h_intensity = (omori * productivity.unsqueeze(-2) * prev_mask * survival_mask.unsqueeze(-2)).sum(-1) + self.mu  # (B, S)
-        return h_intensity
+        return self._intensity_from_history(
+            t_query=t_query,
+            t_history=t,
+            productivity=productivity,
+            survival_mask_bool=survival_mask.bool(),
+            query_chunk_size=self.query_chunk_size,
+            history_chunk_size=self.history_chunk_size,
+        )
 
     def prefix_h_integral(
         self,
@@ -1076,7 +1279,7 @@ class ETAS(TPPModel):
         - current implementation
             g = k * 10^(alpha*(M-Mc)) * (t+c)^(-p)
 
-        - Ogata/Zhuang normalized implementation
+        - Zhuang-style normalized implementation
             g = K * exp(alpha_e*(M-Mc)) * (p-1)*c^(p-1) * (t+c)^(-p)
 
         Conversion (paper -> code):
@@ -1094,6 +1297,20 @@ class ETAS(TPPModel):
             raise ValueError(
                 "Ambiguous parameterization: provide either (k, alpha) or (K, alpha_e), not both."
             )
+        if p is not None and p <= 0:
+            raise ValueError("p must be positive.")
+        if c is not None and c <= 0:
+            raise ValueError("c must be positive.")
+        if mu is not None and mu < 0:
+            raise ValueError("mu must be non-negative.")
+        if k is not None and k < 0:
+            raise ValueError("k must be non-negative.")
+        if K is not None and K < 0:
+            raise ValueError("K must be non-negative.")
+        if alpha is not None and alpha < 0:
+            raise ValueError("alpha must be non-negative.")
+        if b is not None and b <= 0:
+            raise ValueError("b must be positive.")
 
         with torch.no_grad():
             # 1) update p,c,mu first (because k conversion needs p,c)
@@ -1134,8 +1351,8 @@ class ETAS(TPPModel):
 
                 # k conversion needs p,c
                 if K is not None:
-                    p_cur = torch.exp(self.log_p)   # after possible update above
-                    c_cur = torch.exp(self.log_c)
+                    p_cur = self.p
+                    c_cur = self.c
                     k_t = K_t * (p_cur - 1.0) * c_cur.pow(p_cur - 1.0)
                     self.log_k.copy_(torch.log(k_t))
 
@@ -1191,4 +1408,3 @@ def masked_select_per_row(matrix, mask):
     new_matrix = pad_sequence(selected_rows)
     new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])
     return new_matrix, new_mask.float()
-

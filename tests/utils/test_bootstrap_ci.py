@@ -95,6 +95,46 @@ def test_bootstrap_multi_model_metric_ci_uses_paired_indices():
     assert delta.samples.shape[0] == delta.valid_resamples
 
 
+def test_bootstrap_multi_model_metric_ci_requires_baseline_for_three_models():
+    y_true, y_prob_a = _make_binary_data(seed=101)
+    rng = np.random.default_rng(102)
+    y_prob_b = np.clip(y_prob_a - 0.06 + 0.04 * rng.normal(size=y_prob_a.shape[0]), 1e-6, 1 - 1e-6)
+    y_prob_c = np.clip(y_prob_a - 0.12 + 0.05 * rng.normal(size=y_prob_a.shape[0]), 1e-6, 1 - 1e-6)
+
+    try:
+        bootstrap_multi_model_metric_ci(
+            y_true,
+            {"model_a": y_prob_a, "model_b": y_prob_b, "model_c": y_prob_c},
+            metric="auc",
+            config=BootstrapConfig(n_resamples=60, seed=103, sampling="block", block_size=8),
+        )
+    except ValueError as exc:
+        assert "baseline_model must be provided" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError when baseline_model is missing for >=3 models.")
+
+
+def test_bootstrap_multi_model_metric_ci_uses_baseline_deltas_for_three_models():
+    y_true, y_prob_a = _make_binary_data(seed=111)
+    rng = np.random.default_rng(112)
+    y_prob_b = np.clip(y_prob_a - 0.05 + 0.03 * rng.normal(size=y_prob_a.shape[0]), 1e-6, 1 - 1e-6)
+    y_prob_c = np.clip(y_prob_a - 0.10 + 0.04 * rng.normal(size=y_prob_a.shape[0]), 1e-6, 1 - 1e-6)
+
+    result = bootstrap_multi_model_metric_ci(
+        y_true,
+        {"model_a": y_prob_a, "model_b": y_prob_b, "model_c": y_prob_c},
+        metric="auc",
+        baseline_model="model_b",
+        config=BootstrapConfig(n_resamples=70, seed=113, sampling="block", block_size=8),
+    )
+
+    assert ("model_a", "model_b") in result.pairwise_deltas
+    assert ("model_c", "model_b") in result.pairwise_deltas
+    assert ("model_a", "model_c") not in result.pairwise_deltas
+    for delta in result.pairwise_deltas.values():
+        assert delta.valid_resamples > 0
+
+
 def test_bootstrap_multi_model_curve_ci_supports_paired_block_sampling():
     y_true, y_prob_a = _make_binary_data(seed=31)
     rng = np.random.default_rng(32)

@@ -7,6 +7,10 @@
 3. 输入可分性
 
 
+
+
+
+
 1. 修复rotary_time采样下时间中心计算错误问题
 2. lstm/rf pipeline对齐em-eqf
 3. forecasting.ipynb增加滑动窗预测
@@ -49,6 +53,7 @@ debug:
 20. mixer adapter 直接return mag
 21. 支持分类器切换threshhold
 22. pnr数据处理被修改
+23. etas参数约束
 
 问题
 1. f_intensity单调衰减

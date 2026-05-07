@@ -12,6 +12,7 @@ CLASSIFIER_MODELS = {
     "classifier_stm_s",
     "clf_tm_cv_attnpl_t",
     "clf_mixer_attnpl_t",
+    "clf_rnn",
 }
 
 REGRESSOR_MODELS = {
@@ -19,6 +20,7 @@ REGRESSOR_MODELS = {
     "lstm",
     "reg_attnpl",
     "reg_mixer_attnpl_t",
+    "reg_rnn",
 }
 
 TPP_MODELS = {
@@ -29,7 +31,7 @@ TPP_MODELS = {
     "mhp",
     "btpp",
     "etas",
-    "etas_ogata",
+    "etas_zhuang",
     "nhpp",
     "njdtpp",
 }

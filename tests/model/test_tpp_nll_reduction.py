@@ -70,3 +70,48 @@ def test_recurrent_nll_reduction_modes_match_legacy_behavior():
     torch.testing.assert_close(explicit, raw / span)
     torch.testing.assert_close(out["time"], explicit)
     torch.testing.assert_close(out["total"], explicit)
+
+
+def test_recurrent_chunked_rnn_matches_full_rnn_nll():
+    torch.manual_seed(1)
+    seq1 = Sequence(
+        inter_times=torch.rand(40) + 0.1,
+        t_start=0.0,
+        t_nll_start=0.2,
+        mag=torch.rand(39) + 2.0,
+    )
+    seq2 = Sequence(
+        inter_times=torch.rand(55) + 0.1,
+        t_start=0.0,
+        t_nll_start=0.3,
+        mag=torch.rand(54) + 2.0,
+    )
+    batch = Batch.from_list([seq1, seq2])
+
+    base_args = dict(
+        d_model=8,
+        num_components=2,
+        rnn_type="GRU",
+        rnn_dropout=0.0,
+        tau_mean=1.0,
+        mag_mean=3.0,
+        time_max=10.0,
+        richter_b_mle=1.0,
+        mag_completeness=2.0,
+        loss_reduction="none",
+    )
+    full_model = RecurrentTPP(
+        Namespace(**base_args, rnn_chunk_len=10_000),
+        device=torch.device("cpu"),
+    )
+    chunked_model = RecurrentTPP(
+        Namespace(**base_args, rnn_chunk_len=7),
+        device=torch.device("cpu"),
+    )
+    chunked_model.load_state_dict(full_model.state_dict())
+    full_model.eval()
+    chunked_model.eval()
+
+    full_nll = full_model.nll_loss(batch, reduction="none")
+    chunked_nll = chunked_model.nll_loss(batch, reduction="none")
+    torch.testing.assert_close(full_nll, chunked_nll)

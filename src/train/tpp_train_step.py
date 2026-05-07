@@ -16,6 +16,45 @@ def _avg_from_out_dict(out_dict):
     return {key: _mean_if_tensor(value) for key, value in out_dict.items()}
 
 
+def _safe_scalar_to_float(value):
+    if torch.is_tensor(value):
+        tensor_value = value.detach().reshape(-1)
+        if tensor_value.numel() == 0:
+            raise ValueError("Cannot convert empty tensor to float.")
+        return float(tensor_value[0].item())
+    return float(value)
+
+
+def _collect_reportable_param_metrics(model):
+    if not bool(getattr(model, "report_params", False)):
+        return {}
+
+    metrics = {}
+    for name in ("p", "c", "mu", "k", "alpha"):
+        if not hasattr(model, name):
+            continue
+        try:
+            metrics[f"param_{name}"] = _safe_scalar_to_float(getattr(model, name))
+        except Exception:
+            continue
+
+    if hasattr(model, "branching_ratio"):
+        try:
+            metrics["param_branching_ratio"] = _safe_scalar_to_float(model.branching_ratio)
+        except Exception:
+            pass
+
+    if hasattr(model, "effective_branching_ratio"):
+        try:
+            metrics["param_effective_branching_ratio"] = _safe_scalar_to_float(
+                model.effective_branching_ratio()
+            )
+        except Exception:
+            pass
+
+    return metrics
+
+
 def _nll_out_dict(model, batch, nll_kwargs):
     kwargs = {} if nll_kwargs is None else dict(nll_kwargs)
     kwargs.setdefault("reduction", None)
@@ -105,6 +144,7 @@ def train(
                 torch.cuda.synchronize()
 
     metrics = {f'avg_{key}_nll': (sum_value / max(1, num_steps)) for key, sum_value in sum_metrics.items()}
+    metrics.update(_collect_reportable_param_metrics(model))
     log_metrics(metrics, prefix="Training")
     return metrics.get(f'avg_{loss_key}_nll', 0.0), metrics
 

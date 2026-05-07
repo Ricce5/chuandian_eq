@@ -130,7 +130,17 @@ def visualize_sequence(
     return ax
 
 
-def plot_counting_process(seq, ax=None, color="k", alpha=1.0, T0=None, T=None):
+def plot_counting_process(
+    seq,
+    ax=None,
+    color="k",
+    alpha=1.0,
+    T0=None,
+    T=None,
+    linewidth: float = 1.2,
+    linestyle: str = "-",
+    zorder: Optional[float] = None,
+):
     if ax is None:
         ax = plt.gca()
 
@@ -138,8 +148,17 @@ def plot_counting_process(seq, ax=None, color="k", alpha=1.0, T0=None, T=None):
     t = np.insert(t, 0, T0, axis=0)
 
     N = np.arange(len(t) - 1)
-    N = np.append(N, N[-1])  
-    ax.plot(t, N, c=color, alpha=alpha)
+    N = np.append(N, N[-1])
+    ax.step(
+        t,
+        N,
+        where="post",
+        c=color,
+        alpha=alpha,
+        linewidth=linewidth,
+        linestyle=linestyle,
+        zorder=zorder,
+    )
 
 
 def plot_intensity(
@@ -198,6 +217,9 @@ def visualize_trajectories(
     reset_t_nll_to_end: bool = False,
     bins: int = 40,
     align_count_axes: bool = True,
+    simulated_color: str = "#AB6209",
+    observed_color: str = "k",
+    forecast_window_color: str = "#C2D9F8",
 ) -> tuple:
     """
     Visualize the observed sequence, example forecast trajectories, and the forecast-count histogram.
@@ -220,6 +242,9 @@ def visualize_trajectories(
         bins (int): Number of bins for histogram.
         align_count_axes (bool): If True, force strict alignment between the left-panel
             right y-axis (cumulative count) and right-panel y-axis (event count).
+        simulated_color (str): Color used for simulated forecast trajectories and histogram.
+        observed_color (str): Color used for the observed counting-process line.
+        forecast_window_color (str): Fill color for the forecast-time window highlight.
 
     Returns:
         tuple: (fig, (axA, axB, axAA))
@@ -263,8 +288,10 @@ def visualize_trajectories(
     ).cpu()
 
     # Left panel: Events + forecast window highlight
+    # Use a cool, light shade for the forecast window to avoid
+    # clashing with warm simulated-line colors.
     axA.margins(x=0)
-    axA.axvspan(t_start, t_end, color="C1", alpha=0.06, lw=0)
+    axA.axvspan(t_start, t_end, color=forecast_window_color, alpha=0.22, lw=0)
     axA.axvline(t_start, c="k", lw=1, ls="--", alpha=0.8)
 
     visualize_sequence(
@@ -277,9 +304,28 @@ def visualize_trajectories(
     axA.grid(axis="x", alpha=0.25)
 
     # Counting process on the right y-axis of the left panel
-    plot_counting_process(s_obs, axAA, "k", T0=t_start, T=t_end)
+
+    plot_counting_process(
+        s_obs,
+        axAA,
+        color=observed_color,
+        alpha=0.98,
+        T0=t_start,
+        T=t_end,
+        linewidth=1.9,
+        zorder=5,
+    )
     for i_samp in forecast[offset : offset + num_examples]:
-        plot_counting_process(i_samp.cpu(), axAA, "k", 0.18, T0=t_start, T=t_end)
+        plot_counting_process(
+            i_samp.cpu(),
+            axAA,
+            color=simulated_color,
+            alpha=0.46,
+            T0=t_start,
+            T=t_end,
+            linewidth=1.2,
+            zorder=2,
+        )
 
     axAA.set_ylabel("Cumulative count", fontsize=9)
     axAA.tick_params(axis="y", labelsize=8)
@@ -311,13 +357,13 @@ def visualize_trajectories(
         bins=bins,
         range=(0, y_max),
         orientation="horizontal",
-        facecolor="k",
-        alpha=0.22,
-        edgecolor="w",
-        linewidth=0.8,
+        facecolor=simulated_color,
+        alpha=0.28,
+        edgecolor=simulated_color,
+        linewidth=0.6,
         label="Simulated",
     )
-    axB.axhline(obs_count, c="k", lw=1.6, label="Observed")
+    axB.axhline(obs_count, c=observed_color, lw=1.8, label="Observed")
 
     if align_count_axes:
         # Strictly share the same visible count range and ticks on both axes.

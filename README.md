@@ -37,6 +37,12 @@ Use the official installation guides and make sure versions match your CUDA/PyTo
 │   ├── distributions/      # Distributions and mixture distributions
 │   ├── features/           # Seismic feature engineering
 │   ├── models/             # Model definitions and components
+│   │   ├── core/           # BaseModel / TaskModel / TaskHead composition primitives
+│   │   ├── adapters/       # Input adapters grouped by task/domain
+│   │   ├── builders/       # ModelBuilder registry and model factory entries
+│   │   ├── bg/             # Background models
+│   │   ├── tpp/            # Temporal point process models
+│   │   └── transformer/    # Transformer family implementations
 │   ├── train/              # Training pipeline and train steps
 │   └── utils/              # Utilities (logging, metrics, visualization, etc.)
 └── tests/                  # Tests
@@ -111,8 +117,11 @@ Notes:
 Recommended starter configs:
 - `config/mixer_tpp.yaml`
 - `config/clf_mixer_attnpl_t.yaml`
+- `config/clf_rnn.yaml`
 - `config/reg_mixer_attnpl_t.yaml`
+- `config/reg_rnn.yaml`
 - `config/etas.yaml`
+- `config/etas_zhuang.yaml`
 
 ## 6. Data
 
@@ -144,7 +153,7 @@ PY
 
 Current registered models (from `ModelBuilder.list_available()`):
 
-`btpp`, `classifier`, `classifier_se`, `classifier_stm`, `classifier_stm_s`, `classifier_tm_s`, `clf_attnpl`, `clf_attnpl_t`, `clf_mixer_attnpl_t`, `clf_tm_attnpl`, `clf_tm_attnpl_t`, `clf_tm_cv_attnpl_t`, `etas`, `lstm`, `mhp`, `mixer_tpp`, `mtpp`, `nhpp`, `reg_attnpl`, `reg_mixer_attnpl_t`, `rtpp`, `thp`, `thp_deltat`
+`btpp`, `classifier`, `classifier_se`, `classifier_stm`, `classifier_stm_s`, `classifier_tm_s`, `clf_attnpl`, `clf_attnpl_t`, `clf_mixer_attnpl_t`, `clf_rnn`, `clf_tm_attnpl`, `clf_tm_attnpl_t`, `clf_tm_cv_attnpl_t`, `etas`, `etas_zhuang`, `lstm`, `mhp`, `mixer_tpp`, `mtpp`, `nhpp`, `reg_attnpl`, `reg_mixer_attnpl_t`, `reg_rnn`, `rtpp`, `thp`, `thp_deltat`
 
 ## 8. Artifacts and logging
 

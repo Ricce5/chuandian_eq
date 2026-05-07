@@ -56,8 +56,29 @@ class AZDXBase(Catalog):
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.metadata["mag_completeness"]].copy()
         df.sort_values("time", inplace=True)
+        duplicated_mask = df["time"].duplicated(keep=False)
+        if duplicated_mask.any():
+            df.loc[duplicated_mask, "time"] += np.random.uniform(
+                1e-9, 1e-7, duplicated_mask.sum()
+            )
+            df.sort_values("time", inplace=True)
+
+        # Ensure strictly increasing times without dropping events.
+        times = df["time"].to_numpy(dtype=np.float64, copy=True)
+        for i in range(1, len(times)):
+            if times[i] <= times[i - 1]:
+                times[i] = np.nextafter(times[i - 1], np.inf)
+        df["time"] = times
+
         df["time_diff"] = df["time"].diff()
-        df = df[df["time_diff"] > 0].copy()
+        non_increasing_mask = df["time_diff"] <= 0
+        non_increasing_mask = non_increasing_mask.fillna(False)
+        if non_increasing_mask.any():
+            raise ValueError(
+                "AZDX arrival times are not strictly increasing after duplicate-time jittering. "
+                f"invalid_rows={int(non_increasing_mask.sum())}."
+            )
+        df = df[~non_increasing_mask].copy()
 
         start_ts = self.metadata["start_ts"]
         end_ts = self.metadata["end_ts"]

@@ -1,0 +1,54 @@
+model: reg_rnn
+task_type: regression
+
+# training
+use_ema: false
+batch_size: 64
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-3
+weight_decay: 1e-3
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type: step_warmup
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.5
+
+# encoder (RTPP-feature + RNN)
+rnn_type: gru
+d_model: 64
+num_rnn_layers: 2
+rnn_dropout: 0.3
+bidirectional: false
+features_input_keys: ['mag']
+use_mag_cdf: false
+
+# head (MLP decoder)
+mlp_out: 1
+mlp_dropout: 0.3
+mlp_hdw: [128]
+
+# criterion
+criterion_name: smooth_l1
+criterion_cfg:
+  beta: 0.2
+
+# misc
+dim: 1
+epochs: 150
+save_dir: null
+cuda_id: "0"
+
+# data/control
+dataset: ChuanDian
+seed: 0
+Mc: 3
+Mf: 3
+Twindow: 360
+Tfore: 180
+dt: 10
+context_len: 1
+split_by_time: true
+time_order: [train, val, test]

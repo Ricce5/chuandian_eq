@@ -1,7 +1,7 @@
 import numpy as np
 
 from src.models.tpp.etas import omori_int, omori_inv
-from src.models.tpp.etas_ogata import _omori_inv_np
+from src.models.tpp.etas_zhuang import _omori_inv_np
 
 
 def test_conditional_cdf_equals_global_cdf_affine_map():

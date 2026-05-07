@@ -295,6 +295,9 @@ reg checkpoints/reg_mixer_attnpl_t_20260204-180531
 ## 4. TPP
 
 ### 4.1 SCEDC
+etas: checkpoints/etas_20260507-144632
+
+recast: checkpoints/rtpp_20260506-120628
 
 tpp: checkpoints/mixer_tpp_20260204-233222
 
@@ -328,7 +331,9 @@ tpp-txpos: checkpoints/mixer_tpp_20260205-120039
 
 ### 4.2 ChuanDian
 
-recast: checkpoints/rtpp_20260206-160628
+etas: checkpoints/etas_20260507-143239
+
+recast: checkpoints/rtpp_20260506-173356
 
 tpp: checkpoints/mixer_tpp_20260206-102040
 

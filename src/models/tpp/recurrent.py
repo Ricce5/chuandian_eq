@@ -74,6 +74,9 @@ class RecurrentTPP(TPPModel):
         self.rnn = getattr(nn, args.rnn_type)(
             self.num_rnn_inputs, self.context_size, num_layers=self.num_rnn_layers, batch_first=True,
         )
+        self.rnn_chunk_len = int(getattr(args, "rnn_chunk_len", 60000))
+        if self.rnn_chunk_len <= 0:
+            self.rnn_chunk_len = 60000
         # from src.utils.utils import init_rnn_weights 
         # init_rnn_weights(self.rnn,seed=42) 
         # from src.utils.utils import print_weight_sum
@@ -93,6 +96,32 @@ class RecurrentTPP(TPPModel):
     def encode_extra_features(self, extra_feat):
         return extra_feat
 
+    def _run_rnn(self, features: torch.Tensor, hidden_state=None):
+        """Run RNN with chunking for very long sequences.
+
+        cuDNN-backed RNNs may fail for sequence lengths above ~65k.
+        We split long sequences into contiguous chunks while carrying hidden state.
+        """
+        seq_len = features.size(1)
+        if seq_len == 0:
+            empty_output = features.new_zeros(
+                features.size(0), 0, self.context_size
+            )
+            return empty_output, hidden_state
+
+        if seq_len <= self.rnn_chunk_len:
+            return self.rnn(features.contiguous(), hidden_state)
+
+        outputs = []
+        next_hidden = hidden_state
+        for start in range(0, seq_len, self.rnn_chunk_len):
+            end = min(start + self.rnn_chunk_len, seq_len)
+            out_chunk, next_hidden = self.rnn(
+                features[:, start:end, :].contiguous(), next_hidden
+            )
+            outputs.append(out_chunk)
+        return torch.cat(outputs, dim=1), next_hidden
+
     def get_context(self, batch):
         """Get context embedding for each event in the batch of padded sequences.
 
@@ -110,7 +139,8 @@ class RecurrentTPP(TPPModel):
         # print(f"rnn_in { torch.sum(features*batch.input_mask[:, :, None]) }{features.shape}{features[0,:]}")
         # torch.save(features, 'features2.pth')
         # torch.save(batch.arrival_times, 'arrival_times2.pth')
-        rnn_output = self.rnn(features.contiguous())[0]*batch.input_mask[:, :, None]
+        rnn_output, _ = self._run_rnn(features)
+        rnn_output = rnn_output * batch.input_mask[:, :, None]
         # print(f"rnn_out { torch.sum(rnn_output) }{rnn_output.shape}")
         rnn_output = rnn_output[:, :-1, :]  
         output = F.pad(rnn_output, (0, 0, 1, 0))  
@@ -151,7 +181,7 @@ class RecurrentTPP(TPPModel):
         if self.input_magnitude:
             feat_list.append(self.encode_magnitude(batch.mag))
         features = torch.cat(feat_list, dim=-1).contiguous() * batch.input_mask[:, :, None]
-        rnn_output = self.rnn(features.contiguous())
+        rnn_output = self._run_rnn(features)
         return  rnn_output
 
     
@@ -161,21 +191,28 @@ class RecurrentTPP(TPPModel):
         mag_min = self.mag_completeness * torch.ones_like(log_rate)
         return dist.GutenbergRichter(b=b, mag_min=mag_min)
 
-    def nll_loss(self, 
-                 batch: src.data.Batch,
-                 *,
-                 reduction: str | None = None,
-                 return_dict: bool = False,
-                 eps: float = 0.0,
-                 ) -> torch.Tensor | dict[str, torch.Tensor]:
+    def nll_loss(
+        self,
+        batch: src.data.Batch,
+        *,
+        reduction: str | None = None,
+        return_dict: bool = True,
+        eps: float = 0.0,
+    ) -> dict[str, torch.Tensor] | torch.Tensor:
         """
         Compute negative log-likelihood (NLL) for a batch of event sequences.
 
         Args:
             batch: Batch of padded event sequences.
+            reduction: Reduction mode passed to ``reduce_nll_dict``.
+            return_dict: If true (default), return a dict with ``time`` and ``total``.
+                If false, return only the ``total`` component for compatibility.
+            eps: Numerical epsilon used in hazard-related computations.
 
         Returns:
-            nll: NLL of each sequence, shape (batch_size,)
+            Dict of reduced NLL components by default:
+                ``{"time": ..., "total": ...}`` (and optional ``"bg"``).
+            If ``return_dict=False``, returns only the reduced ``total`` tensor.
         """
         context = self.get_context(batch)  # (B, L, C)
         # Inter-event times
@@ -217,9 +254,9 @@ class RecurrentTPP(TPPModel):
             out["total"] = nll_total
 
         out = self.reduce_nll_dict(out, batch, reduction=reduction, eps=eps)
-        if return_dict:
-            return out
-        return out["total"]
+        if return_dict is False:
+            return out["total"]
+        return out
 
 
     def sample_next_inter_time(

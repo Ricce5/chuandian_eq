@@ -564,11 +564,20 @@ def bootstrap_multi_model_metric_ci(
     metric: MetricLike = "auc",
     task: TaskType | None = None,
     config: BootstrapConfig | None = None,
+    baseline_model: str | None = None,
 ) -> MultiModelBootstrapResult:
     """Paired bootstrap for multiple models on aligned samples.
 
     All models share the same bootstrap indices per resample, enabling direct
     pairwise delta CI estimation.
+
+    Delta behavior:
+    - If ``baseline_model`` is provided: compute only ``(model - baseline)``
+      for all non-baseline models.
+    - If ``baseline_model`` is not provided and number of models is 2:
+      compute the single pairwise delta between the two models.
+    - If ``baseline_model`` is not provided and number of models is >= 3:
+      raise ``ValueError`` and require explicit baseline selection.
     """
     if not model_predictions:
         raise ValueError("model_predictions must be non-empty.")
@@ -585,6 +594,16 @@ def bootstrap_multi_model_metric_ci(
     sampler = _make_index_sampler(n_obs, cfg)
 
     model_names = list(pred_map.keys())
+    if baseline_model is not None and baseline_model not in pred_map:
+        raise ValueError(
+            f"baseline_model={baseline_model!r} not found in model_predictions. "
+            f"Available={model_names}."
+        )
+    if baseline_model is None and len(model_names) >= 3:
+        raise ValueError(
+            "baseline_model must be provided when model_predictions has 3 or more models."
+        )
+
     point_values = {
         name: float(metric_fn(y_true_arr, pred_map[name]))
         for name in model_names
@@ -627,7 +646,16 @@ def bootstrap_multi_model_metric_ci(
         )
 
     pairwise_deltas: dict[tuple[str, str], BootstrappedMetric] = {}
-    for left_name, right_name in combinations(model_names, 2):
+    if baseline_model is None:
+        delta_pairs = list(combinations(model_names, 2))
+    else:
+        delta_pairs = [
+            (name, baseline_model)
+            for name in model_names
+            if name != baseline_model
+        ]
+
+    for left_name, right_name in delta_pairs:
         left_samples = model_results[left_name].samples
         right_samples = model_results[right_name].samples
         min_len = min(left_samples.shape[0], right_samples.shape[0])

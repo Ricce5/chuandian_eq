@@ -257,7 +257,6 @@ def prepare_data_rf(args, base_dir):
         global_t=global_t,
         global_mag=global_mag,
     )
-    np.save("features_df.npy", features_df.to_numpy())
     labels_full, valid_mask = build_classification_targets(array_dict, args.Mf)
 
     missing_cols = [col for col in args.feature_cols if col not in features_df.columns]
@@ -553,7 +552,7 @@ def prepare_data_tpp(args, base_dir):
             b_updater.Mc,
         )
 
-    if getattr(args, 'use_double_precision:', False):
+    if getattr(args, 'use_double_precision', False):
         for cat in (catalog_ds.train, catalog_ds.val, catalog_ds.test):
             for seq in cat:
                 seq.double()
@@ -568,7 +567,7 @@ def prepare_data_tpp(args, base_dir):
 
     if use_all_for_train:
         logger.info("TPP pretrain mode: using all splits as training, disabling val/test loaders.")
-        if getattr(args, 'minibatch_training', True):
+        if getattr(args, 'minibatch_training', False):
             max_events = getattr(args, 'max_seq_len', 2000)
             mean_nll_events = getattr(args, 'mean_nll_events', 300)
             train_dataset = split_sequence(catalog_ds.full_sequence, mean_nll_events, max_events)
@@ -591,7 +590,7 @@ def prepare_data_tpp(args, base_dir):
         logger.info("Number of training events: %s", args.num_events_train)
         logger.info("Number of validation events: %s", args.num_events_val)
         logger.info("Number of test events: %s", args.num_events_test)
-        if getattr(args, 'minibatch_training', True):
+        if getattr(args, 'minibatch_training', False):
             logger.info("Splitting into minibatches")
             max_events = getattr(args, 'max_seq_len', 2000)
             mean_nll_events = getattr(args, 'mean_nll_events', 300)
