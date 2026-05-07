@@ -57,10 +57,20 @@ class TimeAwareAttnPoolMH(nn.Module):
             self.ln_attn = nn.LayerNorm(pooled_dim)
             self.ln_out  = nn.LayerNorm(self.repr_dim)
 
+        if self.fuse_mode in ("add", "gate") and pooled_dim != d_model:
+            self.pooled_proj = nn.Linear(pooled_dim, d_model)
+        else:
+            self.pooled_proj = nn.Identity()
+
         if self.fuse_mode == "concat":
             self.fuse_proj = nn.Linear(d_model + pooled_dim, self.repr_dim)
         elif self.fuse_mode == "gate":
             self.gate_proj = nn.Linear(d_model + pooled_dim, 1)
+
+        if self.fuse_mode in ("add", "gate") and self.repr_dim != d_model:
+            self.out_proj = nn.Linear(d_model, self.repr_dim)
+        else:
+            self.out_proj = nn.Identity()
 
         if self.device is not None:
             self.to(self.device)
@@ -156,11 +166,12 @@ class TimeAwareAttnPoolMH(nn.Module):
 
             if self.use_ln:
                 lt = self.ln_last(last_token)
-                pt = self.ln_attn(pooled)
+                pt_raw = self.ln_attn(pooled)
             else:
-                lt, pt = last_token, pooled
+                lt, pt_raw = last_token, pooled
 
             if self.fuse_mode == "add":
+                pt = self.pooled_proj(pt_raw)
                 if self.use_var_scale:
                     # variance scaling
                     var_lt = lt.var(dim=-1, unbiased=False, keepdim=True) + 1e-8
@@ -169,18 +180,21 @@ class TimeAwareAttnPoolMH(nn.Module):
                     fused = lt + s * pt
                 else:
                     fused = lt + pt
-                out = self.ln_out(fused) if self.use_ln else fused
+                out = self.out_proj(fused)
+                out = self.ln_out(out) if self.use_ln else out
 
             elif self.fuse_mode == "concat":
-                fused = torch.cat([lt, pt], dim=-1)
+                fused = torch.cat([lt, pt_raw], dim=-1)
                 fused = F.dropout(self.fuse_proj(fused), p=0.1, training=self.training)
                 out = self.ln_out(fused) if self.use_ln else fused
 
             elif self.fuse_mode == "gate":
-                logit = self.gate_proj(torch.cat([lt, pt], dim=-1))  # [B,1]
+                pt = self.pooled_proj(pt_raw)
+                logit = self.gate_proj(torch.cat([lt, pt_raw], dim=-1))  # [B,1]
                 g = torch.sigmoid(logit)                              # [B,1]
                 fused = g * lt + (1 - g) * pt
-                out = self.ln_out(fused) if self.use_ln else fused
+                out = self.out_proj(fused)
+                out = self.ln_out(out) if self.use_ln else out
 
         if return_score:
             return out, alpha

@@ -1,0 +1,1 @@
+fuse用gate
