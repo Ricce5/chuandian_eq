@@ -7,6 +7,8 @@ from omegaconf import OmegaConf
 from torch.optim.swa_utils import AveragedModel
 
 from .model_routing import get_train_step_module, is_tpp_family
+from .early_stopping import EarlyStopping
+from src.data.sampling import set_loader_epoch
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,25 @@ def _parse_save_epochs(raw_save_epochs):
         return set()
 
 
-def save_checkpoint(path, model, optimizer, scheduler, epoch, best_val_loss):
+def _maybe_log_etas_params(model, model_name: str, epoch: int, *, enabled: bool = True):
+    if not enabled:
+        return
+    if str(model_name).lower() not in {"etas", "etas_zhuang"}:
+        return
+    model_obj = getattr(model, "module", model)
+    if not hasattr(model_obj, "print_params"):
+        return
+    logger.info("ETAS params at epoch %s:", epoch)
+    model_obj.print_params()
+
+
+def _has_param_metrics(metrics: dict | None) -> bool:
+    if not isinstance(metrics, dict):
+        return False
+    return any(str(key).startswith("param_") for key in metrics)
+
+
+def save_checkpoint(path, model, optimizer, scheduler, epoch, best_val_loss, *, early_stopping=None):
     torch.save(
         {
             "epoch": epoch,
@@ -66,6 +86,7 @@ def save_checkpoint(path, model, optimizer, scheduler, epoch, best_val_loss):
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict(),
             "best_val_loss": best_val_loss,
+            "early_stopping_state": early_stopping.state_dict() if early_stopping is not None else None,
         },
         path,
     )
@@ -77,7 +98,7 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-    return checkpoint.get("epoch", 0), checkpoint.get("best_val_loss", float("inf"))
+    return checkpoint
 
 
 def train_and_save(
@@ -92,16 +113,24 @@ def train_and_save(
     device,
     index=1,
     writer=None,
+    start_epoch=0,
+    best_val_loss=float("inf"),
 ):
     train, validate = _resolve_train_validate(args.model)
 
     os.makedirs(save_dir, exist_ok=True)
     checkpoint_path = os.path.join(save_dir, f"checkpoint_interrupted_{index}.pth")
     save_epoch_set = _parse_save_epochs(getattr(args, "save_epochs", None))
+    log_etas_params_each_epoch = bool(getattr(args, "log_etas_params_each_epoch", True))
 
-    best_val_loss = float("inf")
-    start_epoch = 0
+    best_val_loss = float(best_val_loss)
+    start_epoch = int(start_epoch)
     epoch = start_epoch
+    early_stopping = EarlyStopping(
+        patience=getattr(args, "early_stopping_patience", None),
+        min_delta=getattr(args, "early_stopping_min_delta", 0.0),
+        mode="min",
+    )
 
     accumulation_steps = getattr(args, "accumulation_steps", 1)
     use_ema = getattr(args, "use_ema", False)
@@ -121,10 +150,15 @@ def train_and_save(
 
     if os.path.exists(checkpoint_path):
         logger.info("Resuming training from checkpoint: %s", checkpoint_path)
-        start_epoch, best_val_loss = load_checkpoint(checkpoint_path, model, optimizer, scheduler, device)
+        checkpoint = load_checkpoint(checkpoint_path, model, optimizer, scheduler, device)
+        start_epoch = checkpoint.get("epoch", 0)
+        best_val_loss = checkpoint.get("best_val_loss", float("inf"))
+        if checkpoint.get("early_stopping_state") and early_stopping.enabled:
+            early_stopping.load_state_dict(checkpoint["early_stopping_state"])
 
     try:
         for epoch in range(start_epoch, args.epochs):
+            set_loader_epoch(train_loader, epoch)
             logger.info("Epoch %s", epoch + 1)
 
             train_kwargs = {}
@@ -196,8 +230,32 @@ def train_and_save(
                 torch.save(save_data_epoch, epoch_model_path)
                 logger.info("Saved epoch %s snapshot to %s", current_epoch, epoch_model_path)
 
+            _maybe_log_etas_params(
+                ema_model if use_ema and ema_model is not None else model,
+                args.model,
+                current_epoch,
+                enabled=log_etas_params_each_epoch and not _has_param_metrics(train_metrics),
+            )
+
+            if early_stopping.step(val_loss, current_epoch):
+                logger.info(
+                    "Early stopping triggered at epoch %s (best epoch: %s, best val loss: %.6f)",
+                    current_epoch,
+                    early_stopping.state.best_epoch,
+                    early_stopping.state.best_value,
+                )
+                break
+
     except KeyboardInterrupt:
         logger.warning("Training interrupted. Saving current state...")
-        save_checkpoint(checkpoint_path, model, optimizer, scheduler, epoch, best_val_loss)
+        save_checkpoint(
+            checkpoint_path,
+            model,
+            optimizer,
+            scheduler,
+            epoch,
+            best_val_loss,
+            early_stopping=early_stopping,
+        )
 
     return best_val_loss, {"train_metrics": train_metrics, "val_metrics": val_metrics}

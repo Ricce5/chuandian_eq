@@ -155,7 +155,12 @@ if __name__ == "__main__":
     torch.autograd.set_detect_anomaly(bool(getattr(args, "detect_anomaly", False)))
 
     seed = getattr(args, "seed", 0)
-    set_seed(seed)
+    set_seed(
+        seed,
+        deterministic=bool(getattr(args, "deterministic", True)),
+        deterministic_warn_only=bool(getattr(args, "deterministic_warn_only", False)),
+        use_deterministic_algorithms=bool(getattr(args, "use_deterministic_algorithms", False)),
+    )
 
     # Save directory: create or load based on mode
     if args_cli.mode in {"train", "optuna"}:
@@ -196,6 +201,8 @@ if __name__ == "__main__":
             device=device,
             index=1,
             writer=writer,
+            start_epoch=int(getattr(args, "start_epoch", 0)),
+            best_val_loss=float(getattr(args, "best_val_loss", float("inf"))),
         )
 
     elif args_cli.mode == "test":

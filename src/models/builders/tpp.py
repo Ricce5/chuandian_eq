@@ -89,22 +89,28 @@ class ETASBuilder(ModelBuilder):
         import torch
         from src.models.tpp.etas import ETAS
 
-        tau_mean = torch.tensor(args.tau_mean, dtype=torch.float32)
         richter_b = args.richter_b_mle
     
         mag_completeness = args.mag_completeness
         mag_max = getattr(args, 'mag_max', 10)
+        base_rate_init = torch.tensor(getattr(args, "base_rate_init", 0.26), dtype=torch.float64)
+        omori_p_init = float(getattr(args, "omori_p_init", 1.08))
+        omori_c_init = float(getattr(args, "omori_c_init", 0.1))
+        productivity_k_init = float(getattr(args, "productivity_k_init", 0.0073))
+        productivity_alpha_init = float(getattr(args, "productivity_alpha_init", 1.0))
 
         if getattr(args, 'bg_model', None) is not None:
             from src.models.bg import BGModel
             bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
-            base_rate_init = torch.tensor(getattr(args, 'base_rate_init', 0.), dtype=torch.float64)
         else:
             bg_model = None
-            base_rate_init = torch.tensor(0.26, dtype=torch.float64)
 
         model = ETAS(
+            omori_p_init=omori_p_init,
+            omori_c_init=omori_c_init,
             base_rate_init=base_rate_init,
+            productivity_k_init=productivity_k_init,
+            productivity_alpha_init=productivity_alpha_init,
             richter_b=richter_b,
             mag_completeness=mag_completeness,
             mag_max=mag_max,

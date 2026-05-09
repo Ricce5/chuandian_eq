@@ -18,7 +18,13 @@ __all__ = [
     "unwrap_compiled_model",
 ]
 
-def set_seed(seed: int = 42):
+def set_seed(
+    seed: int = 42,
+    *,
+    deterministic: bool = True,
+    deterministic_warn_only: bool = False,
+    use_deterministic_algorithms: bool = False,
+):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -26,10 +32,12 @@ def set_seed(seed: int = 42):
 
     os.environ['PYTHONHASHSEED'] = str(seed)
 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    # torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.deterministic = bool(deterministic)
+    torch.backends.cudnn.benchmark = not bool(deterministic)
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+    if use_deterministic_algorithms:
+        torch.use_deterministic_algorithms(True, warn_only=bool(deterministic_warn_only))
 
     torch.set_float32_matmul_precision("high")
     torch.backends.cuda.matmul.allow_tf32 = False

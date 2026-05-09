@@ -113,6 +113,13 @@ Notes:
 - Config files are under `config/`
 - YAML is loaded through `OmegaConf`
 - Typical fields: `model`, `dataset`, `task_type`, optimizer/scheduler params, model architecture params
+- Checkpoint-related fields:
+  - `resume_path`: checkpoint to restore from
+  - `load_specific_parts`: only load matching parameter names from the checkpoint
+  - `freeze_parts`: freeze parameters whose names match these keywords
+  - `freeze_loaded_only`: when `true`, only freeze parameters actually loaded from checkpoint; when `false`, freeze all matching parameters, including randomly initialized ones
+  - `exclude_freeze_parts`: keywords excluded from freezing
+- `freeze_parts` also works without `resume_path`: the matched randomly initialized parameters will be frozen directly
 
 Recommended starter configs:
 - `config/mixer_tpp.yaml`

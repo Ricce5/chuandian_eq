@@ -1,0 +1,1 @@
+resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth

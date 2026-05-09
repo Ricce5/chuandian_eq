@@ -33,14 +33,15 @@ cuda_id: "0"
 dataset: ChuanDian
 criterion_name: smooth_l1
 criterion_cfg:
-   beta: 0.2
+   beta: 0.1
 seed: 0
 Mc: 3 # 4.5
 Mf: 3
 mag_min: 3.0
 mag_max: 9.0
 Mag_elaps: [5.5, 6, 6.5, 7]
-t_elaps_mode: window
+t_elaps_mode: global
+telaps_nan_strategy: high_sentinel  # high_sentinel (recommended) | zero (legacy)
 Twindow: 360
 Tfore: 180   # 100
 dt: 10

@@ -272,3 +272,84 @@ def test_prepare_data_lstm_external_sliding_aligns_val_test_to_outer_split(monke
     train_min_t_expected = samples_list[0]["t"] + (args.time_step - 1) * args.dt
     assert train_t.size > 0
     assert train_t.min() >= train_min_t_expected - 1e-8
+
+
+def test_prepare_data_lstm_return_feature_frame(monkeypatch, tmp_path):
+    df = _make_catalog_df()
+    monkeypatch.setattr(event_pipeline, "load_and_filter_catalog", lambda base_dir, Mc: df.copy())
+    monkeypatch.setattr(event_pipeline, "save_or_load_data", lambda base_path, generate_fn, **kwargs: generate_fn())
+
+    args = _Args(
+        Mc=3.0,
+        Mf=3.0,
+        Twindow=24.0,
+        Tfore=8.0,
+        dt=4.0,
+        context_len=1,
+        split_by_time=True,
+        time_order=("train", "val", "test"),
+        batch_size=16,
+        time_step=4,
+        lstm_feature_mode="external_sliding",
+        mag_min=3.0,
+        mag_max=9.0,
+        feature_cols=["Num", "Mag_max", "Mag_mean", "b_lsq", "a_lsq", "T_elaps5.5"],
+    )
+
+    (
+        features_meta,
+        _train_loader,
+        _val_loader,
+        _test_loader,
+        dataset,
+        feature_frame,
+    ) = preparation.prepare_data_lstm(args, str(tmp_path), return_feature_frame=True)
+
+    assert feature_frame is not None
+    assert len(feature_frame) == len(dataset)
+    assert len(feature_frame) == len(features_meta)
+    assert np.allclose(
+        np.asarray(feature_frame["t"], dtype=float),
+        np.asarray(features_meta["t"], dtype=float),
+    )
+    for col in args.feature_cols:
+        assert col in feature_frame.columns
+    assert "Mag_max_obs" in feature_frame.columns
+
+
+def test_prepare_data_lstm_imputes_telaps_nan_with_high_sentinel(monkeypatch, tmp_path):
+    df = _make_catalog_df()
+    monkeypatch.setattr(event_pipeline, "load_and_filter_catalog", lambda base_dir, Mc: df.copy())
+    monkeypatch.setattr(event_pipeline, "save_or_load_data", lambda base_path, generate_fn, **kwargs: generate_fn())
+
+    args = _Args(
+        Mc=3.0,
+        Mf=3.0,
+        Twindow=24.0,
+        Tfore=8.0,
+        dt=4.0,
+        context_len=1,
+        split_by_time=True,
+        time_order=("train", "val", "test"),
+        batch_size=16,
+        time_step=4,
+        lstm_feature_mode="external_sliding",
+        # This threshold is intentionally above max magnitude in _make_catalog_df (<= 6.0),
+        # so raw T_elaps7 is NaN everywhere before imputation.
+        feature_cols=["Num", "Mag_max", "Mag_mean", "b_lsq", "a_lsq", "T_elaps7"],
+    )
+
+    (
+        _features_meta,
+        _train_loader,
+        _val_loader,
+        _test_loader,
+        _dataset,
+        feature_frame,
+    ) = preparation.prepare_data_lstm(args, str(tmp_path), return_feature_frame=True)
+
+    assert "T_elaps7" in feature_frame.columns
+    tvals = np.asarray(feature_frame["T_elaps7"], dtype=float)
+    assert np.isfinite(tvals).all()
+    assert not np.isnan(tvals).any()
+    assert np.allclose(tvals, float(args.Twindow))

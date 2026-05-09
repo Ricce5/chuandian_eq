@@ -1,12 +1,14 @@
 import logging
+import random
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from torch.utils.data import Subset, WeightedRandomSampler
+from torch.utils.data import Subset
 
 from .constants import PAD
+from .sampling import build_balanced_epoch_sampler
 from .normalization import (
     DEFAULT_MAG_MAX,
     DEFAULT_MAG_MIN,
@@ -245,13 +247,8 @@ def count_pos_neg(subset):
 
 
 
-def get_balanced_sampler(dataset):
-    labels = [label for _, label in dataset]  # assume dataset[i] = (data, label)
-    class_counts = torch.bincount(torch.tensor(labels))
-    class_weights = 1.0 / class_counts.float()
-    sample_weights = [class_weights[label] for label in labels]
-    sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
-    return sampler
+def get_balanced_sampler(dataset, seed: int = 0, replacement: bool = True):
+    return build_balanced_epoch_sampler(dataset, seed=seed, replacement=replacement)
 
 def get_dataloader(
     dataset,
@@ -260,6 +257,10 @@ def get_dataloader(
     sampler=None,
     task_type='classification',
     full_batch: bool = False,
+    num_workers: int = 8,
+    pin_memory: bool = True,
+    seed: int | None = None,
+    persistent_workers: bool = False,
 ):
     if task_type == 'classification':
         pos_count, neg_count = count_pos_neg(dataset)
@@ -285,14 +286,30 @@ def get_dataloader(
     if sampler is not None:
         shuffle = False  
 
+    generator = None
+    if seed is not None:
+        generator = torch.Generator()
+        generator.manual_seed(int(seed))
+
+    def _seed_worker(worker_id):
+        if seed is None:
+            return
+        worker_seed = (int(seed) + int(worker_id)) % (2**32)
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+        torch.manual_seed(worker_seed)
+
     dl = torch.utils.data.DataLoader(
         dataset,
-        num_workers=8,
-        pin_memory=True,
+        num_workers=int(num_workers),
+        pin_memory=bool(pin_memory),
         batch_size=batch_size,
         collate_fn=collate_fn,
         shuffle=shuffle,
-        sampler=sampler
+        sampler=sampler,
+        worker_init_fn=_seed_worker if seed is not None else None,
+        generator=generator,
+        persistent_workers=bool(persistent_workers) if int(num_workers) > 0 else False,
     )
     return dl
 

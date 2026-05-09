@@ -1,0 +1,55 @@
+# resume_path: /root/autodl-tmp/chuandian_eq/checkpoints/lstm_20250624-104548/last_model_1.pth
+model: lstm
+task_type: regression
+
+
+
+use_ema: false
+batch_size: 64
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-3 # 5e-4
+weight_decay: 1e-2
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type: step_warmup
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.5
+
+
+lstm_hidden_size: 256
+lstm_num_layers: 4
+lstm_dropout: 0.3
+output_activation: null  #  null(=None)；可选: sigmoid | tanh | relu
+
+epochs: 300
+save_dir: null
+cuda_id: "0"
+
+
+
+dataset: ChuanDian
+criterion_name: smooth_l1
+criterion_cfg:
+   beta: 0.2
+seed: 0
+Mc: 3 # 4.5
+Mf: 3
+mag_min: 3.0
+mag_max: 9.0
+Mag_elaps: [5.5, 6, 6.5, 7]
+t_elaps_mode: global
+Twindow: 360
+Tfore: 180   # 100
+dt: 10
+context_len: 0
+dMag: 0.1
+split_by_time: true
+lstm_feature_mode: external_sliding  # inner_sliding | external_sliding
+time_step: 5
+feature_cols: ['Num', 'Mag_max', 'Mag_mean', 'b_lsq', 'a_lsq',
+       'b_std_lsq', 'std_gr_lsq', 'b_mlk', 'a_mlk', 'b_std_mlk', 'std_gr_mlk',
+       'dM_lsq', 'dM_mlk', 'Energy_sqrt', 'prob_x7_lsq', 'prob_x7_mlk',
+       'beta','zvalue' ]
