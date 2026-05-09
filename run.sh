@@ -29,8 +29,25 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
 
 
+  python main.py \
+    --model lstm \
+    --mode test \
+    --checkpoint_dir tmp/lstm_optuna_profiles/run_20x2/runs/global/optuna_trials/trial_0011_global \
+    --ckpt_select last
 
 
 
 
+  python scripts/run_clf_mf_tf_grid.py \
+    --mfs 4,4.5,4.5,5,5.5 \
+    --seeds 0,1,2 \
+    --exp_name clf_mf_tf_multi_seed_$(date +%Y%m%d-%H%M%S)
 
+
+  python scripts/run_clf_mf_tf_grid.py \
+    --tfs 10,20,30,60,90 \
+    --mfs 4,4.5,4.5,5,5.5 \
+    --seeds 0,1,2 \
+    --max_parallel 3 \
+    --gpu_ids 0 \
+    --exp_name clf_grid_parallel_1

@@ -1,0 +1,1 @@
+ 同checkpoints/reg_mixer_attnpl_t_20260509-132900

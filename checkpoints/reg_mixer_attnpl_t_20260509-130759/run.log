@@ -1,0 +1,385 @@
+2026-05-09 13:08:00,000 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 13:08:00,826 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-09 13:08:03,039 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-09 13:08:03,084 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-09 13:08:03,086 INFO __main__: No resume path provided. Training will start from scratch.
+2026-05-09 13:08:04,404 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-09 13:08:04,404 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-09 13:08:04,410 INFO src.train.config_setup: No checkpoint restore requested; initializing model from scratch.
+2026-05-09 13:08:04,410 INFO src.train.config_setup: Freeze summary (fresh_init): mode=all_matched, freeze_parts=['encoder'], exclude_freeze_parts=[], frozen=34
+2026-05-09 13:08:04,410 INFO src.train.config_setup: Frozen parameter preview (fresh_init): ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+24 more)
+2026-05-09 13:08:04,410 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-09 13:08:04,410 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-05-09 13:08:04,411 INFO src.train.config_setup: encoder_param_keywords: ['encoder']
+2026-05-09 13:08:04,411 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=0
+2026-05-09 13:08:04,411 INFO src.train.config_setup: Encoder LR coverage [encoder]: target=0, hit=0, missing=0, complete=True
+2026-05-09 13:08:04,412 INFO src.train.trainer: Epoch 1
+2026-05-09 13:08:10,610 INFO src.train.trainer: New best validation loss: 0.1315, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:10,618 INFO src.train.trainer: Last model at epoch 1 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:10,619 INFO src.train.trainer: Epoch 2
+2026-05-09 13:08:12,217 INFO src.train.trainer: New best validation loss: 0.0512, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:12,227 INFO src.train.trainer: Last model at epoch 2 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:12,227 INFO src.train.trainer: Epoch 3
+2026-05-09 13:08:13,757 INFO src.train.trainer: New best validation loss: 0.0493, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:13,769 INFO src.train.trainer: Last model at epoch 3 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:13,769 INFO src.train.trainer: Epoch 4
+2026-05-09 13:08:15,417 INFO src.train.trainer: New best validation loss: 0.0477, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:15,425 INFO src.train.trainer: Last model at epoch 4 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:15,425 INFO src.train.trainer: Epoch 5
+2026-05-09 13:08:16,927 INFO src.train.trainer: New best validation loss: 0.0428, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:16,936 INFO src.train.trainer: Last model at epoch 5 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:16,936 INFO src.train.trainer: Epoch 6
+2026-05-09 13:08:18,507 INFO src.train.trainer: New best validation loss: 0.0426, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:18,515 INFO src.train.trainer: Last model at epoch 6 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:18,515 INFO src.train.trainer: Epoch 7
+2026-05-09 13:08:20,195 INFO src.train.trainer: New best validation loss: 0.0426, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:20,207 INFO src.train.trainer: Last model at epoch 7 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:20,207 INFO src.train.trainer: Epoch 8
+2026-05-09 13:08:21,694 INFO src.train.trainer: New best validation loss: 0.0421, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:21,705 INFO src.train.trainer: Last model at epoch 8 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:21,705 INFO src.train.trainer: Epoch 9
+2026-05-09 13:08:23,265 INFO src.train.trainer: Last model at epoch 9 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:23,265 INFO src.train.trainer: Epoch 10
+2026-05-09 13:08:24,956 INFO src.train.trainer: New best validation loss: 0.0420, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:24,964 INFO src.train.trainer: Last model at epoch 10 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:24,965 INFO src.train.trainer: Epoch 11
+2026-05-09 13:08:26,618 INFO src.train.trainer: Last model at epoch 11 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:26,618 INFO src.train.trainer: Epoch 12
+2026-05-09 13:08:28,250 INFO src.train.trainer: Last model at epoch 12 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:28,251 INFO src.train.trainer: Epoch 13
+2026-05-09 13:08:29,889 INFO src.train.trainer: New best validation loss: 0.0419, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:29,897 INFO src.train.trainer: Last model at epoch 13 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:29,897 INFO src.train.trainer: Epoch 14
+2026-05-09 13:08:31,453 INFO src.train.trainer: Last model at epoch 14 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:31,454 INFO src.train.trainer: Epoch 15
+2026-05-09 13:08:33,124 INFO src.train.trainer: New best validation loss: 0.0417, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:08:33,131 INFO src.train.trainer: Last model at epoch 15 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:33,131 INFO src.train.trainer: Epoch 16
+2026-05-09 13:08:34,815 INFO src.train.trainer: Last model at epoch 16 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:34,816 INFO src.train.trainer: Epoch 17
+2026-05-09 13:08:36,587 INFO src.train.trainer: Last model at epoch 17 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:36,588 INFO src.train.trainer: Epoch 18
+2026-05-09 13:08:38,191 INFO src.train.trainer: Last model at epoch 18 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:38,191 INFO src.train.trainer: Epoch 19
+2026-05-09 13:08:39,867 INFO src.train.trainer: Last model at epoch 19 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:39,868 INFO src.train.trainer: Epoch 20
+2026-05-09 13:08:41,425 INFO src.train.trainer: Last model at epoch 20 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:41,426 INFO src.train.trainer: Epoch 21
+2026-05-09 13:08:43,074 INFO src.train.trainer: Last model at epoch 21 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:43,074 INFO src.train.trainer: Epoch 22
+2026-05-09 13:08:44,698 INFO src.train.trainer: Last model at epoch 22 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:44,698 INFO src.train.trainer: Epoch 23
+2026-05-09 13:08:46,200 INFO src.train.trainer: Last model at epoch 23 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:46,201 INFO src.train.trainer: Epoch 24
+2026-05-09 13:08:47,792 INFO src.train.trainer: Last model at epoch 24 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:47,792 INFO src.train.trainer: Epoch 25
+2026-05-09 13:08:49,355 INFO src.train.trainer: Last model at epoch 25 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:49,356 INFO src.train.trainer: Epoch 26
+2026-05-09 13:08:50,883 INFO src.train.trainer: Last model at epoch 26 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:50,884 INFO src.train.trainer: Epoch 27
+2026-05-09 13:08:52,368 INFO src.train.trainer: Last model at epoch 27 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:52,369 INFO src.train.trainer: Epoch 28
+2026-05-09 13:08:53,882 INFO src.train.trainer: Last model at epoch 28 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:53,882 INFO src.train.trainer: Epoch 29
+2026-05-09 13:08:55,573 INFO src.train.trainer: Last model at epoch 29 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:55,573 INFO src.train.trainer: Epoch 30
+2026-05-09 13:08:57,225 INFO src.train.trainer: Last model at epoch 30 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:57,226 INFO src.train.trainer: Epoch 31
+2026-05-09 13:08:58,943 INFO src.train.trainer: Last model at epoch 31 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:08:58,943 INFO src.train.trainer: Epoch 32
+2026-05-09 13:09:00,737 INFO src.train.trainer: Last model at epoch 32 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:00,738 INFO src.train.trainer: Epoch 33
+2026-05-09 13:09:02,370 INFO src.train.trainer: Last model at epoch 33 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:02,370 INFO src.train.trainer: Epoch 34
+2026-05-09 13:09:04,046 INFO src.train.trainer: Last model at epoch 34 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:04,047 INFO src.train.trainer: Epoch 35
+2026-05-09 13:09:05,632 INFO src.train.trainer: Last model at epoch 35 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:05,632 INFO src.train.trainer: Epoch 36
+2026-05-09 13:09:07,279 INFO src.train.trainer: Last model at epoch 36 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:07,280 INFO src.train.trainer: Epoch 37
+2026-05-09 13:09:08,886 INFO src.train.trainer: Last model at epoch 37 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:08,886 INFO src.train.trainer: Epoch 38
+2026-05-09 13:09:10,546 INFO src.train.trainer: Last model at epoch 38 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:10,546 INFO src.train.trainer: Epoch 39
+2026-05-09 13:09:12,158 INFO src.train.trainer: Last model at epoch 39 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:12,159 INFO src.train.trainer: Epoch 40
+2026-05-09 13:09:13,727 INFO src.train.trainer: Last model at epoch 40 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:13,728 INFO src.train.trainer: Epoch 41
+2026-05-09 13:09:15,380 INFO src.train.trainer: Last model at epoch 41 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:15,380 INFO src.train.trainer: Epoch 42
+2026-05-09 13:09:16,992 INFO src.train.trainer: Last model at epoch 42 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:16,992 INFO src.train.trainer: Epoch 43
+2026-05-09 13:09:18,607 INFO src.train.trainer: Last model at epoch 43 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:18,608 INFO src.train.trainer: Epoch 44
+2026-05-09 13:09:20,270 INFO src.train.trainer: Last model at epoch 44 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:20,270 INFO src.train.trainer: Epoch 45
+2026-05-09 13:09:21,946 INFO src.train.trainer: Last model at epoch 45 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:21,947 INFO src.train.trainer: Epoch 46
+2026-05-09 13:09:23,567 INFO src.train.trainer: Last model at epoch 46 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:23,567 INFO src.train.trainer: Epoch 47
+2026-05-09 13:09:25,189 INFO src.train.trainer: Last model at epoch 47 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:25,189 INFO src.train.trainer: Epoch 48
+2026-05-09 13:09:26,926 INFO src.train.trainer: Last model at epoch 48 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:26,926 INFO src.train.trainer: Epoch 49
+2026-05-09 13:09:28,507 INFO src.train.trainer: Last model at epoch 49 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:28,507 INFO src.train.trainer: Epoch 50
+2026-05-09 13:09:30,081 INFO src.train.trainer: Last model at epoch 50 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:30,081 INFO src.train.trainer: Epoch 51
+2026-05-09 13:09:31,760 INFO src.train.trainer: Last model at epoch 51 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:31,761 INFO src.train.trainer: Epoch 52
+2026-05-09 13:09:33,202 INFO src.train.trainer: Last model at epoch 52 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:33,202 INFO src.train.trainer: Epoch 53
+2026-05-09 13:09:34,697 INFO src.train.trainer: Last model at epoch 53 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:34,698 INFO src.train.trainer: Epoch 54
+2026-05-09 13:09:36,363 INFO src.train.trainer: Last model at epoch 54 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:36,363 INFO src.train.trainer: Epoch 55
+2026-05-09 13:09:38,000 INFO src.train.trainer: Last model at epoch 55 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:38,000 INFO src.train.trainer: Epoch 56
+2026-05-09 13:09:39,544 INFO src.train.trainer: Last model at epoch 56 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:39,544 INFO src.train.trainer: Epoch 57
+2026-05-09 13:09:41,158 INFO src.train.trainer: Last model at epoch 57 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:41,159 INFO src.train.trainer: Epoch 58
+2026-05-09 13:09:42,828 INFO src.train.trainer: Last model at epoch 58 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:42,828 INFO src.train.trainer: Epoch 59
+2026-05-09 13:09:44,415 INFO src.train.trainer: Last model at epoch 59 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:44,415 INFO src.train.trainer: Epoch 60
+2026-05-09 13:09:45,967 INFO src.train.trainer: Last model at epoch 60 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:45,974 INFO src.train.trainer: Saved epoch 60 snapshot to checkpoints/reg_mixer_attnpl_t_20260509-130759/epoch_60_model_1.pth
+2026-05-09 13:09:45,974 INFO src.train.trainer: Epoch 61
+2026-05-09 13:09:47,563 INFO src.train.trainer: Last model at epoch 61 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:47,563 INFO src.train.trainer: Epoch 62
+2026-05-09 13:09:49,116 INFO src.train.trainer: Last model at epoch 62 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:49,116 INFO src.train.trainer: Epoch 63
+2026-05-09 13:09:50,699 INFO src.train.trainer: Last model at epoch 63 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:50,699 INFO src.train.trainer: Epoch 64
+2026-05-09 13:09:52,209 INFO src.train.trainer: Last model at epoch 64 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:52,209 INFO src.train.trainer: Epoch 65
+2026-05-09 13:09:53,739 INFO src.train.trainer: Last model at epoch 65 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:53,740 INFO src.train.trainer: Epoch 66
+2026-05-09 13:09:55,456 INFO src.train.trainer: Last model at epoch 66 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:55,456 INFO src.train.trainer: Epoch 67
+2026-05-09 13:09:56,898 INFO src.train.trainer: Last model at epoch 67 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:56,898 INFO src.train.trainer: Epoch 68
+2026-05-09 13:09:58,415 INFO src.train.trainer: Last model at epoch 68 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:09:58,416 INFO src.train.trainer: Epoch 69
+2026-05-09 13:10:00,038 INFO src.train.trainer: Last model at epoch 69 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:00,038 INFO src.train.trainer: Epoch 70
+2026-05-09 13:10:01,751 INFO src.train.trainer: Last model at epoch 70 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:01,751 INFO src.train.trainer: Epoch 71
+2026-05-09 13:10:03,451 INFO src.train.trainer: Last model at epoch 71 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:03,451 INFO src.train.trainer: Epoch 72
+2026-05-09 13:10:05,169 INFO src.train.trainer: Last model at epoch 72 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:05,170 INFO src.train.trainer: Epoch 73
+2026-05-09 13:10:06,862 INFO src.train.trainer: Last model at epoch 73 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:06,862 INFO src.train.trainer: Epoch 74
+2026-05-09 13:10:08,593 INFO src.train.trainer: Last model at epoch 74 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:08,593 INFO src.train.trainer: Epoch 75
+2026-05-09 13:10:10,346 INFO src.train.trainer: Last model at epoch 75 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:10,346 INFO src.train.trainer: Epoch 76
+2026-05-09 13:10:12,040 INFO src.train.trainer: Last model at epoch 76 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:12,040 INFO src.train.trainer: Epoch 77
+2026-05-09 13:10:13,623 INFO src.train.trainer: Last model at epoch 77 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:13,623 INFO src.train.trainer: Epoch 78
+2026-05-09 13:10:15,223 INFO src.train.trainer: Last model at epoch 78 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:15,224 INFO src.train.trainer: Epoch 79
+2026-05-09 13:10:16,869 INFO src.train.trainer: Last model at epoch 79 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:16,870 INFO src.train.trainer: Epoch 80
+2026-05-09 13:10:18,297 INFO src.train.trainer: Last model at epoch 80 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:18,305 INFO src.train.trainer: Saved epoch 80 snapshot to checkpoints/reg_mixer_attnpl_t_20260509-130759/epoch_80_model_1.pth
+2026-05-09 13:10:18,306 INFO src.train.trainer: Epoch 81
+2026-05-09 13:10:19,803 INFO src.train.trainer: Last model at epoch 81 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:19,803 INFO src.train.trainer: Epoch 82
+2026-05-09 13:10:21,489 INFO src.train.trainer: Last model at epoch 82 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:21,489 INFO src.train.trainer: Epoch 83
+2026-05-09 13:10:23,028 INFO src.train.trainer: Last model at epoch 83 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:23,029 INFO src.train.trainer: Epoch 84
+2026-05-09 13:10:24,497 INFO src.train.trainer: Last model at epoch 84 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:24,497 INFO src.train.trainer: Epoch 85
+2026-05-09 13:10:26,232 INFO src.train.trainer: Last model at epoch 85 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:26,233 INFO src.train.trainer: Epoch 86
+2026-05-09 13:10:27,763 INFO src.train.trainer: Last model at epoch 86 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:27,763 INFO src.train.trainer: Epoch 87
+2026-05-09 13:10:29,241 INFO src.train.trainer: Last model at epoch 87 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:29,242 INFO src.train.trainer: Epoch 88
+2026-05-09 13:10:30,805 INFO src.train.trainer: Last model at epoch 88 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:30,805 INFO src.train.trainer: Epoch 89
+2026-05-09 13:10:32,370 INFO src.train.trainer: Last model at epoch 89 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:32,371 INFO src.train.trainer: Epoch 90
+2026-05-09 13:10:33,883 INFO src.train.trainer: Last model at epoch 90 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:33,884 INFO src.train.trainer: Epoch 91
+2026-05-09 13:10:35,519 INFO src.train.trainer: Last model at epoch 91 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:35,519 INFO src.train.trainer: Epoch 92
+2026-05-09 13:10:37,122 INFO src.train.trainer: Last model at epoch 92 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:37,122 INFO src.train.trainer: Epoch 93
+2026-05-09 13:10:38,552 INFO src.train.trainer: Last model at epoch 93 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:38,552 INFO src.train.trainer: Epoch 94
+2026-05-09 13:10:40,008 INFO src.train.trainer: Last model at epoch 94 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:40,008 INFO src.train.trainer: Epoch 95
+2026-05-09 13:10:41,635 INFO src.train.trainer: Last model at epoch 95 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:41,635 INFO src.train.trainer: Epoch 96
+2026-05-09 13:10:43,223 INFO src.train.trainer: Last model at epoch 96 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:43,224 INFO src.train.trainer: Epoch 97
+2026-05-09 13:10:44,881 INFO src.train.trainer: Last model at epoch 97 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:44,881 INFO src.train.trainer: Epoch 98
+2026-05-09 13:10:46,501 INFO src.train.trainer: Last model at epoch 98 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:46,501 INFO src.train.trainer: Epoch 99
+2026-05-09 13:10:48,048 INFO src.train.trainer: Last model at epoch 99 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:48,048 INFO src.train.trainer: Epoch 100
+2026-05-09 13:10:49,615 INFO src.train.trainer: Last model at epoch 100 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:49,621 INFO src.train.trainer: Saved epoch 100 snapshot to checkpoints/reg_mixer_attnpl_t_20260509-130759/epoch_100_model_1.pth
+2026-05-09 13:10:49,621 INFO src.train.trainer: Epoch 101
+2026-05-09 13:10:51,071 INFO src.train.trainer: Last model at epoch 101 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:51,071 INFO src.train.trainer: Epoch 102
+2026-05-09 13:10:52,634 INFO src.train.trainer: Last model at epoch 102 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:52,634 INFO src.train.trainer: Epoch 103
+2026-05-09 13:10:54,115 INFO src.train.trainer: Last model at epoch 103 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:54,116 INFO src.train.trainer: Epoch 104
+2026-05-09 13:10:55,655 INFO src.train.trainer: Last model at epoch 104 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:55,655 INFO src.train.trainer: Epoch 105
+2026-05-09 13:10:57,267 INFO src.train.trainer: Last model at epoch 105 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:57,267 INFO src.train.trainer: Epoch 106
+2026-05-09 13:10:58,829 INFO src.train.trainer: New best validation loss: 0.0416, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:10:58,844 INFO src.train.trainer: Last model at epoch 106 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:10:58,844 INFO src.train.trainer: Epoch 107
+2026-05-09 13:11:00,393 INFO src.train.trainer: New best validation loss: 0.0415, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:11:00,403 INFO src.train.trainer: Last model at epoch 107 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:00,403 INFO src.train.trainer: Epoch 108
+2026-05-09 13:11:01,920 INFO src.train.trainer: Last model at epoch 108 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:01,920 INFO src.train.trainer: Epoch 109
+2026-05-09 13:11:03,475 INFO src.train.trainer: Last model at epoch 109 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:03,475 INFO src.train.trainer: Epoch 110
+2026-05-09 13:11:04,978 INFO src.train.trainer: Last model at epoch 110 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:04,978 INFO src.train.trainer: Epoch 111
+2026-05-09 13:11:06,618 INFO src.train.trainer: New best validation loss: 0.0414, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:11:06,629 INFO src.train.trainer: Last model at epoch 111 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:06,629 INFO src.train.trainer: Epoch 112
+2026-05-09 13:11:08,152 INFO src.train.trainer: Last model at epoch 112 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:08,152 INFO src.train.trainer: Epoch 113
+2026-05-09 13:11:09,646 INFO src.train.trainer: Last model at epoch 113 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:09,647 INFO src.train.trainer: Epoch 114
+2026-05-09 13:11:11,193 INFO src.train.trainer: Last model at epoch 114 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:11,193 INFO src.train.trainer: Epoch 115
+2026-05-09 13:11:12,580 INFO src.train.trainer: Last model at epoch 115 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:12,580 INFO src.train.trainer: Epoch 116
+2026-05-09 13:11:14,066 INFO src.train.trainer: Last model at epoch 116 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:14,066 INFO src.train.trainer: Epoch 117
+2026-05-09 13:11:15,651 INFO src.train.trainer: Last model at epoch 117 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:15,651 INFO src.train.trainer: Epoch 118
+2026-05-09 13:11:17,309 INFO src.train.trainer: New best validation loss: 0.0414, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:11:17,324 INFO src.train.trainer: Last model at epoch 118 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:17,325 INFO src.train.trainer: Epoch 119
+2026-05-09 13:11:19,102 INFO src.train.trainer: Last model at epoch 119 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:19,102 INFO src.train.trainer: Epoch 120
+2026-05-09 13:11:20,897 INFO src.train.trainer: New best validation loss: 0.0414, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:11:20,909 INFO src.train.trainer: Last model at epoch 120 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:20,919 INFO src.train.trainer: Saved epoch 120 snapshot to checkpoints/reg_mixer_attnpl_t_20260509-130759/epoch_120_model_1.pth
+2026-05-09 13:11:20,919 INFO src.train.trainer: Epoch 121
+2026-05-09 13:11:22,594 INFO src.train.trainer: Last model at epoch 121 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:22,594 INFO src.train.trainer: Epoch 122
+2026-05-09 13:11:23,941 INFO src.train.trainer: Last model at epoch 122 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:23,942 INFO src.train.trainer: Epoch 123
+2026-05-09 13:11:25,544 INFO src.train.trainer: Last model at epoch 123 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:25,544 INFO src.train.trainer: Epoch 124
+2026-05-09 13:11:27,292 INFO src.train.trainer: Last model at epoch 124 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:27,292 INFO src.train.trainer: Epoch 125
+2026-05-09 13:11:28,755 INFO src.train.trainer: Last model at epoch 125 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:28,755 INFO src.train.trainer: Epoch 126
+2026-05-09 13:11:30,507 INFO src.train.trainer: Last model at epoch 126 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:30,507 INFO src.train.trainer: Epoch 127
+2026-05-09 13:11:31,969 INFO src.train.trainer: Last model at epoch 127 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:31,969 INFO src.train.trainer: Epoch 128
+2026-05-09 13:11:33,469 INFO src.train.trainer: Last model at epoch 128 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:33,470 INFO src.train.trainer: Epoch 129
+2026-05-09 13:11:35,167 INFO src.train.trainer: Last model at epoch 129 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:35,167 INFO src.train.trainer: Epoch 130
+2026-05-09 13:11:36,886 INFO src.train.trainer: Last model at epoch 130 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:36,886 INFO src.train.trainer: Epoch 131
+2026-05-09 13:11:38,490 INFO src.train.trainer: Last model at epoch 131 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:38,490 INFO src.train.trainer: Epoch 132
+2026-05-09 13:11:40,267 INFO src.train.trainer: Last model at epoch 132 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:40,267 INFO src.train.trainer: Epoch 133
+2026-05-09 13:11:41,761 INFO src.train.trainer: Last model at epoch 133 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:41,762 INFO src.train.trainer: Epoch 134
+2026-05-09 13:11:43,228 INFO src.train.trainer: Last model at epoch 134 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:43,229 INFO src.train.trainer: Epoch 135
+2026-05-09 13:11:44,800 INFO src.train.trainer: Last model at epoch 135 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:44,800 INFO src.train.trainer: Epoch 136
+2026-05-09 13:11:46,504 INFO src.train.trainer: Last model at epoch 136 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:46,504 INFO src.train.trainer: Epoch 137
+2026-05-09 13:11:47,896 INFO src.train.trainer: Last model at epoch 137 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:47,896 INFO src.train.trainer: Epoch 138
+2026-05-09 13:11:49,855 INFO src.train.trainer: Last model at epoch 138 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:49,855 INFO src.train.trainer: Epoch 139
+2026-05-09 13:11:52,151 INFO src.train.trainer: Last model at epoch 139 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:52,152 INFO src.train.trainer: Epoch 140
+2026-05-09 13:11:53,793 INFO src.train.trainer: Last model at epoch 140 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:53,801 INFO src.train.trainer: Saved epoch 140 snapshot to checkpoints/reg_mixer_attnpl_t_20260509-130759/epoch_140_model_1.pth
+2026-05-09 13:11:53,801 INFO src.train.trainer: Epoch 141
+2026-05-09 13:11:55,416 INFO src.train.trainer: Last model at epoch 141 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:55,416 INFO src.train.trainer: Epoch 142
+2026-05-09 13:11:57,289 INFO src.train.trainer: Last model at epoch 142 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:57,290 INFO src.train.trainer: Epoch 143
+2026-05-09 13:11:58,970 INFO src.train.trainer: Last model at epoch 143 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:11:58,970 INFO src.train.trainer: Epoch 144
+2026-05-09 13:12:00,703 INFO src.train.trainer: Last model at epoch 144 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:00,703 INFO src.train.trainer: Epoch 145
+2026-05-09 13:12:02,374 INFO src.train.trainer: Last model at epoch 145 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:02,374 INFO src.train.trainer: Epoch 146
+2026-05-09 13:12:04,265 INFO src.train.trainer: Last model at epoch 146 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:04,266 INFO src.train.trainer: Epoch 147
+2026-05-09 13:12:05,993 INFO src.train.trainer: New best validation loss: 0.0414, saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/best_model_1.pth
+2026-05-09 13:12:06,003 INFO src.train.trainer: Last model at epoch 147 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:06,003 INFO src.train.trainer: Epoch 148
+2026-05-09 13:12:07,750 INFO src.train.trainer: Last model at epoch 148 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:07,750 INFO src.train.trainer: Epoch 149
+2026-05-09 13:12:09,553 INFO src.train.trainer: Last model at epoch 149 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:09,553 INFO src.train.trainer: Epoch 150
+2026-05-09 13:12:11,370 INFO src.train.trainer: Last model at epoch 150 saved to checkpoints/reg_mixer_attnpl_t_20260509-130759/last_model_1.pth
+2026-05-09 13:12:35,520 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 13:12:36,656 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-09 13:12:39,157 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-09 13:12:39,670 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-09 13:12:40,495 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-09 13:12:40,495 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-09 13:12:40,500 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-09 13:12:40,501 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-09 13:12:40,502 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-09 13:12:40,502 INFO src.train.config_setup: Full load summary: loaded=58, missing=0, unexpected=0
+2026-05-09 13:12:40,503 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-09 13:12:40,503 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-09 13:12:40,503 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-09 13:12:40,503 INFO src.train.config_setup: Freeze summary (checkpoint_restore): mode=all_matched, freeze_parts=['encoder'], exclude_freeze_parts=[], frozen=34
+2026-05-09 13:12:40,503 INFO src.train.config_setup: Frozen parameter preview (checkpoint_restore): ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+24 more)
+2026-05-09 13:12:40,504 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-09 13:12:40,504 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-05-09 13:12:40,504 INFO src.train.config_setup: encoder_param_keywords: ['encoder']
+2026-05-09 13:12:40,504 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=0
+2026-05-09 13:12:40,504 INFO src.train.config_setup: Encoder LR coverage [encoder]: target=0, hit=0, missing=0, complete=True
+2026-05-09 13:12:40,505 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-09 13:12:45,624 INFO __main__: Test loss: 0.031061319013436634
+2026-05-09 13:12:47,641 INFO __main__: Saved test metrics to checkpoints/reg_mixer_attnpl_t_20260509-130759/metrics_test_best_1.json
+2026-05-09 13:12:47,641 INFO __main__: Metrics: {'RMSE': 0.6677317778134573, 'MAE': 0.5850758039560474, 'MSE': 0.4458657271019203, 'MAPE': 12.672094815612695, 'R2': -0.3323956169229685, 'PearsonR': 0.6529430193168317, 'PearsonR_diff': -0.02088435466449167, 'DA': 0.038461538461538464, 'SpearmanR': 0.662490733450912, 'SpearmanR_diff': -0.06445892018443432, 'DTW': 96.97014865279198, 'DTW_normalized': 0.5298915226928523}
+2026-05-09 13:13:33,658 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 13:13:34,475 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-09 13:13:36,710 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-09 13:13:37,241 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-09 13:13:38,087 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-09 13:13:38,087 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-09 13:13:38,096 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-09 13:13:38,096 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-09 13:13:38,098 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-09 13:13:38,098 INFO src.train.config_setup: Full load summary: loaded=58, missing=0, unexpected=0
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Freeze summary (checkpoint_restore): mode=all_matched, freeze_parts=['encoder'], exclude_freeze_parts=[], frozen=34
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Frozen parameter preview (checkpoint_restore): ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+24 more)
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-09 13:13:38,099 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-05-09 13:13:38,100 INFO src.train.config_setup: encoder_param_keywords: ['encoder']
+2026-05-09 13:13:38,100 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=0
+2026-05-09 13:13:38,100 INFO src.train.config_setup: Encoder LR coverage [encoder]: target=0, hit=0, missing=0, complete=True
+2026-05-09 13:13:38,100 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-09 13:13:43,358 INFO __main__: Test loss: 0.029759777709841728
+2026-05-09 13:13:44,957 INFO __main__: Saved test metrics to checkpoints/reg_mixer_attnpl_t_20260509-130759/metrics_test_last_1.json
+2026-05-09 13:13:44,957 INFO __main__: Metrics: {'RMSE': 0.6536885463806809, 'MAE': 0.5729949762586688, 'MSE': 0.4273087156692876, 'MAPE': 12.3922056754468, 'R2': -0.2769410726664703, 'PearsonR': 0.651342717509428, 'PearsonR_diff': -0.019681445790024305, 'DA': 0.038461538461538464, 'SpearmanR': 0.6630150510704962, 'SpearmanR_diff': -0.06584490033092942, 'DTW': 94.05096378922462, 'DTW_normalized': 0.513939692837293}

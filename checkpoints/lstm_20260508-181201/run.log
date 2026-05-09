@@ -647,3 +647,21 @@
 2026-05-08 18:14:07,165 INFO __main__: Test loss: 0.1051828848818938
 2026-05-08 18:14:07,676 INFO __main__: Saved test metrics to checkpoints/lstm_20260508-181201/metrics_test_last_1.json
 2026-05-08 18:14:07,676 INFO __main__: Metrics: {'RMSE': 1.1172525296961564, 'MAE': 0.904680814899382, 'MSE': 1.248253215112461, 'MAPE': 18.682345155811085, 'R2': -2.73019798395293, 'PearsonR': 0.15300766972941515, 'PearsonR_diff': 0.10820957075535048, 'DA': 0.06043956043956044, 'SpearmanR': 0.1830355998294456, 'SpearmanR_diff': 0.07182719219150387, 'DTW': 102.23705434799194, 'DTW_normalized': 0.5586724281311035}
+2026-05-09 15:09:45,718 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 15:09:46,473 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/lstm_regressor/lstm_regressor_Mag_elaps_5.5-6-6.5-7_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_0_dt_10_feature_step_none_feature_window_none_lstm_feature_mode_external_sliding_time_step_5.pkl
+2026-05-09 15:09:48,029 INFO src.data.lstm_loader: Original number of samples: 1819, number of samples after cleaning: 1819
+2026-05-09 15:09:48,029 INFO src.data.lstm_loader: Replaced NaN values in X with 0.0
+2026-05-09 15:09:48,096 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-09 15:09:48,096 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Full load summary: loaded=18, missing=0, unexpected=0
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-09 15:09:48,432 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-09 15:09:48,433 INFO src.train.config_setup: Criterion config: {'beta': 0.1}
+2026-05-09 15:09:48,433 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-09 15:09:48,593 INFO __main__: Test loss: 0.06846845646699269
+2026-05-09 15:09:49,402 INFO __main__: Saved test metrics to checkpoints/lstm_20260508-181201/metrics_test_best_1.json
+2026-05-09 15:09:49,402 INFO __main__: Metrics: {'RMSE': 0.8127767355841512, 'MAE': 0.6545328312232847, 'MSE': 0.6606060219068293, 'MAPE': 14.416288627049854, 'R2': -0.9741116796418654, 'PearsonR': 0.1907938614032813, 'PearsonR_diff': 0.17231761459233538, 'DA': 0.06593406593406594, 'SpearmanR': 0.22280912066077724, 'SpearmanR_diff': 0.14893234528160113, 'DTW': 97.69542264938354, 'DTW_normalized': 0.5338547685758663}

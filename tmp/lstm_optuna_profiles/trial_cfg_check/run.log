@@ -1,0 +1,16 @@
+2026-05-09 21:02:18,197 INFO __main__: Starting Optuna | profile=None | n_trials=1 | study=lstm_default_dtw_rmse | storage=None
+2026-05-09 21:03:29,283 INFO __main__: Starting Optuna | profile=global | n_trials=1 | study=lstm_global_dtw_rmse | storage=None
+2026-05-09 21:03:29,742 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 21:03:30,538 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/lstm_regressor/lstm_regressor_Mag_elaps_5.5-6-6.5-7_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_0_dt_10_feature_step_none_feature_window_none_lstm_feature_mode_external_sliding_time_step_5.pkl
+2026-05-09 21:03:32,148 INFO src.data.lstm_loader: Original number of samples: 1819, number of samples after cleaning: 1819
+2026-05-09 21:03:32,148 INFO src.data.lstm_loader: Replaced NaN values in X with 0.0
+2026-05-09 21:03:32,183 INFO src.train.config_setup: No checkpoint restore requested; initializing model from scratch.
+2026-05-09 21:03:32,183 INFO src.train.config_setup: Freeze skipped (fresh_init): freeze_parts is empty.
+2026-05-09 21:03:32,183 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-09 21:03:32,183 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-05-09 21:03:32,551 INFO __main__: Optuna trial 0 | profile=global | sampled={'learning_rate': 0.0003195254015709299, 'batch_size': 32, 'lstm_hidden_size': 96}
+2026-05-09 21:03:32,552 INFO src.train.trainer: Epoch 1
+2026-05-09 21:03:32,912 INFO src.train.trainer: New best validation loss: 0.0431, saved to tmp/lstm_optuna_profiles/trial_cfg_check/optuna_trials/trial_0000_global/best_model_1.pth
+2026-05-09 21:03:32,915 INFO src.train.trainer: Last model at epoch 1 saved to tmp/lstm_optuna_profiles/trial_cfg_check/optuna_trials/trial_0000_global/last_model_1.pth
+2026-05-09 21:03:32,945 INFO __main__: Optuna trial 0 done | profile=global | score=122.129403 | RMSE=0.785584 | DTW=121.343820 | DTW_normalized=0.666724
+2026-05-09 21:03:32,948 INFO __main__: Optuna profile=global best value=122.129403 params={'learning_rate': 0.0003195254015709299, 'batch_size': 32, 'lstm_hidden_size': 96}

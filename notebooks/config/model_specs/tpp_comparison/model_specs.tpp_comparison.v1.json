@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "schema": "tpp_comparison_model_specs.v1",
+  "description": "Model-spec catalog for notebooks/tpp_comparison.ipynb",
+  "configs": {
+    "default_em_eqf_recast_etas": {
+      "description": "Default 3-model comparison: EM-EQF / RECAST / ETAS",
+      "models": [
+        {
+          "label": "EM-EQF",
+          "checkpoint_rel_path": "mixer_tpp_20260206-102040/best_model_1.pth",
+          "compile": true,
+          "override_M_m": 10.0
+        },
+        {
+          "label": "RECAST",
+          "checkpoint_rel_path": "rtpp_20260506-173356/best_model_1.pth",
+          "compile": true,
+          "override_M_m": 10.0
+        },
+        {
+          "label": "ETAS",
+          "checkpoint_rel_path": "etas_20260507-143239/best_model_1.pth",
+          "compile": true,
+          "override_M_m": 10.0
+        }
+      ]
+    }
+  }
+}

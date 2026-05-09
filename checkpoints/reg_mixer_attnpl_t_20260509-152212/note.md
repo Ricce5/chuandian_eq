@@ -1,0 +1,1 @@
+相对 /root/autodl-tmp/em_eqf/checkpoints/reg_mixer_attnpl_t_20260509-125929/config.yaml无卷积

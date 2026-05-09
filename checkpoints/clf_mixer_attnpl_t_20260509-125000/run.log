@@ -1,0 +1,127 @@
+2026-05-09 12:50:01,023 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 12:50:01,835 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_4.5_Tfore_30_Twindow_180_context_len_1_dt_10.pkl
+2026-05-09 12:50:02,170 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-09 12:50:02,188 INFO src.data.event_loader: lengths of samples: min=32, max=981, avg=135.26
+2026-05-09 12:50:02,188 INFO src.data.event_loader: Number of positive samples: 836
+2026-05-09 12:50:02,189 INFO src.data.event_loader: Number of negative samples: 594
+2026-05-09 12:50:02,190 INFO src.data.event_loader: Positive samples: 706, Negative samples: 438
+2026-05-09 12:50:02,190 INFO src.data.event_loader: Total samples: 1144, Positive ratio: 0.62, Negative ratio: 0.38
+2026-05-09 12:50:02,190 INFO src.data.event_loader: Positive samples: 83, Negative samples: 60
+2026-05-09 12:50:02,190 INFO src.data.event_loader: Total samples: 143, Positive ratio: 0.58, Negative ratio: 0.42
+2026-05-09 12:50:02,190 INFO src.data.event_loader: Positive samples: 47, Negative samples: 96
+2026-05-09 12:50:02,190 INFO src.data.event_loader: Total samples: 143, Positive ratio: 0.33, Negative ratio: 0.67
+2026-05-09 12:50:02,351 INFO __main__: Loading checkpoint from: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+2026-05-09 12:50:03,186 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-09 12:50:03,186 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-09 12:50:03,191 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-09 12:50:03,192 INFO src.train.config_setup: Loading model weights: load_specific_parts=['encoder']
+2026-05-09 12:50:03,193 INFO src.train.config_setup: Selective load summary: requested_parts=['encoder'], target_in_model=40, matched_in_checkpoint=30, loaded=30, missing_after_load=10, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
+2026-05-09 12:50:03,194 INFO src.train.config_setup: Selective load coverage [encoder]: target=40, hit=30, missing=10, complete=False
+2026-05-09 12:50:03,194 WARNING src.train.config_setup: Selective load coverage missing preview [encoder]: ['base_model.encoder.layers.2.mixer.in_proj.bias', 'base_model.encoder.layers.2.mixer.in_proj.weight', 'base_model.encoder.layers.2.mixer.out_proj.bias', 'base_model.encoder.layers.2.mixer.out_proj.weight', 'base_model.encoder.layers.2.mlp.fc1.weight', 'base_model.encoder.layers.2.mlp.fc2.weight', 'base_model.encoder.layers.2.norm.bias', 'base_model.encoder.layers.2.norm.weight'] ... (+2 more)
+2026-05-09 12:50:03,194 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.2.mixer.in_proj.bias', 'base_model.encoder.layers.2.mixer.in_proj.weight', 'base_model.encoder.layers.2.mixer.out_proj.bias', 'base_model.encoder.layers.2.mixer.out_proj.weight', 'base_model.encoder.layers.2.mlp.fc1.weight', 'base_model.encoder.layers.2.mlp.fc2.weight', 'base_model.encoder.layers.2.norm.bias', 'base_model.encoder.layers.2.norm.weight', 'base_model.encoder.layers.2.norm2.bias', 'base_model.encoder.layers.2.norm2.weight']
+2026-05-09 12:50:03,194 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.2.mixer.in_proj.bias', 'base_model.encoder.layers.2.mixer.in_proj.weight', 'base_model.encoder.layers.2.mixer.out_proj.bias', 'base_model.encoder.layers.2.mixer.out_proj.weight', 'base_model.encoder.layers.2.mlp.fc1.weight', 'base_model.encoder.layers.2.mlp.fc2.weight', 'base_model.encoder.layers.2.norm.bias', 'base_model.encoder.layers.2.norm.weight', 'base_model.encoder.layers.2.norm2.bias', 'base_model.encoder.layers.2.norm2.weight']
+2026-05-09 12:50:03,194 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.input_proj.3.weight', 'base_model.encoder.norm_f.weight', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.1.mixer.out_proj.weight', 'base_model.encoder.norm_f.bias', 'base_model.encoder.layers.0.mixer.norm.weight', 'base_model.encoder.layers.0.mixer.in_proj.weight', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.1.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log'] ... (+20 more)
+2026-05-09 12:50:03,195 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-09 12:50:03,195 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-09 12:50:03,195 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-09 12:50:03,195 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-09 12:50:03,195 INFO src.train.config_setup: Using classification criterion: bce
+2026-05-09 12:50:03,195 INFO src.train.config_setup: Criterion config: {}
+2026-05-09 12:50:03,196 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-09 12:50:03,196 INFO src.train.trainer: Epoch 1
+2026-05-09 12:50:15,756 INFO src.train.trainer: New best validation loss: 0.6850, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:15,761 INFO src.train.trainer: Last model at epoch 1 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:15,761 INFO src.train.trainer: Epoch 2
+2026-05-09 12:50:17,448 INFO src.train.trainer: New best validation loss: 0.6789, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:17,457 INFO src.train.trainer: Last model at epoch 2 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:17,458 INFO src.train.trainer: Epoch 3
+2026-05-09 12:50:19,220 INFO src.train.trainer: New best validation loss: 0.6632, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:19,228 INFO src.train.trainer: Last model at epoch 3 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:19,228 INFO src.train.trainer: Epoch 4
+2026-05-09 12:50:21,022 INFO src.train.trainer: New best validation loss: 0.6480, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:21,029 INFO src.train.trainer: Last model at epoch 4 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:21,029 INFO src.train.trainer: Epoch 5
+2026-05-09 12:50:22,811 INFO src.train.trainer: New best validation loss: 0.6338, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:22,818 INFO src.train.trainer: Last model at epoch 5 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:22,818 INFO src.train.trainer: Epoch 6
+2026-05-09 12:50:24,660 INFO src.train.trainer: New best validation loss: 0.6148, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:24,667 INFO src.train.trainer: Last model at epoch 6 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:24,667 INFO src.train.trainer: Epoch 7
+2026-05-09 12:50:26,501 INFO src.train.trainer: Last model at epoch 7 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:26,501 INFO src.train.trainer: Epoch 8
+2026-05-09 12:50:28,300 INFO src.train.trainer: Last model at epoch 8 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:28,300 INFO src.train.trainer: Epoch 9
+2026-05-09 12:50:30,119 INFO src.train.trainer: New best validation loss: 0.5958, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:30,126 INFO src.train.trainer: Last model at epoch 9 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:30,126 INFO src.train.trainer: Epoch 10
+2026-05-09 12:50:31,901 INFO src.train.trainer: Last model at epoch 10 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:31,901 INFO src.train.trainer: Epoch 11
+2026-05-09 12:50:33,640 INFO src.train.trainer: New best validation loss: 0.5893, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:33,649 INFO src.train.trainer: Last model at epoch 11 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:33,649 INFO src.train.trainer: Epoch 12
+2026-05-09 12:50:35,441 INFO src.train.trainer: Last model at epoch 12 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:35,441 INFO src.train.trainer: Epoch 13
+2026-05-09 12:50:37,206 INFO src.train.trainer: Last model at epoch 13 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:37,207 INFO src.train.trainer: Epoch 14
+2026-05-09 12:50:39,007 INFO src.train.trainer: Last model at epoch 14 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:39,008 INFO src.train.trainer: Epoch 15
+2026-05-09 12:50:40,803 INFO src.train.trainer: Last model at epoch 15 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:40,803 INFO src.train.trainer: Epoch 16
+2026-05-09 12:50:42,599 INFO src.train.trainer: New best validation loss: 0.5876, saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/best_model_1.pth
+2026-05-09 12:50:42,607 INFO src.train.trainer: Last model at epoch 16 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:42,607 INFO src.train.trainer: Epoch 17
+2026-05-09 12:50:44,264 INFO src.train.trainer: Last model at epoch 17 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:44,264 INFO src.train.trainer: Epoch 18
+2026-05-09 12:50:45,985 INFO src.train.trainer: Last model at epoch 18 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:45,985 INFO src.train.trainer: Epoch 19
+2026-05-09 12:50:47,655 INFO src.train.trainer: Last model at epoch 19 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:47,656 INFO src.train.trainer: Epoch 20
+2026-05-09 12:50:49,363 INFO src.train.trainer: Last model at epoch 20 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:49,363 INFO src.train.trainer: Epoch 21
+2026-05-09 12:50:51,046 INFO src.train.trainer: Last model at epoch 21 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:51,046 INFO src.train.trainer: Epoch 22
+2026-05-09 12:50:52,741 INFO src.train.trainer: Last model at epoch 22 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:52,741 INFO src.train.trainer: Epoch 23
+2026-05-09 12:50:54,447 INFO src.train.trainer: Last model at epoch 23 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:54,448 INFO src.train.trainer: Epoch 24
+2026-05-09 12:50:56,109 INFO src.train.trainer: Last model at epoch 24 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:56,109 INFO src.train.trainer: Epoch 25
+2026-05-09 12:50:57,766 INFO src.train.trainer: Last model at epoch 25 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:57,766 INFO src.train.trainer: Epoch 26
+2026-05-09 12:50:59,407 INFO src.train.trainer: Last model at epoch 26 saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/last_model_1.pth
+2026-05-09 12:50:59,407 INFO src.train.trainer: Early stopping triggered at epoch 26 (best epoch: 16, best val loss: 0.587557)
+2026-05-09 12:51:13,359 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-09 12:51:14,112 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_4.5_Tfore_30_Twindow_180_context_len_1_dt_10.pkl
+2026-05-09 12:51:14,448 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-09 12:51:14,466 INFO src.data.event_loader: lengths of samples: min=32, max=981, avg=135.26
+2026-05-09 12:51:14,466 INFO src.data.event_loader: Number of positive samples: 836
+2026-05-09 12:51:14,467 INFO src.data.event_loader: Number of negative samples: 594
+2026-05-09 12:51:14,468 INFO src.data.event_loader: Positive samples: 706, Negative samples: 438
+2026-05-09 12:51:14,468 INFO src.data.event_loader: Total samples: 1144, Positive ratio: 0.62, Negative ratio: 0.38
+2026-05-09 12:51:14,468 INFO src.data.event_loader: Positive samples: 83, Negative samples: 60
+2026-05-09 12:51:14,468 INFO src.data.event_loader: Total samples: 143, Positive ratio: 0.58, Negative ratio: 0.42
+2026-05-09 12:51:14,468 INFO src.data.event_loader: Positive samples: 47, Negative samples: 96
+2026-05-09 12:51:14,468 INFO src.data.event_loader: Total samples: 143, Positive ratio: 0.33, Negative ratio: 0.67
+2026-05-09 12:51:15,296 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-09 12:51:15,296 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-09 12:51:15,300 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-09 12:51:15,301 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-09 12:51:15,302 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-09 12:51:15,302 INFO src.train.config_setup: Full load summary: loaded=52, missing=0, unexpected=0
+2026-05-09 12:51:15,303 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-09 12:51:15,303 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-09 12:51:15,303 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-09 12:51:15,303 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-09 12:51:15,304 INFO src.train.config_setup: Using classification criterion: bce
+2026-05-09 12:51:15,304 INFO src.train.config_setup: Criterion config: {}
+2026-05-09 12:51:15,305 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-09 12:51:15,305 INFO __main__: Using threshold 0.3891061842441559 from checkpoint val_metrics for testing.
+2026-05-09 12:51:19,807 INFO src.utils.metrics: ROC curve saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/roc_curve.png
+2026-05-09 12:51:19,932 INFO src.utils.metrics: PR curve saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/pr_curve.png
+2026-05-09 12:51:19,996 INFO src.utils.metrics: Confusion matrix saved to checkpoints/clf_mixer_attnpl_t_20260509-125000/confusion_matrix.png
+2026-05-09 12:51:19,996 INFO __main__: Test loss: 0.5482754707336426
+2026-05-09 12:51:20,526 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: checkpoints/clf_mixer_attnpl_t_20260509-125000/train_pred_distribution.png
+2026-05-09 12:51:20,771 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: checkpoints/clf_mixer_attnpl_t_20260509-125000/val_pred_distribution.png
+2026-05-09 12:51:21,012 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: checkpoints/clf_mixer_attnpl_t_20260509-125000/test_pred_distribution.png
+2026-05-09 12:51:21,013 INFO __main__: Saved test metrics to checkpoints/clf_mixer_attnpl_t_20260509-125000/metrics_test_best_1.json
+2026-05-09 12:51:21,013 INFO __main__: Metrics: {'precision': 0.3770491803278688, 'recall': 0.9787234042553191, 'f1': 0.5443786982248521, 'auc': 0.8610372340425532, 'pr_auc': 0.7949401834842098, 'fpr': 0.7916666666666666, 'tpr': 0.9787234042553191, 'R': 0.1870567375886525, 'conf': 9.752772990897418e-19, 'threshold': 0.3891061842441559}

@@ -1,0 +1,41 @@
+{
+  "pretrain_ckpt": "./checkpoints/mixer_tpp_20260506-113707/last_model_1.pth",
+  "experiments": [
+    {
+      "name": "reg_mismatch_pre",
+      "model": "reg_mixer_attnpl_t",
+      "config": "tmp/exp_align_hypothesis/reg_mismatch_pre.yaml",
+      "notes": "结构不对齐(use_conv=true) + 预训练 + 不冻结"
+    },
+    {
+      "name": "reg_aligned_pre",
+      "model": "reg_mixer_attnpl_t",
+      "config": "tmp/exp_align_hypothesis/reg_aligned_pre.yaml",
+      "notes": "结构对齐(use_conv=false, rotary=8192) + 预训练 + 不冻结"
+    },
+    {
+      "name": "reg_aligned_scratch",
+      "model": "reg_mixer_attnpl_t",
+      "config": "tmp/exp_align_hypothesis/reg_aligned_scratch.yaml",
+      "notes": "结构对齐 + 随机初始化 + 不冻结"
+    },
+    {
+      "name": "reg_aligned_pre_freeze",
+      "model": "reg_mixer_attnpl_t",
+      "config": "tmp/exp_align_hypothesis/reg_aligned_pre_freeze.yaml",
+      "notes": "结构对齐 + 预训练 + 冻结已加载encoder"
+    },
+    {
+      "name": "clf_aligned_pre",
+      "model": "clf_mixer_attnpl_t",
+      "config": "tmp/exp_align_hypothesis/clf_aligned_pre.yaml",
+      "notes": "结构对齐 + 预训练"
+    },
+    {
+      "name": "clf_aligned_scratch",
+      "model": "clf_mixer_attnpl_t",
+      "config": "tmp/exp_align_hypothesis/clf_aligned_scratch.yaml",
+      "notes": "结构对齐 + 随机初始化"
+    }
+  ]
+}
