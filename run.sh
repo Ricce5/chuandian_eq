@@ -51,3 +51,14 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
     --max_parallel 3 \
     --gpu_ids 0 \
     --exp_name clf_grid_parallel_1
+
+  python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
+
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_8 --best_metric auc
+
+
+
+  python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_off.yaml
+  python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_on.yaml
+  
+python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_lr_on --best_metric rmse --best_mode min --ckpt_select last

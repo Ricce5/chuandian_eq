@@ -1,30 +1,22 @@
 #!/usr/bin/env python3
 import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime as dt
 import json
-import os
-import subprocess
-import sys
+import shutil
 from pathlib import Path
 
 from omegaconf import OmegaConf
 import yaml
 
-
-def _parse_csv(raw: str, cast_fn):
-    items = [x.strip() for x in str(raw).split(",") if x.strip()]
-    return [cast_fn(x) for x in items]
-
-
-def _set_key(cfg, dotted_key: str, value):
-    keys = dotted_key.split(".")
-    node = cfg
-    for key in keys[:-1]:
-        if key not in node or node[key] is None:
-            node[key] = {}
-        node = node[key]
-    node[keys[-1]] = value
+from grid_runner_common import (
+    apply_exp_config_overrides,
+    execute_tasks,
+    load_exp_config,
+    parse_bool_text,
+    parse_csv,
+    parse_mapping,
+    set_key,
+)
 
 
 def _build_variant_name(tf, mf, seed):
@@ -32,105 +24,7 @@ def _build_variant_name(tf, mf, seed):
     return f"tf_{tf}_mf_{mf_str}_seed_{seed}"
 
 
-def _run_cmd(cmd, cwd: Path, env=None, log_path: Path = None):
-    print("[CMD]", " ".join(cmd))
-    if log_path is None:
-        return subprocess.run(cmd, cwd=str(cwd), check=False, env=env)
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write("\n[CMD] " + " ".join(cmd) + "\n")
-        f.flush()
-        return subprocess.run(
-            cmd,
-            cwd=str(cwd),
-            check=False,
-            env=env,
-            stdout=f,
-            stderr=subprocess.STDOUT,
-        )
-
-
-def _parse_bool_text(raw: str) -> bool:
-    norm = str(raw).strip().lower()
-    if norm in {"1", "true", "yes", "y", "on"}:
-        return True
-    if norm in {"0", "false", "no", "n", "off"}:
-        return False
-    raise ValueError(f"Invalid bool text: {raw!r}")
-
-
-def _parse_mapping(raw: str, key_cast, value_cast):
-    mapping = {}
-    text = (raw or "").strip()
-    if not text:
-        return mapping
-    for item in [x.strip() for x in text.split(",") if x.strip()]:
-        if ":" not in item:
-            raise ValueError(f"Invalid mapping item: {item!r}, expected key:value")
-        key_str, value_str = item.split(":", 1)
-        mapping[key_cast(key_str.strip())] = value_cast(value_str.strip())
-    return mapping
-
-
-def _run_single_task(task, args, repo_root: Path):
-    run_dir = Path(task["run_dir"])
-    cfg_path = Path(task["cfg_path"])
-    log_path = run_dir / "launcher.log"
-
-    env = os.environ.copy()
-    assigned_gpu = task.get("cuda_id", None)
-    if assigned_gpu is not None:
-        env["CUDA_VISIBLE_DEVICES"] = str(assigned_gpu)
-        env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    train_ret_code = None
-    test_ret_code = None
-    test_skipped_reason = None
-
-    if not args.skip_train:
-        train_cmd = [
-            sys.executable,
-            "main.py",
-            "--model",
-            args.model,
-            "--mode",
-            "train",
-            "--config",
-            str(cfg_path),
-            "--checkpoint_dir",
-            str(run_dir),
-        ]
-        train_ret = _run_cmd(train_cmd, repo_root, env=env, log_path=log_path)
-        train_ret_code = int(train_ret.returncode)
-
-    can_run_test = args.run_test and (args.skip_train or train_ret_code == 0)
-    if args.run_test and not can_run_test:
-        test_skipped_reason = "train_failed"
-
-    if can_run_test:
-        test_cmd = [
-            sys.executable,
-            "main.py",
-            "--model",
-            args.model,
-            "--mode",
-            "test",
-            "--config",
-            str(cfg_path),
-            "--checkpoint_dir",
-            str(run_dir),
-            "--ckpt_select",
-            args.ckpt_select,
-        ]
-        test_ret = _run_cmd(test_cmd, repo_root, env=env, log_path=log_path)
-        test_ret_code = int(test_ret.returncode)
-
-    result = dict(task)
-    result["train_returncode"] = train_ret_code
-    result["test_returncode"] = test_ret_code
-    result["test_skipped_reason"] = test_skipped_reason
-    return result
-
-
-def main():
+def _build_parser():
     parser = argparse.ArgumentParser(
         description=(
             "Batch run clf_mixer_attnpl_t over (Tfore, Mf, seed) grid. "
@@ -138,6 +32,12 @@ def main():
         )
     )
     parser.add_argument("--model", type=str, default="clf_mixer_attnpl_t")
+    parser.add_argument(
+        "--exp_config",
+        type=str,
+        default=None,
+        help="Path to external experiment config (.yaml/.yml/.json). If provided, overrides CLI args.",
+    )
     parser.add_argument("--base_config", type=str, default="config/clf_mixer_attnpl_t.yaml")
     parser.add_argument(
         "--tfs",
@@ -179,6 +79,15 @@ def main():
         help="Optional per-Tfore time bias mapping, format tf:bias,tf:bias (e.g. 90:linear).",
     )
     parser.add_argument(
+        "--use_sampler_by_tf",
+        type=str,
+        default="",
+        help=(
+            "Optional per-Tfore use_sampler mapping. "
+            "Format: tf:true,tf:false (e.g. 10:true,90:false)."
+        ),
+    )
+    parser.add_argument(
         "--alpha_by_tf",
         type=str,
         default="10:0.5,20:0.25,90:0.25",
@@ -204,7 +113,7 @@ def main():
     parser.add_argument(
         "--resume_path_override",
         type=str,
-        default="./checkpoints/mixer_tpp_20260203-161948/last_model_1.pth",
+        default="./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth",
         help="resume_path used when --apply_ref_profile=true.",
     )
     parser.add_argument(
@@ -222,8 +131,7 @@ def main():
         "--ckpt_select",
         type=str,
         default="best",
-        choices=["best", "last"],
-        help="Checkpoint for optional test mode.",
+        help="Checkpoint for optional test mode: best, last, both, or comma list (e.g. best,last).",
     )
     parser.add_argument(
         "--skip_train",
@@ -252,6 +160,12 @@ def main():
         help="Max number of concurrent runs. 1 means serial.",
     )
     parser.add_argument(
+        "--jobs_per_gpu",
+        type=int,
+        default=1,
+        help="How many concurrent jobs are allowed on each GPU id. Useful for single-GPU multi-task.",
+    )
+    parser.add_argument(
         "--gpu_ids",
         type=str,
         default="",
@@ -262,19 +176,65 @@ def main():
         action="store_true",
         help="Stop submitting/running remaining tasks once any task fails.",
     )
+    return parser
+
+
+def _override_args_from_exp_config(args, exp_cfg: dict):
+    direct_key_map = {
+        "model": "model",
+        "base_config": "base_config",
+        "pair_mode": "pair_mode",
+        "time_bias_type": "time_bias_type",
+        "clear_criterion_for_unmapped_tf": "clear_criterion_for_unmapped_tf",
+        "apply_ref_profile": "apply_ref_profile",
+        "resume_path_override": "resume_path_override",
+        "run_test": "run_test",
+        "ckpt_select": "ckpt_select",
+        "skip_train": "skip_train",
+        "exp_root": "exp_root",
+        "exp_name": "exp_name",
+        "twindow": "twindow",
+        "dt": "dt",
+        "context_len": "context_len",
+        "max_parallel": "max_parallel",
+        "jobs_per_gpu": "jobs_per_gpu",
+        "stop_on_error": "stop_on_error",
+    }
+    csv_like_keys = {
+        "tfs": "tfs",
+        "mfs": "mfs",
+        "seeds": "seeds",
+        "gpu_ids": "gpu_ids",
+    }
+    mapping_like_keys = {
+        "alpha_by_tf": "alpha_by_tf",
+        "time_bias_by_tf": "time_bias_by_tf",
+        "use_sampler_by_tf": "use_sampler_by_tf",
+    }
+    return apply_exp_config_overrides(args, exp_cfg, direct_key_map, csv_like_keys, mapping_like_keys)
+
+
+def main():
+    parser = _build_parser()
     args = parser.parse_args()
+
+    exp_cfg_path = None
+    if args.exp_config:
+        exp_cfg_path = Path(args.exp_config).resolve()
+        exp_cfg = load_exp_config(exp_cfg_path)
+        args = _override_args_from_exp_config(args, exp_cfg)
 
     repo_root = Path(__file__).resolve().parents[1]
     base_config_path = (repo_root / args.base_config).resolve()
     if not base_config_path.exists():
         raise FileNotFoundError(f"Base config not found: {base_config_path}")
 
-    tfs = _parse_csv(args.tfs, int)
-    mfs = _parse_csv(args.mfs, float)
-    seeds = _parse_csv(args.seeds, int)
-    pair_mode = _parse_bool_text(args.pair_mode)
-    clear_criterion_for_unmapped_tf = _parse_bool_text(args.clear_criterion_for_unmapped_tf)
-    apply_ref_profile = _parse_bool_text(args.apply_ref_profile)
+    tfs = parse_csv(args.tfs, int)
+    mfs = parse_csv(args.mfs, float)
+    seeds = parse_csv(args.seeds, int)
+    pair_mode = parse_bool_text(args.pair_mode)
+    clear_criterion_for_unmapped_tf = parse_bool_text(args.clear_criterion_for_unmapped_tf)
+    apply_ref_profile = parse_bool_text(args.apply_ref_profile)
 
     if pair_mode:
         if len(tfs) != len(mfs):
@@ -285,8 +245,9 @@ def main():
     else:
         tf_mf_pairs = [(tf, mf) for tf in tfs for mf in mfs]
 
-    alpha_map = _parse_mapping(args.alpha_by_tf, int, float)
-    time_bias_map = _parse_mapping(args.time_bias_by_tf, int, str)
+    alpha_map = parse_mapping(args.alpha_by_tf, int, float)
+    time_bias_map = parse_mapping(args.time_bias_by_tf, int, str)
+    use_sampler_map = parse_mapping(args.use_sampler_by_tf, int, parse_bool_text)
 
     extra_overrides = {}
     for kv in args.set:
@@ -297,7 +258,6 @@ def main():
 
     exp_root = (repo_root / args.exp_root).resolve()
     exp_root.mkdir(parents=True, exist_ok=True)
-
     if args.exp_name:
         exp_name = args.exp_name
     else:
@@ -309,25 +269,51 @@ def main():
 
     runs_dir = exp_dir / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
+    configs_dir = exp_dir / "configs"
+    configs_dir.mkdir(parents=True, exist_ok=True)
 
-    gpu_ids = _parse_csv(args.gpu_ids, int) if (args.gpu_ids or "").strip() else []
+    base_config_snapshot_path = configs_dir / base_config_path.name
+    shutil.copy2(base_config_path, base_config_snapshot_path)
+
+    exp_config_snapshot_path = None
+    if exp_cfg_path is not None:
+        exp_cfg_name = exp_cfg_path.name
+        if exp_cfg_name == base_config_path.name:
+            exp_cfg_name = f"exp_config_{exp_cfg_name}"
+        exp_config_snapshot_path = configs_dir / exp_cfg_name
+        shutil.copy2(exp_cfg_path, exp_config_snapshot_path)
+
+    gpu_ids = parse_csv(args.gpu_ids, int) if (args.gpu_ids or "").strip() else []
     max_parallel = max(1, int(args.max_parallel))
+    jobs_per_gpu = max(1, int(args.jobs_per_gpu))
     if gpu_ids:
-        max_parallel = min(max_parallel, len(gpu_ids))
+        max_slots = len(gpu_ids) * jobs_per_gpu
+        if max_parallel > max_slots:
+            print(
+                f"[INFO] max_parallel={max_parallel} exceeds GPU slots={max_slots} "
+                f"(len(gpu_ids)={len(gpu_ids)} x jobs_per_gpu={jobs_per_gpu}). "
+                f"Use max_parallel={max_slots}."
+            )
+        max_parallel = min(max_parallel, max_slots)
 
     plan = {
         "model": args.model,
         "base_config": str(base_config_path),
+        "base_config_snapshot": str(base_config_snapshot_path),
+        "exp_config": str(exp_cfg_path) if exp_cfg_path is not None else None,
+        "exp_config_snapshot": str(exp_config_snapshot_path) if exp_config_snapshot_path is not None else None,
         "pair_mode": pair_mode,
         "pairs": [{"Tfore": tf, "Mf": mf} for tf, mf in tf_mf_pairs],
         "seeds": seeds,
         "time_bias_type": args.time_bias_type,
         "time_bias_by_tf": time_bias_map,
+        "use_sampler_by_tf": use_sampler_map,
         "alpha_by_tf": alpha_map,
         "apply_ref_profile": apply_ref_profile,
         "clear_criterion_for_unmapped_tf": clear_criterion_for_unmapped_tf,
         "max_parallel": max_parallel,
         "gpu_ids": gpu_ids,
+        "jobs_per_gpu": jobs_per_gpu,
         "stop_on_error": bool(args.stop_on_error),
         "extra_overrides": extra_overrides,
     }
@@ -354,8 +340,6 @@ def main():
                 cfg.load_specific_parts = ["encoder"]
                 if "mixer_model_config" not in cfg or cfg.mixer_model_config is None:
                     cfg.mixer_model_config = {}
-                cfg.mixer_model_config.n_layer = 3
-                cfg.mixer_model_config.attn_layer_idx = [1]
                 cfg.mlp_dropout = 0.5
                 cfg.mlp_hdw = [128]
                 cfg.use_sampler = True
@@ -364,6 +348,8 @@ def main():
                 cfg.time_bias_type = args.time_bias_type
             if int(tf) in time_bias_map:
                 cfg.time_bias_type = time_bias_map[int(tf)]
+            if int(tf) in use_sampler_map:
+                cfg.use_sampler = bool(use_sampler_map[int(tf)])
 
             if int(tf) in alpha_map:
                 cfg.criterion_name = "focal"
@@ -377,7 +363,7 @@ def main():
                 cfg.pop("criterion_cfg", None)
 
             for key, value in extra_overrides.items():
-                _set_key(cfg, key, value)
+                set_key(cfg, key, value)
 
             cfg_path = run_dir / "config_input.yaml"
             OmegaConf.save(cfg, str(cfg_path))
@@ -400,75 +386,16 @@ def main():
                 }
             )
 
-    summary = []
-    any_failed = False
-
-    if max_parallel == 1:
-        for task in tasks:
-            task_result = _run_single_task(task, args, repo_root)
-            summary.append(task_result)
-            with open(exp_dir / "summary.json", "w", encoding="utf-8") as f:
-                json.dump(summary, f, ensure_ascii=False, indent=2)
-            failed = (task_result.get("train_returncode") not in {None, 0}) or (
-                task_result.get("test_returncode") not in {None, 0}
-            )
-            if failed:
-                any_failed = True
-                if args.stop_on_error:
-                    print(f"[STOP] stop_on_error enabled, failed run: {task_result['run']}")
-                    break
-    else:
-        executor = ThreadPoolExecutor(max_workers=max_parallel)
-        futures = {}
-        running_by_gpu = {}
-        pending = list(tasks)
-        try:
-            while pending or futures:
-                while pending and len(futures) < max_parallel and (not (args.stop_on_error and any_failed)):
-                    task = pending.pop(0)
-                    assigned_gpu = None
-                    if gpu_ids:
-                        for gpu in gpu_ids:
-                            if gpu not in running_by_gpu:
-                                assigned_gpu = gpu
-                                break
-                        if assigned_gpu is None:
-                            break
-                        running_by_gpu[assigned_gpu] = task["run"]
-                    task_submit = dict(task)
-                    if assigned_gpu is not None:
-                        task_submit["cuda_id"] = int(assigned_gpu)
-                    future = executor.submit(_run_single_task, task_submit, args, repo_root)
-                    futures[future] = assigned_gpu
-
-                if not futures:
-                    continue
-
-                finished_future = None
-                for future in as_completed(list(futures.keys()), timeout=None):
-                    finished_future = future
-                    break
-                if finished_future is None:
-                    continue
-
-                gpu = futures.pop(finished_future)
-                if gpu is not None and gpu in running_by_gpu:
-                    running_by_gpu.pop(gpu, None)
-
-                task_result = finished_future.result()
-                summary.append(task_result)
-                with open(exp_dir / "summary.json", "w", encoding="utf-8") as f:
-                    json.dump(summary, f, ensure_ascii=False, indent=2)
-
-                failed = (task_result.get("train_returncode") not in {None, 0}) or (
-                    task_result.get("test_returncode") not in {None, 0}
-                )
-                if failed:
-                    any_failed = True
-                    if args.stop_on_error:
-                        print(f"[STOP] stop_on_error enabled, failed run: {task_result['run']}")
-        finally:
-            executor.shutdown(wait=True)
+    execute_tasks(
+        tasks=tasks,
+        args=args,
+        repo_root=repo_root,
+        exp_dir=exp_dir,
+        gpu_ids=gpu_ids,
+        max_parallel=max_parallel,
+        jobs_per_gpu=jobs_per_gpu,
+        stop_on_error=bool(args.stop_on_error),
+    )
 
     print(f"\nDone. Experiment folder: {exp_dir}")
     print(f"Runs folder: {runs_dir}")

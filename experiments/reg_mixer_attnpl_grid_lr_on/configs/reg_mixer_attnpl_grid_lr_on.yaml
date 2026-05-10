@@ -1,0 +1,43 @@
+model: reg_mixer_attnpl_t
+base_config: config/reg_mixer_attnpl_t.yaml
+
+# 结构差异：注意力层放在第2/3层（0-based -> [1], [2]）
+attn_layers: [1, 2]
+
+# 预训练加载策略对比：
+# - none: 不加载预训练
+# - load_3: 同时 selective load 到 input_layer + layer0 + layer1
+# - load_l1: selective load 到第1层 + input_proj
+# - load_l2: selective load 到第2层 + input_proj
+load_strategies:
+  none: none
+  load_l1: layer0_input
+  load_l2: layer1_input
+  load_3: input_layer0_layer1
+
+seeds: [0, 1, 2]
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 6
+jobs_per_gpu: 6
+stop_on_error: false
+
+# 输出目录
+exp_root: experiments
+exp_name: reg_mixer_attnpl_grid_lr_on
+
+# 可选：训练后自动测试
+run_test: true
+ckpt_select: both
+resume_exp: true
+skip_done: true
+
+
+# skip_train: true
+
+# 额外覆盖（dotted key）
+# B组：开启分组学习率（encoder 参数组单独更小 lr）
+set:
+  learning_rate: 0.001
+  encoder_learning_rate: 0.0004

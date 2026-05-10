@@ -1,0 +1,57 @@
+{
+  "model": "clf_mixer_attnpl_t",
+  "base_config": "/root/autodl-tmp/em_eqf/config/clf_mixer_attnpl_t.yaml",
+  "base_config_snapshot": "/root/autodl-tmp/em_eqf/experiments/clf_grid_4/configs/clf_mixer_attnpl_t.yaml",
+  "exp_config": "/root/autodl-tmp/em_eqf/config/experiments/clf_mf_tf_grid.yaml",
+  "exp_config_snapshot": "/root/autodl-tmp/em_eqf/experiments/clf_grid_4/configs/clf_mf_tf_grid.yaml",
+  "pair_mode": true,
+  "pairs": [
+    {
+      "Tfore": 10,
+      "Mf": 4.0
+    },
+    {
+      "Tfore": 20,
+      "Mf": 4.5
+    },
+    {
+      "Tfore": 30,
+      "Mf": 4.5
+    },
+    {
+      "Tfore": 60,
+      "Mf": 5.0
+    },
+    {
+      "Tfore": 90,
+      "Mf": 5.5
+    }
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "time_bias_type": null,
+  "time_bias_by_tf": {},
+  "use_sampler_by_tf": {
+    "10": true,
+    "90": true
+  },
+  "alpha_by_tf": {
+    "10": 0.5,
+    "20": 0.25,
+    "30": 0.5,
+    "60": 0.5,
+    "90": 0.25
+  },
+  "apply_ref_profile": false,
+  "clear_criterion_for_unmapped_tf": true,
+  "max_parallel": 3,
+  "gpu_ids": [
+    0
+  ],
+  "jobs_per_gpu": 3,
+  "stop_on_error": false,
+  "extra_overrides": {}
+}

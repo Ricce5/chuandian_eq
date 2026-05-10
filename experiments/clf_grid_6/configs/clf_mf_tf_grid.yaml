@@ -1,0 +1,56 @@
+model: clf_mixer_attnpl_t
+base_config: config/clf_mixer_attnpl_t.yaml
+
+# 推荐：pair_mode=true 时，tfs 和 mfs 一一对应
+pair_mode: true
+tfs: [10, 20, 30, 60, 90]
+mfs: [4, 4.5, 4.5, 5, 5.5]
+seeds: [0, 1, 2]
+
+# 数据窗口参数
+twindow: 180
+dt: 10
+context_len: 1
+
+# 参考 profile（来自已有实验）
+apply_ref_profile: false
+# resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+clear_criterion_for_unmapped_tf: true
+alpha_by_tf:
+  10: 0.5
+  20: 0.25
+  30: 0.5
+  60: 0.5
+  90: 0.25
+# time_bias_by_tf:
+#   90: linear
+
+use_sampler_by_tf: 
+  10: true
+  90: true
+
+# 可选全局 time bias，若与 time_bias_by_tf 冲突，后者优先
+# time_bias_type: log
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 3
+jobs_per_gpu: 3
+stop_on_error: false
+
+# 输出目录
+exp_root: experiments
+exp_name: clf_grid_6
+
+# 可选：训练后自动测试
+run_test: true
+ckpt_select: best
+
+# 可选：只生成配置不训练
+# skip_train: true
+
+# 额外覆盖（dotted key）
+# set:
+#   mixer_model_config.n_layer: 3
+#   mixer_model_config.attn_layer_idx: [1]
+#   use_sampler: true
