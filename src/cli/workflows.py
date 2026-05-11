@@ -28,7 +28,10 @@ def load_resume_checkpoint(args, device):
 
 def run_train(args_cli, args, device):
     config_path = f"{args.save_dir}/config.yaml"
-    shutil.copy(args_cli.config, config_path)
+    src_cfg = os.path.abspath(str(args_cli.config))
+    dst_cfg = os.path.abspath(config_path)
+    if src_cfg != dst_cfg:
+        shutil.copy(args_cli.config, config_path)
     writer = SummaryWriter(log_dir=os.path.join(args.save_dir, "tensorboard"))
     try:
         _train_step, _df, train_loader, val_loader, _test_loader = get_model_and_data(args, f"data/{args.dataset}", device)
@@ -117,4 +120,3 @@ def run_test(args_cli, args, device):
     metrics_name = build_metrics_filename(args_cli)
     save_metrics(args.save_dir, metrics_name, metrics)
     torch.cuda.empty_cache()
-

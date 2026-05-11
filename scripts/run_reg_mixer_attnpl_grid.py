@@ -323,7 +323,7 @@ def _build_tasks_matrix_mode(
                 for key, value in extra_overrides.items():
                     set_key(cfg, key, value)
 
-                cfg_path = run_dir / "config_input.yaml"
+                cfg_path = run_dir / "config.yaml"
                 OmegaConf.save(cfg, str(cfg_path))
 
                 skip_reason = None
@@ -413,7 +413,7 @@ def _build_tasks_variant_mode(
             for key, value in extra_overrides.items():
                 set_key(cfg, key, value)
 
-            cfg_path = run_dir / "config_input.yaml"
+            cfg_path = run_dir / "config.yaml"
             OmegaConf.save(cfg, str(cfg_path))
 
             skip_reason = None

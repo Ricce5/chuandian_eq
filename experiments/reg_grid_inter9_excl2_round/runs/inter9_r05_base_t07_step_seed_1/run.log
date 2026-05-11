@@ -1,0 +1,393 @@
+2026-05-11 13:24:59,215 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-11 13:24:59,941 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-11 13:25:02,181 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-11 13:25:02,237 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-11 13:25:02,239 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260506-113707/last_model_1.pth
+2026-05-11 13:25:03,371 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-11 13:25:03,371 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-11 13:25:03,379 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-11 13:25:03,380 INFO src.train.config_setup: Loading model weights: load_specific_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-11 13:25:03,382 INFO src.train.config_setup: Selective load summary: requested_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1'], target_in_model=32, matched_in_checkpoint=28, loaded=28, missing_after_load=4, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
+2026-05-11 13:25:03,382 INFO src.train.config_setup: Selective load coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-11 13:25:03,382 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.0]: target=14, hit=12, missing=2, complete=False
+2026-05-11 13:25:03,382 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.0]: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
+2026-05-11 13:25:03,382 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.1]: target=14, hit=12, missing=2, complete=False
+2026-05-11 13:25:03,382 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.1]: ['base_model.encoder.layers.1.mixer.conv1d.bias', 'base_model.encoder.layers.1.mixer.conv1d.weight']
+2026-05-11 13:25:03,382 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight', 'base_model.encoder.layers.1.mixer.conv1d.bias', 'base_model.encoder.layers.1.mixer.conv1d.weight']
+2026-05-11 13:25:03,382 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight', 'base_model.encoder.layers.1.mixer.conv1d.bias', 'base_model.encoder.layers.1.mixer.conv1d.weight']
+2026-05-11 13:25:03,382 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.input_proj.0.bias', 'base_model.encoder.layers.1.mixer.norm.weight', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.layers.1.mixer.A_log', 'base_model.encoder.layers.1.norm2.weight', 'base_model.encoder.layers.1.mixer.out_proj.weight', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight', 'base_model.encoder.layers.0.mixer.norm.weight', 'base_model.encoder.layers.1.norm.weight'] ... (+18 more)
+2026-05-11 13:25:03,383 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-11 13:25:03,384 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-11 13:25:03,384 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-11 13:25:03,384 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-11 13:25:03,384 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-11 13:25:03,384 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-11 13:25:03,385 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-11 13:25:03,385 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=32
+2026-05-11 13:25:03,385 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-11 13:25:03,385 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-11 13:25:03,385 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-11 13:25:03,385 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-11 13:25:03,386 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-11 13:25:03,387 INFO src.train.trainer: Epoch 1
+2026-05-11 13:25:19,784 INFO src.train.trainer: New best validation loss: 0.2711, saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/best_model_1.pth
+2026-05-11 13:25:19,792 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:19,792 INFO src.train.trainer: Epoch 2
+2026-05-11 13:25:21,746 INFO src.train.trainer: New best validation loss: 0.0906, saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/best_model_1.pth
+2026-05-11 13:25:21,757 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:21,757 INFO src.train.trainer: Epoch 3
+2026-05-11 13:25:23,794 INFO src.train.trainer: New best validation loss: 0.0352, saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/best_model_1.pth
+2026-05-11 13:25:23,807 INFO src.train.trainer: Last model at epoch 3 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:23,807 INFO src.train.trainer: Epoch 4
+2026-05-11 13:25:25,935 INFO src.train.trainer: Last model at epoch 4 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:25,935 INFO src.train.trainer: Epoch 5
+2026-05-11 13:25:28,140 INFO src.train.trainer: New best validation loss: 0.0301, saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/best_model_1.pth
+2026-05-11 13:25:28,153 INFO src.train.trainer: Last model at epoch 5 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:28,153 INFO src.train.trainer: Epoch 6
+2026-05-11 13:25:29,865 INFO src.train.trainer: New best validation loss: 0.0299, saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/best_model_1.pth
+2026-05-11 13:25:29,875 INFO src.train.trainer: Last model at epoch 6 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:29,875 INFO src.train.trainer: Epoch 7
+2026-05-11 13:25:31,740 INFO src.train.trainer: Last model at epoch 7 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:31,741 INFO src.train.trainer: Epoch 8
+2026-05-11 13:25:33,635 INFO src.train.trainer: Last model at epoch 8 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:33,635 INFO src.train.trainer: Epoch 9
+2026-05-11 13:25:35,664 INFO src.train.trainer: Last model at epoch 9 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:35,665 INFO src.train.trainer: Epoch 10
+2026-05-11 13:25:37,824 INFO src.train.trainer: Last model at epoch 10 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:37,825 INFO src.train.trainer: Epoch 11
+2026-05-11 13:25:39,945 INFO src.train.trainer: Last model at epoch 11 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:39,945 INFO src.train.trainer: Epoch 12
+2026-05-11 13:25:42,255 INFO src.train.trainer: Last model at epoch 12 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:42,256 INFO src.train.trainer: Epoch 13
+2026-05-11 13:25:44,353 INFO src.train.trainer: Last model at epoch 13 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:44,353 INFO src.train.trainer: Epoch 14
+2026-05-11 13:25:46,546 INFO src.train.trainer: Last model at epoch 14 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:46,546 INFO src.train.trainer: Epoch 15
+2026-05-11 13:25:48,617 INFO src.train.trainer: Last model at epoch 15 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:48,617 INFO src.train.trainer: Epoch 16
+2026-05-11 13:25:50,704 INFO src.train.trainer: Last model at epoch 16 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:50,705 INFO src.train.trainer: Epoch 17
+2026-05-11 13:25:52,813 INFO src.train.trainer: Last model at epoch 17 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:52,813 INFO src.train.trainer: Epoch 18
+2026-05-11 13:25:54,767 INFO src.train.trainer: Last model at epoch 18 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:54,767 INFO src.train.trainer: Epoch 19
+2026-05-11 13:25:56,879 INFO src.train.trainer: Last model at epoch 19 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:56,880 INFO src.train.trainer: Epoch 20
+2026-05-11 13:25:58,870 INFO src.train.trainer: Last model at epoch 20 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:25:58,871 INFO src.train.trainer: Epoch 21
+2026-05-11 13:26:00,741 INFO src.train.trainer: Last model at epoch 21 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:00,741 INFO src.train.trainer: Epoch 22
+2026-05-11 13:26:02,849 INFO src.train.trainer: Last model at epoch 22 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:02,849 INFO src.train.trainer: Epoch 23
+2026-05-11 13:26:04,987 INFO src.train.trainer: Last model at epoch 23 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:04,987 INFO src.train.trainer: Epoch 24
+2026-05-11 13:26:07,122 INFO src.train.trainer: Last model at epoch 24 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:07,122 INFO src.train.trainer: Epoch 25
+2026-05-11 13:26:08,881 INFO src.train.trainer: Last model at epoch 25 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:08,881 INFO src.train.trainer: Epoch 26
+2026-05-11 13:26:11,103 INFO src.train.trainer: Last model at epoch 26 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:11,103 INFO src.train.trainer: Epoch 27
+2026-05-11 13:26:13,190 INFO src.train.trainer: Last model at epoch 27 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:13,190 INFO src.train.trainer: Epoch 28
+2026-05-11 13:26:15,351 INFO src.train.trainer: Last model at epoch 28 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:15,351 INFO src.train.trainer: Epoch 29
+2026-05-11 13:26:17,579 INFO src.train.trainer: Last model at epoch 29 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:17,580 INFO src.train.trainer: Epoch 30
+2026-05-11 13:26:19,722 INFO src.train.trainer: Last model at epoch 30 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:19,722 INFO src.train.trainer: Epoch 31
+2026-05-11 13:26:21,830 INFO src.train.trainer: Last model at epoch 31 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:21,830 INFO src.train.trainer: Epoch 32
+2026-05-11 13:26:24,009 INFO src.train.trainer: Last model at epoch 32 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:24,009 INFO src.train.trainer: Epoch 33
+2026-05-11 13:26:26,224 INFO src.train.trainer: Last model at epoch 33 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:26,225 INFO src.train.trainer: Epoch 34
+2026-05-11 13:26:28,515 INFO src.train.trainer: Last model at epoch 34 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:28,516 INFO src.train.trainer: Epoch 35
+2026-05-11 13:26:30,668 INFO src.train.trainer: Last model at epoch 35 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:30,668 INFO src.train.trainer: Epoch 36
+2026-05-11 13:26:32,835 INFO src.train.trainer: Last model at epoch 36 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:32,835 INFO src.train.trainer: Epoch 37
+2026-05-11 13:26:35,036 INFO src.train.trainer: Last model at epoch 37 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:35,037 INFO src.train.trainer: Epoch 38
+2026-05-11 13:26:37,067 INFO src.train.trainer: Last model at epoch 38 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:37,067 INFO src.train.trainer: Epoch 39
+2026-05-11 13:26:39,036 INFO src.train.trainer: Last model at epoch 39 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:39,036 INFO src.train.trainer: Epoch 40
+2026-05-11 13:26:41,089 INFO src.train.trainer: Last model at epoch 40 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:41,089 INFO src.train.trainer: Epoch 41
+2026-05-11 13:26:43,146 INFO src.train.trainer: Last model at epoch 41 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:43,146 INFO src.train.trainer: Epoch 42
+2026-05-11 13:26:45,276 INFO src.train.trainer: Last model at epoch 42 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:45,276 INFO src.train.trainer: Epoch 43
+2026-05-11 13:26:47,380 INFO src.train.trainer: Last model at epoch 43 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:47,380 INFO src.train.trainer: Epoch 44
+2026-05-11 13:26:49,277 INFO src.train.trainer: Last model at epoch 44 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:49,277 INFO src.train.trainer: Epoch 45
+2026-05-11 13:26:51,250 INFO src.train.trainer: Last model at epoch 45 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:51,251 INFO src.train.trainer: Epoch 46
+2026-05-11 13:26:53,165 INFO src.train.trainer: Last model at epoch 46 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:53,165 INFO src.train.trainer: Epoch 47
+2026-05-11 13:26:55,154 INFO src.train.trainer: Last model at epoch 47 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:55,155 INFO src.train.trainer: Epoch 48
+2026-05-11 13:26:57,127 INFO src.train.trainer: Last model at epoch 48 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:57,127 INFO src.train.trainer: Epoch 49
+2026-05-11 13:26:58,935 INFO src.train.trainer: Last model at epoch 49 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:26:58,935 INFO src.train.trainer: Epoch 50
+2026-05-11 13:27:01,048 INFO src.train.trainer: Last model at epoch 50 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:01,049 INFO src.train.trainer: Epoch 51
+2026-05-11 13:27:03,090 INFO src.train.trainer: Last model at epoch 51 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:03,091 INFO src.train.trainer: Epoch 52
+2026-05-11 13:27:05,009 INFO src.train.trainer: Last model at epoch 52 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:05,009 INFO src.train.trainer: Epoch 53
+2026-05-11 13:27:07,223 INFO src.train.trainer: Last model at epoch 53 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:07,224 INFO src.train.trainer: Epoch 54
+2026-05-11 13:27:09,067 INFO src.train.trainer: Last model at epoch 54 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:09,067 INFO src.train.trainer: Epoch 55
+2026-05-11 13:27:10,857 INFO src.train.trainer: Last model at epoch 55 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:10,857 INFO src.train.trainer: Epoch 56
+2026-05-11 13:27:12,653 INFO src.train.trainer: Last model at epoch 56 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:12,653 INFO src.train.trainer: Epoch 57
+2026-05-11 13:27:14,455 INFO src.train.trainer: Last model at epoch 57 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:14,456 INFO src.train.trainer: Epoch 58
+2026-05-11 13:27:16,207 INFO src.train.trainer: Last model at epoch 58 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:16,207 INFO src.train.trainer: Epoch 59
+2026-05-11 13:27:18,247 INFO src.train.trainer: Last model at epoch 59 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:18,247 INFO src.train.trainer: Epoch 60
+2026-05-11 13:27:20,229 INFO src.train.trainer: Last model at epoch 60 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:20,236 INFO src.train.trainer: Saved epoch 60 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/epoch_60_model_1.pth
+2026-05-11 13:27:20,236 INFO src.train.trainer: Epoch 61
+2026-05-11 13:27:22,067 INFO src.train.trainer: Last model at epoch 61 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:22,067 INFO src.train.trainer: Epoch 62
+2026-05-11 13:27:24,063 INFO src.train.trainer: Last model at epoch 62 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:24,063 INFO src.train.trainer: Epoch 63
+2026-05-11 13:27:26,009 INFO src.train.trainer: Last model at epoch 63 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:26,009 INFO src.train.trainer: Epoch 64
+2026-05-11 13:27:28,005 INFO src.train.trainer: Last model at epoch 64 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:28,005 INFO src.train.trainer: Epoch 65
+2026-05-11 13:27:29,664 INFO src.train.trainer: Last model at epoch 65 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:29,665 INFO src.train.trainer: Epoch 66
+2026-05-11 13:27:31,322 INFO src.train.trainer: Last model at epoch 66 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:31,322 INFO src.train.trainer: Epoch 67
+2026-05-11 13:27:33,006 INFO src.train.trainer: Last model at epoch 67 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:33,007 INFO src.train.trainer: Epoch 68
+2026-05-11 13:27:35,019 INFO src.train.trainer: Last model at epoch 68 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:35,020 INFO src.train.trainer: Epoch 69
+2026-05-11 13:27:37,008 INFO src.train.trainer: Last model at epoch 69 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:37,008 INFO src.train.trainer: Epoch 70
+2026-05-11 13:27:38,698 INFO src.train.trainer: Last model at epoch 70 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:38,699 INFO src.train.trainer: Epoch 71
+2026-05-11 13:27:40,658 INFO src.train.trainer: Last model at epoch 71 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:40,659 INFO src.train.trainer: Epoch 72
+2026-05-11 13:27:42,436 INFO src.train.trainer: Last model at epoch 72 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:42,436 INFO src.train.trainer: Epoch 73
+2026-05-11 13:27:44,272 INFO src.train.trainer: Last model at epoch 73 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:44,272 INFO src.train.trainer: Epoch 74
+2026-05-11 13:27:46,241 INFO src.train.trainer: Last model at epoch 74 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:46,241 INFO src.train.trainer: Epoch 75
+2026-05-11 13:27:48,121 INFO src.train.trainer: Last model at epoch 75 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:48,121 INFO src.train.trainer: Epoch 76
+2026-05-11 13:27:50,163 INFO src.train.trainer: Last model at epoch 76 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:50,163 INFO src.train.trainer: Epoch 77
+2026-05-11 13:27:52,243 INFO src.train.trainer: Last model at epoch 77 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:52,243 INFO src.train.trainer: Epoch 78
+2026-05-11 13:27:54,143 INFO src.train.trainer: Last model at epoch 78 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:54,144 INFO src.train.trainer: Epoch 79
+2026-05-11 13:27:55,953 INFO src.train.trainer: Last model at epoch 79 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:55,954 INFO src.train.trainer: Epoch 80
+2026-05-11 13:27:57,861 INFO src.train.trainer: Last model at epoch 80 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:57,870 INFO src.train.trainer: Saved epoch 80 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/epoch_80_model_1.pth
+2026-05-11 13:27:57,870 INFO src.train.trainer: Epoch 81
+2026-05-11 13:27:59,867 INFO src.train.trainer: Last model at epoch 81 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:27:59,867 INFO src.train.trainer: Epoch 82
+2026-05-11 13:28:02,047 INFO src.train.trainer: Last model at epoch 82 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:02,047 INFO src.train.trainer: Epoch 83
+2026-05-11 13:28:04,036 INFO src.train.trainer: Last model at epoch 83 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:04,036 INFO src.train.trainer: Epoch 84
+2026-05-11 13:28:06,025 INFO src.train.trainer: Last model at epoch 84 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:06,026 INFO src.train.trainer: Epoch 85
+2026-05-11 13:28:08,073 INFO src.train.trainer: Last model at epoch 85 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:08,073 INFO src.train.trainer: Epoch 86
+2026-05-11 13:28:09,899 INFO src.train.trainer: Last model at epoch 86 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:09,899 INFO src.train.trainer: Epoch 87
+2026-05-11 13:28:12,105 INFO src.train.trainer: Last model at epoch 87 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:12,105 INFO src.train.trainer: Epoch 88
+2026-05-11 13:28:13,983 INFO src.train.trainer: Last model at epoch 88 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:13,983 INFO src.train.trainer: Epoch 89
+2026-05-11 13:28:15,853 INFO src.train.trainer: Last model at epoch 89 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:15,853 INFO src.train.trainer: Epoch 90
+2026-05-11 13:28:17,572 INFO src.train.trainer: Last model at epoch 90 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:17,572 INFO src.train.trainer: Epoch 91
+2026-05-11 13:28:19,397 INFO src.train.trainer: Last model at epoch 91 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:19,397 INFO src.train.trainer: Epoch 92
+2026-05-11 13:28:21,627 INFO src.train.trainer: Last model at epoch 92 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:21,628 INFO src.train.trainer: Epoch 93
+2026-05-11 13:28:23,687 INFO src.train.trainer: Last model at epoch 93 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:23,687 INFO src.train.trainer: Epoch 94
+2026-05-11 13:28:25,651 INFO src.train.trainer: Last model at epoch 94 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:25,652 INFO src.train.trainer: Epoch 95
+2026-05-11 13:28:27,710 INFO src.train.trainer: Last model at epoch 95 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:27,711 INFO src.train.trainer: Epoch 96
+2026-05-11 13:28:29,380 INFO src.train.trainer: Last model at epoch 96 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:29,380 INFO src.train.trainer: Epoch 97
+2026-05-11 13:28:31,273 INFO src.train.trainer: Last model at epoch 97 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:31,274 INFO src.train.trainer: Epoch 98
+2026-05-11 13:28:33,033 INFO src.train.trainer: Last model at epoch 98 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:33,033 INFO src.train.trainer: Epoch 99
+2026-05-11 13:28:34,928 INFO src.train.trainer: Last model at epoch 99 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:34,928 INFO src.train.trainer: Epoch 100
+2026-05-11 13:28:37,207 INFO src.train.trainer: Last model at epoch 100 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:37,214 INFO src.train.trainer: Saved epoch 100 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/epoch_100_model_1.pth
+2026-05-11 13:28:37,214 INFO src.train.trainer: Epoch 101
+2026-05-11 13:28:39,120 INFO src.train.trainer: Last model at epoch 101 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:39,120 INFO src.train.trainer: Epoch 102
+2026-05-11 13:28:41,041 INFO src.train.trainer: Last model at epoch 102 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:41,041 INFO src.train.trainer: Epoch 103
+2026-05-11 13:28:43,057 INFO src.train.trainer: Last model at epoch 103 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:43,057 INFO src.train.trainer: Epoch 104
+2026-05-11 13:28:44,802 INFO src.train.trainer: Last model at epoch 104 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:44,803 INFO src.train.trainer: Epoch 105
+2026-05-11 13:28:46,837 INFO src.train.trainer: Last model at epoch 105 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:46,838 INFO src.train.trainer: Epoch 106
+2026-05-11 13:28:48,723 INFO src.train.trainer: Last model at epoch 106 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:48,723 INFO src.train.trainer: Epoch 107
+2026-05-11 13:28:50,603 INFO src.train.trainer: Last model at epoch 107 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:50,603 INFO src.train.trainer: Epoch 108
+2026-05-11 13:28:52,354 INFO src.train.trainer: Last model at epoch 108 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:52,354 INFO src.train.trainer: Epoch 109
+2026-05-11 13:28:54,251 INFO src.train.trainer: Last model at epoch 109 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:54,252 INFO src.train.trainer: Epoch 110
+2026-05-11 13:28:56,152 INFO src.train.trainer: Last model at epoch 110 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:56,152 INFO src.train.trainer: Epoch 111
+2026-05-11 13:28:58,332 INFO src.train.trainer: Last model at epoch 111 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:28:58,332 INFO src.train.trainer: Epoch 112
+2026-05-11 13:29:00,585 INFO src.train.trainer: Last model at epoch 112 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:00,585 INFO src.train.trainer: Epoch 113
+2026-05-11 13:29:02,511 INFO src.train.trainer: Last model at epoch 113 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:02,511 INFO src.train.trainer: Epoch 114
+2026-05-11 13:29:04,555 INFO src.train.trainer: Last model at epoch 114 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:04,555 INFO src.train.trainer: Epoch 115
+2026-05-11 13:29:06,616 INFO src.train.trainer: Last model at epoch 115 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:06,617 INFO src.train.trainer: Epoch 116
+2026-05-11 13:29:08,387 INFO src.train.trainer: Last model at epoch 116 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:08,388 INFO src.train.trainer: Epoch 117
+2026-05-11 13:29:10,219 INFO src.train.trainer: Last model at epoch 117 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:10,219 INFO src.train.trainer: Epoch 118
+2026-05-11 13:29:11,883 INFO src.train.trainer: Last model at epoch 118 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:11,884 INFO src.train.trainer: Epoch 119
+2026-05-11 13:29:13,556 INFO src.train.trainer: Last model at epoch 119 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:13,556 INFO src.train.trainer: Epoch 120
+2026-05-11 13:29:15,127 INFO src.train.trainer: Last model at epoch 120 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:15,137 INFO src.train.trainer: Saved epoch 120 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/epoch_120_model_1.pth
+2026-05-11 13:29:15,137 INFO src.train.trainer: Epoch 121
+2026-05-11 13:29:16,876 INFO src.train.trainer: Last model at epoch 121 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:16,876 INFO src.train.trainer: Epoch 122
+2026-05-11 13:29:18,623 INFO src.train.trainer: Last model at epoch 122 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:18,623 INFO src.train.trainer: Epoch 123
+2026-05-11 13:29:20,601 INFO src.train.trainer: Last model at epoch 123 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:20,601 INFO src.train.trainer: Epoch 124
+2026-05-11 13:29:22,789 INFO src.train.trainer: Last model at epoch 124 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:22,789 INFO src.train.trainer: Epoch 125
+2026-05-11 13:29:24,921 INFO src.train.trainer: Last model at epoch 125 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:24,922 INFO src.train.trainer: Epoch 126
+2026-05-11 13:29:27,247 INFO src.train.trainer: Last model at epoch 126 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:27,247 INFO src.train.trainer: Epoch 127
+2026-05-11 13:29:29,221 INFO src.train.trainer: Last model at epoch 127 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:29,222 INFO src.train.trainer: Epoch 128
+2026-05-11 13:29:31,133 INFO src.train.trainer: Last model at epoch 128 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:31,133 INFO src.train.trainer: Epoch 129
+2026-05-11 13:29:33,202 INFO src.train.trainer: Last model at epoch 129 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:33,202 INFO src.train.trainer: Epoch 130
+2026-05-11 13:29:35,063 INFO src.train.trainer: Last model at epoch 130 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:35,064 INFO src.train.trainer: Epoch 131
+2026-05-11 13:29:36,985 INFO src.train.trainer: Last model at epoch 131 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:36,985 INFO src.train.trainer: Epoch 132
+2026-05-11 13:29:38,785 INFO src.train.trainer: Last model at epoch 132 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:38,785 INFO src.train.trainer: Epoch 133
+2026-05-11 13:29:40,627 INFO src.train.trainer: Last model at epoch 133 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:40,627 INFO src.train.trainer: Epoch 134
+2026-05-11 13:29:42,224 INFO src.train.trainer: Last model at epoch 134 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:42,225 INFO src.train.trainer: Epoch 135
+2026-05-11 13:29:43,895 INFO src.train.trainer: Last model at epoch 135 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:43,896 INFO src.train.trainer: Epoch 136
+2026-05-11 13:29:45,897 INFO src.train.trainer: Last model at epoch 136 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:45,898 INFO src.train.trainer: Epoch 137
+2026-05-11 13:29:47,940 INFO src.train.trainer: Last model at epoch 137 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:47,940 INFO src.train.trainer: Epoch 138
+2026-05-11 13:29:50,105 INFO src.train.trainer: Last model at epoch 138 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:50,106 INFO src.train.trainer: Epoch 139
+2026-05-11 13:29:52,087 INFO src.train.trainer: Last model at epoch 139 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:52,087 INFO src.train.trainer: Epoch 140
+2026-05-11 13:29:54,014 INFO src.train.trainer: Last model at epoch 140 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:54,023 INFO src.train.trainer: Saved epoch 140 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/epoch_140_model_1.pth
+2026-05-11 13:29:54,024 INFO src.train.trainer: Epoch 141
+2026-05-11 13:29:55,839 INFO src.train.trainer: Last model at epoch 141 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:55,840 INFO src.train.trainer: Epoch 142
+2026-05-11 13:29:57,591 INFO src.train.trainer: Last model at epoch 142 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:57,591 INFO src.train.trainer: Epoch 143
+2026-05-11 13:29:59,286 INFO src.train.trainer: Last model at epoch 143 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:29:59,286 INFO src.train.trainer: Epoch 144
+2026-05-11 13:30:01,084 INFO src.train.trainer: Last model at epoch 144 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:01,085 INFO src.train.trainer: Epoch 145
+2026-05-11 13:30:02,767 INFO src.train.trainer: Last model at epoch 145 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:02,767 INFO src.train.trainer: Epoch 146
+2026-05-11 13:30:04,451 INFO src.train.trainer: Last model at epoch 146 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:04,451 INFO src.train.trainer: Epoch 147
+2026-05-11 13:30:06,143 INFO src.train.trainer: Last model at epoch 147 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:06,143 INFO src.train.trainer: Epoch 148
+2026-05-11 13:30:08,349 INFO src.train.trainer: Last model at epoch 148 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:08,350 INFO src.train.trainer: Epoch 149
+2026-05-11 13:30:10,502 INFO src.train.trainer: Last model at epoch 149 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:10,502 INFO src.train.trainer: Epoch 150
+2026-05-11 13:30:12,517 INFO src.train.trainer: Last model at epoch 150 saved to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/last_model_1.pth
+2026-05-11 13:30:22,100 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-11 13:30:23,017 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-11 13:30:25,186 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-11 13:30:25,225 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-11 13:30:26,016 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-11 13:30:26,016 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-11 13:30:26,023 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-11 13:30:26,024 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-11 13:30:26,025 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-11 13:30:26,025 INFO src.train.config_setup: Full load summary: loaded=68, missing=0, unexpected=0
+2026-05-11 13:30:26,026 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-11 13:30:26,026 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-11 13:30:26,026 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-11 13:30:26,026 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-11 13:30:26,027 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-11 13:30:26,027 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-11 13:30:26,028 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-11 13:30:26,028 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=32
+2026-05-11 13:30:26,028 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-11 13:30:26,028 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-11 13:30:26,028 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-11 13:30:26,028 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-11 13:30:26,029 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-11 13:30:31,875 INFO src.cli.workflows: Test loss: 0.02975406125187874
+2026-05-11 13:30:34,120 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/metrics_test_best_1.json
+2026-05-11 13:30:34,120 INFO src.cli.common: Metrics: {'RMSE': 0.8160231103358011, 'MAE': 0.7061309897508777, 'MSE': 0.6658937166021149, 'MAPE': 15.383059428677528, 'R2': -0.989912692110535, 'PearsonR': 0.009862825372615444, 'PearsonR_diff': 0.04440463606257193, 'DA': 0.03296703296703297, 'SpearmanR': 0.02110104818549948, 'SpearmanR_diff': -0.03921160616449654, 'DTW': 126.71225050091743, 'DTW_normalized': 0.6924166694039204}
+2026-05-11 13:30:43,544 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-11 13:30:44,324 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-11 13:30:46,504 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-11 13:30:46,544 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-11 13:30:47,348 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-11 13:30:47,348 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-11 13:30:47,354 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-11 13:30:47,355 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-11 13:30:47,356 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-11 13:30:47,357 INFO src.train.config_setup: Full load summary: loaded=68, missing=0, unexpected=0
+2026-05-11 13:30:47,357 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-11 13:30:47,358 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-11 13:30:47,358 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-11 13:30:47,358 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-11 13:30:47,358 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-11 13:30:47,358 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-11 13:30:47,359 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-11 13:30:47,359 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=32
+2026-05-11 13:30:47,359 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-11 13:30:47,359 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-11 13:30:47,359 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-11 13:30:47,359 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-11 13:30:47,360 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-11 13:30:53,272 INFO src.cli.workflows: Test loss: 0.033922066912055016
+2026-05-11 13:30:55,512 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_grid_inter9_excl2_round/runs/inter9_r05_base_t07_step_seed_1/metrics_test_last_1.json
+2026-05-11 13:30:55,512 INFO src.cli.common: Metrics: {'RMSE': 0.7968190841338947, 'MAE': 0.6683346379975803, 'MSE': 0.6349206528399788, 'MAPE': 14.048223265759507, 'R2': -0.8973548391721942, 'PearsonR': -0.2170273996719021, 'PearsonR_diff': 0.1872542329047563, 'DA': 0.04395604395604396, 'SpearmanR': -0.2096076586223316, 'SpearmanR_diff': 0.07897129551636951, 'DTW': 76.79179260134697, 'DTW_normalized': 0.4196272819745736}

@@ -12,6 +12,7 @@ import argparse
 import csv
 import json
 import math
+import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -31,6 +32,7 @@ DEFAULT_METRIC_KEYS = (
     "DTW",
     "DTW_normalized",
 )
+SEED_SUFFIX_PATTERN = re.compile(r"^(?P<base>.+)_seed_(?P<seed>\d+)$")
 
 
 def _lookup_metric_value(metrics: Dict, metric_name: str):
@@ -54,6 +56,30 @@ def _resolve_best_metric_name(rows: Sequence[Dict], metric_name: str) -> str:
         if str(key).lower() == metric_name_lower:
             return str(key)
     return metric_name
+
+
+def _split_seed_suffix(run_name: str) -> Tuple[str, Optional[int]]:
+    text = str(run_name or "")
+    matched = SEED_SUFFIX_PATTERN.match(text)
+    if not matched:
+        return text, None
+    base = matched.group("base")
+    try:
+        seed_val = int(matched.group("seed"))
+    except (TypeError, ValueError):
+        seed_val = None
+    return base, seed_val
+
+
+def _resolve_group_key(row: Dict) -> Optional[Tuple[str, str]]:
+    variant_name = str(row.get("variant_name") or "").strip()
+    if variant_name:
+        return "variant", variant_name
+    attn_layer_idx = row.get("attn_layer_idx")
+    load_strategy = row.get("load_strategy")
+    if attn_layer_idx is None or load_strategy is None:
+        return None
+    return "matrix", f"attn_l{int(attn_layer_idx)}__{str(load_strategy)}"
 
 
 def _read_json(path: Path):
@@ -147,7 +173,13 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
         if not run_name:
             continue
 
-        run_dir = _resolve_run_dir(exp_dir, str(run_name), item.get("run_dir"))
+        run_name = str(run_name)
+        variant_name, seed_from_run_name = _split_seed_suffix(run_name)
+        variant_source = item.get("variant_source")
+        if not isinstance(variant_source, dict):
+            variant_source = {}
+
+        run_dir = _resolve_run_dir(exp_dir, run_name, item.get("run_dir"))
         metrics_path = _find_metrics_file(run_dir, ckpt_select=ckpt_select)
         metrics = {}
         if metrics_path and metrics_path.exists():
@@ -155,14 +187,23 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
             if isinstance(loaded, dict):
                 metrics = loaded
 
+        row_seed = item.get("seed")
+        if row_seed is None:
+            row_seed = seed_from_run_name
+
         row = {
             "run": run_name,
+            "variant_name": variant_name if seed_from_run_name is not None else "",
+            "group_type": "variant" if seed_from_run_name is not None else "matrix",
+            "source_run": variant_source.get("run"),
+            "source_profile": variant_source.get("profile"),
+            "source_trial": variant_source.get("trial"),
             "run_dir": str(run_dir),
             "metrics_path": str(metrics_path) if metrics_path else "",
             "attn_layer_idx": item.get("attn_layer_idx"),
             "load_strategy": item.get("load_strategy"),
             "load_strategy_value": item.get("load_strategy_value"),
-            "seed": item.get("seed"),
+            "seed": row_seed,
             "cuda_id": item.get("cuda_id"),
             "train_returncode": item.get("train_returncode"),
             "test_returncode": item.get("test_returncode"),
@@ -176,6 +217,7 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
 
     rows.sort(
         key=lambda r: (
+            str(r.get("variant_name") or ""),
             int(r["attn_layer_idx"]) if r.get("attn_layer_idx") is not None else 10**9,
             str(r.get("load_strategy") or ""),
             int(r["seed"]) if r.get("seed") is not None else 10**9,
@@ -186,20 +228,28 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
 
 
 def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str]) -> List[Dict]:
-    grouped: Dict[Tuple[int, str], List[Dict]] = {}
+    grouped: Dict[Tuple[str, str], List[Dict]] = {}
     for row in rows:
-        attn_layer_idx = row.get("attn_layer_idx")
-        load_strategy = row.get("load_strategy")
-        if attn_layer_idx is None or load_strategy is None:
+        key = _resolve_group_key(row)
+        if key is None:
             continue
-        grouped.setdefault((int(attn_layer_idx), str(load_strategy)), []).append(row)
+        grouped.setdefault(key, []).append(row)
 
     group_stats: List[Dict] = []
-    for (attn_layer_idx, load_strategy), items in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+    for (group_type, group_name), items in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+        first = items[0]
+        attn_layer_idx = first.get("attn_layer_idx")
+        load_strategy = first.get("load_strategy")
         out = {
+            "group_type": group_type,
+            "group_name": group_name,
+            "variant_name": first.get("variant_name"),
+            "source_run": first.get("source_run"),
+            "source_profile": first.get("source_profile"),
+            "source_trial": first.get("source_trial"),
             "attn_layer_idx": attn_layer_idx,
             "load_strategy": load_strategy,
-            "load_strategy_value": items[0].get("load_strategy_value"),
+            "load_strategy_value": first.get("load_strategy_value"),
             "n_runs": len(items),
             "n_success": sum(int(r.get("status_ok", 0)) for r in items),
             "n_metrics_found": sum(int(r.get("metrics_found", 0)) for r in items),
@@ -218,20 +268,28 @@ def group_best_rows(
     metric: str,
     maximize: bool,
 ) -> List[Dict]:
-    grouped: Dict[Tuple[int, str], List[Dict]] = {}
+    grouped: Dict[Tuple[str, str], List[Dict]] = {}
     for row in rows:
-        attn_layer_idx = row.get("attn_layer_idx")
-        load_strategy = row.get("load_strategy")
-        if attn_layer_idx is None or load_strategy is None:
+        key = _resolve_group_key(row)
+        if key is None:
             continue
-        grouped.setdefault((int(attn_layer_idx), str(load_strategy)), []).append(row)
+        grouped.setdefault(key, []).append(row)
 
     best_by_group: List[Dict] = []
-    for (attn_layer_idx, load_strategy), items in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+    for (group_type, group_name), items in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+        first = items[0]
+        attn_layer_idx = first.get("attn_layer_idx")
+        load_strategy = first.get("load_strategy")
         candidates = [r for r in items if r.get(metric) is not None]
         if not candidates:
             best_by_group.append(
                 {
+                    "group_type": group_type,
+                    "group_name": group_name,
+                    "variant_name": first.get("variant_name"),
+                    "source_run": first.get("source_run"),
+                    "source_profile": first.get("source_profile"),
+                    "source_trial": first.get("source_trial"),
                     "attn_layer_idx": attn_layer_idx,
                     "load_strategy": load_strategy,
                     "best_metric_name": metric,
@@ -249,6 +307,12 @@ def group_best_rows(
 
         best_by_group.append(
             {
+                "group_type": group_type,
+                "group_name": group_name,
+                "variant_name": first.get("variant_name"),
+                "source_run": first.get("source_run"),
+                "source_profile": first.get("source_profile"),
+                "source_trial": first.get("source_trial"),
                 "attn_layer_idx": attn_layer_idx,
                 "load_strategy": load_strategy,
                 "best_metric_name": metric,
