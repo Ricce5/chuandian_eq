@@ -1,9 +1,10 @@
 # ref: https://zenodo.org/records/8161777 Using Deep Learning for Flexible and Scalable Earthquake Forecasting
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 
 import src.data
+import src.distributions as dist
 
 class TPPModel(torch.nn.Module):
     def __init__(self):
@@ -45,6 +46,37 @@ class TPPModel(torch.nn.Module):
             name: self.reduce_nll(value, batch, reduction=reduction, eps=eps)
             for name, value in values.items()
         }
+
+    def time_log_likelihood(
+        self,
+        *,
+        batch: src.data.Batch,
+        inter_time_dist: dist.MixtureSameFamily,
+        state: torch.Tensor,
+        dist_from_state: Callable[[torch.Tensor], dist.MixtureSameFamily],
+        pdf_inter_times: torch.Tensor,
+        survival_inter_times: torch.Tensor,
+    ) -> torch.Tensor:
+        """Shared log-likelihood for trigger-time component of TPP models."""
+        log_pdf = inter_time_dist.log_prob(pdf_inter_times.clamp_min(1e-10))
+        log_like = (log_pdf * batch.nll_event_mask).sum(-1)
+
+        arange = torch.arange(batch.batch_size, device=state.device)
+        last_surv_context = state[arange, batch.end_idx, :]
+        last_surv_dist = dist_from_state(last_surv_context)
+        last_log_surv = last_surv_dist.log_survival(survival_inter_times[arange, batch.end_idx])
+        log_like = log_like + last_log_surv.squeeze(-1)
+
+        if torch.any(batch.t_nll_start != batch.t_start):
+            prev_surv_context = state[arange, batch.start_idx, :]
+            prev_surv_dist = dist_from_state(prev_surv_context)
+            prev_surv_time = survival_inter_times[arange, batch.start_idx] - (
+                batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
+            )
+            prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
+            log_like = log_like - prev_log_surv
+
+        return log_like
 
     def nll_loss(self, batch: src.data.Batch) -> torch.Tensor:
         """
@@ -118,4 +150,3 @@ class TPPModel(torch.nn.Module):
 
   
     
-

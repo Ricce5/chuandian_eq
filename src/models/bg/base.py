@@ -7,6 +7,7 @@ import warnings
 from src.utils.interp import (
     integrate_uniform_time_series,
     interp_uniform_time_series,
+    interp_uniform_time_series_left,
 )
 
 class BGModel(torch.nn.Module, abc.ABC, Registrable):
@@ -57,6 +58,68 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         """Compute intensity trajectory on the stored uniform grid: (B, T)."""
         _, intensity_traj = self._compute_intensity_traj(ts_batch)
         return intensity_traj.squeeze(-1)  # (B, T)
+
+    def context_trajectory(
+        self,
+        ts_batch: DotDict,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return background hidden trajectory used as event context.
+
+        Subclasses can override this to expose internal hidden states
+        (e.g. Mamba fast branch). The default implementation indicates
+        that this BG model does not provide such trajectory.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement context_trajectory()."
+        )
+
+    def _get_bg_context(
+        self,
+        ts_batch: DotDict,
+        t_query: torch.Tensor | None = None,
+        *,
+        clamp: bool = True,
+        left_endpoint: bool = True,
+    ) -> torch.Tensor:
+        """Sample hidden trajectory at queried times.
+
+        Args:
+            ts_batch: batch carrying time-series fields.
+            t_query: optional query times on event axis, shape (B, L).
+                If None, follows ``intensity`` behavior and uses
+                ``ts_batch.arrival_times`` when available; otherwise
+                uses the trajectory grid times.
+            clamp: clamp query times into trajectory time range.
+            left_endpoint: if True, use left-endpoint sampling
+                (zero-order hold); otherwise use linear interpolation.
+
+        Returns:
+            Tensor of shape (B, L, D_ctx).
+        """
+        traj_times, traj_values = self.context_trajectory(ts_batch)
+        if t_query is None:
+            arrival_times = getattr(ts_batch, "arrival_times", None)
+            if arrival_times is not None:
+                t_query = arrival_times.to(self.device)
+            else:
+                t_query = traj_times
+        else:
+            t_query = t_query.to(self.device)
+
+        query = t_query.to(device=traj_times.device, dtype=traj_times.dtype)
+        if left_endpoint:
+            return interp_uniform_time_series_left(
+                t=traj_times,
+                x=traj_values,
+                t_query=query,
+                clamp=clamp,
+            )
+        return interp_uniform_time_series(
+            t=traj_times,
+            x=traj_values,
+            t_query=query,
+            clamp=clamp,
+        )
 
     def intensity(
         self,
@@ -195,6 +258,43 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
             nll_delta = nll_delta + self.kl_term(batch, eps=eps)
 
         return nll_delta
+
+    def normalizing_term(
+        self,
+        batch: DotDict,
+        log_h_intensity: torch.Tensor,
+        eps: float = 1e-10,
+    ) -> torch.Tensor:
+        """Return a background-dominance regularizer (per sequence).
+
+        The term is defined as ``-sum_i f_i / (h_i + f_i)`` over events selected
+        by ``batch.nll_event_mask``. Minimizing this term encourages larger
+        background contribution ``f`` and smaller triggering contribution ``h``.
+        """
+
+        background_intensity = self.intensity(batch)
+        triggering_intensity = torch.exp(log_h_intensity)
+        triggering_intensity = clamp_preserve_gradients(
+            triggering_intensity,
+            eps,
+            float("inf"),
+        )
+
+        background_ratio = background_intensity / (
+            triggering_intensity + background_intensity + eps
+        )
+
+        event_mask = getattr(batch, "nll_event_mask", None)
+        if event_mask is None:
+            raise ValueError(
+                "batch must contain 'nll_event_mask' for normalizing_term computation."
+            )
+        event_mask = event_mask.to(
+            device=background_ratio.device,
+            dtype=background_ratio.dtype,
+        )
+
+        return -(background_ratio * event_mask).sum(dim=1)
 
 
 

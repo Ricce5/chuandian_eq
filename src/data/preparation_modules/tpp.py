@@ -120,21 +120,30 @@ def prepare_data_tpp(args, base_dir):
         )
 
     if getattr(args, 'use_b_updater', False):
-        from src.data.bayesian_b_updater import BayesianGRBUpdater
-        b_updater = BayesianGRBUpdater(
-            Mc=args.mag_completeness,
-            **args.b_updater_cfg,
+        from src.models.updaters import BValueUpdaterBase
+
+        updater_cfg = dict(getattr(args, "b_updater_cfg", {}) or {})
+        updater_name = getattr(args, "b_updater_name", None)
+        if updater_name is None:
+            updater_name = updater_cfg.pop("name", updater_cfg.pop("type", None))
+        if updater_name is not None:
+            updater_name = str(updater_name)
+
+        b_updater = BValueUpdaterBase.from_config(
+            config=updater_cfg,
+            name=updater_name,
+            Mc=float(args.mag_completeness),
             mag_key="mag",
             write_back=True,
         )
         catalog_ds.set_b_updater(b_updater)
         catalog_ds.estimate_gr_b()
+        resolved_updater_name = updater_name or b_updater.__class__.__name__
         logger.info(
-            "Using Bayesian GR b-value updater with delta=%s, a0=%s, init b=%.4f, mag_completeness=%s",
-            b_updater.delta,
-            b_updater.a0,
-            b_updater.init_b_target,
-            b_updater.Mc,
+            "Using b-value updater '%s' (%s), mag_completeness=%s",
+            resolved_updater_name,
+            b_updater.__class__.__name__,
+            getattr(b_updater, "Mc", args.mag_completeness),
         )
 
     if getattr(args, 'use_double_precision', False):

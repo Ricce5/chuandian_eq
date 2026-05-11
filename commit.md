@@ -242,3 +242,9 @@ CB1a, CB4: 更强的随机性，有注水无地震，地震增加无注水。
 ./checkpoints/mixer_tpp_20260203-161948/config.yaml
 
 ./checkpoints/mixer_tpp_20260510-211348
+
+
+loss_weights:
+  bg_weight: 1.0
+  bg_kl_weight: 1.0
+  bg_norm_weight: 0.0

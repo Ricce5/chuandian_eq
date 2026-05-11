@@ -26,6 +26,8 @@ REGRESSOR_MODELS = {
 TPP_MODELS = {
     "thp",
     "rtpp",
+    "rtpp_v2",
+    "oracle",
     "mtpp",
     "thp_deltat",
     "mhp",

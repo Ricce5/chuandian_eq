@@ -15,6 +15,7 @@ __all__ = [
     "debug_utils",
     "file_utils",
     "forecast_eval",
+    "b_value_plot",
     "plot_style",
     "forecast_sliding",
     "forecast_eval_helpers",

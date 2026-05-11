@@ -12,6 +12,7 @@ __all__ = [
     "set_seed",
     "cal2jd",
     "_to_np_datetime64_seconds",
+    "day_offsets_to_np_datetime64",
     "_to_py_datetime",
     "set_xaxis_time_locator",
     "resolve_project_root",
@@ -84,6 +85,14 @@ def _to_py_datetime(t64: np.datetime64) -> datetime:
     """Convert np.datetime64 to Python datetime (second precision, tz-aware UTC)."""
     ts = (t64 - np.datetime64('1970-01-01T00:00:00', 's')) / np.timedelta64(1, 's')
     return datetime.fromtimestamp(float(ts), tz=timezone.utc)
+
+
+def day_offsets_to_np_datetime64(start_time, day_offsets) -> np.ndarray:
+    """Convert day offsets to absolute numpy datetime64 points."""
+    start = _to_np_datetime64_seconds(start_time)
+    offsets = np.asarray(day_offsets, dtype=np.float64)
+    sec_offsets = np.rint(offsets * 86400.0).astype(np.int64)
+    return start + sec_offsets.astype("timedelta64[s]")
 
 
 

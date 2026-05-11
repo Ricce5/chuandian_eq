@@ -1,0 +1,78 @@
+# Model settings
+model: rtpp_v2
+num_event_types: 1
+pad_token_id: 1
+task_type: tpp
+
+# Training parameters
+batch_size: 1
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-3
+weight_decay: 1e-2
+loss_reduction: per_event
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type: hf_cosine
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.8
+
+
+
+bg_model: mamba
+bg_model_cfg:
+ d_feature: 1 
+ d_state: 64
+ d_model: 16
+ model_type: mamba  # mamba | mamba2
+ scale_init: 1000.0
+ smooth_kernel_size: 3
+
+
+
+rnn_type: GRU
+d_model: 64
+rnn_dropout: 0.2
+rnn_use_residual: true
+rnn_use_layernorm: true
+scale_range: positive
+num_components: 32
+
+# Time preprocessing for RNN input
+# - legacy: log(tau) - log(tau_mean)
+# - oracle: (log10(tau) - log_tau_mean) / log_tau_std
+rtpp_time_preprocess: oracle
+rtpp_log_tau_std: 2.0
+rtpp_inter_time_min: 1e-10
+rtpp_inter_time_max: 1e10
+
+# Time-head network
+hypernet_time_use_mlp: true
+hypernet_time_hidden_dim: 64
+hypernet_time_activation: silu
+hypernet_time_mlp_dropout: 0.0
+
+# Time head parametrization for rtpp_v2:
+# - legacy: same behavior as original RTPP Weibull-mixture headzm
+# - oracle: Oracle-style log-mean parametrization
+rtpp_time_parametrization: oracle
+rtpp_normalize_mixture_logits: true
+
+# Other parameters
+dim: 1
+epochs: 1000
+save_dir: null
+cuda_id: "0"
+
+# Data and control parameters
+dataset: St1-2018
+seed: 0
+minibatch_training: false
+split_by_time: true
+time_order: [train, val, test]
+
+catalog_cfg:
+  freq: "1D"
+  mag_completeness: -0.5

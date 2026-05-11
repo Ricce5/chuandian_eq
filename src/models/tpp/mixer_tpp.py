@@ -1,13 +1,10 @@
 from typing import List, Optional, Tuple, Union
+import inspect
 
-import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical
 from  src.distributions import Gamma
-from src.distributions.utils import clamp_preserve_gradients
-import numpy as np
 import src
 import src.distributions as dist
 from .tpp_model import TPPModel
@@ -19,9 +16,9 @@ from src.models.mha.mha import MHA
 from mamba_ssm.modules.mlp import GatedMLP
 from mamba_ssm.utils.generation import InferenceParams
 from src.models.mamba.scan_wrapper import  SelectiveScanWrapper
+from .common.inter_time_decoding import WeibullMixtureDecoder
+from .common.sequence_ops import build_sample_batch, evaluate_compensator_from_model
 import math 
-
-logger = logging.getLogger(__name__)
 
 
 
@@ -73,6 +70,18 @@ class MixerTPP(TPPModel):
         self.device = self.base_model.device
 
         self.hypernet_time = hypernet_time
+        self.num_components = int(self.hypernet_time.out_features // 3)
+        if self.hypernet_time.out_features != 3 * self.num_components:
+            raise ValueError(
+                "hypernet_time output dimension must be divisible by 3 "
+                f"(got {self.hypernet_time.out_features})."
+            )
+        self.inter_time_decoder = WeibullMixtureDecoder(
+            num_components=self.num_components,
+            parametrization="legacy",
+            scale_range="positive",
+            normalize_mixture_logits=False,
+        )
         self.hypernet_mag = hypernet_mag
         self.dropout = nn.Dropout(dropout)
         rb = torch.as_tensor(self.base_model.input_adapter.richter_b, device=device, dtype=dtype)
@@ -93,6 +102,9 @@ class MixerTPP(TPPModel):
             "mag_weight": 1.0,
             "b_weight": 1.0,
             "b_smooth_weight": 0.0,
+            "bg_weight": 1.0,
+            "bg_kl_weight": 1.0,
+            "bg_norm_weight": 0.0,
             }
         else:
             self.weights = loss_weights
@@ -100,6 +112,9 @@ class MixerTPP(TPPModel):
             self.weights.setdefault("mag_weight", 1.0)
             self.weights.setdefault("b_weight", 1.0)
             self.weights.setdefault("b_smooth_weight", 0.0)
+            self.weights.setdefault("bg_weight", 1.0)
+            self.weights.setdefault("bg_kl_weight", 1.0)
+            self.weights.setdefault("bg_norm_weight", 0.0)
         if use_adaptive_loss_weights:
             self.log_sigma2_b = nn.Parameter(torch.zeros(()))
         self.reduction = loss_reduction if loss_reduction is not None else "sum"
@@ -150,22 +165,7 @@ class MixerTPP(TPPModel):
 
     def get_inter_time_dist(self, context):
         """Get the distribution over the inter-event times given the context."""
-        params = self.hypernet_time(context)
-        # Very small params may lead to numerical problems, clamp to avoid this
-        # params = clamp_preserve_gradients(params, -6.0, np.inf)
-        # params = clamp_preserve_gradients(params, -6.0, 6.0)
-        num_components = params.shape[-1] // 3
-        scale, shape, weight_logits = torch.split(params, [num_components, num_components, num_components], dim=-1)
-
-        scale = F.softplus(scale.clamp_min(-5.0))
-        shape = F.softplus(shape.clamp_min(-5.0))
-        # weight_logits = F.log_softmax(weight_logits, dim=-1)
-        component_dist = dist.Weibull(scale=scale, shape=shape)
-        mixture_dist = Categorical(logits=weight_logits)
-        return dist.MixtureSameFamily(
-            mixture_distribution=mixture_dist,
-            component_distribution=component_dist,
-        )
+        return self.inter_time_decoder.from_context(context, self.hypernet_time)
 
     def forward(self, batch):
         enc_output = self.get_context(batch)  # (B, L, C)
@@ -281,35 +281,19 @@ class MixerTPP(TPPModel):
         predict_b = self.predict_b if predict_b is None else predict_b
         use_b_updater = self.use_b_updater if use_b_updater is None else use_b_updater
         reduction = self.reduction if reduction is None else reduction
-        device = batch.inter_times.device
-
         # ---------- Context ----------
         context = self.get_context(batch)  # (B, L, C)
 
-        # ---------- Time part ----------
         inter_time_dist = self.get_inter_time_dist(context)
-        log_pdf_time = inter_time_dist.log_prob(batch.inter_times.clamp_min(eps))  # (B, L)
-        log_like_time = (log_pdf_time * batch.nll_event_mask).sum(-1)  # (B,)
-
-        # last survival
-        arange = torch.arange(batch.batch_size, device=device)
-        last_surv_context = context[arange, batch.end_idx, :]         # (B, C)
-        last_surv_dist = self.get_inter_time_dist(last_surv_context)  # batched
-        last_surv_time = batch.inter_times[arange, batch.end_idx].clamp_min(eps)
-        last_log_surv = last_surv_dist.log_survival(last_surv_time).squeeze(-1)  # (B,)
-        log_like_time = log_like_time + last_log_surv
-
-        # subtract survival from t_prev to t_nll_start
-        if torch.any(batch.t_nll_start != batch.t_start):
-            prev_surv_context = context[arange, batch.start_idx, :]
-            prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (
-                batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
-            )
-            prev_log_surv = prev_surv_dist.log_survival(prev_surv_time.clamp_min(eps)).squeeze(-1)
-            log_like_time = log_like_time - prev_log_surv
-
-        nll_time = -log_like_time  # (B,)
+        log_like_time = self.time_log_likelihood(
+            batch=batch,
+            inter_time_dist=inter_time_dist,
+            state=context,
+            dist_from_state=self.get_inter_time_dist,
+            pdf_inter_times=batch.inter_times.clamp_min(eps),
+            survival_inter_times=batch.inter_times.clamp_min(eps),
+        )
+        nll_time = -log_like_time
 
         # ---------- Magnitude part ----------
         mag_dist, b_pred = self.get_magnitude_dist(context, predict_b=predict_b, return_b=True, inter_times=batch.inter_times)
@@ -344,8 +328,28 @@ class MixerTPP(TPPModel):
         # ---------- background proportional model part ----------
         if getattr(self, "bg_model", None) is not None:
             log_h_intensity = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))
-            nll_bg = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
-            nll_total = nll_total + nll_bg
+            nll_change_sig = inspect.signature(self.bg_model.nll_change)
+            supports_include_kl = "include_kl" in nll_change_sig.parameters
+            if supports_include_kl:
+                nll_bg_raw = self.bg_model.nll_change(batch, log_h_intensity, include_kl=False)  # (B,)
+            else:
+                nll_bg_raw = self.bg_model.nll_change(batch, log_h_intensity)  # (B,)
+            bg_kl = self.bg_model.kl_term(batch, eps=eps) if hasattr(self.bg_model, "kl_term") else None
+            nll_bg = nll_bg_raw
+            if bg_kl is not None and not supports_include_kl:
+                nll_bg = nll_bg_raw - bg_kl
+            bg_norm = None
+            if weights.get("bg_norm_weight", 0.0) > 0.0 and hasattr(self.bg_model, "normalizing_term"):
+                bg_norm = self.bg_model.normalizing_term(
+                    batch,
+                    log_h_intensity,
+                    eps=eps,
+                )
+            nll_total = nll_total + weights.get("bg_weight", 1.0) * nll_bg
+            if bg_kl is not None:
+                nll_total = nll_total + weights.get("bg_kl_weight", 1.0) * bg_kl
+            if bg_norm is not None:
+                nll_total = nll_total + weights.get("bg_norm_weight", 0.0) * bg_norm
         # ---------- Reductions (same rule for all) ---------
         out = {
             "time": nll_time,
@@ -359,8 +363,11 @@ class MixerTPP(TPPModel):
         if use_b_updater:
             out["b"] = nll_b
         if getattr(self, "bg_model", None) is not None:
-            # nll_bg was computed as per-batch tensor earlier when bg_model present
             out["bg"] = nll_bg
+            if bg_kl is not None:
+                out["bg_kl"] = bg_kl
+            if bg_norm is not None:
+                out["bg_norm"] = bg_norm
         return self.reduce_nll_dict(out, batch, reduction=reduction, eps=eps)
 
 
@@ -503,28 +510,15 @@ class MixerTPP(TPPModel):
         magnitudes = torch.cat(mag_list, dim=1)
 
 
-        duration = t_end - t_start
-        unclipped_arrival_times = inter_times.cumsum(-1)
-        epsilon = 1e-5
-        padding_mask = unclipped_arrival_times > duration - epsilon
-        inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
-        end_idx = (1 - padding_mask.long()).sum(-1)
-        last_surv_time = duration - inter_times.sum(-1)
-        if (last_surv_time < 0).any():
-            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
-            raise ValueError("last_surv_time < 0 detected")
-        inter_times[torch.arange(batch_size), end_idx] = last_surv_time
-
-        batch = src.data.Batch(
+        batch = build_sample_batch(
             inter_times=inter_times,
-            arrival_times=inter_times.cumsum(-1),
-            t_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float32),
-            t_end=torch.full([batch_size], t_end, device=self.device, dtype=torch.float32),
-            t_nll_start=torch.full([batch_size], t_start, device=self.device, dtype=torch.float32),
-            mask=padding_mask.float(),
-            start_idx=torch.zeros(batch_size, device=self.device).long(),
-            end_idx=end_idx,
-            mag=magnitudes,
+            t_start=t_start,
+            t_end=t_end,
+            device=self.device,
+            magnitudes=magnitudes,
+            time_dtype=torch.float32,
+            epsilon=1e-5,
+            check_last_surv_nonnegative=True,
         )
         return batch.to_list() if return_sequences else batch
 
@@ -533,20 +527,8 @@ class MixerTPP(TPPModel):
     def evaluate_compensator(
         self, sequence: src.data.Sequence, num_grid_points: int = 50
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch = src.data.Batch.from_list([sequence])
-        context = self.get_context(batch).squeeze(0)  # (L, C)
-        inter_time_dist = self.get_inter_time_dist(context)
-
-        # Evaluate each log survival function at times x = [eps, ..., tau_i]
-        x = batch.inter_times * torch.linspace(1e-4, 1, num_grid_points)[:, None]
-        log_surv = inter_time_dist.log_survival(x)
-        # Compute the cumulative sum of log survival functions to get the compensator
-        surv_offsets = torch.cat(
-            [torch.tensor([0.0]), log_surv[-1].cumsum(dim=-1)[:-1]]
+        return evaluate_compensator_from_model(
+            model=self,
+            sequence=sequence,
+            num_grid_points=num_grid_points,
         )
-        compensator = -(log_surv + surv_offsets).T.reshape(-1)
-
-        # Shift the inter-event times x to get the global times
-        offsets = torch.cat([torch.tensor([0.0]), sequence.arrival_times])
-        grid = (x + offsets).T.reshape(-1)
-        return grid, compensator

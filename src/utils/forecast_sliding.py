@@ -1,10 +1,6 @@
-"""Backward-compatible shim for sliding forecast helpers.
+"""Backward-compatible shim for sliding forecast helpers."""
 
-The canonical implementations live in :mod:`src.utils.forecast_eval`.
-This module keeps the older import path stable while avoiding duplicated code.
-"""
-
-from .forecast_eval import (
+from .forecast_eval_helpers import (
     build_post_step,
     compute_display_upper_cap,
     format_time_axis,
@@ -29,4 +25,3 @@ __all__ = [
     "build_post_step",
     "resolve_view_mode",
 ]
-

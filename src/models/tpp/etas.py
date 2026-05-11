@@ -147,6 +147,7 @@ class ETAS(TPPModel):
         enforce_p_gt_one: bool = False,
         min_omori_p: float = 1.001,
         constraint_softness: float = 1e-3,
+        loss_weights: Optional[dict[str, float]] = None,
     ):
         super().__init__()
         if max_branching_ratio <= 0.0 or max_branching_ratio >= 1.0:
@@ -191,6 +192,11 @@ class ETAS(TPPModel):
         self.device = device
         self.bg_model = bg_model
         self.reduction = loss_reduction
+        raw_weights = dict(loss_weights or {})
+        self.bg_kl_weight = float(raw_weights.get("bg_kl_weight", 1.0))
+        self.bg_norm_weight = float(raw_weights.get("bg_norm_weight", 0.0))
+        if self.bg_kl_weight < 0 or self.bg_norm_weight < 0:
+            raise ValueError("bg_kl_weight/bg_norm_weight must be >= 0.")
         self.query_chunk_size = int(query_chunk_size)
         self.history_chunk_size = int(history_chunk_size)
         self.use_grad_checkpoint = bool(use_grad_checkpoint)
@@ -489,8 +495,21 @@ class ETAS(TPPModel):
         bg_kl = None
         if self.bg_model is not None and hasattr(self.bg_model, "kl_term"):
             bg_kl = self.bg_model.kl_term(batch, eps=eps)
+        bg_norm = None
+        if self.bg_model is not None and self.bg_norm_weight > 0.0 and hasattr(self.bg_model, "normalizing_term"):
+            h_intensity = self.h_intensity(batch, t_query=t_select)
+            log_h_intensity = torch.log(h_intensity.clamp_min(eps))
+            bg_norm = self.bg_model.normalizing_term(
+                batch,
+                log_h_intensity,
+                eps=eps,
+            )
 
-        nll_total = nll_time if bg_kl is None else (nll_time + bg_kl)
+        nll_total = nll_time
+        if bg_kl is not None:
+            nll_total = nll_total + self.bg_kl_weight * bg_kl
+        if bg_norm is not None:
+            nll_total = nll_total + self.bg_norm_weight * bg_norm
 
         out_dict = {
             "time": nll_time,
@@ -498,6 +517,8 @@ class ETAS(TPPModel):
         }
         if bg_kl is not None:
             out_dict["bg_kl"] = bg_kl
+        if bg_norm is not None:
+            out_dict["bg_norm"] = bg_norm
 
         out = self.reduce_nll_dict(
             out_dict,

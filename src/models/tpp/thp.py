@@ -1,15 +1,13 @@
 # transformer Hawkes Process (THP) model with intensity free implementation 
-import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import src.distributions as dist
-from torch.distributions import Categorical
 from .tpp_model import TPPModel  
+from .common.inter_time_decoding import WeibullMixtureDecoder
+from .common.sequence_ops import build_sample_batch, evaluate_compensator_from_model
 import src.data
 from typing import Optional, Dict, Any, Union, List, Tuple
-
-logger = logging.getLogger(__name__)
 
 class THP(TPPModel):
     def __init__(self, args,base_model, hypernet_time,hypernet_mag):
@@ -32,6 +30,12 @@ class THP(TPPModel):
         self.base_model.input_adapter.model = self
 
         self.hypernet_time =   hypernet_time # nn.Linear(args.d_model, self.num_time_params).to(self.device)
+        self.inter_time_decoder = WeibullMixtureDecoder(
+            num_components=self.num_components,
+            parametrization="legacy",
+            scale_range="positive",
+            normalize_mixture_logits=True,
+        )
 
         # RNN input features
         if self.input_magnitude:
@@ -81,23 +85,7 @@ class THP(TPPModel):
         
     def get_inter_time_dist(self, context):
         """Get the distribution over the inter-event times given the context."""
-        params = self.hypernet_time(context)
-        # Very small params may lead to numerical problems, clamp to avoid this
-        # params = clamp_preserve_gradients(params, -6.0, np.inf)
-        scale, shape, weight_logits = torch.split(
-            params,
-            [self.num_components, self.num_components, self.num_components],
-            dim=-1,
-        )
-        scale = F.softplus(scale.clamp_min(-5.0))
-        shape = F.softplus(shape.clamp_min(-5.0))
-        weight_logits = F.log_softmax(weight_logits, dim=-1)
-        component_dist = dist.Weibull(scale=scale, shape=shape)
-        mixture_dist = Categorical(logits=weight_logits)
-        return dist.MixtureSameFamily(
-            mixture_distribution=mixture_dist,
-            component_distribution=component_dist,
-        )
+        return self.inter_time_decoder.from_context(context, self.hypernet_time)
 
     def get_magnitude_dist(self, context):
         log_rate = self.hypernet_mag(context).squeeze(-1)  # (B, L)
@@ -116,28 +104,15 @@ class THP(TPPModel):
             nll: NLL of each sequence, shape (batch_size,)
         """
         context = self.get_context(batch)  # (B, L, C)
-        # Inter-event times
         inter_time_dist = self.get_inter_time_dist(context)
-        log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(1e-10))  # avoid zero-probability at zero
-        log_like = (log_pdf * batch.nll_event_mask).sum(-1)  # Comment in English.
-        # Survival time from last event until t_end
-        arange = torch.arange(batch.batch_size)
-        last_surv_context = context[arange, batch.end_idx, :]  # end_idx corresponds to the survival interval
-        last_surv_dist = self.get_inter_time_dist(last_surv_context)
-        last_log_surv = last_surv_dist.log_survival(
-            batch.inter_times[arange, batch.end_idx]
+        log_like = self.time_log_likelihood(
+            batch=batch,
+            inter_time_dist=inter_time_dist,
+            state=context,
+            dist_from_state=self.get_inter_time_dist,
+            pdf_inter_times=batch.inter_times,
+            survival_inter_times=batch.inter_times,
         )
-        log_like = log_like + last_log_surv.squeeze(-1)  # (B,)
-
-        # for the first event
-        if torch.any(batch.t_nll_start != batch.t_start):
-            prev_surv_context = context[arange, batch.start_idx, :]
-            prev_surv_dist = self.get_inter_time_dist(prev_surv_context)
-            prev_surv_time = batch.inter_times[arange, batch.start_idx] - (  # Comment in English.
-                batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
-            )
-            prev_log_surv = prev_surv_dist.log_survival(prev_surv_time)
-            log_like = log_like - prev_log_surv
         return -log_like / (batch.t_end - batch.t_nll_start)  # negated as NLL
 
 
@@ -212,29 +187,15 @@ class THP(TPPModel):
             magnitudes = None
 
 
-        unclipped_arrival_times = inter_times.cumsum(-1)  # (B, L)
-        epsilon = 1e-5
-        padding_mask = unclipped_arrival_times > duration-epsilon
-        inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
-        end_idx = (1 - padding_mask.long()).sum(-1)
-        last_surv_time = duration - inter_times.sum(-1)
-        if (last_surv_time < 0).any():
-            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
-            logger.error("Any negative? %s", (last_surv_time < 0).any().item())
-            raise ValueError("last_surv_time < 0 detected")
-
-        inter_times[torch.arange(batch_size), end_idx] = last_surv_time
-
-        batch = src.data.Batch(
+        batch = build_sample_batch(
             inter_times=inter_times,
-            arrival_times=inter_times.cumsum(-1),
-            t_start=torch.full([batch_size], t_start, device=self.device).float(),
-            t_end=torch.full([batch_size], t_end, device=self.device).float(),
-            t_nll_start=torch.full([batch_size], t_start, device=self.device).float(),
-            mask=padding_mask.float(),
-            start_idx=torch.zeros(batch_size, device=self.device).long(),
-            end_idx=end_idx,
-            mag=magnitudes,
+            t_start=t_start,
+            t_end=t_end,
+            device=self.device,
+            magnitudes=magnitudes,
+            time_dtype=torch.float32,
+            epsilon=1e-5,
+            check_last_surv_nonnegative=True,
         )
 
         if return_sequences:
@@ -310,29 +271,15 @@ class THP(TPPModel):
         else:
             magnitudes = None
 
-        unclipped_arrival_times = inter_times.cumsum(-1)  # (B, L)
-        epsilon = 1e-5
-        padding_mask = unclipped_arrival_times > duration-epsilon
-        inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
-        end_idx = (1 - padding_mask.long()).sum(-1)
-        last_surv_time = duration - inter_times.sum(-1)
-        if (last_surv_time < 0).any():
-            logger.error("Min last_surv_time: %s", last_surv_time.min().item())
-            logger.error("Any negative? %s", (last_surv_time < 0).any().item())
-            raise ValueError("last_surv_time < 0 detected")
-
-        inter_times[torch.arange(batch_size), end_idx] = last_surv_time
-
-        batch = src.data.Batch(
+        batch = build_sample_batch(
             inter_times=inter_times,
-            arrival_times=inter_times.cumsum(-1),
-            t_start=torch.full([batch_size], t_start, device=self.device).float(),
-            t_end=torch.full([batch_size], t_end, device=self.device).float(),
-            t_nll_start=torch.full([batch_size], t_start, device=self.device).float(),
-            mask=padding_mask.float(),
-            start_idx=torch.zeros(batch_size, device=self.device).long(),
-            end_idx=end_idx,
-            mag=magnitudes,
+            t_start=t_start,
+            t_end=t_end,
+            device=self.device,
+            magnitudes=magnitudes,
+            time_dtype=torch.float32,
+            epsilon=1e-5,
+            check_last_surv_nonnegative=True,
         )
 
         if return_sequences:
@@ -343,23 +290,11 @@ class THP(TPPModel):
     def evaluate_compensator(
         self, sequence: src.data.Sequence, num_grid_points: int = 50
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch = src.data.Batch.from_list([sequence])
-        context = self.get_context(batch).squeeze(0)  # (L, C)
-        inter_time_dist = self.get_inter_time_dist(context)
-
-        # Evaluate each log survival function at times x = [eps, ..., tau_i]
-        x = batch.inter_times * torch.linspace(1e-4, 1, num_grid_points)[:, None]
-        log_surv = inter_time_dist.log_survival(x)
-        # Compute the cumulative sum of log survival functions to get the compensator
-        surv_offsets = torch.cat(
-            [torch.tensor([0.0]), log_surv[-1].cumsum(dim=-1)[:-1]]
+        return evaluate_compensator_from_model(
+            model=self,
+            sequence=sequence,
+            num_grid_points=num_grid_points,
         )
-        compensator = -(log_surv + surv_offsets).T.reshape(-1)
-
-        # Shift the inter-event times x to get the global times
-        offsets = torch.cat([torch.tensor([0.0]), sequence.arrival_times])
-        grid = (x + offsets).T.reshape(-1)
-        return grid, compensator
 
 
 
@@ -369,4 +304,3 @@ class THP(TPPModel):
 
 
  
-

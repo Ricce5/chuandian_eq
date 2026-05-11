@@ -40,6 +40,39 @@ def interp_uniform_time_series(t, x, t_query, clamp=False):
     return xq
 
 
+def interp_uniform_time_series_left(t, x, t_query, clamp=False):
+    """
+    Left-endpoint (zero-order hold) interpolation on a uniform time grid.
+
+    Args:
+        t:       (B, T)/(1, T)
+        x:       (B, T, F)/(1, T, F)
+        t_query: (B, Nq)
+    Returns:
+        (B, Nq, F)
+    """
+    _, T, F = x.shape
+    B, _ = t_query.shape
+
+    t0 = t[:, 0:1]
+    dt = (t[:, 1] - t[:, 0]).view(-1, 1)
+
+    if clamp:
+        t_min = t[:, 0:1]
+        t_max = t[:, -1:]
+        tq = t_query.clamp(t_min, t_max)
+    else:
+        tq = t_query
+
+    u = (tq - t0) / dt
+    i = torch.floor(u).long().clamp(0, T - 1)
+    idx_i = i.unsqueeze(-1).expand(-1, -1, F)
+
+    x = x.expand(B, -1, -1)
+    x_i = torch.gather(x, 1, idx_i)
+    return x_i
+
+
 def integrate_uniform_time_series(t, x, t_start, t_end, clamp=True):
     """
     在等间隔时间轴上，对线性插值后的 x(t) 在 [t_start, t_end] 上积分。

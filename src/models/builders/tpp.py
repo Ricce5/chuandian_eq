@@ -73,6 +73,90 @@ class RTTPBuilder(ModelBuilder):
         return RecurrentTPP(args, device, bg_model)
 
 
+@ModelBuilder.register("rtpp_v2")
+class RTTPV2Builder(ModelBuilder):
+    def __call__(self, args, device):
+        import math
+        import torch.nn as nn
+
+        from src.models.tpp.common.recurrent_blocks import RNNTPPBackbone, build_time_hypernet
+        from src.models.tpp.recurrent.model_v2 import RecurrentTPPV2
+
+        if getattr(args, "bg_model", None) is not None:
+            from src.models.bg import BGModel
+
+            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+        else:
+            bg_model = None
+
+        time_preprocess = str(getattr(args, "rtpp_time_preprocess", "legacy")).strip().lower()
+        tau_mean_value = max(float(args.tau_mean), 1e-10)
+
+        def _resolve_log_tau_std(*, default_value: float, convert_ln_to_log10: bool) -> float:
+            if not hasattr(args, "log_tau_std"):
+                return float(getattr(args, "rtpp_log_tau_std", default_value))
+
+            raw_log_tau_std = float(args.log_tau_std)
+            if not math.isfinite(raw_log_tau_std):
+                raise ValueError(f"args.log_tau_std must be finite, got {raw_log_tau_std}.")
+            if raw_log_tau_std <= 0:
+                raise ValueError(f"args.log_tau_std must be > 0, got {raw_log_tau_std}.")
+            if convert_ln_to_log10:
+                return max(raw_log_tau_std / math.log(10.0), 1e-8)
+            return max(raw_log_tau_std, 1e-8)
+
+        if time_preprocess == "oracle":
+            log_tau_mean = math.log10(tau_mean_value)
+            log_tau_std = _resolve_log_tau_std(default_value=2.0, convert_ln_to_log10=True)
+        else:
+            log_tau_mean = math.log(tau_mean_value)
+            log_tau_std = _resolve_log_tau_std(default_value=1.0, convert_ln_to_log10=False)
+
+        backbone = RNNTPPBackbone(
+            context_size=args.d_model,
+            tau_mean=args.tau_mean,
+            mag_mean=args.mag_mean,
+            rnn_type=args.rnn_type,
+            num_rnn_layers=getattr(args, "num_rnn_layers", 1),
+            dropout=getattr(args, "rnn_dropout", 0.0),
+            input_magnitude=True,
+            num_extra_features=None,
+            use_residual=getattr(args, "rnn_use_residual", False),
+            use_layernorm=getattr(args, "rnn_use_layernorm", False),
+            time_preprocess=time_preprocess,
+            log_tau_mean=log_tau_mean,
+            log_tau_std=log_tau_std,
+            inter_time_min=getattr(args, "rtpp_inter_time_min", 1e-10),
+            inter_time_max=getattr(args, "rtpp_inter_time_max", 1e10),
+        )
+        num_time_params = 3 * args.num_components
+        hypernet_time = build_time_hypernet(
+            input_dim=args.d_model,
+            output_dim=num_time_params,
+            use_mlp=getattr(args, "hypernet_time_use_mlp", True),
+            hidden_dim=getattr(args, "hypernet_time_hidden_dim", args.d_model),
+            activation=getattr(args, "hypernet_time_activation", "silu"),
+            dropout=getattr(args, "hypernet_time_mlp_dropout", 0.0),
+        ).to(device)
+        hypernet_mag = nn.Linear(args.d_model, 1).to(device)
+        return RecurrentTPPV2(
+            args,
+            backbone=backbone,
+            hypernet_time=hypernet_time,
+            hypernet_mag=hypernet_mag,
+            device=device,
+            bg_model=bg_model,
+        )
+
+
+@ModelBuilder.register("oracle")
+class OracleBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.tpp.oracle import Oracle
+
+        return Oracle(args, device)
+
+
 @ModelBuilder.register("nhpp")
 class NHPPBuilder(ModelBuilder):
     def __call__(self, args, device):
@@ -128,6 +212,7 @@ class ETASBuilder(ModelBuilder):
             enforce_p_gt_one=getattr(args, "etas_enforce_p_gt_one", True),
             min_omori_p=getattr(args, "etas_min_omori_p", 1.001),
             constraint_softness=getattr(args, "etas_constraint_softness", 1e-3),
+            loss_weights=getattr(args, "loss_weights", None),
         )
         if getattr(args, "use_double_precision", False):
             model.double()
@@ -178,6 +263,7 @@ class ETASZhuangBuilder(ModelBuilder):
             enforce_p_gt_one=getattr(args, "etas_enforce_p_gt_one", True),
             min_omori_p=getattr(args, "etas_min_omori_p", 1.001),
             constraint_softness=getattr(args, "etas_constraint_softness", 1e-3),
+            loss_weights=getattr(args, "loss_weights", None),
         )
         if getattr(args, "use_double_precision", False):
             model.double()
