@@ -237,3 +237,8 @@ ETAS参数化结构决定只能通过增强触发建模不确定性来使得似�
 背景模型建模：St1明显
 触发部分建模:  PNR1z明显
 CB1a, CB4: 更强的随机性，有注水无地震，地震增加无注水。
+
+./checkpoints/mixer_tpp_20260205-211822/config.yaml
+./checkpoints/mixer_tpp_20260203-161948/config.yaml
+
+./checkpoints/mixer_tpp_20260510-211348

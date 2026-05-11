@@ -92,6 +92,12 @@ python main.py --model clf_mixer_attnpl_t --mode test --threshold 0.5
 python main.py --model mixer_tpp --mode optuna --config config/mixer_tpp.yaml
 ```
 
+Profile-batch Optuna runners (run configured profiles one by one and aggregate summaries):
+```bash
+python scripts/run_lstm_optuna_profiles.py --profiles auto
+python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto
+```
+
 ## 4. CLI arguments (main.py)
 
 - `--mode`: `train` / `test` / `optuna`

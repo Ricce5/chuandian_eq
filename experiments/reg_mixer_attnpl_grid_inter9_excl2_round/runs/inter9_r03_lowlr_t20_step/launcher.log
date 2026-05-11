@@ -1,0 +1,35 @@
+
+[CMD] /root/miniconda3/bin/python main.py --model reg_mixer_attnpl_t --mode test --config /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_inter9_excl2_round/runs/inter9_r03_lowlr_t20_step/config_input.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_inter9_excl2_round/runs/inter9_r03_lowlr_t20_step --ckpt_select best
+2026-05-11 12:37:07.587873: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-05-11 12:37:07.602987: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1778474227.620363  181225 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1778474227.625449  181225 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1778474227.638907  181225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1778474227.638924  181225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1778474227.638927  181225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1778474227.638929  181225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-05-11 12:37:07.642726: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/root/miniconda3/lib/python3.12/site-packages/torch/cuda/__init__.py:129: UserWarning: CUDA initialization: Unexpected error from cudaGetDeviceCount(). Did you run some cuda functions before calling NumCudaDevices() that might have already set an error? Error 304: OS call failed or operation not supported on this OS (Triggered internally at ../c10/cuda/CUDAFunctions.cpp:108.)
+  return torch._C._cuda_getDeviceCount() > 0
+Traceback (most recent call last):
+  File "/root/autodl-tmp/em_eqf/main.py", line 32, in <module>
+    main()
+  File "/root/autodl-tmp/em_eqf/main.py", line 24, in main
+    run_test(args_cli, args, device)
+  File "/root/autodl-tmp/em_eqf/src/cli/workflows.py", line 66, in run_test
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/serialization.py", line 1319, in load
+    with _open_file_like(f, "rb") as opened_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/serialization.py", line 659, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/lib/python3.12/site-packages/torch/serialization.py", line 640, in __init__
+    super().__init__(open(name, mode))
+                     ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_inter9_excl2_round/runs/inter9_r03_lowlr_t20_step/best_model_1.pth'
+
+[CMD] /root/miniconda3/bin/python main.py --model reg_mixer_attnpl_t --mode test --config /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_inter9_excl2_round/runs/inter9_r03_lowlr_t20_step/config_input.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_inter9_excl2_round/runs/inter9_r03_lowlr_t20_step --ckpt_select last

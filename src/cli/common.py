@@ -50,6 +50,25 @@ def build_parser():
     parser.add_argument("--optuna_storage", type=str, default=None, help="Optuna storage URI/path; e.g., sqlite:///tmp/study.db")
     parser.add_argument("--optuna_study_name", type=str, default=None, help="Override Optuna study name")
     parser.add_argument("--optuna_sampler_seed", type=int, default=None, help="Override Optuna sampler seed")
+    parser.add_argument("--optuna_n_jobs", type=int, default=None, help="Parallel trials per process for Optuna (thread-based).")
+    parser.add_argument(
+        "--optuna_trial_test_ckpt_selects",
+        type=str,
+        default=None,
+        help="Comma-separated checkpoint selectors to auto-test per trial, e.g. 'best,last'.",
+    )
+    parser.add_argument(
+        "--optuna_trial_test_top_k",
+        type=int,
+        default=None,
+        help="If >0, defer trial auto-test to post-hoc and run only top-k trials per profile.",
+    )
+    parser.add_argument(
+        "--optuna_dry_run",
+        action="store_true",
+        default=False,
+        help="Dry-run Optuna sampling only (no training), while writing per-trial configs and mock metrics.",
+    )
     return parser
 
 
@@ -122,4 +141,3 @@ def save_metrics(save_dir, metrics_filename, metrics):
         json.dump(metrics, f, indent=2)
     LOGGER.info("Saved test metrics to %s", metrics_path)
     LOGGER.info("Metrics: %s", metrics)
-

@@ -54,11 +54,39 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_8 --best_metric auc
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_9 --best_metric auc
 
-
+d
 
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_off.yaml
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_on.yaml
   
 python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_grid_lr_on --best_metric rmse --best_mode min --ckpt_select last
+
+  python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 20 --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name
+  run_$(date +%Y%m%d-%H%M%S)
+
+
+
+
+python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 3  --optuna_n_jobs 4  --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles \
+    --run_name optuna_20_$(date +%Y%m%d-%H%M%S)
+
+
+ python main.py --model reg_mixer_attnpl_t --mode optuna --config config/reg_mixer_attnpl_t.yaml --checkpoint_dir experiments/reg_mixer_attnpl_t_optuna_profiles/run_$(date +
+        %Y%m%d-%H%M%S)/base --optuna_profile base --optuna_trials 3 --optuna_trial_test_ckpt_selects best,last
+
+
+python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 30  --optuna_trial_test_ckpt_selects best,last --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name run_$(date +%Y%m%d-%H%M%S)
+
+
+
+python scripts/backfill_optuna_trial_tests.py --run_root /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-001210 --top_k 5 --ckpt_selects
+best,last --config config/reg_mixer_attnpl_t.yaml --model reg_mixer_attnpl_t
+
+
+  find experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/low_lr/optuna_trials/trial_0001_low_lr -maxdepth 1 \( -name 'run.log' -o -name 'checkpoint_interrupted*.pth' -o
+  -name 'tensorboard' \) -exec rm -rf {} +
+
+
+  python scripts/analyze_optuna_last_val_loss_groups.py --trials-dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/base/optuna_trials

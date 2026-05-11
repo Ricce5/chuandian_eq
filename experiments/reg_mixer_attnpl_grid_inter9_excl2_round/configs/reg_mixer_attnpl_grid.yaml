@@ -1,0 +1,157 @@
+model: reg_mixer_attnpl_t
+base_config: config/reg_mixer_attnpl_t.yaml
+
+# 预训练加载策略映射（variants 中通过 load_strategy 名称引用）
+load_strategies:
+  load_3: input_layer0_layer1
+
+# 基于:
+# experiments/reg_mixer_attnpl_t_optuna_profiles/comparison_000926_vs_001210/low_rmse_low_dtw_last_top20_intersection_9trials.csv
+# 取除前两行外的 7 个实验，并做参数圆整（避免过多小数位）。
+variants:
+  - name: inter9_r03_lowlr_t20_step
+    source_run: run_20260511-001210
+    source_profile: low_lr
+    source_trial: trial_0020_low_lr
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 20
+    overrides:
+      scheduler_type: step_warmup
+      warmup_ratio: 0.15
+      step_lr_step_size_ratio: 0.2
+      step_lr_gamma: 0.5
+      learning_rate: 0.00063
+      weight_decay: 0.0004
+      encoder_learning_rate: 0.0003
+      batch_size: 64
+      criterion_cfg.beta: 0.3
+      mlp_dropout: 0.2
+
+  - name: inter9_r04_base_t16_wld
+    source_run: run_20260511-001210
+    source_profile: base
+    source_trial: trial_0016_base
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 16
+    overrides:
+      scheduler_type: warmup_linear_decay
+      warmup_ratio: 0.1
+      step_lr_step_size_ratio: 0.15
+      step_lr_gamma: 0.5
+      learning_rate: 0.0011
+      weight_decay: 0.0011
+      encoder_learning_rate: 0.0003
+      batch_size: 64
+      criterion_cfg.beta: 0.3
+      mlp_dropout: 0.2
+
+  - name: inter9_r05_base_t07_step
+    source_run: run_20260511-000926
+    source_profile: base
+    source_trial: trial_0007_base
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 7
+    overrides:
+      scheduler_type: step_warmup
+      warmup_ratio: 0.1
+      step_lr_step_size_ratio: 0.15
+      step_lr_gamma: 0.4
+      learning_rate: 0.00061
+      weight_decay: 0.0015
+      encoder_learning_rate: 0.0004
+      batch_size: 128
+      criterion_cfg.beta: 0.3
+      mlp_dropout: 0.2
+
+  - name: inter9_r06_base_t07_step_dup
+    source_run: run_20260511-001210
+    source_profile: base
+    source_trial: trial_0007_base
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 7
+    overrides:
+      scheduler_type: step_warmup
+      warmup_ratio: 0.1
+      step_lr_step_size_ratio: 0.15
+      step_lr_gamma: 0.4
+      learning_rate: 0.00061
+      weight_decay: 0.0015
+      encoder_learning_rate: 0.0004
+      batch_size: 128
+      criterion_cfg.beta: 0.3
+      mlp_dropout: 0.2
+
+  - name: inter9_r07_base_t09_wld
+    source_run: run_20260511-000926
+    source_profile: base
+    source_trial: trial_0009_base
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 9
+    overrides:
+      scheduler_type: warmup_linear_decay
+      warmup_ratio: 0.15
+      step_lr_step_size_ratio: 0.2
+      step_lr_gamma: 0.4
+      learning_rate: 0.0015
+      weight_decay: 0.0019
+      encoder_learning_rate: 0.0004
+      batch_size: 64
+      criterion_cfg.beta: 0.2
+      mlp_dropout: 0.3
+
+  - name: inter9_r08_lowlr_t13_step
+    source_run: run_20260511-001210
+    source_profile: low_lr
+    source_trial: trial_0013_low_lr
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 13
+    overrides:
+      scheduler_type: step_warmup
+      warmup_ratio: 0.15
+      step_lr_step_size_ratio: 0.2
+      step_lr_gamma: 0.5
+      learning_rate: 0.00071
+      weight_decay: 0.0028
+      encoder_learning_rate: 0.0005
+      batch_size: 64
+      criterion_cfg.beta: 0.3
+      mlp_dropout: 0.3
+
+  - name: inter9_r09_lowlr_t19_step
+    source_run: run_20260511-000926
+    source_profile: low_lr
+    source_trial: trial_0019_low_lr
+    load_strategy: load_3
+    attn_layer_idx: 2
+    seed: 19
+    overrides:
+      scheduler_type: step_warmup
+      warmup_ratio: 0.05
+      step_lr_step_size_ratio: 0.25
+      step_lr_gamma: 0.6
+      learning_rate: 0.00085
+      weight_decay: 0.00072
+      encoder_learning_rate: 0.0004
+      batch_size: 64
+      criterion_cfg.beta: 0.3
+      mlp_dropout: 0.3
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 2
+jobs_per_gpu: 2
+stop_on_error: false
+
+# 输出目录
+exp_root: experiments
+exp_name: reg_mixer_attnpl_grid_inter9_excl2_round
+
+# 可选：训练后自动测试
+run_test: true
+ckpt_select: best,last

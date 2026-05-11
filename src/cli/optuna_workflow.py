@@ -25,6 +25,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_OBJECTIVE = "weighted_metrics"
 SUPPORTED_OBJECTIVES = {"weighted_metrics", "val_loss"}
 SUPPORTED_DIRECTIONS = {"minimize", "maximize"}
+SUPPORTED_CKPT_SELECTS = {"best", "last"}
 
 
 def cfg_to_dict(node):
@@ -313,6 +314,43 @@ def _resolve_profile_cfg(optuna_cfg, profile_name):
     return cfg_to_dict(optuna_cfg.get("profiles", {}).get(profile_name, {}))
 
 
+def _resolve_trial_test_ckpt_selects(args_cli, optuna_cfg):
+    raw = getattr(args_cli, "optuna_trial_test_ckpt_selects", None)
+    if raw is None:
+        raw = optuna_cfg.get("trial_test_ckpt_selects", None)
+    if raw is None:
+        return []
+
+    if isinstance(raw, (list, tuple)):
+        parts = [str(item).strip().lower() for item in raw if str(item).strip()]
+    else:
+        parts = [item.strip().lower() for item in str(raw).split(",") if item.strip()]
+
+    dedup = []
+    for item in parts:
+        if item in dedup:
+            continue
+        if item not in SUPPORTED_CKPT_SELECTS:
+            raise ValueError(
+                f"Unsupported ckpt select '{item}' in optuna trial test settings. "
+                f"Supported options: {sorted(SUPPORTED_CKPT_SELECTS)}"
+            )
+        dedup.append(item)
+    return dedup
+
+
+def _resolve_trial_test_top_k(args_cli, optuna_cfg):
+    raw = getattr(args_cli, "optuna_trial_test_top_k", None)
+    if raw is None:
+        raw = optuna_cfg.get("trial_test_top_k", None)
+    if raw is None:
+        return 0
+    value = int(raw)
+    if value < 0:
+        raise ValueError("optuna trial_test_top_k must be >= 0.")
+    return value
+
+
 def _resolve_metric_weights(optuna_cfg):
     metric_weights = cfg_to_dict(optuna_cfg.get("metric_weights", {}))
     if not metric_weights:
@@ -356,17 +394,195 @@ def _resolve_optuna_runtime(args_cli, args, optuna_cfg):
 
     n_trials_cfg = optuna_cfg.get("n_trials", 10)
     n_trials = int(args_cli.optuna_trials if args_cli.optuna_trials is not None else n_trials_cfg)
+    n_jobs_cfg = optuna_cfg.get("n_jobs", 1)
+    n_jobs = int(args_cli.optuna_n_jobs if args_cli.optuna_n_jobs is not None else n_jobs_cfg)
+    if n_jobs == 0:
+        raise ValueError("optuna n_jobs cannot be 0. Use 1 (serial), >1 (parallel), or -1 (all CPUs).")
     top_k = int(optuna_cfg.get("report_top_k", 5))
     base_storage_cfg = args_cli.optuna_storage or optuna_cfg.get("storage", None)
+    trial_test_ckpt_selects = _resolve_trial_test_ckpt_selects(args_cli, optuna_cfg)
+    trial_test_top_k = _resolve_trial_test_top_k(args_cli, optuna_cfg)
     return {
         "objective_name": objective_name,
         "direction": direction,
         "profile_names": profile_names,
         "sampler_seed": int(sampler_seed),
         "n_trials": n_trials,
+        "n_jobs": n_jobs,
         "top_k": top_k,
         "base_storage_cfg": base_storage_cfg,
+        "trial_test_ckpt_selects": trial_test_ckpt_selects,
+        "trial_test_top_k": trial_test_top_k,
     }
+
+
+def _run_trial_auto_tests(*, train_step, args_trial, model, criterion, train_loader, val_loader, test_loader, device, trial_dir, ckpt_selects):
+    results = {}
+    task_type = str(getattr(args_trial, "task_type", "")).strip().lower()
+    for ckpt_select in ckpt_selects:
+        ckpt_path = os.path.join(trial_dir, f"{ckpt_select}_model_1.pth")
+        if not os.path.exists(ckpt_path):
+            LOGGER.warning("Skip auto-test ckpt=%s because file does not exist: %s", ckpt_select, ckpt_path)
+            continue
+
+        ckpt_test_dir = os.path.join(trial_dir, f"test_{ckpt_select}")
+        os.makedirs(ckpt_test_dir, exist_ok=True)
+        checkpoint = torch.load(ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(checkpoint["model_state_dict"])
+
+        if task_type == "tpp":
+            test_nll_kwargs = {"reduction": getattr(args_trial, "loss_reduction", None)}
+            _raw, metrics = train_step.test(
+                model=model,
+                criterion=criterion,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                test_loader=test_loader,
+                device=device,
+                save_dir=ckpt_test_dir,
+                nll_kwargs=test_nll_kwargs,
+            )
+        else:
+            test_kwargs = {
+                "model": model,
+                "criterion": criterion,
+                "data_loader": test_loader,
+                "device": device,
+                "save_dir": ckpt_test_dir,
+            }
+            if task_type == "classification":
+                test_kwargs["threshold"] = None
+            _test_loss, metrics = train_step.test(**test_kwargs)
+            if hasattr(train_step, "visualize_results"):
+                try:
+                    train_step.visualize_results(
+                        model,
+                        train_loader,
+                        val_loader,
+                        test_loader,
+                        device,
+                        ckpt_test_dir,
+                    )
+                except Exception as exc:
+                    LOGGER.warning(
+                        "Skip visualize_results for ckpt=%s due to error: %s",
+                        ckpt_select,
+                        exc,
+                    )
+
+        metrics = cfg_to_dict(metrics)
+        results[ckpt_select] = metrics
+        _save_json(
+            os.path.join(trial_dir, f"metrics_test_{ckpt_select}_1.json"),
+            metrics,
+        )
+    return results
+
+
+def _run_profile_topk_auto_tests(*, study, top_k, args_base, args_cli, device, optuna_cfg, profile_name):
+    ckpt_selects = _resolve_trial_test_ckpt_selects(args_cli, optuna_cfg)
+    if not ckpt_selects:
+        return
+    top_k = int(top_k)
+    if top_k <= 0:
+        return
+
+    completed_trials = [trial for trial in study.trials if trial.state == TrialState.COMPLETE and trial.value is not None]
+    if not completed_trials:
+        return
+    is_minimize = study.direction == optuna.study.StudyDirection.MINIMIZE
+    completed_trials.sort(key=lambda item: float(item.value), reverse=not is_minimize)
+    selected_trials = completed_trials[: max(1, top_k)]
+
+    LOGGER.info(
+        "Running post-hoc auto-test for top-k trials | profile=%s | top_k=%s | selected=%s",
+        profile_name,
+        top_k,
+        [trial.number for trial in selected_trials],
+    )
+
+    profile_cfg = _resolve_profile_cfg(optuna_cfg, profile_name)
+    objective_name, _direction = _resolve_objective_and_direction(optuna_cfg)
+    metric_weights = _resolve_metric_weights(optuna_cfg) if objective_name == "weighted_metrics" else None
+    search_space = _resolve_search_space(optuna_cfg, profile_cfg)
+
+    profile_suffix = f"_{profile_name}" if profile_name else ""
+
+    for trial in selected_trials:
+        args_trial = clone_args(args_base)
+        if "t_elaps_mode" in profile_cfg:
+            args_trial.t_elaps_mode = profile_cfg["t_elaps_mode"]
+        n_epochs = int(optuna_cfg.get("epochs", getattr(args_trial, "epochs", 120)))
+        args_trial.epochs = n_epochs
+        trial_seed_base = int(optuna_cfg.get("trial_seed_base", getattr(args_trial, "seed", 0)))
+        args_trial.seed = int(trial_seed_base + trial.number)
+        set_seed(
+            args_trial.seed,
+            deterministic=bool(getattr(args_trial, "deterministic", True)),
+            deterministic_warn_only=bool(getattr(args_trial, "deterministic_warn_only", False)),
+            use_deterministic_algorithms=bool(getattr(args_trial, "use_deterministic_algorithms", False)),
+        )
+
+        sampled_params = {}
+        for param_name in search_space.keys():
+            if param_name in trial.params:
+                _set_nested_value(args_trial, param_name, trial.params[param_name])
+                sampled_params[param_name] = trial.params[param_name]
+
+        trial_dir = os.path.join(args_base.save_dir, "optuna_trials", f"trial_{trial.number:04d}{profile_suffix}")
+        if not os.path.isdir(trial_dir):
+            LOGGER.warning("Skip post-hoc auto-test for trial=%s because trial dir not found: %s", trial.number, trial_dir)
+            continue
+        args_trial.save_dir = trial_dir
+
+        trial_cfg_path = os.path.join(trial_dir, "config_base.yaml")
+        trial_cfg = clone_args(args_trial)
+        trial_cfg.optuna_trial_meta = {
+            "trial_number": int(trial.number),
+            "profile": profile_name,
+            "sampled_params": sampled_params,
+            "objective_metric_weights": metric_weights,
+        }
+        OmegaConf.save(trial_cfg, trial_cfg_path)
+
+        train_step, _df, train_loader, val_loader, test_loader = get_model_and_data(
+            args_trial,
+            f"data/{args_trial.dataset}",
+            device,
+        )
+        model, criterion, optimizer, scheduler, args_trial = config_setup.setup_config(
+            args_trial,
+            device,
+            train_dataloader=train_loader,
+            checkpoint=None,
+            restore_weights=False,
+        )
+        del optimizer, scheduler
+
+        trial_test_metrics = _run_trial_auto_tests(
+            train_step=train_step,
+            args_trial=args_trial,
+            model=model,
+            criterion=criterion,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=device,
+            trial_dir=trial_dir,
+            ckpt_selects=ckpt_selects,
+        )
+
+        metrics_optuna_path = os.path.join(trial_dir, "metrics_optuna_val.json")
+        if os.path.exists(metrics_optuna_path):
+            payload = {}
+            try:
+                with open(metrics_optuna_path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except Exception:
+                payload = {}
+            payload["trial_test_ckpt_selects"] = ckpt_selects
+            payload["trial_test_metrics"] = trial_test_metrics
+            _save_json(metrics_optuna_path, payload)
 
 
 def _build_study_name(args_cli, optuna_cfg, model_name, profile_name, objective_name, multi_profile):
@@ -406,6 +622,8 @@ def objective_weighted_metrics(trial, args_base, args_cli, device, optuna_cfg, p
     search_space = _resolve_search_space(optuna_cfg, profile_cfg)
 
     sampled_params = apply_trial_search_space(trial, args_trial, search_space)
+    trial_test_ckpt_selects = _resolve_trial_test_ckpt_selects(args_cli, optuna_cfg)
+    trial_test_top_k = _resolve_trial_test_top_k(args_cli, optuna_cfg)
 
     profile_suffix = f"_{profile_name}" if profile_name else ""
     trial_dir = os.path.join(args_base.save_dir, "optuna_trials", f"trial_{trial.number:04d}{profile_suffix}")
@@ -486,6 +704,22 @@ def objective_weighted_metrics(trial, args_base, args_cli, device, optuna_cfg, p
         trial.set_user_attr("profile", profile_name)
         trial.set_user_attr("trial_dir", trial_dir)
 
+        trial_test_metrics = {}
+        if trial_test_ckpt_selects and trial_test_top_k <= 0:
+            trial_test_metrics = _run_trial_auto_tests(
+                train_step=train_step,
+                args_trial=args_trial,
+                model=model,
+                criterion=criterion,
+                train_loader=train_loader,
+                val_loader=val_loader,
+                test_loader=_test_loader,
+                device=device,
+                trial_dir=trial_dir,
+                ckpt_selects=trial_test_ckpt_selects,
+            )
+            trial.set_user_attr("trial_test_metrics", trial_test_metrics)
+
         _save_json(
             os.path.join(trial_dir, "metrics_optuna_val.json"),
             {
@@ -496,6 +730,9 @@ def objective_weighted_metrics(trial, args_base, args_cli, device, optuna_cfg, p
                 "objective_score": score,
                 "best_val_loss": float(best_val_loss),
                 "val_metrics": val_metrics,
+                "trial_test_ckpt_selects": trial_test_ckpt_selects,
+                "trial_test_metrics": trial_test_metrics,
+                "trial_test_top_k": trial_test_top_k,
             },
         )
 
@@ -505,6 +742,78 @@ def objective_weighted_metrics(trial, args_base, args_cli, device, optuna_cfg, p
         writer.close()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+
+
+def objective_weighted_metrics_dry_run(trial, args_base, args_cli, device, optuna_cfg, profile_name=None):
+    """Dry-run objective: sample hyperparameters and write artifacts without training."""
+    del device  # unused in dry-run, keep signature compatible
+
+    args_trial = clone_args(args_base)
+    profile_cfg = _resolve_profile_cfg(optuna_cfg, profile_name)
+
+    if "t_elaps_mode" in profile_cfg:
+        args_trial.t_elaps_mode = profile_cfg["t_elaps_mode"]
+
+    n_epochs = int(optuna_cfg.get("epochs", getattr(args_trial, "epochs", 120)))
+    args_trial.epochs = n_epochs
+
+    trial_seed_base = int(optuna_cfg.get("trial_seed_base", getattr(args_trial, "seed", 0)))
+    args_trial.seed = int(trial_seed_base + trial.number)
+    set_seed(
+        args_trial.seed,
+        deterministic=bool(getattr(args_trial, "deterministic", True)),
+        deterministic_warn_only=bool(getattr(args_trial, "deterministic_warn_only", False)),
+        use_deterministic_algorithms=bool(getattr(args_trial, "use_deterministic_algorithms", False)),
+    )
+
+    objective_name, _direction = _resolve_objective_and_direction(optuna_cfg)
+    metric_weights = _resolve_metric_weights(optuna_cfg) if objective_name == "weighted_metrics" else None
+    search_space = _resolve_search_space(optuna_cfg, profile_cfg)
+
+    sampled_params = apply_trial_search_space(trial, args_trial, search_space)
+
+    profile_suffix = f"_{profile_name}" if profile_name else ""
+    trial_dir = os.path.join(args_base.save_dir, "optuna_trials", f"trial_{trial.number:04d}{profile_suffix}")
+    os.makedirs(trial_dir, exist_ok=True)
+    args_trial.save_dir = trial_dir
+
+    trial_cfg = clone_args(args_trial)
+    trial_cfg.optuna_trial_meta = {
+        "trial_number": int(trial.number),
+        "profile": profile_name,
+        "sampled_params": sampled_params,
+        "objective_metric_weights": metric_weights,
+        "dry_run": True,
+    }
+    OmegaConf.save(trial_cfg, os.path.join(trial_dir, "config_base.yaml"))
+
+    learning_rate = float(sampled_params.get("learning_rate", getattr(args_trial, "learning_rate", 1e-3)))
+    weight_decay = float(sampled_params.get("weight_decay", getattr(args_trial, "weight_decay", 1e-3)))
+    score = float(abs(learning_rate - 9e-4) * 1000.0 + 10.0 * weight_decay + 1e-4 * trial.number)
+    val_metrics = {"RMSE": score, "dry_run": True}
+    score_detail = {"RMSE": score}
+
+    trial.set_user_attr("val_metrics", val_metrics)
+    trial.set_user_attr("score_detail", score_detail)
+    trial.set_user_attr("profile", profile_name)
+    trial.set_user_attr("trial_dir", trial_dir)
+    trial.set_user_attr("dry_run", True)
+
+    _save_json(
+        os.path.join(trial_dir, "metrics_optuna_val.json"),
+        {
+            "profile": profile_name,
+            "sampled_params": sampled_params,
+            "objective": objective_name,
+            "metric_weights": metric_weights,
+            "objective_score": score,
+            "best_val_loss": score,
+            "val_metrics": val_metrics,
+            "dry_run": True,
+        },
+    )
+    LOGGER.info("Optuna dry-run trial %s | profile=%s | sampled=%s", trial.number, profile_name, sampled_params)
+    return score
 
 
 def _resolve_profile_names(args, args_cli, optuna_cfg):
@@ -531,9 +840,25 @@ def run_optuna(args_cli, args, device):
     profile_names = runtime["profile_names"]
     sampler_seed = runtime["sampler_seed"]
     n_trials = runtime["n_trials"]
+    n_jobs = runtime["n_jobs"]
     top_k = runtime["top_k"]
     base_storage_cfg = runtime["base_storage_cfg"]
+    trial_test_top_k = runtime["trial_test_top_k"]
     multi_profile = len(profile_names) > 1
+    dry_run = bool(getattr(args_cli, "optuna_dry_run", False))
+    mixer_cfg = cfg_to_dict(getattr(args, "mixer_model_config", {}))
+    ssm_cfg = cfg_to_dict(mixer_cfg.get("ssm_cfg", {}))
+    ssm_layer = str(ssm_cfg.get("layer", "")).strip().lower()
+    if (not dry_run) and n_jobs > 1 and "mamba" in ssm_layer:
+        LOGGER.warning(
+            "Detected Mamba-based encoder (ssm layer=%s). "
+            "To avoid Triton autotuner concurrency crashes on single-process multi-trial runs, "
+            "forcing optuna n_jobs from %s to 1.",
+            ssm_layer,
+            n_jobs,
+        )
+        n_jobs = 1
+    objective_fn = objective_weighted_metrics_dry_run if dry_run else objective_weighted_metrics
 
     study_summaries = []
     for profile_name in profile_names:
@@ -557,14 +882,16 @@ def run_optuna(args_cli, args, device):
             sampler=sampler,
         )
         LOGGER.info(
-            "Starting Optuna | profile=%s | n_trials=%s | study=%s | storage=%s",
+            "Starting Optuna | profile=%s | n_trials=%s | n_jobs=%s | dry_run=%s | study=%s | storage=%s",
             profile_name,
             n_trials,
+            n_jobs,
+            dry_run,
             study.study_name,
             storage,
         )
         study.optimize(
-            lambda trial, _profile=profile_name: objective_weighted_metrics(
+            lambda trial, _profile=profile_name: objective_fn(
                 trial,
                 args,
                 args_cli,
@@ -573,7 +900,19 @@ def run_optuna(args_cli, args, device):
                 profile_name=_profile,
             ),
             n_trials=n_trials,
+            n_jobs=n_jobs,
         )
+
+        if (not dry_run) and trial_test_top_k > 0:
+            _run_profile_topk_auto_tests(
+                study=study,
+                top_k=trial_test_top_k,
+                args_base=args,
+                args_cli=args_cli,
+                device=device,
+                optuna_cfg=optuna_cfg,
+                profile_name=profile_name,
+            )
 
         summary_path = os.path.join(args.save_dir, f"optuna_summary_{profile_suffix}.json")
         summary = export_optuna_study_summary(

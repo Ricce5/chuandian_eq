@@ -67,9 +67,14 @@ save_epochs:
 save_dir: null
 cuda_id: '0'
 dataset: ChuanDian
-criterion_name: smooth_l1
+criterion_name: composite
 criterion_cfg:
-  beta: 0.2
+  base_loss_name: huber
+  base_loss_cfg:
+    delta: 0.2
+  corr_weight: 0.1
+  corr_eps: '1e-8'
+  corr_on: flatten
 seed: 0
 Mc: 3
 Mf: 3

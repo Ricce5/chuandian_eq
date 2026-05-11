@@ -1,0 +1,26 @@
+2026-05-11 12:10:22,238 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-11 12:10:22,943 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-11 12:10:25,132 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-11 12:10:25,172 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-11 12:10:25,952 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-11 12:10:25,952 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-11 12:10:25,957 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-11 12:10:25,958 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-11 12:10:25,959 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-11 12:10:25,959 INFO src.train.config_setup: Full load summary: loaded=68, missing=0, unexpected=0
+2026-05-11 12:10:25,960 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-11 12:10:25,960 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-11 12:10:25,960 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-11 12:10:25,960 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-11 12:10:25,961 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-11 12:10:25,961 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-11 12:10:25,962 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-11 12:10:25,962 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0003, matched=32
+2026-05-11 12:10:25,962 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-11 12:10:25,962 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-11 12:10:25,962 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-11 12:10:25,962 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-11 12:10:25,963 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-11 12:10:31,167 INFO src.cli.workflows: Test loss: 0.016049512351552647
+2026-05-11 12:10:32,738 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-001210/runs/low_lr/optuna_trials/trial_0020_low_lr/metrics_test_last_1.json
+2026-05-11 12:10:32,738 INFO src.cli.common: Metrics: {'RMSE': 0.5849103721713915, 'MAE': 0.461296623358961, 'MSE': 0.3421201434736757, 'MAPE': 9.898159164104733, 'R2': -0.02236918407765942, 'PearsonR': 0.5315119994953758, 'PearsonR_diff': 0.05860251886789882, 'DA': 0.06043956043956044, 'SpearmanR': 0.46038967148846993, 'SpearmanR_diff': 0.0860944054300065, 'DTW': 54.39473757147789, 'DTW_normalized': 0.29723900312283}

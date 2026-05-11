@@ -1,0 +1,279 @@
+{
+  "trials_dir": "/root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/20260510-232207/runs/base/optuna_trials",
+  "out_dir": "/root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/20260510-232207/runs/base/analysis_last_val_loss",
+  "warnings": [],
+  "analysis": {
+    "n_rows": 3,
+    "low_group": {
+      "size": 1,
+      "fraction": 0.3333333333333333,
+      "max_last_val_loss": 0.03699476271867752,
+      "trial_numbers": [
+        2
+      ],
+      "mean_last_val_loss": 0.03699476271867752,
+      "mean_last_minus_best": 0.010159729048609734
+    },
+    "high_group": {
+      "size": 1,
+      "fraction": 0.3333333333333333,
+      "min_last_val_loss": 0.06899374723434448,
+      "trial_numbers": [
+        1
+      ],
+      "mean_last_val_loss": 0.06899374723434448,
+      "mean_last_minus_best": 0.02843824215233326
+    },
+    "groups_overlap_trial_numbers": [],
+    "global_stats": {
+      "min": 0.03699476271867752,
+      "p25": 0.043402002193033695,
+      "median": 0.04980924166738987,
+      "p75": 0.059401494450867176,
+      "max": 0.06899374723434448,
+      "mean": 0.05193258387347063
+    },
+    "top_low_trials": [
+      {
+        "trial": 2,
+        "trial_dir_name": "trial_0002_base",
+        "trial_dir": "/root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/20260510-232207/runs/base/optuna_trials/trial_0002_base",
+        "profile": "base",
+        "last_val_loss": 0.03699476271867752,
+        "best_val_loss": 0.026835033670067787,
+        "last_minus_best": 0.010159729048609734,
+        "params_json": "{\"batch_size\": 128, \"criterion_cfg.beta\": 0.3, \"encoder_learning_rate\": 0.0008, \"learning_rate\": 0.0006015524308049476, \"mlp_dropout\": 0.30000000000000004, \"scheduler_type\": \"warmup_linear_decay\", \"step_lr_gamma\": 0.5, \"step_lr_step_size_ratio\": 0.25, \"warmup_ratio\": 0.1, \"weight_decay\": 0.0006093384148439923}",
+        "param_scheduler_type": "warmup_linear_decay",
+        "param_warmup_ratio": 0.1,
+        "param_step_lr_step_size_ratio": 0.25,
+        "param_step_lr_gamma": 0.5,
+        "param_learning_rate": 0.0006015524308049476,
+        "param_weight_decay": 0.0006093384148439923,
+        "param_encoder_learning_rate": 0.0008,
+        "param_batch_size": 128,
+        "param_criterion_cfg__beta": 0.3,
+        "param_mlp_dropout": 0.30000000000000004
+      }
+    ],
+    "top_high_trials": [
+      {
+        "trial": 1,
+        "trial_dir_name": "trial_0001_base",
+        "trial_dir": "/root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/20260510-232207/runs/base/optuna_trials/trial_0001_base",
+        "profile": "base",
+        "last_val_loss": 0.06899374723434448,
+        "best_val_loss": 0.04055550508201122,
+        "last_minus_best": 0.02843824215233326,
+        "params_json": "{\"batch_size\": 128, \"criterion_cfg.beta\": 0.2, \"encoder_learning_rate\": null, \"learning_rate\": 0.001018990524121195, \"mlp_dropout\": 0.2, \"scheduler_type\": \"hf_cosine\", \"step_lr_gamma\": 0.6, \"step_lr_step_size_ratio\": 0.2, \"warmup_ratio\": 0.05, \"weight_decay\": 0.0015102121690019003}",
+        "param_scheduler_type": "hf_cosine",
+        "param_warmup_ratio": 0.05,
+        "param_step_lr_step_size_ratio": 0.2,
+        "param_step_lr_gamma": 0.6,
+        "param_learning_rate": 0.001018990524121195,
+        "param_weight_decay": 0.0015102121690019003,
+        "param_encoder_learning_rate": null,
+        "param_batch_size": 128,
+        "param_criterion_cfg__beta": 0.2,
+        "param_mlp_dropout": 0.2
+      }
+    ],
+    "param_analysis": {
+      "scheduler_type": {
+        "low_counts": {
+          "warmup_linear_decay": 1
+        },
+        "high_counts": {
+          "hf_cosine": 1
+        },
+        "all_counts": {
+          "warmup_linear_decay": 1,
+          "hf_cosine": 2
+        }
+      },
+      "warmup_ratio": {
+        "low_counts": {
+          "0.1": 1
+        },
+        "high_counts": {
+          "0.05": 1
+        },
+        "all_counts": {
+          "0.1": 1,
+          "0.15": 1,
+          "0.05": 1
+        },
+        "numeric": {
+          "low_mean": 0.1,
+          "low_median": 0.1,
+          "high_mean": 0.05,
+          "high_median": 0.05,
+          "all_mean": 0.09999999999999999,
+          "all_median": 0.1
+        }
+      },
+      "step_lr_step_size_ratio": {
+        "low_counts": {
+          "0.25": 1
+        },
+        "high_counts": {
+          "0.2": 1
+        },
+        "all_counts": {
+          "0.25": 2,
+          "0.2": 1
+        },
+        "numeric": {
+          "low_mean": 0.25,
+          "low_median": 0.25,
+          "high_mean": 0.2,
+          "high_median": 0.2,
+          "all_mean": 0.2333333333333333,
+          "all_median": 0.25
+        }
+      },
+      "step_lr_gamma": {
+        "low_counts": {
+          "0.5": 1
+        },
+        "high_counts": {
+          "0.6": 1
+        },
+        "all_counts": {
+          "0.5": 2,
+          "0.6": 1
+        },
+        "numeric": {
+          "low_mean": 0.5,
+          "low_median": 0.5,
+          "high_mean": 0.6,
+          "high_median": 0.6,
+          "all_mean": 0.5333333333333333,
+          "all_median": 0.5
+        }
+      },
+      "learning_rate": {
+        "low_counts": {
+          "0.0006015524308049476": 1
+        },
+        "high_counts": {
+          "0.001018990524121195": 1
+        },
+        "all_counts": {
+          "0.0006015524308049476": 1,
+          "0.0009680943869127277": 1,
+          "0.001018990524121195": 1
+        },
+        "numeric": {
+          "low_mean": 0.0006015524308049476,
+          "low_median": 0.0006015524308049476,
+          "high_mean": 0.001018990524121195,
+          "high_median": 0.001018990524121195,
+          "all_mean": 0.00086287911394629,
+          "all_median": 0.0009680943869127277
+        }
+      },
+      "weight_decay": {
+        "low_counts": {
+          "0.0006093384148439923": 1
+        },
+        "high_counts": {
+          "0.0015102121690019003": 1
+        },
+        "all_counts": {
+          "0.0006093384148439923": 1,
+          "0.0026255735325964136": 1,
+          "0.0015102121690019003": 1
+        },
+        "numeric": {
+          "low_mean": 0.0006093384148439923,
+          "low_median": 0.0006093384148439923,
+          "high_mean": 0.0015102121690019003,
+          "high_median": 0.0015102121690019003,
+          "all_mean": 0.0015817080388141021,
+          "all_median": 0.0015102121690019003
+        }
+      },
+      "encoder_learning_rate": {
+        "low_counts": {
+          "0.0008": 1
+        },
+        "high_counts": {
+          "__MISSING__": 1
+        },
+        "all_counts": {
+          "0.0008": 1,
+          "0.0006": 1,
+          "__MISSING__": 1
+        },
+        "numeric": {
+          "low_mean": 0.0008,
+          "low_median": 0.0008,
+          "high_mean": null,
+          "high_median": null,
+          "all_mean": 0.0007,
+          "all_median": 0.0007
+        }
+      },
+      "batch_size": {
+        "low_counts": {
+          "128": 1
+        },
+        "high_counts": {
+          "128": 1
+        },
+        "all_counts": {
+          "128": 3
+        },
+        "numeric": {
+          "low_mean": 128.0,
+          "low_median": 128.0,
+          "high_mean": 128.0,
+          "high_median": 128.0,
+          "all_mean": 128.0,
+          "all_median": 128.0
+        }
+      },
+      "criterion_cfg.beta": {
+        "low_counts": {
+          "0.3": 1
+        },
+        "high_counts": {
+          "0.2": 1
+        },
+        "all_counts": {
+          "0.3": 1,
+          "0.2": 2
+        },
+        "numeric": {
+          "low_mean": 0.3,
+          "low_median": 0.3,
+          "high_mean": 0.2,
+          "high_median": 0.2,
+          "all_mean": 0.2333333333333333,
+          "all_median": 0.2
+        }
+      },
+      "mlp_dropout": {
+        "low_counts": {
+          "0.30000000000000004": 1
+        },
+        "high_counts": {
+          "0.2": 1
+        },
+        "all_counts": {
+          "0.30000000000000004": 1,
+          "0.4": 1,
+          "0.2": 1
+        },
+        "numeric": {
+          "low_mean": 0.30000000000000004,
+          "low_median": 0.30000000000000004,
+          "high_mean": 0.2,
+          "high_median": 0.2,
+          "all_mean": 0.30000000000000004,
+          "all_median": 0.30000000000000004
+        }
+      }
+    }
+  }
+}
