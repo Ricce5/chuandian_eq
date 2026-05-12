@@ -69,7 +69,7 @@ rtpp_normalize_mixture_logits: true
 # Magnitude / b-value settings
 predict_b: true
 b_use_bg_context: false
-time_use_bg_context: false
+time_use_bg_context: true
 b_init: 1.0
 b_range: [0.5, 2.0]
 use_b_updater: true
@@ -88,7 +88,7 @@ save_dir: null
 cuda_id: "0"
 
 # Data and control parameters
-dataset: CB_HAB1a
+dataset: Geysers
 seed: 0
 minibatch_training: false
 split_by_time: true
@@ -97,5 +97,4 @@ time_order:  [train, val, test]
 
 catalog_cfg:
   freq: "1D"
-  mag_completeness: -0.4
-  # end_ts: "2020-6-16T01:00:00"
+  mag_completeness: 2.2

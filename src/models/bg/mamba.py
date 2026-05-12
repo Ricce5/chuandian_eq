@@ -133,6 +133,46 @@ class MambaBGModel(BGModel):
         if device is not None:
             self.to(device)
 
+    @property
+    def context_dim(self) -> int:
+        return int(self.fc_in.out_features)
+
+    def _prepare_ts_inputs(
+        self,
+        ts_batch,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        if not hasattr(ts_batch, "time_series") or not hasattr(ts_batch, "time_series_times"):
+            raise ValueError(
+                "ts_batch must contain 'time_series' and 'time_series_times' to compute background context."
+            )
+
+        time_series = ts_batch.time_series.to(self.device, dtype=torch.float32)
+        time_series_times = ts_batch.time_series_times.to(self.device)
+        ts_mask = getattr(ts_batch, "time_series_mask", None)
+        if ts_mask is not None:
+            ts_mask = ts_mask.to(self.device)
+        return time_series, time_series_times, ts_mask
+
+    def context_trajectory(
+        self,
+        ts_batch,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return Mamba fast-branch hidden states on the time-series grid.
+
+        Returns:
+            time_series_times: (B, T)
+            fast_out: (B, T, d_model)
+        """
+        time_series, time_series_times, ts_mask = self._prepare_ts_inputs(ts_batch)
+        ssm_in = self.fc_in(time_series)
+        fast_out = self.mamba(ssm_in.contiguous())
+        if ts_mask is not None:
+            fast_out = fast_out * ts_mask.to(
+                device=fast_out.device,
+                dtype=fast_out.dtype,
+            ).unsqueeze(-1)
+        return time_series_times, fast_out
+
     def scaled_intensity(self, time_series: torch.Tensor) -> torch.Tensor:
         """Project input features to hidden states and apply Mamba SSM.
 
