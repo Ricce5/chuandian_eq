@@ -1,1 +1,0 @@
-不预测b, 加logdeltat

@@ -1,1 +1,0 @@
-/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250819-170236 加入tau_mean归一化

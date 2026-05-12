@@ -1,1 +1,0 @@
-相对checkpoints/reg_mixer_attnpl_t_20260202-103605换seed

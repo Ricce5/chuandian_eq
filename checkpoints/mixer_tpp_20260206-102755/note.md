@@ -1,1 +1,0 @@
-预测b值，加logdeltat

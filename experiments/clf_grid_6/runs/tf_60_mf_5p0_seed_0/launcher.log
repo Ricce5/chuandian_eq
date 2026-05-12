@@ -1,332 +1,0 @@
-
-[CMD] /root/miniconda3/bin/python main.py --model clf_mixer_attnpl_t --mode train --config /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/config_input.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0
-2026-05-10 15:27:33.574902: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2026-05-10 15:27:33.592578: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1778398053.610461   73963 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1778398053.615806   73963 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1778398053.629652   73963 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1778398053.629681   73963 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1778398053.629683   73963 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1778398053.629685   73963 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-05-10 15:27:33.633748: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-05-10 15:27:37,082 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
-2026-05-10 15:27:38,233 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_5.0_Tfore_60_Twindow_180_context_len_1_dt_10.pkl
-2026-05-10 15:27:38,635 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
-2026-05-10 15:27:38,655 INFO src.data.event_loader: lengths of samples: min=32, max=981, avg=129.55
-2026-05-10 15:27:38,655 INFO src.data.event_loader: Number of positive samples: 808
-2026-05-10 15:27:38,656 INFO src.data.event_loader: Number of negative samples: 651
-2026-05-10 15:27:38,656 INFO src.data.event_loader: Positive samples: 673, Negative samples: 494
-2026-05-10 15:27:38,656 INFO src.data.event_loader: Total samples: 1167, Positive ratio: 0.58, Negative ratio: 0.42
-2026-05-10 15:27:38,657 INFO src.data.event_loader: Positive samples: 87, Negative samples: 58
-2026-05-10 15:27:38,657 INFO src.data.event_loader: Total samples: 145, Positive ratio: 0.60, Negative ratio: 0.40
-2026-05-10 15:27:38,657 INFO src.data.event_loader: Positive samples: 48, Negative samples: 99
-2026-05-10 15:27:38,657 INFO src.data.event_loader: Total samples: 147, Positive ratio: 0.33, Negative ratio: 0.67
-2026-05-10 15:27:38,853 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
-2026-05-10 15:27:39,384 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
-2026-05-10 15:27:39,384 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
-2026-05-10 15:27:39,393 INFO src.train.config_setup: Restoring model from checkpoint.
-2026-05-10 15:27:39,393 INFO src.train.config_setup: Loading model weights: load_specific_parts=['base_model.encoder.layers.0', 'base_model.encoder.input_proj']
-2026-05-10 15:27:39,394 INFO src.train.config_setup: Selective load summary: requested_parts=['base_model.encoder.layers.0', 'base_model.encoder.input_proj'], target_in_model=16, matched_in_checkpoint=16, loaded=16, missing_after_load=0, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
-2026-05-10 15:27:39,395 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.0]: target=12, hit=12, missing=0, complete=True
-2026-05-10 15:27:39,395 INFO src.train.config_setup: Selective load coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-10 15:27:39,395 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.out_proj.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.layers.0.norm2.bias', 'base_model.encoder.layers.0.mlp.fc2.weight', 'base_model.encoder.input_proj.0.weight', 'base_model.encoder.layers.0.mixer.norm.weight', 'base_model.encoder.layers.0.norm2.weight'] ... (+6 more)
-2026-05-10 15:27:39,396 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
-2026-05-10 15:27:39,396 INFO src.train.config_setup: Checkpoint train metrics available.
-2026-05-10 15:27:39,396 INFO src.train.config_setup: Checkpoint val metrics available.
-2026-05-10 15:27:39,396 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
-2026-05-10 15:27:39,396 INFO src.train.config_setup: Using classification criterion: focal
-2026-05-10 15:27:39,396 INFO src.train.config_setup: Criterion config: {'alpha': 0.5, 'gamma': 2.0}
-2026-05-10 15:27:39,397 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
-2026-05-10 15:27:39,397 INFO src.train.trainer: Epoch 1
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-/root/miniconda3/lib/python3.12/site-packages/torch/autograd/graph.py:825: UserWarning: Memory Efficient attention defaults to a non-deterministic algorithm. To explicitly enable determinism call torch.use_deterministic_algorithms(True, warn_only=False). (Triggered internally at ../aten/src/ATen/native/transformers/cuda/attention_backward.cu:655.)
-  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
-                                                Training:   0%|          | 0/19 [00:11<?, ?it/s]Training:   5%|▌         | 1/19 [00:11<03:21, 11.21s/it]Training:  21%|██        | 4/19 [00:11<00:32,  2.15s/it]Training:  37%|███▋      | 7/19 [00:11<00:12,  1.02s/it]Training:  53%|█████▎    | 10/19 [00:11<00:05,  1.68it/s]Training:  68%|██████▊   | 13/19 [00:11<00:02,  2.60it/s]Training:  84%|████████▍ | 16/19 [00:11<00:00,  3.76it/s]Training: 100%|██████████| 19/19 [00:12<00:00,  4.98it/s]Training: 100%|██████████| 19/19 [00:12<00:00,  1.57it/s]
-Batch     0/   19 | Loss: 0.122641
-Training    precision: 0.5763 | recall: 0.9985 | f1: 0.7308 | auc: 0.4893 | pr_auc: 0.5664 | fpr: 1.0000 | tpr: 0.9985 | R: -0.0015 | conf: 0.0000 | threshold: 0.2246
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 45.57it/s]
-2026-05-10 15:27:52,425 INFO src.train.trainer: New best validation loss: 0.0868, saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/best_model_1.pth
-2026-05-10 15:27:52,431 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:27:52,431 INFO src.train.trainer: Epoch 2
-Validation  precision: 0.5972 | recall: 0.9885 | f1: 0.7446 | auc: 0.5646 | pr_auc: 0.7290 | fpr: 1.0000 | tpr: 0.9885 | R: -0.0115 | conf: 0.0000 | threshold: 0.4907
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 19.46it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.30it/s]Training:  37%|███▋      | 7/19 [00:00<00:00, 20.97it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 21.26it/s]Training:  68%|██████▊   | 13/19 [00:00<00:00, 20.87it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 19.85it/s]Training:  95%|█████████▍| 18/19 [00:00<00:00, 18.53it/s]Training: 100%|██████████| 19/19 [00:00<00:00, 19.56it/s]
-Batch     0/   19 | Loss: 0.085323
-Training    precision: 0.5772 | recall: 1.0000 | f1: 0.7319 | auc: 0.5420 | pr_auc: 0.6197 | fpr: 0.9980 | tpr: 1.0000 | R: 0.0020 | conf: 0.0000 | threshold: 0.2410
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 46.88it/s]
-2026-05-10 15:27:54,399 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:27:54,400 INFO src.train.trainer: Epoch 3
-Validation  precision: 0.5972 | recall: 0.9885 | f1: 0.7446 | auc: 0.5955 | pr_auc: 0.7461 | fpr: 1.0000 | tpr: 0.9885 | R: -0.0115 | conf: 0.0000 | threshold: 0.4331
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.61it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.91it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.91it/s]Training:  47%|████▋     | 9/19 [00:00<00:00, 19.51it/s]Training:  58%|█████▊    | 11/19 [00:00<00:00, 19.25it/s]Training:  68%|██████▊   | 13/19 [00:00<00:00, 18.67it/s]Training:  79%|███████▉  | 15/19 [00:00<00:00, 18.41it/s]Training:  89%|████████▉ | 17/19 [00:00<00:00, 18.34it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.93it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 18.12it/s]
-Batch     0/   19 | Loss: 0.102058
-Training    precision: 0.5763 | recall: 0.9985 | f1: 0.7308 | auc: 0.5000 | pr_auc: 0.6028 | fpr: 1.0000 | tpr: 0.9985 | R: -0.0015 | conf: 0.0000 | threshold: 0.3034
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 54.67it/s]
-2026-05-10 15:27:56,432 INFO src.train.trainer: Last model at epoch 3 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:27:56,432 INFO src.train.trainer: Epoch 4
-Validation  precision: 0.5972 | recall: 0.9885 | f1: 0.7446 | auc: 0.5886 | pr_auc: 0.7147 | fpr: 1.0000 | tpr: 0.9885 | R: -0.0115 | conf: 0.0000 | threshold: 0.4059
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 17.59it/s]Training:  21%|██        | 4/19 [00:00<00:00, 17.30it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.05it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 17.27it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 17.54it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.18it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.53it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.34it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.24it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.94it/s]
-Batch     0/   19 | Loss: 0.110695
-Training    precision: 0.5772 | recall: 1.0000 | f1: 0.7319 | auc: 0.5299 | pr_auc: 0.6298 | fpr: 0.9980 | tpr: 1.0000 | R: 0.0020 | conf: 0.0000 | threshold: 0.3281
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 54.46it/s]
-2026-05-10 15:27:58,565 INFO src.train.trainer: Last model at epoch 4 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:27:58,566 INFO src.train.trainer: Epoch 5
-Validation  precision: 0.6299 | recall: 0.9195 | f1: 0.7477 | auc: 0.6167 | pr_auc: 0.7251 | fpr: 0.8103 | tpr: 0.9195 | R: 0.1092 | conf: 0.0000 | threshold: 0.4269
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  16%|█▌        | 3/19 [00:00<00:00, 20.10it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 19.10it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.96it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 16.85it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.03it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.96it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 15.35it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 15.14it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.58it/s]
-Batch     0/   19 | Loss: 0.096083
-Training    precision: 0.5768 | recall: 0.9985 | f1: 0.7312 | auc: 0.5447 | pr_auc: 0.6366 | fpr: 0.9980 | tpr: 0.9985 | R: 0.0005 | conf: 0.0000 | threshold: 0.3465
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 53.30it/s]
-2026-05-10 15:28:00,711 INFO src.train.trainer: Last model at epoch 5 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:00,711 INFO src.train.trainer: Epoch 6
-Validation  precision: 0.6557 | recall: 0.9195 | f1: 0.7656 | auc: 0.6038 | pr_auc: 0.6943 | fpr: 0.7241 | tpr: 0.9195 | R: 0.1954 | conf: 0.0410 | threshold: 0.4281
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 17.06it/s]Training:  21%|██        | 4/19 [00:00<00:00, 17.13it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.24it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 16.05it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 16.46it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 16.11it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.10it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.00it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 15.29it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.17it/s]
-Batch     0/   19 | Loss: 0.100510
-Training    precision: 0.5763 | recall: 0.9985 | f1: 0.7308 | auc: 0.5775 | pr_auc: 0.6750 | fpr: 1.0000 | tpr: 0.9985 | R: -0.0015 | conf: 0.0000 | threshold: 0.3533
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 49.82it/s]
-2026-05-10 15:28:02,873 INFO src.train.trainer: New best validation loss: 0.0863, saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/best_model_1.pth
-2026-05-10 15:28:02,886 INFO src.train.trainer: Last model at epoch 6 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:02,886 INFO src.train.trainer: Epoch 7
-Validation  precision: 0.6529 | recall: 0.9080 | f1: 0.7596 | auc: 0.7006 | pr_auc: 0.7694 | fpr: 0.7241 | tpr: 0.9080 | R: 0.1839 | conf: 0.0276 | threshold: 0.4491
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 17.64it/s]Training:  21%|██        | 4/19 [00:00<00:00, 16.26it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.62it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 17.69it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 15.94it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 16.18it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.47it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.57it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 15.87it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.52it/s]
-Batch     0/   19 | Loss: 0.075698
-Training    precision: 0.5875 | recall: 0.9777 | f1: 0.7340 | auc: 0.6473 | pr_auc: 0.7215 | fpr: 0.9352 | tpr: 0.9777 | R: 0.0425 | conf: 0.0000 | threshold: 0.3998
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 48.56it/s]
-2026-05-10 15:28:04,983 INFO src.train.trainer: New best validation loss: 0.0835, saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/best_model_1.pth
-2026-05-10 15:28:04,992 INFO src.train.trainer: Last model at epoch 7 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:04,993 INFO src.train.trainer: Epoch 8
-Validation  precision: 0.8125 | recall: 0.7471 | f1: 0.7784 | auc: 0.7614 | pr_auc: 0.8096 | fpr: 0.2586 | tpr: 0.7471 | R: 0.4885 | conf: 1.0000 | threshold: 0.4876
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.62it/s]Training:  21%|██        | 4/19 [00:00<00:00, 16.84it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.22it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 17.66it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 17.64it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.71it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 17.64it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 17.17it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 17.07it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.49it/s]
-Batch     0/   19 | Loss: 0.074313
-Training    precision: 0.5806 | recall: 0.9955 | f1: 0.7334 | auc: 0.6917 | pr_auc: 0.7685 | fpr: 0.9798 | tpr: 0.9955 | R: 0.0158 | conf: 0.0000 | threshold: 0.3439
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 45.62it/s]
-2026-05-10 15:28:06,989 INFO src.train.trainer: New best validation loss: 0.0833, saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/best_model_1.pth
-2026-05-10 15:28:06,999 INFO src.train.trainer: Last model at epoch 8 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:06,999 INFO src.train.trainer: Epoch 9
-Validation  precision: 0.5972 | recall: 0.9885 | f1: 0.7446 | auc: 0.7245 | pr_auc: 0.8484 | fpr: 1.0000 | tpr: 0.9885 | R: -0.0115 | conf: 0.0000 | threshold: 0.4285
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.50it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.19it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.15it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 17.60it/s]Training:  58%|█████▊    | 11/19 [00:00<00:00, 18.87it/s]Training:  68%|██████▊   | 13/19 [00:00<00:00, 18.75it/s]Training:  79%|███████▉  | 15/19 [00:00<00:00, 18.51it/s]Training:  89%|████████▉ | 17/19 [00:00<00:00, 18.12it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.02it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.79it/s]
-Batch     0/   19 | Loss: 0.065645
-Training    precision: 0.6131 | recall: 0.9346 | f1: 0.7404 | auc: 0.7404 | pr_auc: 0.8197 | fpr: 0.8036 | tpr: 0.9346 | R: 0.1310 | conf: 0.0000 | threshold: 0.4317
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 40.05it/s]
-2026-05-10 15:28:08,918 INFO src.train.trainer: Last model at epoch 9 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:08,918 INFO src.train.trainer: Epoch 10
-Validation  precision: 0.6324 | recall: 0.9885 | f1: 0.7713 | auc: 0.7352 | pr_auc: 0.8331 | fpr: 0.8621 | tpr: 0.9885 | R: 0.1264 | conf: 0.0000 | threshold: 0.3744
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 17.64it/s]Training:  21%|██        | 4/19 [00:00<00:00, 16.78it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.77it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.05it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 18.40it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 18.02it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 17.73it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.32it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 15.49it/s]/root/miniconda3/lib/python3.12/site-packages/torch/optim/lr_scheduler.py:240: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
-  warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
-Training: 100%|██████████| 19/19 [00:01<00:00, 16.87it/s]
-Batch     0/   19 | Loss: 0.063310
-Training    precision: 0.7287 | recall: 0.8024 | f1: 0.7638 | auc: 0.7779 | pr_auc: 0.8485 | fpr: 0.4069 | tpr: 0.8024 | R: 0.3955 | conf: 1.0000 | threshold: 0.4728
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 50.99it/s]
-2026-05-10 15:28:10,848 INFO src.train.trainer: Last model at epoch 10 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:10,848 INFO src.train.trainer: Epoch 11
-Validation  precision: 0.6434 | recall: 0.9540 | f1: 0.7685 | auc: 0.7499 | pr_auc: 0.8517 | fpr: 0.7931 | tpr: 0.9540 | R: 0.1609 | conf: 0.0000 | threshold: 0.3653
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:01, 16.92it/s]Training:  21%|██        | 4/19 [00:00<00:00, 17.76it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.38it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.51it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 18.59it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.31it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 17.56it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 17.79it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.71it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.63it/s]
-Batch     0/   19 | Loss: 0.076907
-Training    precision: 0.6364 | recall: 0.8945 | f1: 0.7437 | auc: 0.7589 | pr_auc: 0.8357 | fpr: 0.6964 | tpr: 0.8945 | R: 0.1981 | conf: 0.0001 | threshold: 0.4132
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 55.46it/s]
-2026-05-10 15:28:12,709 INFO src.train.trainer: New best validation loss: 0.0755, saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/best_model_1.pth
-2026-05-10 15:28:12,717 INFO src.train.trainer: Last model at epoch 11 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:12,717 INFO src.train.trainer: Epoch 12
-Validation  precision: 0.6204 | recall: 0.9770 | f1: 0.7589 | auc: 0.7606 | pr_auc: 0.8645 | fpr: 0.8966 | tpr: 0.9770 | R: 0.0805 | conf: 0.0000 | threshold: 0.4077
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  16%|█▌        | 3/19 [00:00<00:00, 19.89it/s]Training:  26%|██▋       | 5/19 [00:00<00:00, 19.83it/s]Training:  37%|███▋      | 7/19 [00:00<00:00, 19.72it/s]Training:  47%|████▋     | 9/19 [00:00<00:00, 18.97it/s]Training:  58%|█████▊    | 11/19 [00:00<00:00, 18.57it/s]Training:  68%|██████▊   | 13/19 [00:00<00:00, 17.34it/s]Training:  79%|███████▉  | 15/19 [00:00<00:00, 17.64it/s]Training:  89%|████████▉ | 17/19 [00:00<00:00, 17.56it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.67it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.80it/s]
-Batch     0/   19 | Loss: 0.058113
-Training    precision: 0.7715 | recall: 0.7875 | f1: 0.7794 | auc: 0.8128 | pr_auc: 0.8787 | fpr: 0.3178 | tpr: 0.7875 | R: 0.4697 | conf: 1.0000 | threshold: 0.4922
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 39.73it/s]
-2026-05-10 15:28:14,522 INFO src.train.trainer: Last model at epoch 12 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:14,522 INFO src.train.trainer: Epoch 13
-Validation  precision: 0.6641 | recall: 0.9770 | f1: 0.7907 | auc: 0.7878 | pr_auc: 0.8759 | fpr: 0.7414 | tpr: 0.9770 | R: 0.2356 | conf: 0.0668 | threshold: 0.3701
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.59it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.31it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.45it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.92it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 18.98it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.61it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 17.77it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.86it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.32it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.48it/s]
-Batch     0/   19 | Loss: 0.059864
-Training    precision: 0.6740 | recall: 0.9064 | f1: 0.7731 | auc: 0.8021 | pr_auc: 0.8676 | fpr: 0.5972 | tpr: 0.9064 | R: 0.3092 | conf: 1.0000 | threshold: 0.4151
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 54.46it/s]
-2026-05-10 15:28:16,379 INFO src.train.trainer: Last model at epoch 13 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:16,380 INFO src.train.trainer: Epoch 14
-Validation  precision: 0.6204 | recall: 0.9770 | f1: 0.7589 | auc: 0.7568 | pr_auc: 0.8642 | fpr: 0.8966 | tpr: 0.9770 | R: 0.0805 | conf: 0.0000 | threshold: 0.3857
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.71it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.41it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.69it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.59it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 18.55it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.85it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 17.55it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.45it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.08it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.28it/s]
-Batch     0/   19 | Loss: 0.060686
-Training    precision: 0.7664 | recall: 0.8143 | f1: 0.7896 | auc: 0.8339 | pr_auc: 0.8913 | fpr: 0.3381 | tpr: 0.8143 | R: 0.4762 | conf: 1.0000 | threshold: 0.4740
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 58.00it/s]
-2026-05-10 15:28:18,204 INFO src.train.trainer: Last model at epoch 14 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:18,204 INFO src.train.trainer: Epoch 15
-Validation  precision: 0.6991 | recall: 0.9080 | f1: 0.7900 | auc: 0.8094 | pr_auc: 0.8871 | fpr: 0.5862 | tpr: 0.9080 | R: 0.3218 | conf: 0.9987 | threshold: 0.3770
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.35it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.14it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.40it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.70it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 17.54it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.64it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.56it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.77it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 15.29it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.68it/s]
-Batch     0/   19 | Loss: 0.071686
-Training    precision: 0.7732 | recall: 0.7801 | f1: 0.7766 | auc: 0.8242 | pr_auc: 0.8843 | fpr: 0.3117 | tpr: 0.7801 | R: 0.4683 | conf: 1.0000 | threshold: 0.4746
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 57.54it/s]
-2026-05-10 15:28:20,046 INFO src.train.trainer: Last model at epoch 15 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:20,046 INFO src.train.trainer: Epoch 16
-Validation  precision: 0.7802 | recall: 0.8161 | f1: 0.7978 | auc: 0.8096 | pr_auc: 0.8803 | fpr: 0.3448 | tpr: 0.8161 | R: 0.4713 | conf: 1.0000 | threshold: 0.4316
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 17.98it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.12it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.56it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.52it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 18.24it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 16.51it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.62it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.49it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.25it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.05it/s]
-Batch     0/   19 | Loss: 0.051446
-Training    precision: 0.7690 | recall: 0.9004 | f1: 0.8296 | auc: 0.8715 | pr_auc: 0.9162 | fpr: 0.3684 | tpr: 0.9004 | R: 0.5320 | conf: 1.0000 | threshold: 0.4488
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 57.71it/s]
-2026-05-10 15:28:21,812 INFO src.train.trainer: Last model at epoch 16 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:21,812 INFO src.train.trainer: Epoch 17
-Validation  precision: 0.6538 | recall: 0.9770 | f1: 0.7834 | auc: 0.7992 | pr_auc: 0.8759 | fpr: 0.7759 | tpr: 0.9770 | R: 0.2011 | conf: 0.0021 | threshold: 0.3212
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.39it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.36it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 18.72it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 16.97it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 17.23it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 15.93it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 15.95it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 15.72it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 15.76it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.56it/s]
-Batch     0/   19 | Loss: 0.060085
-Training    precision: 0.7972 | recall: 0.8529 | f1: 0.8241 | auc: 0.8759 | pr_auc: 0.9191 | fpr: 0.2955 | tpr: 0.8529 | R: 0.5574 | conf: 1.0000 | threshold: 0.4649
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 54.34it/s]
-2026-05-10 15:28:23,588 INFO src.train.trainer: Last model at epoch 17 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:23,588 INFO src.train.trainer: Epoch 18
-Validation  precision: 0.7826 | recall: 0.8276 | f1: 0.8045 | auc: 0.8028 | pr_auc: 0.8802 | fpr: 0.3448 | tpr: 0.8276 | R: 0.4828 | conf: 1.0000 | threshold: 0.4811
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 17.74it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.02it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.86it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.21it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 17.28it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.23it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 16.02it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 16.46it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.12it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.91it/s]
-Batch     0/   19 | Loss: 0.051152
-Training    precision: 0.8097 | recall: 0.8975 | f1: 0.8513 | auc: 0.9034 | pr_auc: 0.9327 | fpr: 0.2874 | tpr: 0.8975 | R: 0.6100 | conf: 1.0000 | threshold: 0.4564
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 52.37it/s]
-2026-05-10 15:28:25,314 INFO src.train.trainer: Last model at epoch 18 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:25,315 INFO src.train.trainer: Epoch 19
-Validation  precision: 0.8068 | recall: 0.8161 | f1: 0.8114 | auc: 0.8048 | pr_auc: 0.8731 | fpr: 0.2931 | tpr: 0.8161 | R: 0.5230 | conf: 1.0000 | threshold: 0.4218
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  16%|█▌        | 3/19 [00:00<00:00, 19.99it/s]Training:  26%|██▋       | 5/19 [00:00<00:00, 19.46it/s]Training:  37%|███▋      | 7/19 [00:00<00:00, 19.13it/s]Training:  47%|████▋     | 9/19 [00:00<00:00, 18.89it/s]Training:  58%|█████▊    | 11/19 [00:00<00:00, 16.84it/s]Training:  68%|██████▊   | 13/19 [00:00<00:00, 16.71it/s]Training:  79%|███████▉  | 15/19 [00:00<00:00, 16.96it/s]Training:  89%|████████▉ | 17/19 [00:00<00:00, 16.90it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 16.56it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.34it/s]
-Batch     0/   19 | Loss: 0.049251
-Training    precision: 0.7870 | recall: 0.8782 | f1: 0.8301 | auc: 0.8783 | pr_auc: 0.9176 | fpr: 0.3239 | tpr: 0.8782 | R: 0.5543 | conf: 1.0000 | threshold: 0.4409
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 56.24it/s]
-2026-05-10 15:28:27,076 INFO src.train.trainer: Last model at epoch 19 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:27,076 INFO src.train.trainer: Epoch 20
-Validation  precision: 0.7374 | recall: 0.8391 | f1: 0.7849 | auc: 0.7660 | pr_auc: 0.8438 | fpr: 0.4483 | tpr: 0.8391 | R: 0.3908 | conf: 1.0000 | threshold: 0.4452
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  16%|█▌        | 3/19 [00:00<00:00, 20.12it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 19.64it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 17.87it/s]Training:  53%|█████▎    | 10/19 [00:00<00:00, 17.43it/s]Training:  63%|██████▎   | 12/19 [00:00<00:00, 17.66it/s]Training:  74%|███████▎  | 14/19 [00:00<00:00, 17.36it/s]Training:  84%|████████▍ | 16/19 [00:00<00:00, 17.39it/s]Training:  95%|█████████▍| 18/19 [00:01<00:00, 16.59it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 17.50it/s]
-Batch     0/   19 | Loss: 0.037448
-Training    precision: 0.8044 | recall: 0.8128 | f1: 0.8086 | auc: 0.8561 | pr_auc: 0.9027 | fpr: 0.2692 | tpr: 0.8128 | R: 0.5435 | conf: 1.0000 | threshold: 0.4859
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 56.16it/s]
-2026-05-10 15:28:28,845 INFO src.train.trainer: Last model at epoch 20 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:28,845 INFO src.train.trainer: Epoch 21
-Validation  precision: 0.7212 | recall: 0.8621 | f1: 0.7853 | auc: 0.7723 | pr_auc: 0.8574 | fpr: 0.5000 | tpr: 0.8621 | R: 0.3621 | conf: 1.0000 | threshold: 0.4372
-Training:   0%|          | 0/19 [00:00<?, ?it/s]/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_chunk_state.py:854: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  torch.cumsum(ddA_cumsum, dim=-1, out=ddA_cumsum)
-/root/miniconda3/lib/python3.12/site-packages/mamba_ssm/ops/triton/ssd_combined.py:450: UserWarning: cumsum_cuda_kernel does not have a deterministic implementation, but you set 'torch.use_deterministic_algorithms(True, warn_only=True)'. You can file an issue at https://github.com/pytorch/pytorch/issues to help us prioritize adding deterministic support for this operation. (Triggered internally at ../aten/src/ATen/Context.cpp:91.)
-  ddA_prev = ddA_cumsum_prev.flip([-1]).cumsum(dim=-1).flip([-1])
-                                                Training:   0%|          | 0/19 [00:00<?, ?it/s]Training:  11%|█         | 2/19 [00:00<00:00, 18.76it/s]Training:  21%|██        | 4/19 [00:00<00:00, 18.44it/s]Training:  32%|███▏      | 6/19 [00:00<00:00, 17.34it/s]Training:  42%|████▏     | 8/19 [00:00<00:00, 18.12it/s]Training:  58%|█████▊    | 11/19 [00:00<00:00, 19.13it/s]Training:  68%|██████▊   | 13/19 [00:00<00:00, 18.87it/s]Training:  79%|███████▉  | 15/19 [00:00<00:00, 18.90it/s]Training:  89%|████████▉ | 17/19 [00:00<00:00, 18.89it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 19.13it/s]Training: 100%|██████████| 19/19 [00:01<00:00, 18.78it/s]
-Batch     0/   19 | Loss: 0.054227
-Training    precision: 0.7969 | recall: 0.8395 | f1: 0.8177 | auc: 0.8697 | pr_auc: 0.9153 | fpr: 0.2915 | tpr: 0.8395 | R: 0.5480 | conf: 1.0000 | threshold: 0.4672
-Validating:   0%|          | 0/3 [00:00<?, ?it/s]Validating: 100%|██████████| 3/3 [00:00<00:00, 55.71it/s]
-2026-05-10 15:28:30,507 INFO src.train.trainer: Last model at epoch 21 saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/last_model_1.pth
-2026-05-10 15:28:30,507 INFO src.train.trainer: Early stopping triggered at epoch 21 (best epoch: 11, best val loss: 0.075492)
-Validation  precision: 0.7238 | recall: 0.8736 | f1: 0.7917 | auc: 0.7798 | pr_auc: 0.8539 | fpr: 0.5000 | tpr: 0.8736 | R: 0.3736 | conf: 1.0000 | threshold: 0.5002
-
-[CMD] /root/miniconda3/bin/python main.py --model clf_mixer_attnpl_t --mode test --config /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/config_input.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0 --ckpt_select best
-2026-05-10 15:28:36.638911: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2026-05-10 15:28:36.656804: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1778398116.674098   75218 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1778398116.679258   75218 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1778398116.693685   75218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1778398116.693705   75218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1778398116.693707   75218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1778398116.693709   75218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-05-10 15:28:36.697728: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-05-10 15:28:40,060 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
-2026-05-10 15:28:40,881 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_5.0_Tfore_60_Twindow_180_context_len_1_dt_10.pkl
-2026-05-10 15:28:41,274 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
-2026-05-10 15:28:41,306 INFO src.data.event_loader: lengths of samples: min=32, max=981, avg=129.55
-2026-05-10 15:28:41,306 INFO src.data.event_loader: Number of positive samples: 808
-2026-05-10 15:28:41,307 INFO src.data.event_loader: Number of negative samples: 651
-2026-05-10 15:28:41,308 INFO src.data.event_loader: Positive samples: 673, Negative samples: 494
-2026-05-10 15:28:41,308 INFO src.data.event_loader: Total samples: 1167, Positive ratio: 0.58, Negative ratio: 0.42
-2026-05-10 15:28:41,308 INFO src.data.event_loader: Positive samples: 87, Negative samples: 58
-2026-05-10 15:28:41,308 INFO src.data.event_loader: Total samples: 145, Positive ratio: 0.60, Negative ratio: 0.40
-2026-05-10 15:28:41,308 INFO src.data.event_loader: Positive samples: 48, Negative samples: 99
-2026-05-10 15:28:41,308 INFO src.data.event_loader: Total samples: 147, Positive ratio: 0.33, Negative ratio: 0.67
-2026-05-10 15:28:41,800 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
-2026-05-10 15:28:41,801 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
-2026-05-10 15:28:41,840 INFO src.train.config_setup: Restoring model from checkpoint.
-2026-05-10 15:28:41,841 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
-2026-05-10 15:28:41,842 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
-2026-05-10 15:28:41,843 INFO src.train.config_setup: Full load summary: loaded=56, missing=0, unexpected=0
-2026-05-10 15:28:41,843 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
-2026-05-10 15:28:41,843 INFO src.train.config_setup: Checkpoint train metrics available.
-2026-05-10 15:28:41,843 INFO src.train.config_setup: Checkpoint val metrics available.
-2026-05-10 15:28:41,843 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
-2026-05-10 15:28:41,844 INFO src.train.config_setup: Using classification criterion: focal
-2026-05-10 15:28:41,844 INFO src.train.config_setup: Criterion config: {'alpha': 0.5, 'gamma': 2.0}
-2026-05-10 15:28:41,845 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
-2026-05-10 15:28:41,845 INFO src.cli.common: Using threshold 0.4076695442199707 from checkpoint val_metrics for testing.
-Testing:   0%|          | 0/3 [00:00<?, ?it/s]Testing:  33%|███▎      | 1/3 [00:04<00:09,  4.85s/it]Testing: 100%|██████████| 3/3 [00:04<00:00,  1.65s/it]
-2026-05-10 15:28:46,917 INFO src.utils.metrics: ROC curve saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/roc_curve.png
-2026-05-10 15:28:47,036 INFO src.utils.metrics: PR curve saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/pr_curve.png
-2026-05-10 15:28:47,099 INFO src.utils.metrics: Confusion matrix saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/confusion_matrix.png
-2026-05-10 15:28:47,099 INFO src.cli.workflows: Test loss: 0.07429422189791997
-2026-05-10 15:28:47,705 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/train_pred_distribution.png
-2026-05-10 15:28:48,047 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/val_pred_distribution.png
-2026-05-10 15:28:48,335 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/test_pred_distribution.png
-2026-05-10 15:28:48,335 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/clf_grid_6/runs/tf_60_mf_5p0_seed_0/metrics_test_best_1.json
-2026-05-10 15:28:48,335 INFO src.cli.common: Metrics: {'precision': 0.37606837606837606, 'recall': 0.9166666666666666, 'f1': 0.5333333333333333, 'auc': 0.6959175084175084, 'pr_auc': 0.6409795161295865, 'fpr': 0.7373737373737373, 'tpr': 0.9166666666666666, 'R': 0.17929292929292928, 'conf': 4.880060358138383e-12, 'threshold': 0.4076695442199707}
-Test        precision: 0.3761 | recall: 0.9167 | f1: 0.5333 | auc: 0.6959 | pr_auc: 0.6410 | fpr: 0.7374 | tpr: 0.9167 | R: 0.1793 | conf: 0.0000 | threshold: 0.4077

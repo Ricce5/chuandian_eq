@@ -1,1 +1,0 @@
-对齐checkpoints/reg_mixer_attnpl_t_20260203-221111 weightdecay 1e-4

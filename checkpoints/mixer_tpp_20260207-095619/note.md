@@ -1,2 +1,0 @@
-对齐checkpoints/mixer_tpp_20260204-220105
-加载权重

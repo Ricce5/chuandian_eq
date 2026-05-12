@@ -1,1 +1,0 @@
-对齐 ./checkpoints/mixer_tpp_20250821-125414/last_model_1.pth 但不预测b值

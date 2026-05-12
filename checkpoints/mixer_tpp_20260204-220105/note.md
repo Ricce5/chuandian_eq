@@ -1,2 +1,0 @@
-对齐checkpoints/mixer_tpp_20260202-193945
-点过程实验川滇
