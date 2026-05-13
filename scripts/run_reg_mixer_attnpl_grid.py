@@ -81,11 +81,15 @@ def _parse_single_strategy_value(raw: str):
 
 
 def _resolve_variant_load_strategy(raw_value, load_strategy_map: dict):
+    # Keep base-config preload settings when variant doesn't specify load_strategy.
     if raw_value is None:
-        raise ValueError("Variant must define load_strategy.")
+        return "base", "__KEEP_BASE__"
     text = str(raw_value).strip()
     if not text:
-        raise ValueError("Variant load_strategy cannot be empty.")
+        return "base", "__KEEP_BASE__"
+    text_lower = text.lower()
+    if text_lower in {"base", "keep_base", "inherit"}:
+        return "base", "__KEEP_BASE__"
     if text in load_strategy_map:
         return text, load_strategy_map[text]
     parsed = _parse_single_strategy_value(text)
@@ -159,8 +163,10 @@ def _apply_load_strategy(cfg, strategy_value, pretrain_resume_path: str):
 def _build_parser():
     parser = argparse.ArgumentParser(
         description=(
-            "Batch run reg_mixer_attnpl_t by structural and preload strategy matrix: "
-            "attn layer index x load strategy x seed."
+            "Batch run reg_mixer_attnpl_t in three modes: "
+            "matrix (attn_layers x load_strategies x seeds), "
+            "variants (explicit variants list), or "
+            "grid (expand grid.points to variants then run)."
         )
     )
     parser.add_argument("--model", type=str, default="reg_mixer_attnpl_t")
@@ -168,14 +174,20 @@ def _build_parser():
         "--exp_config",
         type=str,
         default=None,
-        help="Path to external experiment config (.yaml/.yml/.json). If provided, overrides CLI args.",
+        help=(
+            "Path to external experiment config (.yaml/.yml/.json). "
+            "Supports matrix keys (attn_layers/load_strategies), variants list, or grid.points."
+        ),
     )
     parser.add_argument("--base_config", type=str, default="config/reg_mixer_attnpl_t.yaml")
     parser.add_argument(
         "--attn_layers",
         type=str,
         default="1,2",
-        help="Comma separated attention layer indices (0-based), e.g. 1,2.",
+        help=(
+            "Comma separated attention layer indices (0-based), e.g. 1,2. "
+            "Used in matrix mode; ignored when variants/grid provides attn_layer_idx."
+        ),
     )
     parser.add_argument(
         "--load_strategies",
@@ -183,7 +195,8 @@ def _build_parser():
         default="none:none,load_3:input_layer0_layer1,input:input_layer,layer0:layer0,layer1:layer1,load_l1:layer0_input,load_l2:layer1_input",
         help=(
             "Comma separated name:value mapping. value options: "
-            "none|input_layer0_layer1|input_layer|layer0|layer1|layer0_input|layer1_input|encoder."
+            "none|input_layer0_layer1|input_layer|layer0|layer1|layer0_input|layer1_input|encoder. "
+            "In variants/grid mode, point-level load_strategy can be omitted to inherit base_config preload settings."
         ),
     )
     parser.add_argument(
@@ -369,7 +382,8 @@ def _build_tasks_variant_mode(
     for idx, variant in enumerate(variants):
         if not isinstance(variant, dict):
             raise ValueError(f"variants[{idx}] must be a mapping/object.")
-        attn_layer = int(variant.get("attn_layer_idx", 2))
+        attn_layer_raw = variant.get("attn_layer_idx")
+        attn_layer = int(attn_layer_raw) if attn_layer_raw is not None else None
         load_name, load_value = _resolve_variant_load_strategy(variant.get("load_strategy"), load_strategy_map)
         raw_name = variant.get("name", f"variant_{idx + 1:02d}")
         fallback_name = f"variant_{idx + 1:02d}"
@@ -402,11 +416,13 @@ def _build_tasks_variant_mode(
 
             cfg = OmegaConf.load(str(base_config_path))
             cfg.pop("optuna", None)
-            if "mixer_model_config" not in cfg or cfg.mixer_model_config is None:
-                cfg.mixer_model_config = {}
-            cfg.mixer_model_config.attn_layer_idx = [int(attn_layer)]
+            if attn_layer is not None:
+                if "mixer_model_config" not in cfg or cfg.mixer_model_config is None:
+                    cfg.mixer_model_config = {}
+                cfg.mixer_model_config.attn_layer_idx = [int(attn_layer)]
             cfg.seed = int(seed)
-            _apply_load_strategy(cfg, load_value, pretrain_resume_path=pretrain_resume_path)
+            if load_value != "__KEEP_BASE__":
+                _apply_load_strategy(cfg, load_value, pretrain_resume_path=pretrain_resume_path)
 
             for key, value in overrides.items():
                 set_key(cfg, str(key), value)
@@ -427,7 +443,7 @@ def _build_tasks_variant_mode(
 
             task = {
                 "run": run_name,
-                "attn_layer_idx": int(attn_layer),
+                "attn_layer_idx": int(attn_layer) if attn_layer is not None else None,
                 "load_strategy": load_name,
                 "load_strategy_value": load_value,
                 "seed": int(seed),
@@ -442,6 +458,116 @@ def _build_tasks_variant_mode(
             if skip_reason is None:
                 tasks.append(task)
     return tasks
+
+
+def _expand_grid_to_variants(exp_cfg: dict):
+    """
+    Expand exp config key `grid` into a variants list so we can fully reuse
+    existing variant-mode execution logic.
+
+    Supported schema:
+      grid:
+        name_prefix: r04s            # optional
+        common:                      # optional
+          source_run: ...
+          source_profile: ...
+          source_trial: ...
+          load_strategy: load_3
+          attn_layer_idx: 2
+          seed: 0 | seeds: [0,1,2]  # optional
+          overrides: {...}           # optional common overrides
+        points:                      # required non-empty list
+          - name: g0_base            # optional
+            overrides: {...}         # optional
+            # point-level source_* / load_strategy / attn_layer_idx / seed(s) are allowed
+            # point-level extra keys (not reserved) are treated as overrides shorthand
+    """
+    if not isinstance(exp_cfg, dict):
+        return None
+
+    grid_cfg = exp_cfg.get("grid")
+    if grid_cfg is None:
+        return None
+    if not isinstance(grid_cfg, dict):
+        raise ValueError("exp config key `grid` must be a mapping/object.")
+
+    points = grid_cfg.get("points")
+    if not isinstance(points, list) or not points:
+        raise ValueError("exp config key `grid.points` must be a non-empty list.")
+
+    name_prefix = str(grid_cfg.get("name_prefix", "grid")).strip()
+    common = grid_cfg.get("common", {})
+    if common is None:
+        common = {}
+    if not isinstance(common, dict):
+        raise ValueError("exp config key `grid.common` must be a mapping/object.")
+
+    common_overrides = common.get("overrides", {})
+    if common_overrides is None:
+        common_overrides = {}
+    if not isinstance(common_overrides, dict):
+        raise ValueError("exp config key `grid.common.overrides` must be a mapping/object.")
+
+    reserved_keys = {
+        "name",
+        "source_run",
+        "source_profile",
+        "source_trial",
+        "load_strategy",
+        "attn_layer_idx",
+        "seed",
+        "seeds",
+        "overrides",
+    }
+    forward_keys = {
+        "source_run",
+        "source_profile",
+        "source_trial",
+        "load_strategy",
+        "attn_layer_idx",
+        "seed",
+        "seeds",
+    }
+
+    variants = []
+    for idx, point in enumerate(points):
+        if not isinstance(point, dict):
+            raise ValueError(f"grid.points[{idx}] must be a mapping/object.")
+
+        point_overrides = point.get("overrides", {})
+        if point_overrides is None:
+            point_overrides = {}
+        if not isinstance(point_overrides, dict):
+            raise ValueError(f"grid.points[{idx}].overrides must be a mapping/object.")
+
+        point_name_raw = point.get("name", f"{idx + 1:02d}")
+        point_name = _normalize_run_name(point_name_raw, fallback=f"{idx + 1:02d}")
+        if name_prefix:
+            variant_name = _normalize_run_name(f"{name_prefix}_{point_name}", fallback=f"{name_prefix}_{idx + 1:02d}")
+        else:
+            variant_name = point_name
+
+        variant = {"name": variant_name}
+        for key in forward_keys:
+            if key in common:
+                variant[key] = common[key]
+            if key in point:
+                variant[key] = point[key]
+
+        shorthand_overrides = {
+            key: value
+            for key, value in point.items()
+            if key not in reserved_keys
+        }
+        merged_overrides = {}
+        merged_overrides.update(common_overrides)
+        merged_overrides.update(shorthand_overrides)
+        merged_overrides.update(point_overrides)
+        variant["overrides"] = merged_overrides
+
+        variants.append(variant)
+
+    return variants
 
 
 def main():
@@ -538,13 +664,24 @@ def main():
             )
         max_parallel = min(max_parallel, max_slots)
 
+    variant_defs_direct = exp_cfg.get("variants") if isinstance(exp_cfg, dict) else None
+    variant_defs_from_grid = None
+    if not (isinstance(variant_defs_direct, list) and variant_defs_direct):
+        variant_defs_from_grid = _expand_grid_to_variants(exp_cfg)
+
+    mode = "matrix"
+    if isinstance(variant_defs_direct, list) and variant_defs_direct:
+        mode = "variants"
+    elif isinstance(variant_defs_from_grid, list) and variant_defs_from_grid:
+        mode = "grid"
+
     plan = {
         "model": args.model,
         "base_config": str(base_config_path),
         "base_config_snapshot": str(base_config_snapshot_path),
         "exp_config": str(exp_cfg_path) if exp_cfg_path is not None else None,
         "exp_config_snapshot": str(exp_config_snapshot_path) if exp_config_snapshot_path is not None else None,
-        "mode": "variants" if (isinstance(exp_cfg.get("variants"), list) and exp_cfg.get("variants")) else "matrix",
+        "mode": mode,
         "attn_layers": attn_layers,
         "load_strategies": load_strategy_map,
         "seeds": seeds,
@@ -568,7 +705,10 @@ def main():
             "cannot apply load strategies that require pretrained checkpoint."
         )
 
-    variant_defs = exp_cfg.get("variants") if isinstance(exp_cfg, dict) else None
+    variant_defs = variant_defs_direct
+    if not (isinstance(variant_defs, list) and variant_defs):
+        variant_defs = variant_defs_from_grid
+
     if isinstance(variant_defs, list) and variant_defs:
         tasks = _build_tasks_variant_mode(
             runs_dir=runs_dir,

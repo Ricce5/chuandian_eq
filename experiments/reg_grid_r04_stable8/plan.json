@@ -1,0 +1,29 @@
+{
+  "model": "reg_mixer_attnpl_t",
+  "base_config": "/root/autodl-tmp/em_eqf/config/reg_mixer_attnpl_t.yaml",
+  "base_config_snapshot": "/root/autodl-tmp/em_eqf/experiments/reg_grid_r04_stable8/configs/reg_mixer_attnpl_t.yaml",
+  "exp_config": "/root/autodl-tmp/em_eqf/config/experiments/reg_mixer_attnpl_grid.yaml",
+  "exp_config_snapshot": "/root/autodl-tmp/em_eqf/experiments/reg_grid_r04_stable8/configs/reg_mixer_attnpl_grid.yaml",
+  "mode": "grid",
+  "attn_layers": [
+    1,
+    2
+  ],
+  "load_strategies": {
+    "load_3": "input_layer0_layer1"
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "max_parallel": 3,
+  "gpu_ids": [
+    0
+  ],
+  "jobs_per_gpu": 3,
+  "stop_on_error": false,
+  "resume_exp": true,
+  "skip_done": true,
+  "extra_overrides": {}
+}

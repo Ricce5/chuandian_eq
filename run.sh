@@ -55,7 +55,7 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_9 --best_metric auc
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_encoder_lr --best_metric auc
    python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_grid_inter9_excl2_round --out_dir /tmp/reg_grid_inter9_summary_check --ckpt_select last
 
 d
