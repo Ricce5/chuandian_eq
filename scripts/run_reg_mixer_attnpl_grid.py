@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 import argparse
-import datetime as dt
-import json
 import re
-import shutil
 from pathlib import Path
 
 from omegaconf import OmegaConf
-import yaml
 
-from grid_runner_common import (
+from automation import (
     apply_exp_config_overrides,
+    adjust_parallel_limits,
+    create_experiment_workspace,
+    dump_json,
     execute_tasks,
     load_exp_config,
-    parse_csv,
+    parse_optional_csv,
+    parse_set_overrides,
     set_key,
+    try_load_summary,
 )
 
 
@@ -581,88 +582,32 @@ def main():
         exp_cfg = load_exp_config(exp_cfg_path)
         args = _override_args_from_exp_config(args, exp_cfg)
 
-    repo_root = Path(__file__).resolve().parents[1]
-    base_config_path = (repo_root / args.base_config).resolve()
-    if not base_config_path.exists():
-        raise FileNotFoundError(f"Base config not found: {base_config_path}")
-
-    attn_layers = parse_csv(args.attn_layers, int)
-    seeds = parse_csv(args.seeds, int)
+    attn_layers = parse_optional_csv(args.attn_layers, int)
+    seeds = parse_optional_csv(args.seeds, int)
     load_strategy_map = _parse_load_strategies(args.load_strategies)
 
-    extra_overrides = {}
-    for kv in args.set:
-        if "=" not in kv:
-            raise ValueError(f"Invalid --set item: {kv!r}, expected key=value")
-        key, value = kv.split("=", 1)
-        extra_overrides[key.strip()] = yaml.safe_load(value)
+    extra_overrides = parse_set_overrides(args.set)
 
-    exp_root = (repo_root / args.exp_root).resolve()
-    exp_root.mkdir(parents=True, exist_ok=True)
-    if args.exp_name:
-        exp_name = args.exp_name
-    else:
-        now = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-        exp_name = f"reg_mixer_attnpl_grid_{now}"
+    workspace = create_experiment_workspace(
+        current_file=__file__,
+        base_config=args.base_config,
+        exp_root=args.exp_root,
+        exp_name=args.exp_name,
+        default_name_prefix="reg_mixer_attnpl_grid",
+        exp_cfg_path=exp_cfg_path,
+        resume_exp=bool(args.resume_exp),
+    )
+    base_config_path = workspace.base_config_path
+    runs_dir = workspace.runs_dir
 
-    exp_dir = exp_root / exp_name
-    if exp_dir.exists():
-        if args.resume_exp:
-            print(f"[INFO] Resuming existing experiment folder: {exp_dir}")
-        else:
-            raise FileExistsError(
-                f"Experiment folder already exists: {exp_dir}. "
-                "Use --resume_exp to continue in-place."
-            )
-    else:
-        exp_dir.mkdir(parents=True, exist_ok=False)
+    existing_summary, existing_by_run = try_load_summary(workspace.exp_dir / "summary.json")
 
-    runs_dir = exp_dir / "runs"
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    configs_dir = exp_dir / "configs"
-    configs_dir.mkdir(parents=True, exist_ok=True)
-
-    base_config_snapshot_path = configs_dir / base_config_path.name
-    shutil.copy2(base_config_path, base_config_snapshot_path)
-
-    exp_config_snapshot_path = None
-    if exp_cfg_path is not None:
-        exp_cfg_name = exp_cfg_path.name
-        if exp_cfg_name == base_config_path.name:
-            exp_cfg_name = f"exp_config_{exp_cfg_name}"
-        exp_config_snapshot_path = configs_dir / exp_cfg_name
-        shutil.copy2(exp_cfg_path, exp_config_snapshot_path)
-
-    existing_summary = []
-    existing_by_run = {}
-    summary_path = exp_dir / "summary.json"
-    if summary_path.exists():
-        try:
-            with open(summary_path, "r", encoding="utf-8") as f:
-                loaded_summary = json.load(f)
-            if isinstance(loaded_summary, list):
-                existing_summary = loaded_summary
-                existing_by_run = {
-                    str(row.get("run")): row
-                    for row in existing_summary
-                    if isinstance(row, dict) and row.get("run") is not None
-                }
-                print(f"[INFO] Loaded existing summary with {len(existing_by_run)} runs.")
-        except Exception as e:
-            print(f"[WARN] Failed to load existing summary.json: {e}")
-
-    gpu_ids = parse_csv(args.gpu_ids, int) if (args.gpu_ids or "").strip() else []
-    max_parallel = max(1, int(args.max_parallel))
-    jobs_per_gpu = max(1, int(args.jobs_per_gpu))
-    if gpu_ids:
-        max_slots = len(gpu_ids) * jobs_per_gpu
-        if max_parallel > max_slots:
-            print(
-                f"[INFO] max_parallel={max_parallel} exceeds GPU slots={max_slots} "
-                f"(len(gpu_ids)={len(gpu_ids)} x jobs_per_gpu={jobs_per_gpu}). "
-                f"Use max_parallel={max_slots}."
-            )
-        max_parallel = min(max_parallel, max_slots)
+    gpu_ids = parse_optional_csv(args.gpu_ids, int)
+    max_parallel, jobs_per_gpu = adjust_parallel_limits(
+        max_parallel_raw=args.max_parallel,
+        jobs_per_gpu_raw=args.jobs_per_gpu,
+        gpu_ids=gpu_ids,
+    )
 
     variant_defs_direct = exp_cfg.get("variants") if isinstance(exp_cfg, dict) else None
     variant_defs_from_grid = None
@@ -678,9 +623,13 @@ def main():
     plan = {
         "model": args.model,
         "base_config": str(base_config_path),
-        "base_config_snapshot": str(base_config_snapshot_path),
+        "base_config_snapshot": str(workspace.base_config_snapshot_path),
         "exp_config": str(exp_cfg_path) if exp_cfg_path is not None else None,
-        "exp_config_snapshot": str(exp_config_snapshot_path) if exp_config_snapshot_path is not None else None,
+        "exp_config_snapshot": (
+            str(workspace.exp_config_snapshot_path)
+            if workspace.exp_config_snapshot_path is not None
+            else None
+        ),
         "mode": mode,
         "attn_layers": attn_layers,
         "load_strategies": load_strategy_map,
@@ -693,8 +642,7 @@ def main():
         "skip_done": bool(args.skip_done),
         "extra_overrides": extra_overrides,
     }
-    with open(exp_dir / "plan.json", "w", encoding="utf-8") as f:
-        json.dump(plan, f, ensure_ascii=False, indent=2)
+    dump_json(workspace.exp_dir / "plan.json", plan)
 
     tasks = []
     base_cfg_for_resume = OmegaConf.load(str(base_config_path))
@@ -750,8 +698,8 @@ def main():
     execute_tasks(
         tasks=tasks,
         args=args,
-        repo_root=repo_root,
-        exp_dir=exp_dir,
+        repo_root=workspace.repo_root,
+        exp_dir=workspace.exp_dir,
         gpu_ids=gpu_ids,
         max_parallel=max_parallel,
         jobs_per_gpu=jobs_per_gpu,
@@ -759,9 +707,9 @@ def main():
         initial_summary=existing_summary,
     )
 
-    print(f"\nDone. Experiment folder: {exp_dir}")
+    print(f"\nDone. Experiment folder: {workspace.exp_dir}")
     print(f"Runs folder: {runs_dir}")
-    print("Summary file:", exp_dir / "summary.json")
+    print("Summary file:", workspace.exp_dir / "summary.json")
 
 
 if __name__ == "__main__":

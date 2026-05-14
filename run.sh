@@ -9,7 +9,7 @@ python main.py --model classifier_stm --mode train
 python main.py --model classifier_tm_s --mode train
 python main.py --model clf_tm_attnpl --mode train
 python main.py --model clf_tm_attnpl_t --mode test  --checkpoint ./checkpoints/clf_mixer_attnpl_t_20250908-202537
-python main.py --model clf_mixer_attnpl_t --mode test --checkpoint checkpoints/clf_mixer_attnpl_t_20260126-180606
+python main.py --model clf_mixer_attnpl_t --mode test --checkpoint experiments/clf_trainhp/hp_lr0p0006_wd0p01_warmup_linear_decay_wr0p1_bs64/runs/tf_90_mf_5p5_seed_1
 python main.py --model clf_rnn 
 python main.py --model thp --mode train
 python main.py --model rtpp --mode test --checkpoint ./checkpoints/rtpp_20250907-144043
@@ -55,7 +55,7 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_encoder_lr --best_metric auc
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_1_scratch --best_metric auc
    python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_grid_inter9_excl2_round --out_dir /tmp/reg_grid_inter9_summary_check --ckpt_select last
 
 d

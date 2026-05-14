@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 import argparse
-import datetime as dt
-import json
-import shutil
 from pathlib import Path
 
 from omegaconf import OmegaConf
-import yaml
 
-from grid_runner_common import (
+from automation import (
     apply_exp_config_overrides,
+    adjust_parallel_limits,
+    build_tf_mf_pairs,
+    create_experiment_workspace,
+    dump_json,
     execute_tasks,
     load_exp_config,
     parse_bool_text,
-    parse_csv,
+    parse_optional_csv,
+    parse_set_overrides,
     parse_mapping,
     set_key,
 )
@@ -174,7 +175,7 @@ def _build_parser():
     parser.add_argument(
         "--stop_on_error",
         action="store_true",
-        help="Stop submitting/running remaining tasks once any task fails.",
+        help="Stop remaining tasks once any task fails.",
     )
     return parser
 
@@ -207,9 +208,9 @@ def _override_args_from_exp_config(args, exp_cfg: dict):
         "gpu_ids": "gpu_ids",
     }
     mapping_like_keys = {
-        "alpha_by_tf": "alpha_by_tf",
         "time_bias_by_tf": "time_bias_by_tf",
         "use_sampler_by_tf": "use_sampler_by_tf",
+        "alpha_by_tf": "alpha_by_tf",
     }
     return apply_exp_config_overrides(args, exp_cfg, direct_key_map, csv_like_keys, mapping_like_keys)
 
@@ -224,84 +225,53 @@ def main():
         exp_cfg = load_exp_config(exp_cfg_path)
         args = _override_args_from_exp_config(args, exp_cfg)
 
-    repo_root = Path(__file__).resolve().parents[1]
-    base_config_path = (repo_root / args.base_config).resolve()
-    if not base_config_path.exists():
-        raise FileNotFoundError(f"Base config not found: {base_config_path}")
+    tfs = parse_optional_csv(args.tfs, int)
+    mfs = parse_optional_csv(args.mfs, float)
+    seeds = parse_optional_csv(args.seeds, int)
+    if not tfs:
+        raise ValueError("No Tfore values found.")
+    if not mfs:
+        raise ValueError("No Mf values found.")
+    if not seeds:
+        raise ValueError("No seed values found.")
 
-    tfs = parse_csv(args.tfs, int)
-    mfs = parse_csv(args.mfs, float)
-    seeds = parse_csv(args.seeds, int)
-    pair_mode = parse_bool_text(args.pair_mode)
+    tf_mf_pairs, pair_mode = build_tf_mf_pairs(tfs=tfs, mfs=mfs, pair_mode_raw=args.pair_mode)
+
+    time_bias_map = parse_mapping(args.time_bias_by_tf, int, str)
+    use_sampler_map = parse_mapping(args.use_sampler_by_tf, int, parse_bool_text)
+    alpha_map = parse_mapping(args.alpha_by_tf, int, float)
     clear_criterion_for_unmapped_tf = parse_bool_text(args.clear_criterion_for_unmapped_tf)
     apply_ref_profile = parse_bool_text(args.apply_ref_profile)
 
-    if pair_mode:
-        if len(tfs) != len(mfs):
-            raise ValueError(
-                f"pair_mode=true requires len(tfs)==len(mfs), got {len(tfs)} vs {len(mfs)}"
-            )
-        tf_mf_pairs = list(zip(tfs, mfs))
-    else:
-        tf_mf_pairs = [(tf, mf) for tf in tfs for mf in mfs]
+    extra_overrides = parse_set_overrides(args.set)
 
-    alpha_map = parse_mapping(args.alpha_by_tf, int, float)
-    time_bias_map = parse_mapping(args.time_bias_by_tf, int, str)
-    use_sampler_map = parse_mapping(args.use_sampler_by_tf, int, parse_bool_text)
+    workspace = create_experiment_workspace(
+        current_file=__file__,
+        base_config=args.base_config,
+        exp_root=args.exp_root,
+        exp_name=args.exp_name,
+        default_name_prefix="clf_mf_tf_grid",
+        exp_cfg_path=exp_cfg_path,
+        allow_existing_without_resume=True,
+    )
 
-    extra_overrides = {}
-    for kv in args.set:
-        if "=" not in kv:
-            raise ValueError(f"Invalid --set item: {kv!r}, expected key=value")
-        key, value = kv.split("=", 1)
-        extra_overrides[key.strip()] = yaml.safe_load(value)
-
-    exp_root = (repo_root / args.exp_root).resolve()
-    exp_root.mkdir(parents=True, exist_ok=True)
-    if args.exp_name:
-        exp_name = args.exp_name
-    else:
-        now = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-        exp_name = f"clf_mf_tf_grid_{now}"
-
-    exp_dir = exp_root / exp_name
-    exp_dir.mkdir(parents=True, exist_ok=False)
-
-    runs_dir = exp_dir / "runs"
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    configs_dir = exp_dir / "configs"
-    configs_dir.mkdir(parents=True, exist_ok=True)
-
-    base_config_snapshot_path = configs_dir / base_config_path.name
-    shutil.copy2(base_config_path, base_config_snapshot_path)
-
-    exp_config_snapshot_path = None
-    if exp_cfg_path is not None:
-        exp_cfg_name = exp_cfg_path.name
-        if exp_cfg_name == base_config_path.name:
-            exp_cfg_name = f"exp_config_{exp_cfg_name}"
-        exp_config_snapshot_path = configs_dir / exp_cfg_name
-        shutil.copy2(exp_cfg_path, exp_config_snapshot_path)
-
-    gpu_ids = parse_csv(args.gpu_ids, int) if (args.gpu_ids or "").strip() else []
-    max_parallel = max(1, int(args.max_parallel))
-    jobs_per_gpu = max(1, int(args.jobs_per_gpu))
-    if gpu_ids:
-        max_slots = len(gpu_ids) * jobs_per_gpu
-        if max_parallel > max_slots:
-            print(
-                f"[INFO] max_parallel={max_parallel} exceeds GPU slots={max_slots} "
-                f"(len(gpu_ids)={len(gpu_ids)} x jobs_per_gpu={jobs_per_gpu}). "
-                f"Use max_parallel={max_slots}."
-            )
-        max_parallel = min(max_parallel, max_slots)
+    gpu_ids = parse_optional_csv(args.gpu_ids, int)
+    max_parallel, jobs_per_gpu = adjust_parallel_limits(
+        max_parallel_raw=args.max_parallel,
+        jobs_per_gpu_raw=args.jobs_per_gpu,
+        gpu_ids=gpu_ids,
+    )
 
     plan = {
         "model": args.model,
-        "base_config": str(base_config_path),
-        "base_config_snapshot": str(base_config_snapshot_path),
+        "base_config": str(workspace.base_config_path),
+        "base_config_snapshot": str(workspace.base_config_snapshot_path),
         "exp_config": str(exp_cfg_path) if exp_cfg_path is not None else None,
-        "exp_config_snapshot": str(exp_config_snapshot_path) if exp_config_snapshot_path is not None else None,
+        "exp_config_snapshot": (
+            str(workspace.exp_config_snapshot_path)
+            if workspace.exp_config_snapshot_path is not None
+            else None
+        ),
         "pair_mode": pair_mode,
         "pairs": [{"Tfore": tf, "Mf": mf} for tf, mf in tf_mf_pairs],
         "seeds": seeds,
@@ -317,17 +287,16 @@ def main():
         "stop_on_error": bool(args.stop_on_error),
         "extra_overrides": extra_overrides,
     }
-    with open(exp_dir / "plan.json", "w", encoding="utf-8") as f:
-        json.dump(plan, f, ensure_ascii=False, indent=2)
+    dump_json(workspace.exp_dir / "plan.json", plan)
 
     tasks = []
     for tf, mf in tf_mf_pairs:
         for seed in seeds:
             variant_name = _build_variant_name(tf=tf, mf=mf, seed=seed)
-            run_dir = runs_dir / variant_name
+            run_dir = workspace.runs_dir / variant_name
             run_dir.mkdir(parents=True, exist_ok=True)
 
-            cfg = OmegaConf.load(str(base_config_path))
+            cfg = OmegaConf.load(str(workspace.base_config_path))
             cfg.Twindow = int(args.twindow)
             cfg.Tfore = int(tf)
             cfg.Mf = float(mf)
@@ -378,7 +347,11 @@ def main():
                     "time_bias_type": getattr(cfg, "time_bias_type", None),
                     "criterion_alpha": (
                         float(cfg.criterion_cfg.alpha)
-                        if ("criterion_cfg" in cfg and cfg.criterion_cfg is not None and "alpha" in cfg.criterion_cfg)
+                        if (
+                            "criterion_cfg" in cfg
+                            and cfg.criterion_cfg is not None
+                            and "alpha" in cfg.criterion_cfg
+                        )
                         else None
                     ),
                     "run_dir": str(run_dir),
@@ -389,17 +362,17 @@ def main():
     execute_tasks(
         tasks=tasks,
         args=args,
-        repo_root=repo_root,
-        exp_dir=exp_dir,
+        repo_root=workspace.repo_root,
+        exp_dir=workspace.exp_dir,
         gpu_ids=gpu_ids,
         max_parallel=max_parallel,
         jobs_per_gpu=jobs_per_gpu,
         stop_on_error=bool(args.stop_on_error),
     )
 
-    print(f"\nDone. Experiment folder: {exp_dir}")
-    print(f"Runs folder: {runs_dir}")
-    print("Summary file:", exp_dir / "summary.json")
+    print(f"\nDone. Experiment folder: {workspace.exp_dir}")
+    print(f"Runs folder: {workspace.runs_dir}")
+    print("Summary file:", workspace.exp_dir / "summary.json")
 
 
 if __name__ == "__main__":

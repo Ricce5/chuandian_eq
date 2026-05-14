@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from optuna_profiles_common import build_profiles_runner_parser, run_optuna_profiles
+from automation import build_profiles_runner_parser, run_optuna_profiles
 
 
 def main():

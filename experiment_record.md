@@ -322,9 +322,29 @@ reg checkpoints/reg_mixer_attnpl_t_20260507-192558
 
 ### 4.1 SCEDC
 etas: checkpoints/etas_20260507-144632
-
+{
+  "nll_train_time": -22.22336196899414,
+  "nll_train_total": -22.22336196899414,
+  "nll_val_time": -13.204398155212402,
+  "nll_val_total": -13.204398155212402,
+  "nll_test_time": -14.634963035583496,
+  "nll_test_total": -14.634963035583496,
+  "num_events_train": 78087,
+  "num_events_val": 22928,
+  "num_events_test": 12806
+}
 recast: checkpoints/rtpp_20260506-120628
-
+{
+  "nll_train_time": -22.22336196899414,
+  "nll_train_total": -22.22336196899414,
+  "nll_val_time": -13.204398155212402,
+  "nll_val_total": -13.204398155212402,
+  "nll_test_time": -14.634963035583496,
+  "nll_test_total": -14.634963035583496,
+  "num_events_train": 78087,
+  "num_events_val": 22928,
+  "num_events_test": 12806
+}
 tpp: checkpoints/mixer_tpp_20260204-233222
 
 ```python
