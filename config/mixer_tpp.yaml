@@ -77,16 +77,12 @@ cuda_id: "0"
 
 
 # 数据与控制参数
-dataset:  AZDX
-catalog_cfg:
-  mag_completeness: 4.75
-
+dataset:  SCEDC
 seed: 0
 minibatch_training: false
 split_by_time: true
 use_all_data: true
 time_order:  [train, val, test]
-
 features_input_keys : ['mag']  # 
 normalize_time_by_token: true
 time_scale_base_key: tau_mean
@@ -98,7 +94,7 @@ use_b_updater: false
 use_adaptive_loss_weights: false
 
 b_updater_cfg:
-  delta: 0.998
+  delta: 0.98
   a0: 50
   init_b_target: 1
 
@@ -106,9 +102,6 @@ loss_weights:
   time_weight: 1
   mag_weight: 1
   b_weight: 0
-  bg_weight: 1.0
-  bg_kl_weight: 1.0
-  bg_norm_weight: 0.0
 
 loss_reduction: 'per_time'
 b_range: [0.2,2]

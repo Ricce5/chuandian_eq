@@ -13,6 +13,13 @@ from .data_factory import get_model_and_data
 LOGGER = logging.getLogger(__name__)
 
 
+def _safe_event_count(args, key):
+    value = getattr(args, key, 0)
+    if value is None:
+        return 0
+    return int(value)
+
+
 def load_resume_checkpoint(args, device):
     resume_path = getattr(args, "resume_path", None)
     if not resume_path:
@@ -99,9 +106,9 @@ def run_test(args_cli, args, device):
             save_dir=args.save_dir,
             nll_kwargs=test_nll_kwargs,
         )
-        metrics["num_events_train"] = args.num_events_train
-        metrics["num_events_val"] = args.num_events_val
-        metrics["num_events_test"] = args.num_events_test
+        metrics["num_events_train"] = _safe_event_count(args, "num_events_train")
+        metrics["num_events_val"] = _safe_event_count(args, "num_events_val")
+        metrics["num_events_test"] = _safe_event_count(args, "num_events_test")
     else:
         test_kwargs = {
             "model": model,

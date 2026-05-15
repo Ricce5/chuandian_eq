@@ -3,8 +3,8 @@ base_config: config/lstm.yaml
 
 # 推荐：pair_mode=true 时，tfs 和 mfs 一一对应
 pair_mode: false
-tfs: [30, 60, 90, 180]
-mfs: [3, 3.5, 4, 4.5]
+tfs: [180]
+mfs: [3]
 seeds: [0, 1, 2]
 
 # 数据窗口参数
@@ -18,17 +18,17 @@ criterion_beta: 0.2
 
 # 并发与资源
 gpu_ids: [0]
-max_parallel: 1
-jobs_per_gpu: 1
+max_parallel: 3
+jobs_per_gpu: 3
 stop_on_error: false
 
 # 输出目录
 exp_root: experiments
-exp_name: lstm_mf_tf_grid_baseline
+exp_name: lstm_seed_global
 
 # 可选：训练后自动测试
-run_test: false
-ckpt_select: best
+run_test: true
+ckpt_select: both
 
 # 可选：只生成配置不训练
 # skip_train: true

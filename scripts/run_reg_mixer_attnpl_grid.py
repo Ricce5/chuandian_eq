@@ -685,7 +685,20 @@ def main():
     skipped_count = 0
     if args.skip_done:
         if isinstance(variant_defs, list) and variant_defs:
-            total_planned = len(variant_defs)
+            total_planned = 0
+            for variant in variant_defs:
+                if not isinstance(variant, dict):
+                    continue
+                variant_seeds = variant.get("seeds")
+                if variant_seeds is None:
+                    if "seed" in variant:
+                        total_planned += 1
+                    else:
+                        total_planned += len(seeds)
+                elif isinstance(variant_seeds, (list, tuple)):
+                    total_planned += len(variant_seeds)
+                else:
+                    total_planned += 1
         else:
             total_planned = len(attn_layers) * len(load_strategy_map) * len(seeds)
         skipped_count = max(0, total_planned - len(tasks))

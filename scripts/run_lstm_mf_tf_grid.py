@@ -47,7 +47,7 @@ def _build_parser():
     parser.add_argument(
         "--mfs",
         type=str,
-        default="3,3.5,4,4.5",
+        default="",
         help="Comma separated Mf values; must have same length as --tfs unless --pair_mode false.",
     )
     parser.add_argument(

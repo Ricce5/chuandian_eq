@@ -81,6 +81,38 @@ def test_split_sequence_without_max_events_preserves_window_start():
     assert dataset[0].num_events > 512
 
 
+def test_split_sequence_supports_explicit_num_splits_for_nll_range():
+    history = np.linspace(1.0, 48.0, 120, dtype=np.float32)
+    forecast = np.linspace(50.0, 70.0, 200, dtype=np.float32)
+    seq = make_sequence_from_arrivals(
+        np.concatenate([history, forecast]),
+        t_nll_start=50.0,
+        t_end=71.0,
+    )
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Found 1 zero inter-event times.*")
+        dataset = catalog_utils.split_sequence(
+            seq,
+            mean_batch_size=300,
+            max_events=None,
+            num_splits=4,
+        )
+
+    expected_starts = np.linspace(seq.t_nll_start, seq.t_end, 5)[:-1]
+    assert len(dataset) == 4
+    assert [subseq.t_nll_start for subseq in dataset] == list(expected_starts)
+
+
+def test_split_sequence_rejects_non_positive_num_splits():
+    seq = make_sequence_from_arrivals(np.linspace(1.0, 10.0, 12, dtype=np.float32), t_nll_start=5.0, t_end=11.0)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Found 1 zero inter-event times.*")
+        with np.testing.assert_raises(ValueError):
+            catalog_utils.split_sequence(seq, num_splits=0)
+
+
 def test_split_minibatches_falls_back_to_original_sequence_for_empty_split(monkeypatch):
     train_seq = make_sequence_from_arrivals(np.linspace(1.0, 10.0, 12, dtype=np.float32), t_nll_start=5.0, t_end=11.0)
     val_seq = make_sequence_from_arrivals(np.linspace(1.0, 8.0, 10, dtype=np.float32), t_nll_start=4.0, t_end=9.0)

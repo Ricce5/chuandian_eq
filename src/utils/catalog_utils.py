@@ -206,6 +206,25 @@ def _initial_num_splits(num_nll_events: int, mean_batch_size: int, max_events: i
     return max(1, math.ceil(num_nll_events / target_nll_events))
 
 
+def _resolve_num_splits(
+    num_nll_events: int,
+    mean_batch_size: int,
+    max_events: int | None,
+    num_splits: int | None,
+) -> int:
+    if num_splits is None:
+        return _initial_num_splits(num_nll_events, mean_batch_size, max_events)
+
+    if isinstance(num_splits, bool):
+        raise ValueError(f"num_splits must be a positive integer (got {num_splits})")
+
+    resolved_num_splits = int(num_splits)
+    if resolved_num_splits != num_splits or resolved_num_splits <= 0:
+        raise ValueError(f"num_splits must be a positive integer (got {num_splits})")
+
+    return resolved_num_splits
+
+
 def _find_split_time(seq: Sequence, start: float, end: float) -> float | None:
     arrival_times = seq.arrival_times
     window_events = arrival_times[(arrival_times >= start) & (arrival_times <= end)]
@@ -223,10 +242,24 @@ def _find_split_time(seq: Sequence, start: float, end: float) -> float | None:
     return float(midpoint)
 
 
-def split_sequence(seq, mean_batch_size=300, max_events: int | None = 30000):
+def split_sequence(
+    seq,
+    mean_batch_size=300,
+    max_events: int | None = 30000,
+    num_splits: int | None = None,
+):
+    """Split a sequence into smaller windows for batching.
+
+    Args:
+        seq: Input sequence.
+        mean_batch_size: Target NLL events per window when ``num_splits`` is not provided.
+        max_events: Max total events per window; set to ``None`` to disable.
+        num_splits: If provided, explicitly split ``[seq.t_nll_start, seq.t_end]`` into this
+            many equal-width intervals (by time).
+    """
     num_nll_events = (seq.arrival_times >= seq.t_nll_start).sum().item()
-    num_splits = _initial_num_splits(num_nll_events, mean_batch_size, max_events)
-    linspace = np.linspace(seq.t_nll_start, seq.t_end, num_splits + 1)
+    resolved_num_splits = _resolve_num_splits(num_nll_events, mean_batch_size, max_events, num_splits)
+    linspace = np.linspace(seq.t_nll_start, seq.t_end, resolved_num_splits + 1)
 
     short_sequences = []
     window_durations = []
@@ -242,7 +275,7 @@ def split_sequence(seq, mean_batch_size=300, max_events: int | None = 30000):
         start, end, depth = window_queue.popleft()
         try:
             if max_events is None:
-                t_start = seq.t_start
+                t_start = start
             else:
                 t_start = find_t_start_from_t_end(seq, t_nll_start=start, t_end=end, max_events=max_events)
             duration = end - t_start

@@ -1,7 +1,7 @@
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 python main.py --model reg_mixer_attnpl_t --mode train
 python main.py --model clf_mixer_attnpl_t --mode train
-python main.py --model mixer_tpp --mode test --checkpoint  checkpoints/mixer_tpp_20260204-233222
+python main.py --model mixer_tpp --mode test --checkpoint  checkpoints/mixer_tpp_20260205-110204
 python main.py --model classifier --mode train
 python main.py --model clf_attnpl_t --mode train
 python main.py --model classifier_se --mode train
@@ -55,15 +55,15 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_1_scratch --best_metric auc
-   python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_grid_inter9_excl2_round --out_dir /tmp/reg_grid_inter9_summary_check --ckpt_select last
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_SCEDC --best_metric auc
+   python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_a_b  --ckpt_select last
 
 d
 
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_off.yaml
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
   
-python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_grid_inter9_excl2_round --best_metric rmse --best_mode min --ckpt_select last
+python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_ablation  --best_metric rmse --best_mode min --ckpt_select last
 
   python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 20 --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name
   run_$(date +%Y%m%d-%H%M%S)
@@ -92,3 +92,14 @@ best,last --config config/reg_mixer_attnpl_t.yaml --model reg_mixer_attnpl_t
 
 
   python scripts/analyze_optuna_last_val_loss_groups.py --trials-dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/base/optuna_trials
+
+  python scripts/run_lstm_mf_tf_grid.py --exp_config config/experiments/lstm_mf_tf_grid.yaml
+
+  python scripts/summarize_lstm_mf_tf_grid.py --exp_dir experiments/lstm_seed --best_metric MAE --best_mode min
+
+    python scripts/run_reg_mixer_attnpl_grid.py \
+    --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
+    
+     python scripts/summarize_reg_mixer_attnpl_grid.py \
+    --exp_dir experiments/reg_mixer_attnpl_ab \
+    --ckpt_select best

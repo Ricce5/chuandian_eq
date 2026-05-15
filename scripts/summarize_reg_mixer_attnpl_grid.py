@@ -9,12 +9,24 @@ collects per-run test metrics, and exports:
 """
 
 import argparse
-import csv
-import json
-import math
 import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
+
+from automation import (
+    build_group_best_rows,
+    build_group_stats_rows,
+    find_metrics_file,
+    group_by_key,
+    load_summary_rows,
+    lookup_metric_value,
+    read_json,
+    resolve_best_metric_name,
+    resolve_run_dir,
+    to_float,
+    write_csv,
+    write_json,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,29 +47,6 @@ DEFAULT_METRIC_KEYS = (
 SEED_SUFFIX_PATTERN = re.compile(r"^(?P<base>.+)_seed_(?P<seed>\d+)$")
 
 
-def _lookup_metric_value(metrics: Dict, metric_name: str):
-    if metric_name in metrics:
-        return metrics.get(metric_name)
-    metric_name_lower = str(metric_name).lower()
-    for key, value in metrics.items():
-        if str(key).lower() == metric_name_lower:
-            return value
-    return None
-
-
-def _resolve_best_metric_name(rows: Sequence[Dict], metric_name: str) -> str:
-    if not rows:
-        return metric_name
-    row_keys = list(rows[0].keys())
-    if metric_name in row_keys:
-        return metric_name
-    metric_name_lower = str(metric_name).lower()
-    for key in row_keys:
-        if str(key).lower() == metric_name_lower:
-            return str(key)
-    return metric_name
-
-
 def _split_seed_suffix(run_name: str) -> Tuple[str, Optional[int]]:
     text = str(run_name or "")
     matched = SEED_SUFFIX_PATTERN.match(text)
@@ -65,13 +54,13 @@ def _split_seed_suffix(run_name: str) -> Tuple[str, Optional[int]]:
         return text, None
     base = matched.group("base")
     try:
-        seed_val = int(matched.group("seed"))
+        seed_value = int(matched.group("seed"))
     except (TypeError, ValueError):
-        seed_val = None
-    return base, seed_val
+        seed_value = None
+    return base, seed_value
 
 
-def _resolve_group_key(row: Dict) -> Optional[Tuple[str, str]]:
+def _resolve_group_key(row: Dict):
     variant_name = str(row.get("variant_name") or "").strip()
     if variant_name:
         return "variant", variant_name
@@ -82,93 +71,16 @@ def _resolve_group_key(row: Dict) -> Optional[Tuple[str, str]]:
     return "matrix", f"attn_l{int(attn_layer_idx)}__{str(load_strategy)}"
 
 
-def _read_json(path: Path):
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _to_float(value):
-    if value is None:
-        return None
-    try:
-        v = float(value)
-    except (TypeError, ValueError):
-        return None
-    if not math.isfinite(v):
-        return None
-    return v
-
-
-def _mean_std(values: Sequence[float]) -> Tuple[Optional[float], Optional[float]]:
-    vals = [float(v) for v in values if v is not None and math.isfinite(float(v))]
-    if not vals:
-        return None, None
-    if len(vals) == 1:
-        return vals[0], 0.0
-    mean_v = sum(vals) / len(vals)
-    var = sum((x - mean_v) ** 2 for x in vals) / (len(vals) - 1)
-    return mean_v, math.sqrt(max(var, 0.0))
-
-
-def _find_metrics_file(run_dir: Path, ckpt_select: str = "best") -> Optional[Path]:
-    select_mode = str(ckpt_select).strip().lower()
-    if select_mode in {"best", "last"}:
-        candidates = sorted(run_dir.glob(f"metrics_test_{select_mode}_*.json"))
-        if candidates:
-            return candidates[0]
-
-    candidates = sorted(run_dir.glob("metrics_test_*.json"))
-    if not candidates:
-        return None
-    return candidates[0]
-
-
-def _resolve_run_dir(exp_dir: Path, run_name: str, run_dir_raw) -> Path:
-    local_run_dir = (exp_dir / "runs" / str(run_name)).resolve()
-    candidates: List[Path] = [local_run_dir]
-
-    if run_dir_raw:
-        raw = Path(str(run_dir_raw)).expanduser()
-        if raw.is_absolute():
-            candidates.append(raw.resolve())
-        else:
-            candidates.append((exp_dir / raw).resolve())
-
-    uniq_candidates: List[Path] = []
-    seen = set()
-    for candidate in candidates:
-        key = str(candidate)
-        if key in seen:
-            continue
-        seen.add(key)
-        uniq_candidates.append(candidate)
-
-    for candidate in uniq_candidates:
-        if _find_metrics_file(candidate, ckpt_select="auto") is not None:
-            return candidate
-    for candidate in uniq_candidates:
-        if candidate.exists():
-            return candidate
-    return local_run_dir
-
-
-def _iter_summary_rows(summary_data: Iterable[Dict]) -> Iterable[Dict]:
-    for row in summary_data:
-        if not isinstance(row, dict):
-            continue
-        yield row
+def _group_sort_key(item):
+    (group_type, group_name), _ = item
+    return group_type, group_name
 
 
 def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select: str = "best") -> List[Dict]:
-    summary_path = exp_dir / "summary.json"
-    if not summary_path.exists():
-        raise FileNotFoundError(f"summary.json not found: {summary_path}")
-    summary_data = _read_json(summary_path)
-    if not isinstance(summary_data, list):
-        raise ValueError(f"summary.json must be a list: {summary_path}")
+    summary_rows = load_summary_rows(exp_dir)
 
     rows: List[Dict] = []
-    for item in _iter_summary_rows(summary_data):
+    for item in summary_rows:
         run_name = item.get("run")
         if not run_name:
             continue
@@ -179,11 +91,11 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
         if not isinstance(variant_source, dict):
             variant_source = {}
 
-        run_dir = _resolve_run_dir(exp_dir, run_name, item.get("run_dir"))
-        metrics_path = _find_metrics_file(run_dir, ckpt_select=ckpt_select)
+        run_dir = resolve_run_dir(exp_dir, run_name, item.get("run_dir"), ckpt_select="auto")
+        metrics_path = find_metrics_file(run_dir, ckpt_select=ckpt_select)
         metrics = {}
         if metrics_path and metrics_path.exists():
-            loaded = _read_json(metrics_path)
+            loaded = read_json(metrics_path)
             if isinstance(loaded, dict):
                 metrics = loaded
 
@@ -208,142 +120,85 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
             "train_returncode": item.get("train_returncode"),
             "test_returncode": item.get("test_returncode"),
             "test_skipped_reason": item.get("test_skipped_reason"),
-            "status_ok": int((item.get("train_returncode") in (None, 0)) and (item.get("test_returncode") in (None, 0))),
+            "status_ok": int(
+                (item.get("train_returncode") in (None, 0))
+                and (item.get("test_returncode") in (None, 0))
+            ),
             "metrics_found": int(bool(metrics)),
         }
         for key in metric_keys:
-            row[key] = _to_float(_lookup_metric_value(metrics, key))
+            row[key] = to_float(lookup_metric_value(metrics, key))
         rows.append(row)
 
     rows.sort(
-        key=lambda r: (
-            str(r.get("variant_name") or ""),
-            int(r["attn_layer_idx"]) if r.get("attn_layer_idx") is not None else 10**9,
-            str(r.get("load_strategy") or ""),
-            int(r["seed"]) if r.get("seed") is not None else 10**9,
-            str(r["run"]),
+        key=lambda row: (
+            str(row.get("variant_name") or ""),
+            int(row["attn_layer_idx"]) if row.get("attn_layer_idx") is not None else 10**9,
+            str(row.get("load_strategy") or ""),
+            int(row["seed"]) if row.get("seed") is not None else 10**9,
+            str(row["run"]),
         )
     )
     return rows
 
 
 def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str]) -> List[Dict]:
-    grouped: Dict[Tuple[str, str], List[Dict]] = {}
-    for row in rows:
-        key = _resolve_group_key(row)
-        if key is None:
-            continue
-        grouped.setdefault(key, []).append(row)
+    grouped = group_by_key(rows, _resolve_group_key)
 
-    group_stats: List[Dict] = []
-    for (group_type, group_name), items in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+    def _base_row_builder(_group_key, items: Sequence[Dict]):
         first = items[0]
-        attn_layer_idx = first.get("attn_layer_idx")
-        load_strategy = first.get("load_strategy")
-        out = {
-            "group_type": group_type,
-            "group_name": group_name,
+        return {
+            "group_type": first.get("group_type"),
+            "group_name": _group_key[1],
             "variant_name": first.get("variant_name"),
             "source_run": first.get("source_run"),
             "source_profile": first.get("source_profile"),
             "source_trial": first.get("source_trial"),
-            "attn_layer_idx": attn_layer_idx,
-            "load_strategy": load_strategy,
+            "attn_layer_idx": first.get("attn_layer_idx"),
+            "load_strategy": first.get("load_strategy"),
             "load_strategy_value": first.get("load_strategy_value"),
-            "n_runs": len(items),
-            "n_success": sum(int(r.get("status_ok", 0)) for r in items),
-            "n_metrics_found": sum(int(r.get("metrics_found", 0)) for r in items),
         }
-        for key in metric_keys:
-            vals = [r.get(key) for r in items if r.get(key) is not None]
-            mean_v, std_v = _mean_std(vals)
-            out[f"{key}_mean"] = mean_v
-            out[f"{key}_std"] = std_v
-        group_stats.append(out)
-    return group_stats
+
+    return build_group_stats_rows(
+        grouped=grouped,
+        metric_keys=metric_keys,
+        base_row_builder=_base_row_builder,
+        sort_key_fn=_group_sort_key,
+    )
 
 
-def group_best_rows(
-    rows: Sequence[Dict],
-    metric: str,
-    maximize: bool,
-) -> List[Dict]:
-    grouped: Dict[Tuple[str, str], List[Dict]] = {}
-    for row in rows:
-        key = _resolve_group_key(row)
-        if key is None:
-            continue
-        grouped.setdefault(key, []).append(row)
+def group_best_rows(rows: Sequence[Dict], metric: str, maximize: bool) -> List[Dict]:
+    grouped = group_by_key(rows, _resolve_group_key)
 
-    best_by_group: List[Dict] = []
-    for (group_type, group_name), items in sorted(grouped.items(), key=lambda x: (x[0][0], x[0][1])):
+    def _base_row_builder(_group_key, items: Sequence[Dict], best: Dict | None):
         first = items[0]
-        attn_layer_idx = first.get("attn_layer_idx")
-        load_strategy = first.get("load_strategy")
-        candidates = [r for r in items if r.get(metric) is not None]
-        if not candidates:
-            best_by_group.append(
+        row = {
+            "group_type": first.get("group_type"),
+            "group_name": _group_key[1],
+            "variant_name": first.get("variant_name"),
+            "source_run": first.get("source_run"),
+            "source_profile": first.get("source_profile"),
+            "source_trial": first.get("source_trial"),
+            "attn_layer_idx": first.get("attn_layer_idx"),
+            "load_strategy": first.get("load_strategy"),
+        }
+        if best is not None:
+            row.update(
                 {
-                    "group_type": group_type,
-                    "group_name": group_name,
-                    "variant_name": first.get("variant_name"),
-                    "source_run": first.get("source_run"),
-                    "source_profile": first.get("source_profile"),
-                    "source_trial": first.get("source_trial"),
-                    "attn_layer_idx": attn_layer_idx,
-                    "load_strategy": load_strategy,
-                    "best_metric_name": metric,
-                    "best_metric_value": None,
-                    "best_run": None,
-                    "best_seed": None,
+                    "run_dir": best.get("run_dir"),
+                    "metrics_path": best.get("metrics_path"),
+                    "status_ok": best.get("status_ok"),
                 }
             )
-            continue
+        return row
 
-        if maximize:
-            best = max(candidates, key=lambda r: float(r[metric]))
-        else:
-            best = min(candidates, key=lambda r: float(r[metric]))
-
-        best_by_group.append(
-            {
-                "group_type": group_type,
-                "group_name": group_name,
-                "variant_name": first.get("variant_name"),
-                "source_run": first.get("source_run"),
-                "source_profile": first.get("source_profile"),
-                "source_trial": first.get("source_trial"),
-                "attn_layer_idx": attn_layer_idx,
-                "load_strategy": load_strategy,
-                "best_metric_name": metric,
-                "best_metric_value": best.get(metric),
-                "best_run": best.get("run"),
-                "best_seed": best.get("seed"),
-                "run_dir": best.get("run_dir"),
-                "metrics_path": best.get("metrics_path"),
-                "status_ok": best.get("status_ok"),
-            }
-        )
-    return best_by_group
-
-
-def _write_csv(path: Path, rows: Sequence[Dict]):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not rows:
-        with path.open("w", encoding="utf-8", newline="") as f:
-            f.write("")
-        return
-    fieldnames = list(rows[0].keys())
-    with path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def _write_json(path: Path, payload):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return build_group_best_rows(
+        grouped=grouped,
+        metric=metric,
+        maximize=maximize,
+        base_row_builder=_base_row_builder,
+        sort_key_fn=_group_sort_key,
+    )
 
 
 def parse_args():
@@ -412,7 +267,7 @@ def main():
     group_stats = group_rows(per_run_rows, metric_keys)
     best_rows = group_best_rows(
         per_run_rows,
-        metric=_resolve_best_metric_name(per_run_rows, args.best_metric),
+        metric=resolve_best_metric_name(per_run_rows, args.best_metric),
         maximize=(args.best_mode == "max"),
     )
 
@@ -422,9 +277,9 @@ def main():
     best_csv = out_dir / "reg_grid_metrics_group_best.csv"
     summary_json = out_dir / "reg_grid_metrics_summary.json"
 
-    _write_csv(per_run_csv, per_run_rows)
-    _write_csv(group_csv, group_stats)
-    _write_csv(best_csv, best_rows)
+    write_csv(per_run_csv, per_run_rows)
+    write_csv(group_csv, group_stats)
+    write_csv(best_csv, best_rows)
 
     payload = {
         "exp_dir": str(exp_dir),
@@ -440,7 +295,7 @@ def main():
             "group_best_csv": str(best_csv),
         },
     }
-    _write_json(summary_json, payload)
+    write_json(summary_json, payload)
 
     print(f"[OK] per-run rows: {len(per_run_rows)}")
     print(f"[OK] group rows: {len(group_stats)}")

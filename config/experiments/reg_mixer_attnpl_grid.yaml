@@ -1,9 +1,6 @@
 model: reg_mixer_attnpl_t
 base_config: config/reg_mixer_attnpl_t.yaml
 
-load_strategies:
-  load_3: input_layer0_layer1
-
 seeds: [0, 1, 2]
 
 gpu_ids: [0]
@@ -12,7 +9,7 @@ jobs_per_gpu: 3
 stop_on_error: false
 
 exp_root: experiments
-exp_name: reg_grid_r04_stable8
+exp_name: reg_mixer_attnpl_a_b
 
 run_test: true
 ckpt_select: both
@@ -20,61 +17,35 @@ resume_exp: true
 skip_done: true
 
 grid:
-  name_prefix: r04s
+  name_prefix: reg_ab
   points:
-    - name: g0_base
-      overrides:
-        learning_rate: 0.001
-        encoder_learning_rate: 0.0003
-        weight_decay: 0.001
-        warmup_ratio: 0.1
+    - name: reg
+     
 
-    - name: g1_lr8e4
+    - name: log_pretrain
+      load_strategy: none
       overrides:
-        learning_rate: 0.0008
-        encoder_learning_rate: 0.00024
-        weight_decay: 0.001
-        warmup_ratio: 0.1
+        mixer_model_config.input_dim: 2
+        features_input_keys: [mag, log_inter_times]
 
-    - name: g2_lr12e4
+    - name: minus_txpos
+     
       overrides:
-        learning_rate: 0.0012
-        encoder_learning_rate: 0.00036
-        weight_decay: 0.001
-        warmup_ratio: 0.1
+        mixer_model_config.ssm_cfg:
+          layer: Mamba2
+          d_conv: 4
+        mixer_model_config.attn_cfg.layer: MHA
 
-    - name: g3_wd8e4
+    - name: minus_tmap
+     
       overrides:
-        learning_rate: 0.001
-        encoder_learning_rate: 0.0003
-        weight_decay: 0.0008
-        warmup_ratio: 0.1
+        extractor_name: last
+        extractor_cfg: {}
 
-    - name: g4_wd15e4
+    - name: minus_pretrain
+      load_strategy: none
       overrides:
-        learning_rate: 0.001
-        encoder_learning_rate: 0.0003
-        weight_decay: 0.0015
-        warmup_ratio: 0.1
-
-    - name: g5_warm08
-      overrides:
-        learning_rate: 0.001
-        encoder_learning_rate: 0.0003
-        weight_decay: 0.001
-        warmup_ratio: 0.08
-
-    - name: g6_warm12
-      overrides:
-        learning_rate: 0.001
-        encoder_learning_rate: 0.0003
-        weight_decay: 0.001
-        warmup_ratio: 0.12
-
-    - name: g7_drop15
-      overrides:
-        learning_rate: 0.001
-        encoder_learning_rate: 0.0003
-        weight_decay: 0.001
-        warmup_ratio: 0.1
-        mlp_dropout: 0.15
+        resume_path: null
+        load_specific_parts: null
+        encoder_param_keywords: null
+        encoder_learning_rate: null

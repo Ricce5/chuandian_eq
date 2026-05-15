@@ -1,16 +1,16 @@
-# resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
-# load_specific_parts:
-# - encoder
+resume_path:  ./checkpoints/mixer_tpp_20260514-211318/last_model_1.pth
+load_specific_parts:
+- encoder
 freeze_loaded_only: false
 exclude_freeze_parts: []
 resume_optimizer: false
 resume_scheduler: false
 model: clf_mixer_attnpl_t
 use_ema: false
-batch_size: 64
+batch_size: 32
 accumulation_steps: 1
-warmup_ratio: 0.1
-learning_rate: 1e-3
+warmup_ratio: 0.15
+learning_rate: 1.5e-3
 weight_decay: 1e-4
 scheduler_factor: null
 scheduler_patience: null

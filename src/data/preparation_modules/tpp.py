@@ -177,6 +177,7 @@ def prepare_data_tpp(args, base_dir):
         val_loader = None
         test_loader = None
         args.num_events_val = 0
+        args.num_events_test = 0
     else:
         args.num_events_train = sum(seq.num_nll_events for seq in catalog_ds.train)
         args.num_events_val = sum(seq.num_nll_events for seq in catalog_ds.val)
