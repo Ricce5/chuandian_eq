@@ -1,0 +1,92 @@
+model: mixer_tpp
+base_config: config/mixer_tpp.yaml
+
+# 建议先用单种子复现实验，再扩展到多种子
+seeds: [0]
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 3
+jobs_per_gpu: 3
+stop_on_error: false
+
+# 可选：训练后自动测试
+run_test: true
+ckpt_select: best
+
+
+# 可选：复跑时跳过已完成任务
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: mixer_tpp_ablation
+  points:
+    # 1) tpp
+    - name: tpp
+      overrides:
+        predict_b: false
+        use_b_updater: false
+        loss_weights.b_weight: 0
+        loss_weights.b_smooth_weight: 0
+        mixer_model_config.input_dim: 1
+        features_input_keys: [mag]
+
+    # 2) tpp+b
+    - name: tpp_b
+      overrides:
+        predict_b: true
+        use_b_updater: true
+        loss_weights.b_weight: 0.01
+        loss_weights.b_smooth_weight: 0.001
+        mixer_model_config.input_dim: 1
+        features_input_keys: [mag]
+
+    # 3) tpp+b+pretrain
+    # 说明：
+    # - name: tpp_b_pretrain
+    #   load_strategy: base
+    #   overrides:
+    #     predict_b: true
+    #     use_b_updater: true
+    #     loss_weights.b_weight: 0.01
+    #     loss_weights.b_smooth_weight: 0.001
+    #     mixer_model_config.input_dim: 1
+    #     features_input_keys: [mag]
+    #     resume_path: ./checkpoints/mixer_tpp_20260206-102040/best_model_1.pth
+    #     load_specific_parts: [encoder]
+    #     resume_optimizer: false
+    #     resume_scheduler: false
+
+    # 4) tpp+log
+    - name: tpp_log
+      overrides:
+        predict_b: false
+        use_b_updater: false
+        loss_weights.b_weight: 0
+        loss_weights.b_smooth_weight: 0
+        mixer_model_config.input_dim: 2
+        features_input_keys: [mag, log_inter_times]
+
+    # 5) tpp+log+b
+    - name: tpp_log_b
+      overrides:
+        predict_b: true
+        use_b_updater: true
+        loss_weights.b_weight: 0.01
+        loss_weights.b_smooth_weight: 0.001
+        mixer_model_config.input_dim: 2
+        features_input_keys: [mag, log_inter_times]
+
+    # 6) tpp-txpos
+    - name: tpp_minus_txpos
+      overrides:
+        predict_b: true
+        use_b_updater: true
+        loss_weights.b_weight: 0.01
+        loss_weights.b_smooth_weight: 0.001
+        mixer_model_config.input_dim: 1
+        features_input_keys: [mag]
+        mixer_model_config.ssm_cfg:
+          layer: Mamba2
+        mixer_model_config.attn_cfg.layer: MHA

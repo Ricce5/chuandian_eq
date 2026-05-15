@@ -103,3 +103,11 @@ best,last --config config/reg_mixer_attnpl_t.yaml --model reg_mixer_attnpl_t
      python scripts/summarize_reg_mixer_attnpl_grid.py \
     --exp_dir experiments/reg_mixer_attnpl_ab \
     --ckpt_select best
+
+
+ python scripts/run_mixer_tpp_grid.py --exp_config config/experiments/mixer_tpp_grid.yaml --exp_name mixer_tpp_ablation_chuandian --skip_train
+
+python scripts/summarize_mixer_tpp_grid.py --exp_dir experiments/mixer_tpp_ablation_chuandian --ckpt_select last
+
+
+python scripts/summarize_clf_seed_across_experiments.py --seed 1 --out_dir experiments/reports/clf_pretrains_compare_1 --metrics auc,pr_auc,f1,R

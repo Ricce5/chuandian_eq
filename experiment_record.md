@@ -256,26 +256,26 @@ SCEDC+b: checkpoints/clf_mixer_attnpl_t_20260205-215943
 
 ## 3. REG
 
-lstm checkpoints/lstm_20260507-191427
+lstm checkpoints/lstm_20260510-212317
 
 ```python
 {
-  "RMSE": 0.7307563143907481,
-  "MAE": 0.639857297386628,
-  "MSE": 0.5340047910219499,
-  "MAPE": 13.745611430874982,
-  "R2": -0.5957848702290898,
-  "PearsonR": 0.1661100222835012,
-  "PearsonR_diff": -0.09747647655330957,
-  "DA": 0.03296703296703297,
-  "SpearmanR": 0.19183756943183672,
-  "SpearmanR_diff": -0.07089857075585297,
-  "DTW": 83.55322217941284,
-  "DTW_normalized": 0.45657498458695545
+  "RMSE": 0.7210919343517819,
+  "MAE": 0.6223878964700335,
+  "MSE": 0.5199735777871944,
+  "MAPE": 13.277005674812628,
+  "R2": -0.5538549134807047,
+  "PearsonR": -0.009861617390003267,
+  "PearsonR_diff": -0.055625542991226254,
+  "DA": 0.054945054945054944,
+  "SpearmanR": 0.10756370991216424,
+  "SpearmanR_diff": -0.034333362378821564,
+  "DTW": 75.70545864105225,
+  "DTW_normalized": 0.41369103082542213
 }
 ```
 
-reg checkpoints/reg_mixer_attnpl_t_20260507-192558
+reg experiments/reg_mixer_attnpl_a_b/runs/reg_ab_reg_seed_1
 
 ```python
 {
@@ -354,7 +354,23 @@ tpp: checkpoints/mixer_tpp_20260204-233222
 tpp+b: checkpoints/mixer_tpp_20260205-110204 checkpoints/mixer_tpp_20260205-100346
 
 ```python
-{"nll_train_time": -22.822824478149414, "nll_train_mag": 1.364594578742981, "nll_train_total": -21.448881149291992, "nll_train_b_smooth": 9.348902702331543, "nll_val_time": -13.574907302856445, "nll_val_mag": 2.29687762260437, "nll_val_total": -11.2686128616333, "nll_val_b_smooth": 9.417391777038574, "nll_test_time": -14.719155311584473, "nll_test_mag": 1.7448956966400146, "nll_test_total": -6.77383279800415, "nll_test_b_smooth": 6200.4267578125, "num_events_train": 78087, "num_events_val": 22928}
+{
+  "nll_train_time": -22.82278823852539,
+  "nll_train_mag": 1.3645894527435303,
+  "nll_train_total": -21.4488468170166,
+  "nll_train_b_smooth": 9.350515365600586,
+  "nll_val_time": -13.574847221374512,
+  "nll_val_mag": 2.2968695163726807,
+  "nll_val_total": -11.26855754852295,
+  "nll_val_b_smooth": 9.420469284057617,
+  "nll_test_time": -14.701654434204102,
+  "nll_test_mag": 1.738781452178955,
+  "nll_test_total": -1.759217381477356,
+  "nll_test_b_smooth": 11203.6552734375,
+  "num_events_train": 78087,
+  "num_events_val": 22928,
+  "num_events_test": 12806
+}
 ```
 
 tpp+log: checkpoints/mixer_tpp_20260205-113617
@@ -377,63 +393,36 @@ tpp-txpos: checkpoints/mixer_tpp_20260205-120039
 
 ### 4.2 ChuanDian
 
-etas: checkpoints/etas_20260507-162603   last
-{ 
-  "nll_train_time": 0.341048002243042,
-  "nll_train_total": 0.341048002243042,
-  "nll_val_time": 0.8125933408737183,
-  "nll_val_total": 0.8125933408737183,
-  "nll_test_time": 0.5905441045761108,
-  "nll_test_total": 0.5905441045761108,
-  "num_events_train": 4498,
-  "num_events_val": 567,
-  "num_events_test": 1043
-}
-
-recast: checkpoints/rtpp_20260506-173356
-{
-  "nll_train_time": 0.33240067958831787,
-  "nll_train_total": 0.33240067958831787,
-  "nll_val_time": 0.8073697090148926,
-  "nll_val_total": 0.8073697090148926,
-  "nll_test_time": 0.5613484978675842,
-  "nll_test_total": 0.5613484978675842,
-  "num_events_train": 4498,
-  "num_events_val": 567,
-  "num_events_test": 1043
-}
-
-tpp: checkpoints/mixer_tpp_20260206-102040
+tpp: experiments/mixer_tpp_ablation_chuandian/runs/mixer_tpp_ablation_tpp_seed_0/best_model_1.pth
 
 ```python
-{"nll_train_time": 0.31568610668182373, "nll_train_mag": 0.3903427720069885, "nll_train_total": 0.7060288190841675, "nll_val_time": 0.814254105091095, "nll_val_mag": 0.10913971811532974, "nll_val_total": 0.9233937859535217, "nll_test_time": 0.5817070603370667, "nll_test_mag": 0.2756337821483612, "nll_test_total": 0.8573408722877502, "num_events_train": 4498, "num_events_val": 567}
+{"nll_train_time": 0.3475324809551239, "nll_train_mag": 0.39034321904182434, "nll_train_total": 0.7378756999969482, "nll_val_time": 0.8152410984039307, "nll_val_mag": 0.10914000868797302, "nll_val_total": 0.9243811368942261, "nll_test_time": 0.5813219547271729, "nll_test_mag": 0.2756342589855194, "nll_test_total": 0.8569562435150146, "num_events_train": 4498, "num_events_val": 567, "num_events_test": 1043}
 ```
 
-tpp+b: checkpoints/mixer_tpp_20260204-225304
+tpp+b: experiments/mixer_tpp_ablation_chuandian/runs/mixer_tpp_ablation_tpp_b_seed_0/best_model_1.pth
 
 ```python
-{"nll_train_time": 0.3222985863685608, "nll_train_mag": 0.35153552889823914, "nll_train_total": 0.6654345393180847, "nll_train_b_smooth": 0.22112269699573517, "nll_train_b": -0.8620726466178894, "nll_val_time": 0.8121285438537598, "nll_val_mag": 0.09252987056970596, "nll_val_total": 0.9009965658187866, "nll_val_b_smooth": 0.011793801560997963, "nll_val_b": -0.3673640489578247, "nll_test_time": 0.5788850784301758, "nll_test_mag": 0.257995069026947, "nll_test_total": 0.8296654224395752, "nll_test_b_smooth": 0.18049833178520203, "nll_test_b": -0.7395214438438416, "num_events_train": 4498, "num_events_val": 567}
+{"nll_train_time": 0.3219917416572571, "nll_train_mag": 0.3520156145095825, "nll_train_total": 0.6656216979026794, "nll_train_b_smooth": 0.18635359406471252, "nll_train_b": -0.8571958541870117, "nll_val_time": 0.8137814998626709, "nll_val_mag": 0.09222788363695145, "nll_val_total": 0.9022765159606934, "nll_val_b_smooth": 0.023966442793607712, "nll_val_b": -0.3756851255893707, "nll_test_time": 0.5744537711143494, "nll_test_mag": 0.25969651341438293, "nll_test_total": 0.8274227976799011, "nll_test_b_smooth": 0.21125580370426178, "nll_test_b": -0.6938709020614624, "num_events_train": 4498, "num_events_val": 567, "num_events_test": 1043}
 ```
 
-tpp+b+pretrain:
-
-tpp+log: checkpoints/mixer_tpp_20260206-102404
+tpp+log: experiments/mixer_tpp_ablation_chuandian/runs/mixer_tpp_ablation_tpp_log_seed_0/best_model_1.pth
 
 ```python
-{"nll_train_time": 0.38025331497192383, "nll_train_mag": 0.3903427720069885, "nll_train_total": 0.7705960273742676, "nll_val_time": 0.8064956665039062, "nll_val_mag": 0.10913971811532974, "nll_val_total": 0.9156354069709778, "nll_test_time": 0.5922229886054993, "nll_test_mag": 0.2756337821483612, "nll_test_total": 0.8678567409515381, "num_events_train": 4498, "num_events_val": 567}
+{"nll_train_time": 0.4325093924999237, "nll_train_mag": 0.39034321904182434, "nll_train_total": 0.8228525519371033, "nll_val_time": 0.8052669763565063, "nll_val_mag": 0.10914000868797302, "nll_val_total": 0.9144070148468018, "nll_test_time": 0.6256822943687439, "nll_test_mag": 0.2756342589855194, "nll_test_total": 0.9013165235519409, "num_events_train": 4498, "num_events_val": 567, "num_events_test": 1043}
 ```
 
-tpp+log+b: checkpoints/mixer_tpp_20260206-102755
+tpp+log+b: experiments/mixer_tpp_ablation_chuandian/runs/mixer_tpp_ablation_tpp_log_b_seed_0/best_model_1.pth
 
 ```python
-{"nll_train_time": 0.381284236907959, "nll_train_mag": 0.3532451093196869, "nll_train_total": 0.7276188731193542, "nll_train_b_smooth": 0.47875624895095825, "nll_train_b": -0.7389227747917175, "nll_val_time": 0.8054723739624023, "nll_val_mag": 0.09412700682878494, "nll_val_total": 0.8963361382484436, "nll_val_b_smooth": 0.036167893558740616, "nll_val_b": -0.3299429714679718, "nll_test_time": 0.5828214287757874, "nll_test_mag": 0.2611628472805023, "nll_test_total": 0.8377600908279419, "nll_test_b_smooth": 0.7203924655914307, "nll_test_b": -0.6944623589515686, "num_events_train": 4498, "num_events_val": 567}
+{"nll_train_time": 0.3815753161907196, "nll_train_mag": 0.3531482219696045, "nll_train_total": 0.7281173467636108, "nll_train_b_smooth": 0.5842517018318176, "nll_train_b": -0.7190460562705994, "nll_val_time": 0.8049465417861938, "nll_val_mag": 0.09279705584049225, "nll_val_total": 0.8940302133560181, "nll_val_b_smooth": 0.03686581179499626, "nll_val_b": -0.37502533197402954, "nll_test_time": 0.5860284566879272, "nll_test_mag": 0.26216739416122437, "nll_test_total": 0.8415156602859497, "nll_test_b_smooth": 0.6671037077903748, "nll_test_b": -0.7347274422645569, "num_events_train": 4498, "num_events_val": 567, "num_events_test": 1043}
 ```
 
-tpp-txpos: checkpoints/mixer_tpp_20260206-103125
+tpp-txpos: experiments/mixer_tpp_ablation_chuandian/runs/mixer_tpp_ablation_tpp_minus_txpos_seed_0/best_model_1.pth
 
 ```python
-{"nll_train_time": 0.38977503776550293, "nll_train_mag": 0.3529645502567291, "nll_train_total": 0.7354487180709839, "nll_train_b_smooth": 0.5411959290504456, "nll_train_b": -0.7832092046737671, "nll_val_time": 0.8174117207527161, "nll_val_mag": 0.09343661367893219, "nll_val_total": 0.9077950119972229, "nll_val_b_smooth": 0.020484743639826775, "nll_val_b": -0.3073813021183014, "nll_test_time": 0.6853238940238953, "nll_test_mag": 0.2617284655570984, "nll_test_total": 0.941096305847168, "nll_test_b_smooth": 0.40408560633659363, "nll_test_b": -0.6360194087028503, "num_events_train": 4498, "num_events_val": 567}
+{"nll_train_time": 0.42139536142349243, "nll_train_mag": 0.3516053557395935, "nll_train_total": 0.7654439210891724, "nll_train_b_smooth": 0.4160616099834442, "nll_train_b": -0.7972947359085083, "nll_val_time": 0.8198422789573669, "nll_val_mag": 0.09153085201978683, "nll_val_total": 0.9075899720191956, "nll_val_b_smooth": 0.017568623647093773, "nll_val_b": -0.3800642192363739, "nll_test_time": 0.6802210807800293, "nll_test_mag": 0.2608191967010498, "nll_test_total": 0.9349408745765686, "nll_test_b_smooth": 0.33272218704223633, "nll_test_b": -0.6432147026062012, "num_events_train": 4498, "num_events_val": 567, "num_events_test": 1043}
 ```
+
 
 ### 4.3 T-XPOS Ablation
 

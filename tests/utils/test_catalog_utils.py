@@ -38,11 +38,12 @@ def test_split_sequence_uses_ceil_when_single_window_would_be_too_large():
         dataset = catalog_utils.split_sequence(seq, mean_batch_size=300, max_events=512)
 
     assert len(dataset) == 2
-    assert all(subseq.num_events <= 512 for subseq in dataset)
+    assert all(subseq.t_start == seq.t_start for subseq in dataset)
+    assert dataset[1].num_events > dataset[0].num_events
     assert sum(subseq.num_nll_events for subseq in dataset) == seq.num_nll_events
 
 
-def test_split_sequence_refines_dense_windows_instead_of_skipping_them():
+def test_split_sequence_keeps_history_when_windows_are_dense():
     history = np.linspace(1.0, 48.0, 120, dtype=np.float32)
     dense_cluster = np.linspace(50.0, 50.2, 600, dtype=np.float32)
     sparse_tail = np.linspace(60.0, 70.0, 60, dtype=np.float32)
@@ -56,12 +57,13 @@ def test_split_sequence_refines_dense_windows_instead_of_skipping_them():
         warnings.filterwarnings("ignore", message="Found 1 zero inter-event times.*")
         dataset = catalog_utils.split_sequence(seq, mean_batch_size=300, max_events=512)
 
-    assert len(dataset) >= 3
-    assert all(subseq.num_events <= 512 for subseq in dataset)
+    assert len(dataset) == 3
+    assert all(subseq.t_start == seq.t_start for subseq in dataset)
+    assert dataset[-1].num_events >= dataset[0].num_events
     assert sum(subseq.num_nll_events for subseq in dataset) == seq.num_nll_events
 
 
-def test_split_sequence_without_max_events_preserves_window_start():
+def test_split_sequence_without_max_events_preserves_full_history_start():
     history = np.linspace(1.0, 48.0, 120, dtype=np.float32)
     dense_cluster = np.linspace(50.0, 50.2, 600, dtype=np.float32)
     sparse_tail = np.linspace(60.0, 70.0, 60, dtype=np.float32)
@@ -76,7 +78,7 @@ def test_split_sequence_without_max_events_preserves_window_start():
         dataset = catalog_utils.split_sequence(seq, mean_batch_size=2000, max_events=None)
 
     assert len(dataset) == 1
-    assert dataset[0].t_start == seq.t_nll_start
+    assert dataset[0].t_start == seq.t_start
     assert dataset[0].t_nll_start == seq.t_nll_start
     assert dataset[0].num_events > 512
 
@@ -100,8 +102,11 @@ def test_split_sequence_supports_explicit_num_splits_for_nll_range():
         )
 
     expected_starts = np.linspace(seq.t_nll_start, seq.t_end, 5)[:-1]
+    expected_ends = np.linspace(seq.t_nll_start, seq.t_end, 5)[1:]
     assert len(dataset) == 4
     assert [subseq.t_nll_start for subseq in dataset] == list(expected_starts)
+    assert [subseq.t_end for subseq in dataset] == list(expected_ends)
+    assert all(subseq.t_start == seq.t_start for subseq in dataset)
 
 
 def test_split_sequence_rejects_non_positive_num_splits():

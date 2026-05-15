@@ -248,3 +248,16 @@ loss_weights:
   bg_weight: 1.0
   bg_kl_weight: 1.0
   bg_norm_weight: 0.0
+
+AZDX+b: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+AZDX: ./checkpoints/mixer_tpp_20260510-211348/last_model_1.pth
+
+
+
+SCEDC+b:  ./checkpoints/mixer_tpp_20260205-215113/last_model_1.pth checkpoints/mixer_tpp_20260514-211059
+SCEDC: ./checkpoints/mixer_tpp_20260205-214813/last_model_1.pth  checkpoints/mixer_tpp_20260514-211318
+ 
+diff ./checkpoints/mixer_tpp_20260508-182744/config.yaml ./checkpoints/mixer_tpp_20260205-215113/config.yaml
+
+diff ./checkpoints/mixer_tpp_20260508-182744/config.yaml ./checkpoints/mixer_tpp_20260510-211348/config.yaml
+diff ./checkpoints/mixer_tpp_20260205-215113/config.yaml ./checkpoints/mixer_tpp_20260205-214813/config.yaml

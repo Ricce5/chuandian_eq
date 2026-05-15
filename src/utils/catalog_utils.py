@@ -275,7 +275,7 @@ def split_sequence(
         start, end, depth = window_queue.popleft()
         try:
             if max_events is None:
-                t_start = start
+                t_start =0 
             else:
                 t_start = find_t_start_from_t_end(seq, t_nll_start=start, t_end=end, max_events=max_events)
             duration = end - t_start
