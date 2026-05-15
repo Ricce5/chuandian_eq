@@ -1,0 +1,396 @@
+2026-05-14 21:30:56,784 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-14 21:30:58,154 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-14 21:31:01,200 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-14 21:31:01,245 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-14 21:31:01,247 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+2026-05-14 21:31:03,131 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-14 21:31:03,131 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-14 21:31:03,324 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-14 21:31:03,325 INFO src.train.config_setup: Loading model weights: load_specific_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-14 21:31:03,327 INFO src.train.config_setup: Selective load summary: requested_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1'], target_in_model=32, matched_in_checkpoint=28, loaded=28, missing_after_load=4, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
+2026-05-14 21:31:03,327 INFO src.train.config_setup: Selective load coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-14 21:31:03,327 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.0]: target=14, hit=12, missing=2, complete=False
+2026-05-14 21:31:03,327 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.0]: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
+2026-05-14 21:31:03,327 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.1]: target=14, hit=12, missing=2, complete=False
+2026-05-14 21:31:03,327 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.1]: ['base_model.encoder.layers.1.mixer.conv1d.bias', 'base_model.encoder.layers.1.mixer.conv1d.weight']
+2026-05-14 21:31:03,327 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight', 'base_model.encoder.layers.1.mixer.conv1d.bias', 'base_model.encoder.layers.1.mixer.conv1d.weight']
+2026-05-14 21:31:03,327 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight', 'base_model.encoder.layers.1.mixer.conv1d.bias', 'base_model.encoder.layers.1.mixer.conv1d.weight']
+2026-05-14 21:31:03,327 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.layers.1.mixer.norm.weight', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.input_proj.0.weight', 'base_model.encoder.layers.1.mixer.in_proj.weight', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.1.mixer.dt_bias', 'base_model.encoder.layers.1.norm.bias', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.in_proj.weight', 'base_model.encoder.input_proj.3.bias'] ... (+18 more)
+2026-05-14 21:31:03,328 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-14 21:31:03,328 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-14 21:31:03,328 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-14 21:31:03,328 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-14 21:31:03,329 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-14 21:31:03,329 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-14 21:31:03,330 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-14 21:31:03,330 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0003, matched=32
+2026-05-14 21:31:03,330 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-14 21:31:03,330 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-14 21:31:03,330 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-14 21:31:03,330 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-14 21:31:03,331 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-14 21:31:03,331 INFO src.train.trainer: Epoch 1
+2026-05-14 21:31:21,598 INFO src.train.trainer: New best validation loss: 0.0914, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:21,610 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:21,611 INFO src.train.trainer: Epoch 2
+2026-05-14 21:31:24,655 INFO src.train.trainer: New best validation loss: 0.0384, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:24,673 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:24,673 INFO src.train.trainer: Epoch 3
+2026-05-14 21:31:27,897 INFO src.train.trainer: New best validation loss: 0.0327, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:27,913 INFO src.train.trainer: Last model at epoch 3 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:27,914 INFO src.train.trainer: Epoch 4
+2026-05-14 21:31:31,912 INFO src.train.trainer: New best validation loss: 0.0316, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:31,927 INFO src.train.trainer: Last model at epoch 4 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:31,927 INFO src.train.trainer: Epoch 5
+2026-05-14 21:31:35,874 INFO src.train.trainer: New best validation loss: 0.0290, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:35,888 INFO src.train.trainer: Last model at epoch 5 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:35,888 INFO src.train.trainer: Epoch 6
+2026-05-14 21:31:39,518 INFO src.train.trainer: New best validation loss: 0.0289, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:39,534 INFO src.train.trainer: Last model at epoch 6 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:39,534 INFO src.train.trainer: Epoch 7
+2026-05-14 21:31:42,508 INFO src.train.trainer: Last model at epoch 7 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:42,509 INFO src.train.trainer: Epoch 8
+2026-05-14 21:31:45,946 INFO src.train.trainer: Last model at epoch 8 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:45,946 INFO src.train.trainer: Epoch 9
+2026-05-14 21:31:49,213 INFO src.train.trainer: New best validation loss: 0.0282, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:31:49,222 INFO src.train.trainer: Last model at epoch 9 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:49,222 INFO src.train.trainer: Epoch 10
+2026-05-14 21:31:52,383 INFO src.train.trainer: Last model at epoch 10 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:52,383 INFO src.train.trainer: Epoch 11
+2026-05-14 21:31:55,212 INFO src.train.trainer: Last model at epoch 11 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:55,212 INFO src.train.trainer: Epoch 12
+2026-05-14 21:31:58,094 INFO src.train.trainer: Last model at epoch 12 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:31:58,095 INFO src.train.trainer: Epoch 13
+2026-05-14 21:32:00,939 INFO src.train.trainer: Last model at epoch 13 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:00,939 INFO src.train.trainer: Epoch 14
+2026-05-14 21:32:03,815 INFO src.train.trainer: Last model at epoch 14 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:03,815 INFO src.train.trainer: Epoch 15
+2026-05-14 21:32:06,969 INFO src.train.trainer: New best validation loss: 0.0281, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/best_model_1.pth
+2026-05-14 21:32:06,985 INFO src.train.trainer: Last model at epoch 15 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:06,985 INFO src.train.trainer: Epoch 16
+2026-05-14 21:32:09,910 INFO src.train.trainer: Last model at epoch 16 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:09,910 INFO src.train.trainer: Epoch 17
+2026-05-14 21:32:12,859 INFO src.train.trainer: Last model at epoch 17 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:12,859 INFO src.train.trainer: Epoch 18
+2026-05-14 21:32:16,224 INFO src.train.trainer: Last model at epoch 18 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:16,224 INFO src.train.trainer: Epoch 19
+2026-05-14 21:32:19,444 INFO src.train.trainer: Last model at epoch 19 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:19,445 INFO src.train.trainer: Epoch 20
+2026-05-14 21:32:22,223 INFO src.train.trainer: Last model at epoch 20 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:22,223 INFO src.train.trainer: Epoch 21
+2026-05-14 21:32:24,957 INFO src.train.trainer: Last model at epoch 21 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:24,958 INFO src.train.trainer: Epoch 22
+2026-05-14 21:32:27,749 INFO src.train.trainer: Last model at epoch 22 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:27,750 INFO src.train.trainer: Epoch 23
+2026-05-14 21:32:30,471 INFO src.train.trainer: Last model at epoch 23 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:30,471 INFO src.train.trainer: Epoch 24
+2026-05-14 21:32:33,354 INFO src.train.trainer: Last model at epoch 24 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:33,354 INFO src.train.trainer: Epoch 25
+2026-05-14 21:32:36,419 INFO src.train.trainer: Last model at epoch 25 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:36,419 INFO src.train.trainer: Epoch 26
+2026-05-14 21:32:39,401 INFO src.train.trainer: Last model at epoch 26 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:39,402 INFO src.train.trainer: Epoch 27
+2026-05-14 21:32:42,476 INFO src.train.trainer: Last model at epoch 27 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:42,477 INFO src.train.trainer: Epoch 28
+2026-05-14 21:32:45,737 INFO src.train.trainer: Last model at epoch 28 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:45,737 INFO src.train.trainer: Epoch 29
+2026-05-14 21:32:48,737 INFO src.train.trainer: Last model at epoch 29 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:48,737 INFO src.train.trainer: Epoch 30
+2026-05-14 21:32:51,556 INFO src.train.trainer: Last model at epoch 30 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:51,557 INFO src.train.trainer: Epoch 31
+2026-05-14 21:32:54,500 INFO src.train.trainer: Last model at epoch 31 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:54,501 INFO src.train.trainer: Epoch 32
+2026-05-14 21:32:57,382 INFO src.train.trainer: Last model at epoch 32 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:32:57,383 INFO src.train.trainer: Epoch 33
+2026-05-14 21:33:00,506 INFO src.train.trainer: Last model at epoch 33 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:00,506 INFO src.train.trainer: Epoch 34
+2026-05-14 21:33:03,330 INFO src.train.trainer: Last model at epoch 34 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:03,331 INFO src.train.trainer: Epoch 35
+2026-05-14 21:33:06,061 INFO src.train.trainer: Last model at epoch 35 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:06,062 INFO src.train.trainer: Epoch 36
+2026-05-14 21:33:08,865 INFO src.train.trainer: Last model at epoch 36 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:08,866 INFO src.train.trainer: Epoch 37
+2026-05-14 21:33:11,710 INFO src.train.trainer: Last model at epoch 37 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:11,711 INFO src.train.trainer: Epoch 38
+2026-05-14 21:33:14,471 INFO src.train.trainer: Last model at epoch 38 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:14,471 INFO src.train.trainer: Epoch 39
+2026-05-14 21:33:17,397 INFO src.train.trainer: Last model at epoch 39 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:17,398 INFO src.train.trainer: Epoch 40
+2026-05-14 21:33:20,194 INFO src.train.trainer: Last model at epoch 40 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:20,194 INFO src.train.trainer: Epoch 41
+2026-05-14 21:33:23,028 INFO src.train.trainer: Last model at epoch 41 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:23,029 INFO src.train.trainer: Epoch 42
+2026-05-14 21:33:25,943 INFO src.train.trainer: Last model at epoch 42 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:25,944 INFO src.train.trainer: Epoch 43
+2026-05-14 21:33:28,573 INFO src.train.trainer: Last model at epoch 43 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:28,573 INFO src.train.trainer: Epoch 44
+2026-05-14 21:33:31,392 INFO src.train.trainer: Last model at epoch 44 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:31,392 INFO src.train.trainer: Epoch 45
+2026-05-14 21:33:34,138 INFO src.train.trainer: Last model at epoch 45 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:34,138 INFO src.train.trainer: Epoch 46
+2026-05-14 21:33:37,097 INFO src.train.trainer: Last model at epoch 46 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:37,098 INFO src.train.trainer: Epoch 47
+2026-05-14 21:33:39,913 INFO src.train.trainer: Last model at epoch 47 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:39,913 INFO src.train.trainer: Epoch 48
+2026-05-14 21:33:42,750 INFO src.train.trainer: Last model at epoch 48 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:42,750 INFO src.train.trainer: Epoch 49
+2026-05-14 21:33:45,660 INFO src.train.trainer: Last model at epoch 49 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:45,661 INFO src.train.trainer: Epoch 50
+2026-05-14 21:33:48,616 INFO src.train.trainer: Last model at epoch 50 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:48,616 INFO src.train.trainer: Epoch 51
+2026-05-14 21:33:51,500 INFO src.train.trainer: Last model at epoch 51 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:51,500 INFO src.train.trainer: Epoch 52
+2026-05-14 21:33:54,570 INFO src.train.trainer: Last model at epoch 52 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:54,571 INFO src.train.trainer: Epoch 53
+2026-05-14 21:33:57,647 INFO src.train.trainer: Last model at epoch 53 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:33:57,647 INFO src.train.trainer: Epoch 54
+2026-05-14 21:34:00,729 INFO src.train.trainer: Last model at epoch 54 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:00,729 INFO src.train.trainer: Epoch 55
+2026-05-14 21:34:03,799 INFO src.train.trainer: Last model at epoch 55 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:03,799 INFO src.train.trainer: Epoch 56
+2026-05-14 21:34:06,630 INFO src.train.trainer: Last model at epoch 56 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:06,631 INFO src.train.trainer: Epoch 57
+2026-05-14 21:34:09,511 INFO src.train.trainer: Last model at epoch 57 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:09,511 INFO src.train.trainer: Epoch 58
+2026-05-14 21:34:12,384 INFO src.train.trainer: Last model at epoch 58 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:12,384 INFO src.train.trainer: Epoch 59
+2026-05-14 21:34:15,200 INFO src.train.trainer: Last model at epoch 59 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:15,200 INFO src.train.trainer: Epoch 60
+2026-05-14 21:34:18,224 INFO src.train.trainer: Last model at epoch 60 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:18,234 INFO src.train.trainer: Saved epoch 60 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/epoch_60_model_1.pth
+2026-05-14 21:34:18,234 INFO src.train.trainer: Epoch 61
+2026-05-14 21:34:21,255 INFO src.train.trainer: Last model at epoch 61 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:21,256 INFO src.train.trainer: Epoch 62
+2026-05-14 21:34:24,238 INFO src.train.trainer: Last model at epoch 62 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:24,239 INFO src.train.trainer: Epoch 63
+2026-05-14 21:34:27,321 INFO src.train.trainer: Last model at epoch 63 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:27,321 INFO src.train.trainer: Epoch 64
+2026-05-14 21:34:30,202 INFO src.train.trainer: Last model at epoch 64 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:30,202 INFO src.train.trainer: Epoch 65
+2026-05-14 21:34:33,230 INFO src.train.trainer: Last model at epoch 65 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:33,231 INFO src.train.trainer: Epoch 66
+2026-05-14 21:34:36,220 INFO src.train.trainer: Last model at epoch 66 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:36,220 INFO src.train.trainer: Epoch 67
+2026-05-14 21:34:38,801 INFO src.train.trainer: Last model at epoch 67 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:38,801 INFO src.train.trainer: Epoch 68
+2026-05-14 21:34:41,652 INFO src.train.trainer: Last model at epoch 68 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:41,653 INFO src.train.trainer: Epoch 69
+2026-05-14 21:34:44,278 INFO src.train.trainer: Last model at epoch 69 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:44,279 INFO src.train.trainer: Epoch 70
+2026-05-14 21:34:47,048 INFO src.train.trainer: Last model at epoch 70 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:47,048 INFO src.train.trainer: Epoch 71
+2026-05-14 21:34:49,869 INFO src.train.trainer: Last model at epoch 71 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:49,869 INFO src.train.trainer: Epoch 72
+2026-05-14 21:34:52,868 INFO src.train.trainer: Last model at epoch 72 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:52,868 INFO src.train.trainer: Epoch 73
+2026-05-14 21:34:55,823 INFO src.train.trainer: Last model at epoch 73 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:55,823 INFO src.train.trainer: Epoch 74
+2026-05-14 21:34:58,864 INFO src.train.trainer: Last model at epoch 74 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:34:58,865 INFO src.train.trainer: Epoch 75
+2026-05-14 21:35:01,791 INFO src.train.trainer: Last model at epoch 75 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:01,792 INFO src.train.trainer: Epoch 76
+2026-05-14 21:35:04,829 INFO src.train.trainer: Last model at epoch 76 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:04,830 INFO src.train.trainer: Epoch 77
+2026-05-14 21:35:07,449 INFO src.train.trainer: Last model at epoch 77 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:07,449 INFO src.train.trainer: Epoch 78
+2026-05-14 21:35:10,414 INFO src.train.trainer: Last model at epoch 78 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:10,414 INFO src.train.trainer: Epoch 79
+2026-05-14 21:35:13,180 INFO src.train.trainer: Last model at epoch 79 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:13,180 INFO src.train.trainer: Epoch 80
+2026-05-14 21:35:16,051 INFO src.train.trainer: Last model at epoch 80 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:16,066 INFO src.train.trainer: Saved epoch 80 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/epoch_80_model_1.pth
+2026-05-14 21:35:16,066 INFO src.train.trainer: Epoch 81
+2026-05-14 21:35:18,931 INFO src.train.trainer: Last model at epoch 81 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:18,932 INFO src.train.trainer: Epoch 82
+2026-05-14 21:35:21,857 INFO src.train.trainer: Last model at epoch 82 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:21,857 INFO src.train.trainer: Epoch 83
+2026-05-14 21:35:24,427 INFO src.train.trainer: Last model at epoch 83 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:24,427 INFO src.train.trainer: Epoch 84
+2026-05-14 21:35:27,303 INFO src.train.trainer: Last model at epoch 84 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:27,303 INFO src.train.trainer: Epoch 85
+2026-05-14 21:35:29,934 INFO src.train.trainer: Last model at epoch 85 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:29,935 INFO src.train.trainer: Epoch 86
+2026-05-14 21:35:32,826 INFO src.train.trainer: Last model at epoch 86 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:32,826 INFO src.train.trainer: Epoch 87
+2026-05-14 21:35:35,751 INFO src.train.trainer: Last model at epoch 87 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:35,752 INFO src.train.trainer: Epoch 88
+2026-05-14 21:35:38,710 INFO src.train.trainer: Last model at epoch 88 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:38,710 INFO src.train.trainer: Epoch 89
+2026-05-14 21:35:41,937 INFO src.train.trainer: Last model at epoch 89 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:41,937 INFO src.train.trainer: Epoch 90
+2026-05-14 21:35:44,964 INFO src.train.trainer: Last model at epoch 90 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:44,964 INFO src.train.trainer: Epoch 91
+2026-05-14 21:35:47,995 INFO src.train.trainer: Last model at epoch 91 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:47,996 INFO src.train.trainer: Epoch 92
+2026-05-14 21:35:50,882 INFO src.train.trainer: Last model at epoch 92 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:50,883 INFO src.train.trainer: Epoch 93
+2026-05-14 21:35:53,313 INFO src.train.trainer: Last model at epoch 93 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:53,313 INFO src.train.trainer: Epoch 94
+2026-05-14 21:35:56,375 INFO src.train.trainer: Last model at epoch 94 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:56,375 INFO src.train.trainer: Epoch 95
+2026-05-14 21:35:59,146 INFO src.train.trainer: Last model at epoch 95 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:35:59,147 INFO src.train.trainer: Epoch 96
+2026-05-14 21:36:02,083 INFO src.train.trainer: Last model at epoch 96 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:02,083 INFO src.train.trainer: Epoch 97
+2026-05-14 21:36:04,973 INFO src.train.trainer: Last model at epoch 97 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:04,973 INFO src.train.trainer: Epoch 98
+2026-05-14 21:36:08,149 INFO src.train.trainer: Last model at epoch 98 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:08,149 INFO src.train.trainer: Epoch 99
+2026-05-14 21:36:10,782 INFO src.train.trainer: Last model at epoch 99 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:10,783 INFO src.train.trainer: Epoch 100
+2026-05-14 21:36:13,774 INFO src.train.trainer: Last model at epoch 100 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:13,783 INFO src.train.trainer: Saved epoch 100 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/epoch_100_model_1.pth
+2026-05-14 21:36:13,783 INFO src.train.trainer: Epoch 101
+2026-05-14 21:36:16,577 INFO src.train.trainer: Last model at epoch 101 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:16,578 INFO src.train.trainer: Epoch 102
+2026-05-14 21:36:19,099 INFO src.train.trainer: Last model at epoch 102 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:19,100 INFO src.train.trainer: Epoch 103
+2026-05-14 21:36:22,206 INFO src.train.trainer: Last model at epoch 103 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:22,206 INFO src.train.trainer: Epoch 104
+2026-05-14 21:36:24,878 INFO src.train.trainer: Last model at epoch 104 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:24,879 INFO src.train.trainer: Epoch 105
+2026-05-14 21:36:27,726 INFO src.train.trainer: Last model at epoch 105 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:27,726 INFO src.train.trainer: Epoch 106
+2026-05-14 21:36:30,742 INFO src.train.trainer: Last model at epoch 106 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:30,742 INFO src.train.trainer: Epoch 107
+2026-05-14 21:36:33,542 INFO src.train.trainer: Last model at epoch 107 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:33,542 INFO src.train.trainer: Epoch 108
+2026-05-14 21:36:36,635 INFO src.train.trainer: Last model at epoch 108 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:36,636 INFO src.train.trainer: Epoch 109
+2026-05-14 21:36:39,626 INFO src.train.trainer: Last model at epoch 109 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:39,627 INFO src.train.trainer: Epoch 110
+2026-05-14 21:36:42,490 INFO src.train.trainer: Last model at epoch 110 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:42,491 INFO src.train.trainer: Epoch 111
+2026-05-14 21:36:45,421 INFO src.train.trainer: Last model at epoch 111 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:45,422 INFO src.train.trainer: Epoch 112
+2026-05-14 21:36:48,393 INFO src.train.trainer: Last model at epoch 112 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:48,393 INFO src.train.trainer: Epoch 113
+2026-05-14 21:36:51,168 INFO src.train.trainer: Last model at epoch 113 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:51,169 INFO src.train.trainer: Epoch 114
+2026-05-14 21:36:54,241 INFO src.train.trainer: Last model at epoch 114 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:54,241 INFO src.train.trainer: Epoch 115
+2026-05-14 21:36:57,303 INFO src.train.trainer: Last model at epoch 115 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:36:57,303 INFO src.train.trainer: Epoch 116
+2026-05-14 21:37:00,459 INFO src.train.trainer: Last model at epoch 116 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:00,460 INFO src.train.trainer: Epoch 117
+2026-05-14 21:37:03,312 INFO src.train.trainer: Last model at epoch 117 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:03,313 INFO src.train.trainer: Epoch 118
+2026-05-14 21:37:06,441 INFO src.train.trainer: Last model at epoch 118 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:06,441 INFO src.train.trainer: Epoch 119
+2026-05-14 21:37:09,486 INFO src.train.trainer: Last model at epoch 119 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:09,486 INFO src.train.trainer: Epoch 120
+2026-05-14 21:37:12,238 INFO src.train.trainer: Last model at epoch 120 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:12,250 INFO src.train.trainer: Saved epoch 120 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/epoch_120_model_1.pth
+2026-05-14 21:37:12,250 INFO src.train.trainer: Epoch 121
+2026-05-14 21:37:15,429 INFO src.train.trainer: Last model at epoch 121 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:15,430 INFO src.train.trainer: Epoch 122
+2026-05-14 21:37:18,937 INFO src.train.trainer: Last model at epoch 122 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:18,937 INFO src.train.trainer: Epoch 123
+2026-05-14 21:37:21,925 INFO src.train.trainer: Last model at epoch 123 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:21,926 INFO src.train.trainer: Epoch 124
+2026-05-14 21:37:25,135 INFO src.train.trainer: Last model at epoch 124 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:25,135 INFO src.train.trainer: Epoch 125
+2026-05-14 21:37:28,024 INFO src.train.trainer: Last model at epoch 125 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:28,024 INFO src.train.trainer: Epoch 126
+2026-05-14 21:37:31,216 INFO src.train.trainer: Last model at epoch 126 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:31,217 INFO src.train.trainer: Epoch 127
+2026-05-14 21:37:34,318 INFO src.train.trainer: Last model at epoch 127 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:34,319 INFO src.train.trainer: Epoch 128
+2026-05-14 21:37:37,541 INFO src.train.trainer: Last model at epoch 128 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:37,541 INFO src.train.trainer: Epoch 129
+2026-05-14 21:37:40,420 INFO src.train.trainer: Last model at epoch 129 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:40,420 INFO src.train.trainer: Epoch 130
+2026-05-14 21:37:43,573 INFO src.train.trainer: Last model at epoch 130 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:43,574 INFO src.train.trainer: Epoch 131
+2026-05-14 21:37:46,768 INFO src.train.trainer: Last model at epoch 131 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:46,769 INFO src.train.trainer: Epoch 132
+2026-05-14 21:37:49,721 INFO src.train.trainer: Last model at epoch 132 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:49,722 INFO src.train.trainer: Epoch 133
+2026-05-14 21:37:53,042 INFO src.train.trainer: Last model at epoch 133 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:53,042 INFO src.train.trainer: Epoch 134
+2026-05-14 21:37:56,517 INFO src.train.trainer: Last model at epoch 134 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:56,517 INFO src.train.trainer: Epoch 135
+2026-05-14 21:37:59,828 INFO src.train.trainer: Last model at epoch 135 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:37:59,829 INFO src.train.trainer: Epoch 136
+2026-05-14 21:38:03,164 INFO src.train.trainer: Last model at epoch 136 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:03,164 INFO src.train.trainer: Epoch 137
+2026-05-14 21:38:06,335 INFO src.train.trainer: Last model at epoch 137 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:06,336 INFO src.train.trainer: Epoch 138
+2026-05-14 21:38:09,246 INFO src.train.trainer: Last model at epoch 138 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:09,246 INFO src.train.trainer: Epoch 139
+2026-05-14 21:38:12,533 INFO src.train.trainer: Last model at epoch 139 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:12,534 INFO src.train.trainer: Epoch 140
+2026-05-14 21:38:15,603 INFO src.train.trainer: Last model at epoch 140 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:15,616 INFO src.train.trainer: Saved epoch 140 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/epoch_140_model_1.pth
+2026-05-14 21:38:15,616 INFO src.train.trainer: Epoch 141
+2026-05-14 21:38:18,675 INFO src.train.trainer: Last model at epoch 141 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:18,675 INFO src.train.trainer: Epoch 142
+2026-05-14 21:38:21,567 INFO src.train.trainer: Last model at epoch 142 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:21,568 INFO src.train.trainer: Epoch 143
+2026-05-14 21:38:24,547 INFO src.train.trainer: Last model at epoch 143 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:24,547 INFO src.train.trainer: Epoch 144
+2026-05-14 21:38:28,083 INFO src.train.trainer: Last model at epoch 144 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:28,084 INFO src.train.trainer: Epoch 145
+2026-05-14 21:38:31,426 INFO src.train.trainer: Last model at epoch 145 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:31,427 INFO src.train.trainer: Epoch 146
+2026-05-14 21:38:34,629 INFO src.train.trainer: Last model at epoch 146 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:34,629 INFO src.train.trainer: Epoch 147
+2026-05-14 21:38:37,807 INFO src.train.trainer: Last model at epoch 147 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:37,807 INFO src.train.trainer: Epoch 148
+2026-05-14 21:38:40,635 INFO src.train.trainer: Last model at epoch 148 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:40,635 INFO src.train.trainer: Epoch 149
+2026-05-14 21:38:43,425 INFO src.train.trainer: Last model at epoch 149 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:43,425 INFO src.train.trainer: Epoch 150
+2026-05-14 21:38:46,006 INFO src.train.trainer: Last model at epoch 150 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/last_model_1.pth
+2026-05-14 21:38:57,421 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-14 21:38:58,936 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-14 21:39:01,679 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-14 21:39:01,722 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-14 21:39:02,703 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-14 21:39:02,704 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-14 21:39:02,713 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-14 21:39:02,714 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-14 21:39:02,716 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-14 21:39:02,716 INFO src.train.config_setup: Full load summary: loaded=68, missing=0, unexpected=0
+2026-05-14 21:39:02,717 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-14 21:39:02,717 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-14 21:39:02,717 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-14 21:39:02,717 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-14 21:39:02,718 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-14 21:39:02,718 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-14 21:39:02,719 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-14 21:39:02,719 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0003, matched=32
+2026-05-14 21:39:02,719 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-14 21:39:02,719 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-14 21:39:02,719 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-14 21:39:02,719 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-14 21:39:02,720 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-14 21:39:09,675 INFO src.cli.workflows: Test loss: 0.0363168828189373
+2026-05-14 21:39:12,290 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/metrics_test_best_1.json
+2026-05-14 21:39:12,290 INFO src.cli.common: Metrics: {'RMSE': 0.8873455513383954, 'MAE': 0.7716606860278082, 'MSE': 0.787382127480041, 'MAPE': 16.85572171309929, 'R2': -1.3529606151092977, 'PearsonR': 0.10686800085115807, 'PearsonR_diff': 0.0785180573241208, 'DA': 0.038461538461538464, 'SpearmanR': 0.3189572321533827, 'SpearmanR_diff': -0.047515657909926644, 'DTW': 141.34982416033745, 'DTW_normalized': 0.7724034107122265}
+2026-05-14 21:39:23,385 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-14 21:39:24,416 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-14 21:39:27,018 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-14 21:39:27,057 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-14 21:39:27,935 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-14 21:39:27,935 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-14 21:39:27,990 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-14 21:39:27,991 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-14 21:39:27,992 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-14 21:39:27,992 INFO src.train.config_setup: Full load summary: loaded=68, missing=0, unexpected=0
+2026-05-14 21:39:27,993 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-14 21:39:27,993 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-14 21:39:27,993 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-14 21:39:27,993 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-14 21:39:27,994 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-14 21:39:27,994 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-14 21:39:27,995 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0', 'base_model.encoder.layers.1']
+2026-05-14 21:39:27,995 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0003, matched=32
+2026-05-14 21:39:27,995 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-14 21:39:27,995 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-14 21:39:27,995 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.1]: target=14, hit=14, missing=0, complete=True
+2026-05-14 21:39:27,995 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+22 more)
+2026-05-14 21:39:27,996 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-14 21:39:34,271 INFO src.cli.workflows: Test loss: 0.03606645700832208
+2026-05-14 21:39:37,392 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_ab/runs/reg_ab_minus_txpos_seed_0/metrics_test_last_1.json
+2026-05-14 21:39:37,392 INFO src.cli.common: Metrics: {'RMSE': 0.8685718605298758, 'MAE': 0.7380411067947013, 'MSE': 0.7544170769043299, 'MAPE': 15.167927666742143, 'R2': -1.2544500406719825, 'PearsonR': -0.1712240161676983, 'PearsonR_diff': 0.19503359300483852, 'DA': 0.04395604395604396, 'SpearmanR': -0.2124093254472817, 'SpearmanR_diff': -0.004311719175511787, 'DTW': 84.06188732385635, 'DTW_normalized': 0.45935457554019865}

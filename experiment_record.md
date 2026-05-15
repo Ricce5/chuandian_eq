@@ -377,14 +377,14 @@ tpp-txpos: checkpoints/mixer_tpp_20260205-120039
 
 ### 4.2 ChuanDian
 
-etas: checkpoints/etas_20260507-143239
-{
-  "nll_train_time": 0.3528106212615967,
-  "nll_train_total": 0.3528106212615967,
-  "nll_val_time": 0.8108841180801392,
-  "nll_val_total": 0.8108841180801392,
-  "nll_test_time": 0.5987251996994019,
-  "nll_test_total": 0.5987251996994019,
+etas: checkpoints/etas_20260507-162603   last
+{ 
+  "nll_train_time": 0.341048002243042,
+  "nll_train_total": 0.341048002243042,
+  "nll_val_time": 0.8125933408737183,
+  "nll_val_total": 0.8125933408737183,
+  "nll_test_time": 0.5905441045761108,
+  "nll_test_total": 0.5905441045761108,
   "num_events_train": 4498,
   "num_events_val": 567,
   "num_events_test": 1043
