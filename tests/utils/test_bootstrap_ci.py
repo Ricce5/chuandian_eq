@@ -2,12 +2,15 @@ import numpy as np
 
 from src.utils.bootstrap_ci import (
     BootstrapConfig,
+    aggregate_seed_predictions,
     bootstrap_curve,
     bootstrap_curve_ci,
     bootstrap_metric,
     bootstrap_metric_ci,
     bootstrap_multi_model_curve_ci,
     bootstrap_multi_model_metric_ci,
+    resolve_checkpoint_path,
+    resolve_seed_checkpoint_paths,
 )
 
 
@@ -171,3 +174,79 @@ def test_backward_compatible_wrappers_still_work():
     ci_low, ci_high = bootstrap_metric_ci(y_true, y_prob, metric="auc", n_boot=32, seed=23)
     assert np.isfinite(ci_low)
     assert np.isfinite(ci_high)
+
+
+def test_resolve_checkpoint_path_supports_relative_run_dir(tmp_path):
+    project_root = tmp_path
+    run_dir = project_root / "experiments" / "clf_grid_r_2" / "runs" / "tf_10_mf_4p0_seed_1"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = run_dir / "best_model_1.pth"
+    ckpt_path.write_bytes(b"unit-test")
+
+    resolved = resolve_checkpoint_path(
+        "experiments/clf_grid_r_2/runs/tf_10_mf_4p0_seed_1",
+        project_root=project_root,
+    )
+    assert resolved == ckpt_path.resolve()
+
+
+def test_resolve_seed_checkpoint_paths_collects_sibling_seed_runs(tmp_path):
+    project_root = tmp_path
+    runs_root = project_root / "experiments" / "clf_grid_r_2" / "runs"
+    for seed in [2, 0, 1]:
+        run_dir = runs_root / f"tf_90_mf_5p5_seed_{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "best_model_1.pth").write_bytes(f"seed-{seed}".encode("utf-8"))
+
+    resolved_paths = resolve_seed_checkpoint_paths(
+        "experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1",
+        project_root=project_root,
+    )
+    resolved_names = [path.parent.name for path in resolved_paths]
+    assert resolved_names == [
+        "tf_90_mf_5p5_seed_0",
+        "tf_90_mf_5p5_seed_1",
+        "tf_90_mf_5p5_seed_2",
+    ]
+
+
+def test_resolve_seed_checkpoint_paths_collects_prefix_seed_runs(tmp_path):
+    project_root = tmp_path
+    runs_root = project_root / "experiments" / "clf_grid_r_2" / "runs"
+    for seed in [0, 1]:
+        run_dir = runs_root / f"tf_60_mf_5p0_seed_{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "best_model_1.pth").write_bytes(f"seed-{seed}".encode("utf-8"))
+
+    resolved_paths = resolve_seed_checkpoint_paths(
+        "experiments/clf_grid_r_2/runs/tf_60_mf_5p0",
+        project_root=project_root,
+    )
+    resolved_names = [path.parent.name for path in resolved_paths]
+    assert resolved_names == ["tf_60_mf_5p0_seed_0", "tf_60_mf_5p0_seed_1"]
+
+
+def test_aggregate_seed_predictions_supports_mean_and_median():
+    preds = [
+        np.asarray([0.1, 0.2, 0.7], dtype=np.float64),
+        np.asarray([0.3, 0.4, 0.5], dtype=np.float64),
+        np.asarray([0.9, 0.8, 0.1], dtype=np.float64),
+    ]
+    mean_pred = aggregate_seed_predictions(preds, method="mean")
+    median_pred = aggregate_seed_predictions(preds, method="median")
+
+    assert np.allclose(mean_pred, np.asarray([0.43333333, 0.46666667, 0.43333333]))
+    assert np.allclose(median_pred, np.asarray([0.3, 0.4, 0.5]))
+
+
+def test_aggregate_seed_predictions_validates_shape():
+    preds = [
+        np.asarray([0.1, 0.2], dtype=np.float64),
+        np.asarray([0.3], dtype=np.float64),
+    ]
+    try:
+        aggregate_seed_predictions(preds, method="mean")
+    except ValueError as exc:
+        assert "same length" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError when seed prediction lengths mismatch.")

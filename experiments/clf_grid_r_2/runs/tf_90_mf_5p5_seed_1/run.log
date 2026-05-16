@@ -106,3 +106,73 @@
 2026-05-14 12:18:49,496 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/test_pred_distribution.png
 2026-05-14 12:18:49,497 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/metrics_test_best_1.json
 2026-05-14 12:18:49,497 INFO src.cli.common: Metrics: {'precision': 0.22448979591836735, 'recall': 0.5789473684210527, 'f1': 0.3235294117647059, 'auc': 0.6748538011695906, 'pr_auc': 0.2304799696061472, 'fpr': 0.2814814814814815, 'tpr': 0.5789473684210527, 'R': 0.29746588693957116, 'conf': 1.0, 'threshold': 0.4107988476753235}
+2026-05-16 12:32:48,168 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-16 12:32:49,173 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_5.5_Tfore_90_Twindow_180_context_len_1_dt_10.pkl
+2026-05-16 12:32:50,374 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-16 12:32:50,444 INFO src.data.event_loader: lengths of samples: min=32, max=749, avg=124.26
+2026-05-16 12:32:50,445 INFO src.data.event_loader: Number of positive samples: 471
+2026-05-16 12:32:50,445 INFO src.data.event_loader: Number of negative samples: 1055
+2026-05-16 12:32:50,446 INFO src.data.event_loader: Positive samples: 390, Negative samples: 830
+2026-05-16 12:32:50,446 INFO src.data.event_loader: Total samples: 1220, Positive ratio: 0.32, Negative ratio: 0.68
+2026-05-16 12:32:50,447 INFO src.data.event_loader: Positive samples: 62, Negative samples: 90
+2026-05-16 12:32:50,447 INFO src.data.event_loader: Total samples: 152, Positive ratio: 0.41, Negative ratio: 0.59
+2026-05-16 12:32:50,447 INFO src.data.event_loader: Positive samples: 19, Negative samples: 135
+2026-05-16 12:32:50,447 INFO src.data.event_loader: Total samples: 154, Positive ratio: 0.12, Negative ratio: 0.88
+2026-05-16 12:32:51,081 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-16 12:32:51,081 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-16 12:32:51,092 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-16 12:32:51,093 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-16 12:32:51,094 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-16 12:32:51,095 INFO src.train.config_setup: Full load summary: loaded=56, missing=0, unexpected=0
+2026-05-16 12:32:51,095 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-16 12:32:51,096 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-16 12:32:51,096 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-16 12:32:51,096 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-16 12:32:51,096 INFO src.train.config_setup: Using classification criterion: focal
+2026-05-16 12:32:51,096 INFO src.train.config_setup: Criterion config: {'alpha': 0.25, 'gamma': 2.0}
+2026-05-16 12:32:51,097 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-16 12:32:51,097 INFO src.cli.common: Using threshold 0.4107988476753235 from checkpoint val_metrics for testing.
+2026-05-16 12:32:56,116 INFO src.utils.metrics: ROC curve saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/roc_curve.png
+2026-05-16 12:32:56,223 INFO src.utils.metrics: PR curve saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/pr_curve.png
+2026-05-16 12:32:56,290 INFO src.utils.metrics: Confusion matrix saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/confusion_matrix.png
+2026-05-16 12:32:56,290 INFO src.cli.workflows: Test loss: 0.05544297099113464
+2026-05-16 12:32:57,609 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/train_pred_distribution.png
+2026-05-16 12:32:58,093 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/val_pred_distribution.png
+2026-05-16 12:32:58,525 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/test_pred_distribution.png
+2026-05-16 12:32:58,526 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/metrics_test_best_1.json
+2026-05-16 12:32:58,526 INFO src.cli.common: Metrics: {'precision': 0.22448979591836735, 'recall': 0.5789473684210527, 'f1': 0.3235294117647059, 'auc': 0.6748538011695906, 'pr_auc': 0.2304799696061472, 'fpr': 0.2814814814814815, 'tpr': 0.5789473684210527, 'R': 0.29746588693957116, 'conf': 1.0, 'threshold': 0.4107988476753235}
+2026-05-16 12:33:16,787 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-16 12:33:17,788 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_5.5_Tfore_90_Twindow_180_context_len_1_dt_10.pkl
+2026-05-16 12:33:19,004 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-16 12:33:19,049 INFO src.data.event_loader: lengths of samples: min=32, max=749, avg=124.26
+2026-05-16 12:33:19,049 INFO src.data.event_loader: Number of positive samples: 471
+2026-05-16 12:33:19,050 INFO src.data.event_loader: Number of negative samples: 1055
+2026-05-16 12:33:19,051 INFO src.data.event_loader: Positive samples: 390, Negative samples: 830
+2026-05-16 12:33:19,051 INFO src.data.event_loader: Total samples: 1220, Positive ratio: 0.32, Negative ratio: 0.68
+2026-05-16 12:33:19,051 INFO src.data.event_loader: Positive samples: 62, Negative samples: 90
+2026-05-16 12:33:19,051 INFO src.data.event_loader: Total samples: 152, Positive ratio: 0.41, Negative ratio: 0.59
+2026-05-16 12:33:19,051 INFO src.data.event_loader: Positive samples: 19, Negative samples: 135
+2026-05-16 12:33:19,051 INFO src.data.event_loader: Total samples: 154, Positive ratio: 0.12, Negative ratio: 0.88
+2026-05-16 12:33:19,568 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-16 12:33:19,568 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-16 12:33:19,575 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-16 12:33:19,575 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-16 12:33:19,577 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-16 12:33:19,577 INFO src.train.config_setup: Full load summary: loaded=56, missing=0, unexpected=0
+2026-05-16 12:33:19,578 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-16 12:33:19,578 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-16 12:33:19,578 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-16 12:33:19,578 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-16 12:33:19,578 INFO src.train.config_setup: Using classification criterion: focal
+2026-05-16 12:33:19,578 INFO src.train.config_setup: Criterion config: {'alpha': 0.25, 'gamma': 2.0}
+2026-05-16 12:33:19,579 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-16 12:33:19,579 INFO src.cli.common: Using threshold 0.4107988476753235 from checkpoint val_metrics for testing.
+2026-05-16 12:33:24,833 INFO src.utils.metrics: ROC curve saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/roc_curve.png
+2026-05-16 12:33:24,944 INFO src.utils.metrics: PR curve saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/pr_curve.png
+2026-05-16 12:33:25,008 INFO src.utils.metrics: Confusion matrix saved to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/confusion_matrix.png
+2026-05-16 12:33:25,008 INFO src.cli.workflows: Test loss: 0.05544299185276032
+2026-05-16 12:33:26,723 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/train_pred_distribution.png
+2026-05-16 12:33:27,221 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/val_pred_distribution.png
+2026-05-16 12:33:27,677 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/test_pred_distribution.png
+2026-05-16 12:33:27,678 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1/metrics_test_best_1.json
+2026-05-16 12:33:27,678 INFO src.cli.common: Metrics: {'precision': 0.22448979591836735, 'recall': 0.5789473684210527, 'f1': 0.3235294117647059, 'auc': 0.6748538011695906, 'pr_auc': 0.2304799696061472, 'fpr': 0.2814814814814815, 'tpr': 0.5789473684210527, 'R': 0.29746588693957116, 'conf': 1.0, 'threshold': 0.4107988476753235}

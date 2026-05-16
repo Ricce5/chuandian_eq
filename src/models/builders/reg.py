@@ -95,16 +95,19 @@ class RegMixerAttnPlTBuilder(ModelBuilder):
                 head_input_dim = args.d_model
 
             elif extractor_name == 'attn_time_biased_mh':
-                n_heads = getattr(args, 'n_heads', 4)
+                mh_cfg = dict(extractor_cfg or {})
+                d_hidden = mh_cfg.pop('d_hidden', args.d_model)
+                n_heads = mh_cfg.pop('n_heads', getattr(args, 'n_heads', 4))
+                agg = mh_cfg.pop('agg', getattr(args, 'agg', 'concat'))
 
                 extractor = TimeAwareAttnPoolMH(
                     d_model=args.d_model,
-                    d_hidden=args.d_model,
+                    d_hidden=d_hidden,
                     bias_type=time_bias_type,
                     n_heads=n_heads,
-                    agg=getattr(args, 'agg', 'concat'),
+                    agg=agg,
                     device=device,
-                    **extractor_cfg
+                    **mh_cfg
                 )
                 head_input_dim = extractor.output_dim
 

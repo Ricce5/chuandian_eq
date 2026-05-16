@@ -13,8 +13,10 @@ This module provides:
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from itertools import combinations
+from pathlib import Path
 from typing import Callable, Literal, Mapping, Sequence
 
 import numpy as np
@@ -33,6 +35,7 @@ SamplingMethod = Literal["iid", "block"]
 CurveType = Literal["roc", "pr"]
 MetricName = Literal["auc", "ap", "mse", "rmse", "mae", "r2"]
 MetricLike = MetricName | str | Callable[[np.ndarray, np.ndarray], float]
+SeedAggregationMethod = Literal["mean", "median"]
 
 
 @dataclass(frozen=True)
@@ -116,13 +119,256 @@ __all__ = [
     "BootstrappedCurve",
     "MultiModelBootstrapResult",
     "MultiModelCurveBootstrapResult",
+    "aggregate_seed_predictions",
     "bootstrap_curve",
     "bootstrap_metric",
+    "resolve_checkpoint_path",
+    "resolve_seed_checkpoint_paths",
     "bootstrap_multi_model_curve_ci",
     "bootstrap_multi_model_metric_ci",
     "bootstrap_curve_ci",
     "bootstrap_metric_ci",
 ]
+
+_SEED_DIR_PATTERN = re.compile(r"^(?P<prefix>.+)_seed_(?P<seed>\d+)$")
+
+
+def _normalize_root(path_like: str | Path | None) -> Path | None:
+    """Convert an optional root path input to :class:`Path`."""
+
+    if path_like is None:
+        return None
+    return Path(path_like).expanduser()
+
+
+def _path_dedupe_key(path: Path) -> str:
+    """Build a stable de-duplication key for path candidates."""
+
+    return str(path.expanduser().resolve())
+
+
+def _dedupe_paths(paths: Sequence[Path]) -> list[Path]:
+    """Keep first-seen unique paths while preserving order."""
+
+    unique_paths: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = _path_dedupe_key(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_paths.append(path)
+    return unique_paths
+
+
+def _candidate_base_paths(
+    path_like: str | Path,
+    *,
+    project_root: Path | None,
+    checkpoints_root: Path | None,
+) -> list[Path]:
+    """Enumerate candidate base paths for checkpoint resolution."""
+
+    raw = Path(path_like).expanduser()
+    if raw.is_absolute():
+        return [raw]
+
+    candidates: list[Path] = []
+    if project_root is not None:
+        candidates.append(project_root / raw)
+    else:
+        candidates.append(raw)
+    if checkpoints_root is not None:
+        candidates.append(checkpoints_root / raw)
+    return _dedupe_paths(candidates)
+
+
+def _seed_key_for_sort(path: Path) -> tuple[int, str]:
+    """Sort checkpoint paths by ``seed`` suffix when available."""
+
+    run_name = path.parent.name if path.suffix.lower() == ".pth" else path.name
+    match = _SEED_DIR_PATTERN.fullmatch(run_name)
+    if match is None:
+        return math.inf, str(path)
+    return int(match.group("seed")), str(path)
+
+
+def resolve_checkpoint_path(
+    path_like: str | Path,
+    *,
+    project_root: str | Path | None = None,
+    checkpoints_root: str | Path | None = None,
+    checkpoint_filename: str = "best_model_1.pth",
+) -> Path:
+    """Resolve a single checkpoint path from flexible input.
+
+    The input can be:
+    - a checkpoint file path (absolute or relative);
+    - a run directory containing ``checkpoint_filename``;
+    - a path relative to ``project_root`` or ``checkpoints_root``.
+    """
+
+    if not checkpoint_filename:
+        raise ValueError("checkpoint_filename must be non-empty.")
+
+    project_root_path = _normalize_root(project_root)
+    checkpoints_root_path = _normalize_root(checkpoints_root)
+    if checkpoints_root_path is None and project_root_path is not None:
+        checkpoints_root_path = project_root_path / "checkpoints"
+
+    base_candidates = _candidate_base_paths(
+        path_like,
+        project_root=project_root_path,
+        checkpoints_root=checkpoints_root_path,
+    )
+    file_candidates: list[Path] = []
+    for base in base_candidates:
+        if base.suffix.lower() == ".pth":
+            file_candidates.append(base)
+        else:
+            file_candidates.append(base / checkpoint_filename)
+
+    file_candidates = _dedupe_paths(file_candidates)
+    for candidate in file_candidates:
+        if candidate.is_file():
+            return candidate.expanduser().resolve()
+
+    tried = ", ".join(str(path) for path in file_candidates)
+    raise FileNotFoundError(
+        f"Checkpoint not found for path_like={path_like!r}. Tried: {tried}"
+    )
+
+
+def resolve_seed_checkpoint_paths(
+    path_like: str | Path | Sequence[str | Path],
+    *,
+    project_root: str | Path | None = None,
+    checkpoints_root: str | Path | None = None,
+    checkpoint_filename: str = "best_model_1.pth",
+    sort_by_seed: bool = True,
+) -> list[Path]:
+    """Resolve one or more checkpoints for seed-based runs.
+
+    Accepted forms:
+    - single run directory/file path;
+    - seed run directory like ``.../tf_90_mf_5p5_seed_1`` (collect siblings);
+    - non-seed base directory like ``.../tf_90_mf_5p5`` (collect ``*_seed_*``);
+    - sequence of any of the above.
+    """
+
+    if isinstance(path_like, (str, Path)):
+        raw_entries: list[str | Path] = [path_like]
+    else:
+        raw_entries = list(path_like)
+        if not raw_entries:
+            raise ValueError("path_like sequence must be non-empty.")
+
+    project_root_path = _normalize_root(project_root)
+    checkpoints_root_path = _normalize_root(checkpoints_root)
+    if checkpoints_root_path is None and project_root_path is not None:
+        checkpoints_root_path = project_root_path / "checkpoints"
+
+    collected: list[Path] = []
+    for entry in raw_entries:
+        resolved_from_entry: list[Path] = []
+        base_candidates = _candidate_base_paths(
+            entry,
+            project_root=project_root_path,
+            checkpoints_root=checkpoints_root_path,
+        )
+
+        # 1) Direct file input.
+        direct_file_candidates = [
+            base for base in base_candidates if base.suffix.lower() == ".pth" and base.is_file()
+        ]
+        if direct_file_candidates:
+            resolved_from_entry.extend(direct_file_candidates)
+        else:
+            # 2) Collect seed siblings when directory name follows *_seed_<int>.
+            for base in base_candidates:
+                if base.suffix:
+                    continue
+                match = _SEED_DIR_PATTERN.fullmatch(base.name)
+                if match is None:
+                    continue
+                prefix = match.group("prefix")
+                if not base.parent.exists():
+                    continue
+                for sibling in base.parent.iterdir():
+                    if not sibling.is_dir():
+                        continue
+                    sibling_match = _SEED_DIR_PATTERN.fullmatch(sibling.name)
+                    if sibling_match is None:
+                        continue
+                    if sibling_match.group("prefix") != prefix:
+                        continue
+                    candidate = sibling / checkpoint_filename
+                    if candidate.is_file():
+                        resolved_from_entry.append(candidate)
+
+            # 3) Collect seed children by non-seed prefix or fallback to single run.
+            if not resolved_from_entry:
+                for base in base_candidates:
+                    if base.suffix:
+                        continue
+                    if base.parent.exists():
+                        glob_pat = f"{base.name}_seed_*"
+                        for sibling in base.parent.glob(glob_pat):
+                            if not sibling.is_dir():
+                                continue
+                            if _SEED_DIR_PATTERN.fullmatch(sibling.name) is None:
+                                continue
+                            candidate = sibling / checkpoint_filename
+                            if candidate.is_file():
+                                resolved_from_entry.append(candidate)
+                    candidate_single = base / checkpoint_filename
+                    if candidate_single.is_file():
+                        resolved_from_entry.append(candidate_single)
+
+        if not resolved_from_entry:
+            raise FileNotFoundError(
+                f"No checkpoints found for entry={entry!r} with checkpoint_filename={checkpoint_filename!r}."
+            )
+
+        collected.extend(resolved_from_entry)
+
+    deduped = _dedupe_paths([path.expanduser().resolve() for path in collected])
+    if sort_by_seed:
+        deduped = sorted(deduped, key=_seed_key_for_sort)
+    return deduped
+
+
+def aggregate_seed_predictions(
+    seed_predictions: Sequence[Sequence[float] | np.ndarray],
+    *,
+    method: SeedAggregationMethod = "mean",
+) -> np.ndarray:
+    """Aggregate per-seed prediction vectors into one probability vector."""
+
+    if not seed_predictions:
+        raise ValueError("seed_predictions must be non-empty.")
+
+    vectors: list[np.ndarray] = []
+    for index, pred in enumerate(seed_predictions):
+        arr = np.asarray(pred, dtype=np.float64).reshape(-1)
+        if arr.shape[0] == 0:
+            raise ValueError(f"seed_predictions[{index}] must be non-empty.")
+        vectors.append(arr)
+
+    n_obs = vectors[0].shape[0]
+    for index, arr in enumerate(vectors[1:], start=1):
+        if arr.shape[0] != n_obs:
+            raise ValueError(
+                "All seed prediction vectors must share the same length. "
+                f"Got {arr.shape[0]} at index={index}, expected {n_obs}."
+            )
+
+    stacked = np.stack(vectors, axis=0)
+    if method == "mean":
+        return np.nanmean(stacked, axis=0)
+    if method == "median":
+        return np.nanmedian(stacked, axis=0)
+    raise ValueError(f"Unsupported aggregation method: {method!r}.")
 
 
 def _prepare_vectors(
