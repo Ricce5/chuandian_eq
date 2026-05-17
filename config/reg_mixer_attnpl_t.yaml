@@ -46,6 +46,11 @@ mixer_model_config:
   residual_in_fp32: true
 extractor_name: attn_time_biased_mh
 time_bias_type: log
+agg: concat
+extractor_cfg:
+  fuse_mode: concat
+  use_ln: true
+  use_var_scale: true
 mlp_out: 1
 mlp_dropout: 0.3
 mlp_hdw:
@@ -63,6 +68,8 @@ cuda_id: '0'
 dataset: ChuanDian
 criterion_name: smooth_l1
 criterion_cfg:
+  beta: 0.3
+seed: 2
   beta: 0.2
 seed: 2
 Mc: 3
