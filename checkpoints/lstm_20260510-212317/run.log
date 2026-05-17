@@ -682,3 +682,41 @@
 2026-05-15 17:41:20,893 INFO src.cli.workflows: Test loss: 0.03593256821235021
 2026-05-15 17:41:21,372 INFO src.cli.common: Saved test metrics to checkpoints/lstm_20260510-212317/metrics_test_best_1.json
 2026-05-15 17:41:21,372 INFO src.cli.common: Metrics: {'RMSE': 0.7210919343517819, 'MAE': 0.6223878964700335, 'MSE': 0.5199735777871944, 'MAPE': 13.277005674812628, 'R2': -0.5538549134807047, 'PearsonR': -0.009861617390003267, 'PearsonR_diff': -0.055625542991226254, 'DA': 0.054945054945054944, 'SpearmanR': 0.10756370991216424, 'SpearmanR_diff': -0.034333362378821564, 'DTW': 75.70545864105225, 'DTW_normalized': 0.41369103082542213}
+2026-05-16 19:04:14,771 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-16 19:04:15,517 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/lstm_regressor/lstm_regressor_Mag_elaps_5.5-6-6.5-7_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_0_dt_10_feature_step_none_feature_window_none_lstm_feature_mode_external_sliding_time_step_5.pkl
+2026-05-16 19:04:16,924 INFO src.data.preparation_modules.lstm: Applied T_elaps NaN high-sentinel imputation: [{'feature': 'T_elaps5.5', 'nan_count': 3000, 'fill_value': 359.6074755375663}, {'feature': 'T_elaps6', 'nan_count': 5230, 'fill_value': 359.6201514631899}, {'feature': 'T_elaps6.5', 'nan_count': 6979, 'fill_value': 360.000001}, {'feature': 'T_elaps7', 'nan_count': 8194, 'fill_value': 360.000001}]
+2026-05-16 19:04:16,926 INFO src.data.lstm_loader: Original number of samples: 1819, number of samples after cleaning: 1819
+2026-05-16 19:04:16,926 INFO src.data.lstm_loader: Replaced NaN values in X with 0.0
+2026-05-16 19:04:16,996 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-16 19:04:16,996 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-16 19:04:17,319 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-16 19:04:17,319 INFO src.train.config_setup: Full load summary: loaded=18, missing=0, unexpected=0
+2026-05-16 19:04:17,319 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-16 19:04:17,319 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-16 19:04:17,319 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-16 19:04:17,319 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-16 19:04:17,320 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-16 19:04:17,320 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-05-16 19:04:17,320 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-16 19:04:17,476 INFO src.cli.workflows: Test loss: 0.03593256821235021
+2026-05-16 19:04:17,953 INFO src.cli.common: Saved test metrics to checkpoints/lstm_20260510-212317/metrics_test_best_1.json
+2026-05-16 19:04:17,954 INFO src.cli.common: Metrics: {'RMSE': 0.7210919343517819, 'MAE': 0.6223878964700335, 'MSE': 0.5199735777871944, 'MAPE': 13.277005674812628, 'R2': -0.5538549134807047, 'PearsonR': -0.009861617390003267, 'PearsonR_diff': -0.055625542991226254, 'DA': 0.054945054945054944, 'SpearmanR': 0.10756370991216424, 'SpearmanR_diff': -0.034333362378821564, 'DTW': 75.70545864105225, 'DTW_normalized': 0.41369103082542213}
+2026-05-16 19:07:37,211 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-16 19:07:37,913 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/lstm_regressor/lstm_regressor_Mag_elaps_5.5-6-6.5-7_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_0_dt_10_feature_step_none_feature_window_none_lstm_feature_mode_external_sliding_time_step_5.pkl
+2026-05-16 19:07:39,299 INFO src.data.preparation_modules.lstm: Applied T_elaps NaN high-sentinel imputation: [{'feature': 'T_elaps5.5', 'nan_count': 3000, 'fill_value': 359.6074755375663}, {'feature': 'T_elaps6', 'nan_count': 5230, 'fill_value': 359.6201514631899}, {'feature': 'T_elaps6.5', 'nan_count': 6979, 'fill_value': 360.000001}, {'feature': 'T_elaps7', 'nan_count': 8194, 'fill_value': 360.000001}]
+2026-05-16 19:07:39,301 INFO src.data.lstm_loader: Original number of samples: 1819, number of samples after cleaning: 1819
+2026-05-16 19:07:39,301 INFO src.data.lstm_loader: Replaced NaN values in X with 0.0
+2026-05-16 19:07:39,366 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-16 19:07:39,366 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-16 19:07:39,685 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Full load summary: loaded=18, missing=0, unexpected=0
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-16 19:07:39,686 INFO src.train.config_setup: Criterion config: {'beta': 0.2}
+2026-05-16 19:07:39,687 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-16 19:07:39,841 INFO src.cli.workflows: Test loss: 0.0639608899752299
+2026-05-16 19:07:40,588 INFO src.cli.common: Saved test metrics to checkpoints/lstm_20260510-212317/metrics_test_last_1.json
+2026-05-16 19:07:40,588 INFO src.cli.common: Metrics: {'RMSE': 0.999723151093049, 'MAE': 0.8265925105152234, 'MSE': 0.9994463788314153, 'MAPE': 17.62368163893702, 'R2': -1.986679963848614, 'PearsonR': -0.09368074704952936, 'PearsonR_diff': 0.004146110902295333, 'DA': 0.04945054945054945, 'SpearmanR': -0.14732429691227272, 'SpearmanR_diff': 0.026358258966490498, 'DTW': 94.95016527175903, 'DTW_normalized': 0.5188533621407597}

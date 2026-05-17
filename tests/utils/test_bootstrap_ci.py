@@ -9,6 +9,7 @@ from src.utils.bootstrap_ci import (
     bootstrap_metric_ci,
     bootstrap_multi_model_curve_ci,
     bootstrap_multi_model_metric_ci,
+    bootstrap_multi_model_metric_ci_hierarchical,
     resolve_checkpoint_path,
     resolve_seed_checkpoint_paths,
 )
@@ -250,3 +251,61 @@ def test_aggregate_seed_predictions_validates_shape():
         assert "same length" in str(exc)
     else:
         raise AssertionError("Expected ValueError when seed prediction lengths mismatch.")
+
+
+def test_bootstrap_multi_model_metric_ci_hierarchical_supports_seed_and_sample_resampling():
+    y_true, y_prob_base = _make_binary_data(seed=321)
+    rng = np.random.default_rng(322)
+    n = y_prob_base.shape[0]
+    n_seeds = 3
+
+    seed_preds_a = []
+    seed_preds_b = []
+    for _ in range(n_seeds):
+        noise_a = 0.03 * rng.normal(size=n)
+        noise_b = 0.04 * rng.normal(size=n)
+        seed_preds_a.append(np.clip(y_prob_base + noise_a, 1e-6, 1 - 1e-6))
+        seed_preds_b.append(np.clip(y_prob_base - 0.07 + noise_b, 1e-6, 1 - 1e-6))
+
+    result = bootstrap_multi_model_metric_ci_hierarchical(
+        y_true,
+        {
+            "model_a": seed_preds_a,
+            "model_b": seed_preds_b,
+        },
+        metric="auc",
+        baseline_model="model_b",
+        seed_aggregation="median",
+        config=BootstrapConfig(n_resamples=90, seed=323, sampling="block", block_size=8),
+    )
+
+    assert "model_a" in result.model_results
+    assert "model_b" in result.model_results
+    assert ("model_a", "model_b") in result.pairwise_deltas
+    delta = result.pairwise_deltas[("model_a", "model_b")]
+    assert delta.valid_resamples > 0
+    assert delta.samples.shape[0] == delta.valid_resamples
+
+
+def test_bootstrap_multi_model_metric_ci_hierarchical_validates_seed_count_alignment():
+    y_true, y_prob_base = _make_binary_data(seed=401)
+    n = y_prob_base.shape[0]
+    seed_preds_a = [
+        np.clip(y_prob_base + 0.01, 1e-6, 1 - 1e-6),
+        np.clip(y_prob_base - 0.01, 1e-6, 1 - 1e-6),
+    ]
+    seed_preds_b = [
+        np.clip(y_prob_base + 0.02, 1e-6, 1 - 1e-6),
+    ]
+
+    try:
+        bootstrap_multi_model_metric_ci_hierarchical(
+            y_true,
+            {"model_a": seed_preds_a, "model_b": seed_preds_b},
+            metric="auc",
+            config=BootstrapConfig(n_resamples=20, seed=402),
+        )
+    except ValueError as exc:
+        assert "same number of seed predictions" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for mismatched per-model seed counts.")

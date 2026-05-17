@@ -49,14 +49,9 @@ extractor_name: attn_time_biased_mh
 time_bias_type: log
 agg: concat
 extractor_cfg:
-  d_hidden: 64
-  n_heads: 4
-  agg: concat
-  t_dim: 24
-  alpha0: 10.0
   fuse_mode: concat
   use_ln: true
-  repr_dim: 64
+  use_var_scale: true
 mlp_out: 1
 mlp_dropout: 0.2
 mlp_hdw:
@@ -75,7 +70,7 @@ dataset: ChuanDian
 criterion_name: smooth_l1
 criterion_cfg:
   beta: 0.3
-seed: 0
+seed: 2
 Mc: 3
 Mf: 3
 Twindow: 360

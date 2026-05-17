@@ -60,8 +60,8 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
 d
 
-  python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_off.yaml
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
+run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml  python scripts/
   
 python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_ablation  --best_metric rmse --best_mode min --ckpt_select last
 

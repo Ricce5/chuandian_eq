@@ -1,15 +1,15 @@
 model: reg_mixer_attnpl_t
 base_config: config/reg_mixer_attnpl_t.yaml
 
-seeds: [1]
+seeds: [0,1,2]
 
 gpu_ids: [0]
-max_parallel: 1
-jobs_per_gpu: 1
+max_parallel: 2
+jobs_per_gpu: 2
 stop_on_error: false
 
 exp_root: experiments
-exp_name: reg_mixer_attnpl_a
+exp_name: reg_ablation
 
 run_test: true
 ckpt_select: both
