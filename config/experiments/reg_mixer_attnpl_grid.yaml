@@ -1,15 +1,15 @@
 model: reg_mixer_attnpl_t
 base_config: config/reg_mixer_attnpl_t.yaml
 
-seeds: [1]
+seeds: [0, 1, 2, 3]
 
 gpu_ids: [0]
-max_parallel: 1
-jobs_per_gpu: 1
+max_parallel: 6
+jobs_per_gpu: 6
 stop_on_error: false
 
 exp_root: experiments
-exp_name: reg_mixer_attnpl_a
+exp_name: reg_mixer_attn_1_grid
 
 run_test: true
 ckpt_select: both
@@ -17,35 +17,83 @@ resume_exp: true
 skip_done: true
 
 grid:
-  name_prefix: reg_ab
+  name_prefix: regmx
+  common:
+    load_strategy: base
   points:
-    - name: reg
-     
+    - name: baseline
 
-    - name: log_pretrain
-      load_strategy: none
+    - name: align_ckpt_20260204_180531_safe
+      load_strategy: layer0_input
       overrides:
-        mixer_model_config.input_dim: 2
-        features_input_keys: [mag, log_inter_times]
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
+        learning_rate: 0.001
+        encoder_learning_rate: 0.0004
+        weight_decay: 0.001
+        warmup_ratio: 0.1
+        criterion_cfg.beta: 0.2
+        mlp_dropout: 0.3
+        mixer_model_config.attn_layer_idx: [1]
 
-    - name: minus_txpos
-     
+    - name: align_ckpt_20260515_180423
+      load_strategy: input_layer0_layer1
       overrides:
-        mixer_model_config.ssm_cfg:
-          layer: Mamba2
-          d_conv: 4
-        mixer_model_config.attn_cfg.layer: MHA
+        scheduler_type: warmup_linear_decay
+        learning_rate: 0.0008
+        encoder_learning_rate: 0.00024
+        weight_decay: 0.001
+        warmup_ratio: 0.1
+        criterion_cfg.beta: 0.3
+        mlp_dropout: 0.2
+        mixer_model_config.attn_layer_idx: [2]
+        mixer_model_config.n_layer: 3
 
-    - name: minus_tmap
-     
+    - name: swu_core
       overrides:
-        extractor_name: last
-        extractor_cfg: {}
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
 
-    - name: minus_pretrain
-      load_strategy: none
+    - name: swu_beta03_drop020
       overrides:
-        resume_path: null
-        load_specific_parts: null
-        encoder_param_keywords: null
-        encoder_learning_rate: null
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
+        criterion_cfg.beta: 0.3
+        mlp_dropout: 0.2
+
+    - name: swu_beta03_drop020_attn2
+      attn_layer_idx: 2
+      overrides:
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
+        criterion_cfg.beta: 0.3
+        mlp_dropout: 0.2
+
+    - name: swu_lr9e4_enc3p6e4
+      overrides:
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
+        learning_rate: 0.0009
+        encoder_learning_rate: 0.00036
+
+    - name: swu_lr8e4_enc3p2e4
+      overrides:
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
+        learning_rate: 0.0008
+        encoder_learning_rate: 0.00032
+
+
+    - name: swu_warm008
+      overrides:
+        scheduler_type: step_warmup
+        step_lr_step_size_ratio: 0.2
+        step_lr_gamma: 0.5
+        warmup_ratio: 0.08
+

@@ -23,7 +23,7 @@ python main.py --model mhp --mode train
 python main.py --model mixer_tpp --mode test --checkpoint checkpoints/mixer_tpp_20260205-110204
 python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train
-python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/reg_mixer_attnpl_t_20250907-183220
+python main.py --model reg_mixer_attnpl_t --mode test --checkpoint checkpoints/reg_mixer_attnpl_t_20260517-214633
 python main.py --model lstm --mode test --checkpoint ./checkpoints/lstm_20250906-152053
 
 diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tpp_20250907-112659/config.yaml
@@ -60,8 +60,8 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
 d
 
-  python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid_lr_off.yaml
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
+run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml  python scripts/
   
 python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_ablation  --best_metric rmse --best_mode min --ckpt_select last
 

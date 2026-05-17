@@ -1,0 +1,1 @@
+切到checkpoints/reg_mixer_attnpl_t_20260204-180531，换预训练

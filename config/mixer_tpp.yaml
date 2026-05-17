@@ -1,5 +1,5 @@
-# resume_path: ./checkpoints/mixer_tpp_20250821-223034/best_model_1.pth
-# load_specific_parts: ['encoder']
+resume_path: ./checkpoints/mixer_tpp_20260203-161948/last_model_1.pth
+load_specific_parts: ['encoder']
 # freeze_parts: ['encoder']
 # exclude_freeze_parts: ['input_linear']
 # 模型设置
@@ -31,7 +31,7 @@ mixer_model_config:
   d_model: 64
   n_layer: 3     
   d_intermediate: 128       # 通常为 d_model 的 4 倍，设置为 0 可禁用 MLP
-  attn_layer_idx: [2]
+  attn_layer_idx: [1]
    # 输入投影层配置：linear 或 mlp
   input_proj_type: mlp
   input_proj_hidden: 128     # MLP隐藏层维度，未设置则默认 max(d_model, input_dim)
@@ -100,7 +100,7 @@ loss_weights:
   time_weight: 1
   mag_weight: 1
   b_weight: 0.01
-  b_smooth_weight: 0.001
+  b_smooth_weight: 1e-7
 
 
 loss_reduction: 'per_time'

@@ -126,6 +126,7 @@ __all__ = [
     "resolve_seed_checkpoint_paths",
     "bootstrap_multi_model_curve_ci",
     "bootstrap_multi_model_metric_ci",
+    "bootstrap_multi_model_metric_ci_hierarchical",
     "bootstrap_curve_ci",
     "bootstrap_metric_ci",
 ]
@@ -412,6 +413,98 @@ def _prepare_multi_model_predictions(
         pred_map[str(model_name)] = arr
 
     return y_true_arr, pred_map
+
+
+def _prepare_multi_model_seed_predictions(
+    y_true: Sequence[float] | np.ndarray,
+    model_seed_predictions: Mapping[
+        str,
+        Sequence[Sequence[float] | np.ndarray] | np.ndarray,
+    ],
+) -> tuple[np.ndarray, dict[str, np.ndarray], int]:
+    """Validate aligned per-seed predictions for multi-model bootstrap.
+
+    Parameters
+    ----------
+    y_true:
+        Aligned ground-truth labels.
+    model_seed_predictions:
+        Mapping from model name to per-seed prediction vectors. Each value can
+        be a list-like ``[n_seeds, n_obs]`` or an ``ndarray`` with equivalent
+        shape.
+    """
+
+    if not model_seed_predictions:
+        raise ValueError("model_seed_predictions must be non-empty.")
+
+    y_true_arr = np.asarray(y_true).reshape(-1)
+    n_obs = y_true_arr.shape[0]
+    if n_obs == 0:
+        raise ValueError("y_true must be non-empty.")
+
+    seed_pred_map: dict[str, np.ndarray] = {}
+    n_seeds_ref: int | None = None
+    for model_name, seed_pred in model_seed_predictions.items():
+        arr = np.asarray(seed_pred, dtype=np.float64)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        elif arr.ndim != 2:
+            raise ValueError(
+                f"Model '{model_name}' seed predictions must be 1D/2D. "
+                f"Got ndim={arr.ndim}."
+            )
+
+        if arr.shape[1] != n_obs:
+            if arr.shape[0] == n_obs and arr.shape[1] != n_obs:
+                arr = arr.T
+            else:
+                raise ValueError(
+                    f"Model '{model_name}' seed prediction shape mismatch: "
+                    f"{arr.shape} vs expected (*, {n_obs})."
+                )
+
+        if arr.shape[1] != n_obs:
+            raise ValueError(
+                f"Model '{model_name}' seed prediction shape mismatch after transpose attempt: "
+                f"{arr.shape} vs expected (*, {n_obs})."
+            )
+
+        n_seeds = int(arr.shape[0])
+        if n_seeds <= 0:
+            raise ValueError(f"Model '{model_name}' must provide at least one seed.")
+
+        if n_seeds_ref is None:
+            n_seeds_ref = n_seeds
+        elif n_seeds != n_seeds_ref:
+            raise ValueError(
+                "All models must provide the same number of seed predictions. "
+                f"Model '{model_name}' has {n_seeds}, expected {n_seeds_ref}."
+            )
+
+        seed_pred_map[str(model_name)] = arr
+
+    if n_seeds_ref is None:
+        raise ValueError("No valid model seed predictions provided.")
+
+    return y_true_arr, seed_pred_map, int(n_seeds_ref)
+
+
+def _aggregate_seed_prediction_matrix(
+    seed_pred_matrix: np.ndarray,
+    *,
+    method: SeedAggregationMethod,
+) -> np.ndarray:
+    """Aggregate one ``[n_seeds, n_obs]`` matrix to ``[n_obs]``."""
+
+    if seed_pred_matrix.ndim != 2:
+        raise ValueError(
+            f"seed_pred_matrix must be 2D. Got shape={seed_pred_matrix.shape}."
+        )
+    if method == "mean":
+        return np.nanmean(seed_pred_matrix, axis=0)
+    if method == "median":
+        return np.nanmedian(seed_pred_matrix, axis=0)
+    raise ValueError(f"Unsupported aggregation method: {method!r}.")
 
 
 def _classification_sample_valid(y_true: np.ndarray) -> bool:
@@ -866,6 +959,140 @@ def bootstrap_multi_model_metric_ci(
         failed = False
         for name in model_names:
             yp = pred_map[name][idx]
+            try:
+                batch_values[name] = float(metric_fn(yt, yp))
+            except Exception:
+                failed = True
+                break
+        if failed:
+            continue
+
+        for name, value in batch_values.items():
+            samples_by_model[name].append(value)
+
+    model_results: dict[str, BootstrappedMetric] = {}
+    for name in model_names:
+        sample_arr = np.asarray(samples_by_model[name], dtype=np.float64)
+        ci_low, ci_high = _percentile_ci(sample_arr, cfg.ci)
+        model_results[name] = BootstrappedMetric(
+            metric_name=metric_name,
+            point_estimate=point_values[name],
+            ci_low=ci_low,
+            ci_high=ci_high,
+            samples=sample_arr,
+            valid_resamples=int(sample_arr.shape[0]),
+            total_resamples=int(cfg.n_resamples),
+        )
+
+    pairwise_deltas: dict[tuple[str, str], BootstrappedMetric] = {}
+    if baseline_model is None:
+        delta_pairs = list(combinations(model_names, 2))
+    else:
+        delta_pairs = [
+            (name, baseline_model)
+            for name in model_names
+            if name != baseline_model
+        ]
+
+    for left_name, right_name in delta_pairs:
+        left_samples = model_results[left_name].samples
+        right_samples = model_results[right_name].samples
+        min_len = min(left_samples.shape[0], right_samples.shape[0])
+        if min_len == 0:
+            delta_samples = np.asarray([], dtype=np.float64)
+        else:
+            delta_samples = left_samples[:min_len] - right_samples[:min_len]
+
+        ci_low, ci_high = _percentile_ci(delta_samples, cfg.ci)
+        pairwise_deltas[(left_name, right_name)] = BootstrappedMetric(
+            metric_name=f"{metric_name}_delta",
+            point_estimate=point_values[left_name] - point_values[right_name],
+            ci_low=ci_low,
+            ci_high=ci_high,
+            samples=delta_samples,
+            valid_resamples=int(delta_samples.shape[0]),
+            total_resamples=int(cfg.n_resamples),
+        )
+
+    return MultiModelBootstrapResult(
+        model_results=model_results,
+        pairwise_deltas=pairwise_deltas,
+    )
+
+
+def bootstrap_multi_model_metric_ci_hierarchical(
+    y_true: Sequence[float] | np.ndarray,
+    model_seed_predictions: Mapping[
+        str,
+        Sequence[Sequence[float] | np.ndarray] | np.ndarray,
+    ],
+    *,
+    metric: MetricLike = "auc",
+    task: TaskType | None = None,
+    config: BootstrapConfig | None = None,
+    baseline_model: str | None = None,
+    seed_aggregation: SeedAggregationMethod = "mean",
+) -> MultiModelBootstrapResult:
+    """Hierarchical paired bootstrap over ``seed + sample`` for aligned models.
+
+    Workflow per resample:
+    1) Sample seed indices with replacement (same indices shared by all models).
+    2) Sample observation indices according to ``config.sampling``.
+    3) Aggregate per-seed predictions to one vector using ``seed_aggregation``.
+    4) Compute metric per model and pairwise deltas on the paired resample.
+
+    This captures both seed-level variability and sample-level variability.
+    """
+
+    if not model_seed_predictions:
+        raise ValueError("model_seed_predictions must be non-empty.")
+
+    cfg = config or BootstrapConfig()
+    if cfg.n_resamples <= 0:
+        raise ValueError("config.n_resamples must be positive.")
+
+    y_true_arr, seed_pred_map, n_seeds = _prepare_multi_model_seed_predictions(
+        y_true,
+        model_seed_predictions,
+    )
+    n_obs = y_true_arr.shape[0]
+
+    metric_name, task_name, metric_fn = _resolve_metric_fn(metric, task)
+    rng = np.random.default_rng(cfg.seed)
+    obs_sampler = _make_index_sampler(n_obs, cfg)
+
+    model_names = list(seed_pred_map.keys())
+    if baseline_model is not None and baseline_model not in seed_pred_map:
+        raise ValueError(
+            f"baseline_model={baseline_model!r} not found in model_seed_predictions. "
+            f"Available={model_names}."
+        )
+    if baseline_model is None and len(model_names) >= 3:
+        raise ValueError(
+            "baseline_model must be provided when model_seed_predictions has 3 or more models."
+        )
+
+    point_values: dict[str, float] = {}
+    for name in model_names:
+        agg_full = _aggregate_seed_prediction_matrix(
+            seed_pred_map[name],
+            method=seed_aggregation,
+        )
+        point_values[name] = float(metric_fn(y_true_arr, agg_full))
+
+    samples_by_model: dict[str, list[float]] = {name: [] for name in model_names}
+    for _ in range(cfg.n_resamples):
+        seed_idx = rng.integers(0, n_seeds, size=n_seeds, dtype=np.int64)
+        obs_idx = obs_sampler(rng)
+        yt = y_true_arr[obs_idx]
+        if task_name == "classification" and not _classification_sample_valid(yt):
+            continue
+
+        batch_values: dict[str, float] = {}
+        failed = False
+        for name in model_names:
+            seed_matrix = seed_pred_map[name][seed_idx][:, obs_idx]
+            yp = _aggregate_seed_prediction_matrix(seed_matrix, method=seed_aggregation)
             try:
                 batch_values[name] = float(metric_fn(yt, yp))
             except Exception:

@@ -1,1 +1,0 @@
-相对/root/autodl-tmp/chuandian_eq/checkpoints/mixer_tpp_20250825-101302不做震级预测

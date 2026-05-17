@@ -9,6 +9,7 @@ __all__ = [
     "binary_focal_loss",
     "bootstrap_ci",
     "bootstrap_presets",
+    "classifier_compare_utils",
     "catalog_pathing",
     "catalog_tests",
     "catalog_utils",
