@@ -1,12 +1,13 @@
 freeze_loaded_only: false
 model: reg_mixer_attnpl_t
-use_ema: false
-batch_size: 64
+use_ema: true
+ema_decay: 0.999
+batch_size: 128
 accumulation_steps: 1
 warmup_ratio: 0.1
-learning_rate: 0.001
+learning_rate: 0.0008
 weight_decay: 0.001
-encoder_learning_rate: 0.0004
+encoder_learning_rate: 0.00024
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -52,7 +53,7 @@ extractor_cfg:
   use_ln: true
   use_var_scale: true
 mlp_out: 1
-mlp_dropout: 0.3
+mlp_dropout: 0.2
 mlp_hdw:
 - 128
 dim: 1
@@ -70,8 +71,6 @@ criterion_name: smooth_l1
 criterion_cfg:
   beta: 0.3
 seed: 2
-  beta: 0.2
-seed: 2
 Mc: 3
 Mf: 3
 Twindow: 360
@@ -88,6 +87,8 @@ resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
 load_specific_parts:
 - base_model.encoder.input_proj
 - base_model.encoder.layers.0
+# - base_model.encoder.layers.1
 encoder_param_keywords:
 - base_model.encoder.input_proj
 - base_model.encoder.layers.0
+# - base_model.encoder.layers.1

@@ -63,7 +63,7 @@ d
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
 run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml  python scripts/
   
-python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_ablation  --best_metric rmse --best_mode min --ckpt_select last
+python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_gird  --best_metric rmse --best_mode min --ckpt_select last
 
   python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 20 --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name
   run_$(date +%Y%m%d-%H%M%S)

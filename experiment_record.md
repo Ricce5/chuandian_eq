@@ -488,10 +488,10 @@ Mamaba-Transformer-2Mamba+b: checkpoints/mixer_tpp_20260214-161022
 
 SCEDC：checkpoints/mixer_tpp_20260206-112901
 ../checkpoints/mixer_tpp_20260205-111733
+b: 
 
-ChuanDian：checkpoints/mixer_tpp_20260207-095619
-checkpoints/mixer_tpp_20260204-220105
-
+ChuanDian： /root/autodl-tmp/em_eqf/checkpoints/mixer_tpp_20260204-220105
+b: checkpoints/mixer_tpp_20260518-105538
 
 ### 4.6 
 
