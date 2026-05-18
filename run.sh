@@ -56,14 +56,14 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
   python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_SCEDC --best_metric auc
-   python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_a_b  --ckpt_select last
+   python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_grid_bs_128  --ckpt_select last
 
 d
 
   python scripts/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
 run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml  python scripts/
   
-python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_gird  --best_metric rmse --best_mode min --ckpt_select last
+python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_attnpl_a_layer_1  --best_metric rmse --best_mode min --ckpt_select last
 
   python scripts/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 20 --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name
   run_$(date +%Y%m%d-%H%M%S)
@@ -111,3 +111,9 @@ python scripts/summarize_mixer_tpp_grid.py --exp_dir experiments/mixer_tpp_ablat
 
 
 python scripts/summarize_clf_seed_across_experiments.py --seed 1 --out_dir experiments/reports/clf_pretrains_compare_1 --metrics auc,pr_auc,f1,R
+
+
+
+  python scripts/backfill_reg_grid_tests.py \
+    --exp_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128 \
+    --ckpt_select last \

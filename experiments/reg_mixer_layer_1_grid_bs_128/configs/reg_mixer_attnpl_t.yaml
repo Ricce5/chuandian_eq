@@ -1,0 +1,94 @@
+freeze_loaded_only: false
+model: reg_mixer_attnpl_t
+use_ema: false
+# ema_decay: 0.9
+batch_size: 128
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 0.0008
+weight_decay: 0.001
+encoder_learning_rate: 0.00024
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1.0e-06
+scheduler_type: step_warmup
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.5
+d_model: 64
+mixer_model_config:
+  input_dim: 1
+  dropout_prob: 0.1
+  d_model: 64
+  n_layer: 1
+  d_intermediate: 128
+  input_proj_type: mlp
+  input_proj_hidden: 128
+  input_proj_activation: silu
+  input_proj_dropout: 0.1
+  input_init: kaiming_uniform
+  input_init_scale: 1.8
+  attn_layer_idx: []
+  ssm_cfg:
+    layer: Mamba2Rotary
+    use_conv: true
+    rotary_emb_scale_base: 1024
+  attn_cfg:
+    layer: MHATime
+    num_heads: 4
+    rotary_emb_dim: 8
+    rotary_emb_scale_base: 1024
+    causal: true
+  norm_epsilon: 1.0e-05
+  rms_norm: false
+  initializer_cfg:
+    initializer_range: 0.008
+  fused_add_norm: false
+  residual_in_fp32: true
+extractor_name: attn_time_biased_mh
+time_bias_type: log
+agg: concat
+extractor_cfg:
+  fuse_mode: concat
+  use_ln: true
+  use_var_scale: true
+mlp_out: 1
+mlp_dropout: 0.2
+mlp_hdw:
+- 128
+dim: 1
+epochs: 150
+save_epochs:
+- 60
+- 80
+- 100
+- 120
+- 140
+save_dir: null
+cuda_id: '0'
+dataset: ChuanDian
+criterion_name: smooth_l1
+criterion_cfg:
+  beta: 0.3
+seed: 2
+Mc: 3
+Mf: 3
+Twindow: 360
+Tfore: 180
+dt: 10
+context_len: 1
+split_by_time: true
+features_input_keys:
+- mag
+normalize_time_by_token: true
+time_scale_base_key: tau_mean
+task_type: regression
+resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+load_specific_parts:
+- base_model.encoder.input_proj
+- base_model.encoder.layers.0
+# - base_model.encoder.layers.1
+encoder_param_keywords:
+- base_model.encoder.input_proj
+- base_model.encoder.layers.0
+# - base_model.encoder.layers.1

@@ -1,0 +1,56 @@
+model: reg_mixer_attnpl_t
+base_config: config/reg_mixer_attnpl_t.yaml
+
+seeds: [0, 1, 2, 3, 4]
+
+gpu_ids: [0]
+max_parallel: 2
+jobs_per_gpu: 2
+stop_on_error: false
+
+exp_root: experiments
+exp_name: reg_mixer_layer_1_grid_bs_128
+
+run_test: true
+ckpt_select: best
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: regmx
+  common:
+    load_strategy: base
+  points:
+
+    - name: lr9e4_enc3p6e4
+      overrides:
+        learning_rate: 0.0009
+        encoder_learning_rate: 0.00036
+
+    - name: lr1e3_enc4e4
+      overrides:
+        learning_rate: 0.001
+        encoder_learning_rate: 0.0004
+
+    - name: warmup_linear_baseline
+      overrides:
+        scheduler_type: warmup_linear_decay
+        step_lr_step_size_ratio: null
+        step_lr_gamma: null
+        learning_rate: 0.0008
+        encoder_learning_rate: 0.00024
+
+    - name: ema
+      overrides:
+        use_ema: true
+        ema_decay: 0.95
+        batch_size: 64
+        accumulation_steps: 2
+
+    - name: ema
+      overrides:
+        use_ema: true
+        ema_decay: 0.95
+        batch_size: 64
+        accumulation_steps: 1
+

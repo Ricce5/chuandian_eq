@@ -1,0 +1,82 @@
+2026-05-18 16:41:29,237 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-18 16:41:29,956 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-18 16:41:32,204 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-18 16:41:32,243 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-18 16:41:32,245 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+2026-05-18 16:41:33,374 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-18 16:41:33,374 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-18 16:41:33,382 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-18 16:41:33,382 INFO src.train.config_setup: Loading model weights: load_specific_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
+2026-05-18 16:41:33,384 INFO src.train.config_setup: Selective load summary: requested_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0'], target_in_model=18, matched_in_checkpoint=16, loaded=16, missing_after_load=2, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
+2026-05-18 16:41:33,384 INFO src.train.config_setup: Selective load coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-18 16:41:33,384 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.0]: target=14, hit=12, missing=2, complete=False
+2026-05-18 16:41:33,384 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.0]: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
+2026-05-18 16:41:33,384 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
+2026-05-18 16:41:33,384 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
+2026-05-18 16:41:33,384 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.norm.weight', 'base_model.encoder.layers.0.norm2.weight', 'base_model.encoder.layers.0.mlp.fc1.weight', 'base_model.encoder.layers.0.mlp.fc2.weight', 'base_model.encoder.layers.0.norm2.bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.input_proj.0.bias'] ... (+6 more)
+2026-05-18 16:41:33,385 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-18 16:41:33,385 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-18 16:41:33,385 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-18 16:41:33,385 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-18 16:41:33,386 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-18 16:41:33,386 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-18 16:41:33,387 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
+2026-05-18 16:41:33,387 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.00036, matched=18
+2026-05-18 16:41:33,387 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-18 16:41:33,387 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-18 16:41:33,387 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
+2026-05-18 16:41:33,388 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-18 16:41:33,388 INFO src.train.trainer: Epoch 1
+2026-05-18 16:41:51,569 INFO src.train.trainer: New best validation loss: 0.0381, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/best_model_1.pth
+2026-05-18 16:41:51,573 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/last_model_1.pth
+2026-05-18 16:41:51,573 INFO src.train.trainer: Epoch 2
+2026-05-18 16:41:52,722 INFO src.train.trainer: New best validation loss: 0.0340, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/best_model_1.pth
+2026-05-18 16:41:52,729 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/last_model_1.pth
+2026-05-18 16:41:52,729 INFO src.train.trainer: Epoch 3
+2026-05-18 17:49:44,739 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-18 17:49:45,511 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-18 17:49:47,741 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-18 17:49:47,780 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-18 17:49:48,528 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-18 17:49:48,528 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-18 17:49:48,533 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-18 17:49:48,534 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-18 17:49:48,536 INFO src.train.config_setup: Full load summary: loaded=44, missing=0, unexpected=0
+2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-18 17:49:48,536 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-18 17:49:48,537 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-18 17:49:48,537 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-18 17:49:48,537 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
+2026-05-18 17:49:48,537 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.00036, matched=18
+2026-05-18 17:49:48,537 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-18 17:49:48,538 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-18 17:49:48,538 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
+2026-05-18 17:49:48,538 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-18 18:06:39,746 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-18 18:06:40,521 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
+2026-05-18 18:06:42,778 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-18 18:06:42,816 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
+2026-05-18 18:06:43,645 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-18 18:06:43,645 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-18 18:06:43,650 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-18 18:06:43,650 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-18 18:06:43,651 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Full load summary: loaded=44, missing=0, unexpected=0
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-18 18:06:43,652 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
+2026-05-18 18:06:43,653 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
+2026-05-18 18:06:43,653 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.00036, matched=18
+2026-05-18 18:06:43,653 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
+2026-05-18 18:06:43,653 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
+2026-05-18 18:06:43,653 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
+2026-05-18 18:06:43,654 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-18 18:06:48,672 INFO src.cli.workflows: Test loss: 0.026165028102695942
+2026-05-18 18:06:50,368 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/metrics_test_last_1.json
+2026-05-18 18:06:50,368 INFO src.cli.common: Metrics: {'RMSE': 0.770654417483356, 'MAE': 0.6625556208071162, 'MSE': 0.5939082311866106, 'MAPE': 14.152680920296461, 'R2': -0.7747960338441204, 'PearsonR': -0.1500254142972252, 'PearsonR_diff': 0.20067267319877377, 'DA': 0.04395604395604396, 'SpearmanR': -0.1270868306884411, 'SpearmanR_diff': 0.021446219108924195, 'DTW': 100.4444132745266, 'DTW_normalized': 0.5488765752706372}

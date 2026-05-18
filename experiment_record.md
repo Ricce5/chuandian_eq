@@ -490,7 +490,7 @@ SCEDC：checkpoints/mixer_tpp_20260206-112901
 ../checkpoints/mixer_tpp_20260205-111733
 b: 
 
-ChuanDian： /root/autodl-tmp/em_eqf/checkpoints/mixer_tpp_20260204-220105
+ChuanDian： checkpoints/mixer_tpp_20260518-143816
 b: checkpoints/mixer_tpp_20260518-105538
 
 ### 4.6 
