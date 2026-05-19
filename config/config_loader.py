@@ -15,7 +15,8 @@ def load_args_from_yaml(path='config.yaml'):
     else:
         cfg.time_order = ("train", "val", "test")
 
-    if cfg.model == "lstm":
+    model_name = str(cfg.model).lower()
+    if model_name in {"lstm", "lstm_legacy"}:
         feature_cols = deepcopy(cfg.feature_cols)
         for Mag in cfg.Mag_elaps:
             telaps_key = f"T_elaps{Mag}"

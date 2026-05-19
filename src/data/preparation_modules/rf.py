@@ -34,6 +34,13 @@ def prepare_data_rf(args, base_dir):
     context_len = getattr(args, 'context_len', 0)
     _ensure_args_defaults(args, {"dMag": 0.1, "Mag_elaps": []})
     t_elaps_mode = _resolve_t_elaps_mode(args)
+    change_rate_mode = str(getattr(args, "change_rate_twindow_mode", "effective")).strip().lower()
+    if change_rate_mode not in {"effective", "fixed"}:
+        raise ValueError(
+            f"Unsupported change_rate_twindow_mode={change_rate_mode!r}. "
+            "Supported: 'effective', 'fixed'."
+        )
+    change_rate_twindow = float(args.Twindow) if change_rate_mode == "fixed" else None
 
     event_bundle = load_event_windows_with_cache(
         base_dir=base_dir,
@@ -59,6 +66,7 @@ def prepare_data_rf(args, base_dir):
         Mc=float(args.Mc),
         dMag=float(args.dMag),
         t_elaps_mode=t_elaps_mode,
+        change_rate_twindow=change_rate_twindow,
         global_t=global_t,
         global_mag=global_mag,
     )

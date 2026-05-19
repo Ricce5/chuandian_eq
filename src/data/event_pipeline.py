@@ -147,6 +147,7 @@ def _compute_window_feature_map(
     t_reference: float,
     elapsed_thresholds: dict[str, float],
     t_elaps_mode: str,
+    change_rate_twindow: float | None = None,
     global_t: np.ndarray | None = None,
     global_mag: np.ndarray | None = None,
 ) -> dict[str, float]:
@@ -195,11 +196,15 @@ def _compute_window_feature_map(
                 feature_map[key] = value
 
         if "beta" in feature_map or "zvalue" in feature_map:
-            twindow_eff = float(t_reference - history_t[0]) if history_t.size > 0 else np.nan
-            if np.isfinite(twindow_eff) and twindow_eff > 0:
+            twindow_for_change = (
+                float(change_rate_twindow)
+                if change_rate_twindow is not None
+                else (float(t_reference - history_t[0]) if history_t.size > 0 else np.nan)
+            )
+            if np.isfinite(twindow_for_change) and twindow_for_change > 0:
                 beta, zvalue = seismic_features.calculate_seismic_change_rate(
                     history_t,
-                    Twindow=twindow_eff,
+                    Twindow=twindow_for_change,
                     t=t_reference,
                 )
             else:
@@ -250,6 +255,7 @@ def build_full_window_feature_frame(
     Mc: float,
     dMag: float,
     t_elaps_mode: str = T_ELAPS_MODE_WINDOW,
+    change_rate_twindow: float | None = None,
     global_t: np.ndarray | None = None,
     global_mag: np.ndarray | None = None,
 ):
@@ -280,6 +286,7 @@ def build_full_window_feature_frame(
             t_reference=t_now,
             elapsed_thresholds=elapsed_thresholds,
             t_elaps_mode=t_elaps_mode_resolved,
+            change_rate_twindow=change_rate_twindow,
             global_t=global_t,
             global_mag=global_mag,
         )
@@ -297,6 +304,7 @@ def build_rf_feature_frame(
     Mc: float,
     dMag: float,
     t_elaps_mode: str = T_ELAPS_MODE_WINDOW,
+    change_rate_twindow: float | None = None,
     global_t: np.ndarray | None = None,
     global_mag: np.ndarray | None = None,
 ):
@@ -307,6 +315,7 @@ def build_rf_feature_frame(
         Mc=Mc,
         dMag=dMag,
         t_elaps_mode=t_elaps_mode,
+        change_rate_twindow=change_rate_twindow,
         global_t=global_t,
         global_mag=global_mag,
     )
@@ -357,6 +366,7 @@ def build_inner_sliding_feature_tensor(
     Mc: float,
     dMag: float,
     t_elaps_mode: str = T_ELAPS_MODE_WINDOW,
+    change_rate_twindow: float | None = None,
     global_t: np.ndarray | None = None,
     global_mag: np.ndarray | None = None,
     Twindow: float,
@@ -409,6 +419,7 @@ def build_inner_sliding_feature_tensor(
                 t_reference=sub_end,
                 elapsed_thresholds=elapsed_thresholds,
                 t_elaps_mode=t_elaps_mode_resolved,
+                change_rate_twindow=change_rate_twindow,
                 global_t=global_t,
                 global_mag=global_mag,
             )
@@ -472,6 +483,7 @@ def build_external_sliding_feature_tensor(
     Mc: float,
     dMag: float,
     t_elaps_mode: str = T_ELAPS_MODE_WINDOW,
+    change_rate_twindow: float | None = None,
     global_t: np.ndarray | None = None,
     global_mag: np.ndarray | None = None,
     Twindow: float,
@@ -479,6 +491,7 @@ def build_external_sliding_feature_tensor(
     time_step: int | None = None,
     feature_window: float | None = None,
     feature_step: float | None = None,
+    external_target_mode: str = "sequence_end",
 ):
     """Build LSTM inputs from contiguous *outer* windows instead of inner windows.
 
@@ -486,6 +499,12 @@ def build_external_sliding_feature_tensor(
     (i.e., one full history window ending at that sample's ``t``).
     """
     feature_cols = list(feature_cols)
+    target_mode = str(external_target_mode).strip().lower()
+    if target_mode not in {"sequence_end", "next_step"}:
+        raise ValueError(
+            f"Unsupported external_target_mode={external_target_mode!r}. "
+            "Supported: 'sequence_end', 'next_step'."
+        )
     seq_len, feature_step_eff = resolve_external_sliding_params(
         Twindow=Twindow,
         dt=dt,
@@ -501,6 +520,7 @@ def build_external_sliding_feature_tensor(
         Mc=Mc,
         dMag=dMag,
         t_elaps_mode=t_elaps_mode,
+        change_rate_twindow=change_rate_twindow,
         global_t=global_t,
         global_mag=global_mag,
     )
@@ -515,17 +535,30 @@ def build_external_sliding_feature_tensor(
             f"n_samples={n_samples}, required_seq_len={seq_len}."
         )
 
-    out_count = n_samples - seq_len + 1
+    if target_mode == "sequence_end":
+        out_count = n_samples - seq_len + 1
+        target_offset = 0
+    else:
+        out_count = n_samples - seq_len
+        target_offset = 1
+    if out_count <= 0:
+        raise ValueError(
+            f"Not enough outer windows for external_target_mode={target_mode!r}: "
+            f"n_samples={n_samples}, seq_len={seq_len}."
+        )
     X = np.full((out_count, seq_len, len(feature_cols)), np.nan, dtype=float)
     y = np.full(out_count, np.nan, dtype=float)
     out_t = np.full(out_count, np.nan, dtype=float)
+    target_outer_idx = np.full(out_count, -1, dtype=int)
 
     for out_idx in range(out_count):
         end_idx = out_idx + seq_len - 1
         start_idx = end_idx - seq_len + 1
+        target_idx = end_idx + target_offset
         X[out_idx] = X_full[start_idx : end_idx + 1]
-        y[out_idx] = targets_full[end_idx]
-        out_t[out_idx] = timestamps[end_idx]
+        y[out_idx] = targets_full[target_idx]
+        out_t[out_idx] = timestamps[target_idx]
+        target_outer_idx[out_idx] = target_idx
 
     feature_meta = pd.DataFrame(
         {
@@ -533,6 +566,7 @@ def build_external_sliding_feature_tensor(
             "Mag_max_obs": y,
             "feature_step": np.full(out_count, feature_step_eff, dtype=float),
             "sequence_mode": np.full(out_count, FEATURE_CONSTRUCTION_EXTERNAL_SLIDING),
+            "target_outer_idx": target_outer_idx,
         }
     )
     return X, y, feature_meta

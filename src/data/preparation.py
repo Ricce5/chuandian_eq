@@ -22,6 +22,7 @@ from src.data.preparation_modules.common import (  # split/test helpers kept for
 )
 from src.data.preparation_modules.core import prepare_data
 from src.data.preparation_modules.lstm import prepare_data_lstm
+from src.data.preparation_modules.lstm_legacy import prepare_data_lstm_legacy
 from src.data.preparation_modules.rf import prepare_data_rf, print_sample_distribution
 from src.data.preparation_modules.tpp import (
     _auto_configure_global_bg_time_bounds,
@@ -34,6 +35,7 @@ __all__ = [
     "prepare_data",
     "prepare_data_rf",
     "prepare_data_lstm",
+    "prepare_data_lstm_legacy",
     "prepare_data_tpp",
     "print_sample_distribution",
     "DEFAULT_TRAIN_RATIO",

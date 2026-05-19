@@ -167,6 +167,38 @@ def _resolve_lstm_windowing_args(args, feature_mode: str):
     return time_step, feature_window, feature_step
 
 
+def _resolve_change_rate_twindow(args):
+    mode = str(getattr(args, "change_rate_twindow_mode", "effective")).strip().lower()
+    if mode not in {"effective", "fixed"}:
+        raise ValueError(
+            f"Unsupported change_rate_twindow_mode={mode!r}. "
+            "Supported: 'effective', 'fixed'."
+        )
+    if mode == "fixed":
+        return float(args.Twindow)
+    return None
+
+
+def _resolve_external_target_mode(args):
+    mode = str(getattr(args, "external_target_mode", "sequence_end")).strip().lower()
+    if mode not in {"sequence_end", "next_step"}:
+        raise ValueError(
+            f"Unsupported external_target_mode={mode!r}. "
+            "Supported: 'sequence_end', 'next_step'."
+        )
+    return mode
+
+
+def _resolve_lstm_split_mode(args):
+    mode = str(getattr(args, "lstm_split_mode", "aligned_outer")).strip().lower()
+    if mode not in {"aligned_outer", "sequence"}:
+        raise ValueError(
+            f"Unsupported lstm_split_mode={mode!r}. "
+            "Supported: 'aligned_outer', 'sequence'."
+        )
+    return mode
+
+
 def _build_lstm_raw_tensor(
     *,
     args,
@@ -175,21 +207,26 @@ def _build_lstm_raw_tensor(
     samples_list,
     feature_builder_kwargs,
 ):
+    builder_kwargs = dict(feature_builder_kwargs)
     if feature_mode == FEATURE_CONSTRUCTION_EXTERNAL_SLIDING:
         X, y, features_meta = build_external_sliding_feature_tensor(
             array_dict,
             samples_list,
             args.feature_cols,
-            **feature_builder_kwargs,
+            **builder_kwargs,
         )
         seq_len = int(X.shape[1])
-        endpoint_outer_indices = np.arange(seq_len - 1, seq_len - 1 + X.shape[0], dtype=int)
+        if "target_outer_idx" in features_meta.columns:
+            endpoint_outer_indices = features_meta["target_outer_idx"].to_numpy(dtype=int)
+        else:
+            endpoint_outer_indices = np.arange(seq_len - 1, seq_len - 1 + X.shape[0], dtype=int)
     else:
+        builder_kwargs.pop("external_target_mode", None)
         X, y, features_meta = build_inner_sliding_feature_tensor(
             array_dict,
             samples_list,
             args.feature_cols,
-            **feature_builder_kwargs,
+            **builder_kwargs,
         )
         endpoint_outer_indices = np.arange(X.shape[0], dtype=int)
     return X, y, features_meta, endpoint_outer_indices
@@ -217,6 +254,7 @@ def _build_optional_feature_frame(
     Mc,
     dMag,
     t_elaps_mode,
+    change_rate_twindow,
     global_t,
     global_mag,
     endpoint_outer_indices,
@@ -233,6 +271,7 @@ def _build_optional_feature_frame(
         Mc=float(Mc),
         dMag=float(dMag),
         t_elaps_mode=t_elaps_mode,
+        change_rate_twindow=change_rate_twindow,
         global_t=global_t,
         global_mag=global_mag,
     )
@@ -277,13 +316,25 @@ def _apply_telaps_nan_policy(*, args, X, feature_frame, return_feature_frame):
 def _make_lstm_loaders(*, args, dataset, endpoint_outer_indices, total_outer_windows):
     from torch.utils.data import DataLoader, Subset
     import src.data.event_loader as event_loader
+    from src.data.utils import get_split_indices
 
-    train_idx, val_idx, test_idx = _split_lstm_indices_aligned_to_outer_windows(
-        endpoint_outer_indices=endpoint_outer_indices,
-        total_outer_windows=total_outer_windows,
-        loader_module=event_loader,
-        args=args,
-    )
+    split_mode = _resolve_lstm_split_mode(args)
+    if split_mode == "sequence":
+        train_idx, val_idx, test_idx = get_split_indices(
+            total_length=len(dataset),
+            train_ratio=0.8,
+            val_ratio=0.1,
+            seed=int(getattr(args, "seed", 0)),
+            by_time=bool(getattr(args, "split_by_time", True)),
+            time_order=getattr(args, "time_order", ("train", "val", "test")),
+        )
+    else:
+        train_idx, val_idx, test_idx = _split_lstm_indices_aligned_to_outer_windows(
+            endpoint_outer_indices=endpoint_outer_indices,
+            total_outer_windows=total_outer_windows,
+            loader_module=event_loader,
+            args=args,
+        )
 
     train_set = Subset(dataset, train_idx)
     val_set = Subset(dataset, val_idx)
@@ -299,6 +350,7 @@ def _make_lstm_loaders(*, args, dataset, endpoint_outer_indices, total_outer_win
 def prepare_data_lstm(args, base_dir, return_feature_frame=False):
     import torch
     import src.data.lstm_loader as loader
+    from sklearn.preprocessing import MinMaxScaler
 
     _ensure_args_defaults(args, {"Mag_elaps": []})
     t_elaps_mode = _resolve_t_elaps_mode(args)
@@ -306,6 +358,8 @@ def prepare_data_lstm(args, base_dir, return_feature_frame=False):
 
     feature_mode = _resolve_lstm_feature_mode(args)
     time_step, feature_window, feature_step = _resolve_lstm_windowing_args(args, feature_mode)
+    change_rate_twindow = _resolve_change_rate_twindow(args)
+    external_target_mode = _resolve_external_target_mode(args)
 
     event_bundle = _load_lstm_event_windows_with_cache(args, base_dir)
     df = event_bundle.df
@@ -321,6 +375,7 @@ def prepare_data_lstm(args, base_dir, return_feature_frame=False):
         Mc=float(args.Mc),
         dMag=float(getattr(args, "dMag", 0.1)),
         t_elaps_mode=t_elaps_mode,
+        change_rate_twindow=change_rate_twindow,
         global_t=global_t,
         global_mag=global_mag,
         Twindow=args.Twindow,
@@ -328,6 +383,7 @@ def prepare_data_lstm(args, base_dir, return_feature_frame=False):
         time_step=time_step,
         feature_window=feature_window,
         feature_step=feature_step,
+        external_target_mode=external_target_mode,
     )
     X, y, features_meta, endpoint_outer_indices = _build_lstm_raw_tensor(
         args=args,
@@ -350,6 +406,7 @@ def prepare_data_lstm(args, base_dir, return_feature_frame=False):
         Mc=args.Mc,
         dMag=getattr(args, "dMag", 0.1),
         t_elaps_mode=t_elaps_mode,
+        change_rate_twindow=change_rate_twindow,
         global_t=global_t,
         global_mag=global_mag,
         endpoint_outer_indices=endpoint_outer_indices,
@@ -370,7 +427,27 @@ def prepare_data_lstm(args, base_dir, return_feature_frame=False):
 
     X, y = loader.clean_data(X, y)
     X_nl, feature_scalars = _normalize_lstm_inputs(X, args.feature_cols, loader)
-    y_nl = _normalize_lstm_labels_to_fixed_range(y, mag_min=mag_min, mag_max=mag_max)
+    y_norm_mode = str(getattr(args, "label_norm_mode", "fixed_range")).strip().lower()
+    if y_norm_mode == "fixed_range":
+        y_nl = _normalize_lstm_labels_to_fixed_range(y, mag_min=mag_min, mag_max=mag_max)
+        label_norm_cfg = {
+            "type": "fixed_range",
+            "mag_min": mag_min,
+            "mag_max": mag_max,
+        }
+    elif y_norm_mode == "legacy_minmax":
+        targets_full = event_pipeline._compute_mag_max_obs_targets(array_dict)
+        scaler = MinMaxScaler()
+        scaler.fit(np.asarray(targets_full, dtype=float).reshape(-1, 1))
+        y_nl = scaler.transform(np.asarray(y, dtype=float).reshape(-1, 1)).reshape(-1)
+        feature_scalars = dict(feature_scalars)
+        feature_scalars["Mag_max_obs"] = scaler
+        label_norm_cfg = {"type": "scaler_mag_max_obs"}
+    else:
+        raise ValueError(
+            f"Unsupported label_norm_mode={y_norm_mode!r}. "
+            "Supported: 'fixed_range', 'legacy_minmax'."
+        )
     print(f'X shape: {X.shape}, y shape: {y.shape}')
     print(f'X_nl shape: {X_nl.shape}, y_nl shape: {y_nl.shape}')
 
@@ -378,11 +455,7 @@ def prepare_data_lstm(args, base_dir, return_feature_frame=False):
         torch.tensor(X_nl, dtype=torch.float32),
         torch.tensor(y_nl, dtype=torch.float32),
         scalars=feature_scalars,
-        label_norm_cfg={
-            "type": "fixed_range",
-            "mag_min": mag_min,
-            "mag_max": mag_max,
-        },
+        label_norm_cfg=label_norm_cfg,
     )
 
     data_loaders = _make_lstm_loaders(

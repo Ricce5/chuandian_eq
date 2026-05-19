@@ -55,7 +55,7 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_layer_1 --best_metric auc
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_tf_90_stability_grid_v2 --best_metric auc
    python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_grid_max_grad_norm  --ckpt_select last
 
 
@@ -117,3 +117,5 @@ python scripts/summarize_clf_seed_across_experiments.py --seed 1 --out_dir exper
   python scripts/backfill_reg_grid_tests.py \
     --exp_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128 \
     --ckpt_select last \
+
+

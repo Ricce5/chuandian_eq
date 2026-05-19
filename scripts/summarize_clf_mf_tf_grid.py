@@ -54,6 +54,28 @@ def _group_sort_key(item):
     return tf, mf
 
 
+def _infer_variant_name_from_run(run_name: str | None) -> str | None:
+    if not run_name:
+        return None
+    text = str(run_name)
+    marker = "_seed_"
+    if marker in text:
+        return text.split(marker, 1)[0]
+    return text
+
+
+def _build_variant_group_key(row: Dict):
+    variant = row.get("variant_name")
+    if variant:
+        return str(variant)
+    return _infer_variant_name_from_run(row.get("run"))
+
+
+def _variant_group_sort_key(item):
+    variant, _ = item
+    return str(variant)
+
+
 def _resolve_cfg_path(run_dir: Path, cfg_path_raw) -> Path | None:
     candidates: List[Path] = []
 
@@ -116,6 +138,7 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict
 
         row = {
             "run": run_name,
+            "variant_name": _infer_variant_name_from_run(run_name),
             "run_dir": str(run_dir),
             "cfg_path": str(cfg_path) if cfg_path else "",
             "metrics_path": str(metrics_path) if metrics_path else "",
@@ -150,7 +173,44 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict
     return rows
 
 
-def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str]) -> Tuple[List[Dict], List[Dict]]:
+def _resolve_group_mode(rows: Sequence[Dict], mode_raw: str) -> str:
+    mode = str(mode_raw).strip().lower()
+    if mode in {"tf_mf", "variant"}:
+        return mode
+    if mode != "auto":
+        raise ValueError("--group_by must be one of: auto, tf_mf, variant")
+
+    combos = set()
+    variants = set()
+    for row in rows:
+        tf = row.get("Tfore")
+        mf = row.get("Mf")
+        if tf is not None and mf is not None:
+            combos.add((int(tf), float(mf)))
+        vn = _build_variant_group_key(row)
+        if vn is not None:
+            variants.add(vn)
+
+    if len(combos) <= 1 and len(variants) > 1:
+        return "variant"
+    return "tf_mf"
+
+
+def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str], group_mode: str) -> Tuple[List[Dict], List[Dict]]:
+    if group_mode == "variant":
+        grouped = group_by_key(rows, _build_variant_group_key)
+
+        def _base_row_builder(group_key: str, _items: Sequence[Dict]):
+            return {"variant_name": str(group_key)}
+
+        group_stats = build_group_stats_rows(
+            grouped=grouped,
+            metric_keys=metric_keys,
+            base_row_builder=_base_row_builder,
+            sort_key_fn=_variant_group_sort_key,
+        )
+        return group_stats, []
+
     grouped = group_by_key(rows, _build_tf_mf_group_key)
 
     def _base_row_builder(group_key: Tuple[int, float], _items: Sequence[Dict]):
@@ -169,7 +229,30 @@ def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str]) -> Tuple[List[D
     return group_stats, []
 
 
-def group_best_rows(rows: Sequence[Dict], metric: str, maximize: bool) -> List[Dict]:
+def group_best_rows(rows: Sequence[Dict], metric: str, maximize: bool, group_mode: str) -> List[Dict]:
+    if group_mode == "variant":
+        grouped = group_by_key(rows, _build_variant_group_key)
+
+        def _base_row_builder(group_key: str, _items: Sequence[Dict], best: Dict | None):
+            row = {"variant_name": str(group_key)}
+            if best is not None:
+                row.update(
+                    {
+                        "run_dir": best.get("run_dir"),
+                        "metrics_path": best.get("metrics_path"),
+                        "status_ok": best.get("status_ok"),
+                    }
+                )
+            return row
+
+        return build_group_best_rows(
+            grouped=grouped,
+            metric=metric,
+            maximize=maximize,
+            base_row_builder=_base_row_builder,
+            sort_key_fn=_variant_group_sort_key,
+        )
+
     grouped = group_by_key(rows, _build_tf_mf_group_key)
 
     def _base_row_builder(group_key: Tuple[int, float], _items: Sequence[Dict], best: Dict | None):
@@ -230,6 +313,16 @@ def parse_args():
         default="max",
         help="Whether best metric is maximized or minimized.",
     )
+    parser.add_argument(
+        "--group_by",
+        type=str,
+        choices=["auto", "tf_mf", "variant"],
+        default="auto",
+        help=(
+            "Grouping key for summary tables. "
+            "auto: choose variant when only one (Tfore,Mf) but multiple variants, else tf_mf."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -248,11 +341,13 @@ def main():
         raise ValueError("--metrics must contain at least one key")
 
     per_run_rows = collect_per_run_rows(exp_dir, metric_keys)
-    group_stats, _ = group_rows(per_run_rows, metric_keys)
+    group_mode = _resolve_group_mode(per_run_rows, args.group_by)
+    group_stats, _ = group_rows(per_run_rows, metric_keys, group_mode=group_mode)
     best_rows = group_best_rows(
         per_run_rows,
         metric=args.best_metric,
         maximize=(args.best_mode == "max"),
+        group_mode=group_mode,
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -272,6 +367,7 @@ def main():
         "metric_keys": metric_keys,
         "best_metric": args.best_metric,
         "best_mode": args.best_mode,
+        "group_by": group_mode,
         "files": {
             "per_run_csv": str(per_run_csv),
             "group_mean_std_csv": str(group_csv),

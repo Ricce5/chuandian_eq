@@ -516,6 +516,34 @@ class LSTMBuilder(ModelBuilder):
                     output_activation=output_activation)
 
 
+@ModelBuilder.register("lstm_legacy")
+class LSTMLegacyBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        from src.models.lstm import LSTM
+
+        hidden_size = args.lstm_hidden_size
+        num_layers = args.lstm_num_layers
+        feature_size = len(args.feature_cols)
+        lstm_dropout = args.lstm_dropout
+        if hasattr(args, "criterion_name"):
+            output_size = (
+                len(args.criterion_cfg.taus)
+                if args.criterion_cfg.get("taus", None) is not None
+                else 1
+            )
+        else:
+            output_size = 1
+        return LSTM(
+            feature_size=feature_size,
+            hidden_size=hidden_size,
+            output_size=output_size,
+            num_layers=num_layers,
+            lstm_dropout=lstm_dropout,
+            device=device,
+            output_activation=None,
+        )
+
+
 @ModelBuilder.register("clf_mixer_attnpl_t")
 class ClfMixerAttnPlTBuilder(ModelBuilder):
     def __call__(self, args, device):

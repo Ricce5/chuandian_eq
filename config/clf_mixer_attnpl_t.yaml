@@ -1,4 +1,4 @@
-resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+resume_path:  ./checkpoints/mixer_tpp_20260514-211318/last_model_1.pth
 load_specific_parts:
 - encoder
 freeze_loaded_only: false
@@ -7,11 +7,11 @@ resume_optimizer: false
 resume_scheduler: false
 model: clf_mixer_attnpl_t
 use_ema: false
-batch_size: 64
+batch_size: 32
 accumulation_steps: 1
 warmup_ratio: 0.15
-learning_rate: 0.0015
-weight_decay: 0.0001
+learning_rate: 1.5e-3
+weight_decay: 1e-4
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -26,8 +26,7 @@ mixer_model_config:
   d_model: 64
   n_layer: 3
   d_intermediate: 128
-  attn_layer_idx:
-  - 2
+  attn_layer_idx: [2]
   input_proj_type: mlp
   input_proj_hidden: 128
   input_proj_activation: silu
@@ -54,8 +53,7 @@ extractor_name: attn_time_biased_mh
 time_bias_type: log
 mlp_out: 1
 mlp_dropout: 0.5
-mlp_hdw:
-- 128
+mlp_hdw: [128]
 dim: 1
 epochs: 100
 early_stopping_patience: 10
@@ -63,7 +61,7 @@ early_stopping_min_delta: 0.0
 save_dir: null
 cuda_id: '0'
 dataset: ChuanDian
-seed: 2
+seed: 1
 deterministic: true
 use_deterministic_algorithms: true
 deterministic_warn_only: true
@@ -71,14 +69,14 @@ num_workers: 0
 pin_memory: true
 persistent_workers: false
 Mc: 3
-Mf: 5.5
+Mf: 4.5
 Twindow: 180
-Tfore: 90
+Tfore: 30
 dt: 10
 context_len: 1
 split_by_time: true
 train_subset_ratio: 1.0
-use_sampler: true
+use_sampler: false
 time_order:
 - train
 - val
@@ -87,7 +85,3 @@ features_input_keys:
 - mag
 normalize_time_by_token: true
 time_scale_base_key: tau_mean
-criterion_name: focal
-criterion_cfg:
-  alpha: 0.25
-  gamma: 2.0

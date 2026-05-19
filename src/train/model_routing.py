@@ -18,6 +18,7 @@ CLASSIFIER_MODELS = {
 REGRESSOR_MODELS = {
     "regressor",
     "lstm",
+    "lstm_legacy",
     "reg_attnpl",
     "reg_mixer_attnpl_t",
     "reg_rnn",

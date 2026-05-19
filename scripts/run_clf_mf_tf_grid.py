@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import re
 from pathlib import Path
 
 from omegaconf import OmegaConf
@@ -24,6 +25,15 @@ from automation import (
 def _build_variant_name(tf, mf, seed):
     mf_str = str(mf).replace(".", "p")
     return f"tf_{tf}_mf_{mf_str}_seed_{seed}"
+
+
+def _normalize_run_name(raw: str, fallback: str):
+    text = str(raw or "").strip()
+    if not text:
+        text = fallback
+    text = re.sub(r"[^0-9a-zA-Z._-]+", "_", text)
+    text = text.strip("._-")
+    return text or fallback
 
 
 def _parse_set_by_tf(raw) -> dict[int, dict]:
@@ -54,6 +64,210 @@ def _parse_set_by_tf(raw) -> dict[int, dict]:
             )
         out[tf] = dict(overrides)
     return out
+
+
+def _expand_grid_to_points(exp_cfg: dict):
+    """
+    Expand exp config key `grid` into a normalized points list for clf grids.
+
+    Supported schema:
+      grid:
+        name_prefix: tf90                 # optional
+        common:                           # optional
+          Tfore: 90                       # optional
+          Mf: 5.5                         # optional
+          seed: 0 | seeds: [0,1,2]        # optional
+          time_bias_type: log             # optional
+          use_sampler: true               # optional
+          criterion_alpha: 0.75           # optional
+          overrides: {...}                # optional
+        points:                           # required non-empty list
+          - name: p1                      # optional
+            overrides: {...}              # optional
+            # point-level keys can override common keys
+    """
+    if not isinstance(exp_cfg, dict):
+        return None
+
+    grid_cfg = exp_cfg.get("grid")
+    if grid_cfg is None:
+        return None
+    if not isinstance(grid_cfg, dict):
+        raise ValueError("exp config key `grid` must be a mapping/object.")
+
+    points = grid_cfg.get("points")
+    if not isinstance(points, list) or not points:
+        raise ValueError("exp config key `grid.points` must be a non-empty list.")
+
+    name_prefix = str(grid_cfg.get("name_prefix", "grid")).strip()
+    common = grid_cfg.get("common", {})
+    if common is None:
+        common = {}
+    if not isinstance(common, dict):
+        raise ValueError("exp config key `grid.common` must be a mapping/object.")
+
+    common_overrides = common.get("overrides", {})
+    if common_overrides is None:
+        common_overrides = {}
+    if not isinstance(common_overrides, dict):
+        raise ValueError("exp config key `grid.common.overrides` must be a mapping/object.")
+
+    reserved_keys = {
+        "name",
+        "Tfore",
+        "Mf",
+        "seed",
+        "seeds",
+        "time_bias_type",
+        "use_sampler",
+        "criterion_alpha",
+        "overrides",
+    }
+    forward_keys = {
+        "Tfore",
+        "Mf",
+        "seed",
+        "seeds",
+        "time_bias_type",
+        "use_sampler",
+        "criterion_alpha",
+    }
+
+    expanded = []
+    for idx, point in enumerate(points):
+        if not isinstance(point, dict):
+            raise ValueError(f"grid.points[{idx}] must be a mapping/object.")
+
+        point_overrides = point.get("overrides", {})
+        if point_overrides is None:
+            point_overrides = {}
+        if not isinstance(point_overrides, dict):
+            raise ValueError(f"grid.points[{idx}].overrides must be a mapping/object.")
+
+        point_name_raw = point.get("name", f"{idx + 1:02d}")
+        point_name = _normalize_run_name(point_name_raw, fallback=f"{idx + 1:02d}")
+        if name_prefix:
+            variant_name = _normalize_run_name(
+                f"{name_prefix}_{point_name}",
+                fallback=f"{name_prefix}_{idx + 1:02d}",
+            )
+        else:
+            variant_name = point_name
+
+        merged = {"name": variant_name}
+        for key in forward_keys:
+            if key in common:
+                merged[key] = common[key]
+            if key in point:
+                merged[key] = point[key]
+
+        shorthand_overrides = {
+            key: value
+            for key, value in point.items()
+            if key not in reserved_keys
+        }
+        merged_overrides = {}
+        merged_overrides.update(common_overrides)
+        merged_overrides.update(shorthand_overrides)
+        merged_overrides.update(point_overrides)
+        merged["overrides"] = merged_overrides
+
+        expanded.append(merged)
+
+    return expanded
+
+
+def _resolve_point_seeds(point: dict, default_seeds: list[int]) -> list[int]:
+    if "seeds" in point and point.get("seeds") is not None:
+        raw = point.get("seeds")
+        if isinstance(raw, (list, tuple)):
+            return [int(x) for x in raw]
+        return parse_optional_csv(str(raw), int)
+    if "seed" in point and point.get("seed") is not None:
+        return [int(point.get("seed"))]
+    return [int(x) for x in default_seeds]
+
+
+def _build_task_cfg(
+    *,
+    cfg,
+    twindow: int,
+    dt: int,
+    context_len: int,
+    tf: int,
+    mf: float,
+    seed: int,
+    apply_ref_profile: bool,
+    resume_path_override: str,
+    global_time_bias_type,
+    time_bias_map: dict,
+    use_sampler_map: dict,
+    alpha_map: dict,
+    clear_criterion_for_unmapped_tf: bool,
+    extra_overrides: dict,
+    set_by_tf_map: dict,
+    point_use_sampler=None,
+    point_criterion_alpha=None,
+    point_time_bias_type=None,
+    point_overrides: dict | None = None,
+):
+    cfg.Twindow = int(twindow)
+    cfg.Tfore = int(tf)
+    cfg.Mf = float(mf)
+    cfg.dt = int(dt)
+    cfg.context_len = int(context_len)
+    cfg.seed = int(seed)
+
+    if apply_ref_profile:
+        cfg.resume_path = resume_path_override
+        cfg.load_specific_parts = ["encoder"]
+        if "mixer_model_config" not in cfg or cfg.mixer_model_config is None:
+            cfg.mixer_model_config = {}
+        cfg.mlp_dropout = 0.5
+        cfg.mlp_hdw = [128]
+        cfg.use_sampler = True
+
+    if global_time_bias_type is not None:
+        cfg.time_bias_type = global_time_bias_type
+    if int(tf) in time_bias_map:
+        cfg.time_bias_type = time_bias_map[int(tf)]
+    if point_time_bias_type is not None:
+        cfg.time_bias_type = point_time_bias_type
+
+    if int(tf) in use_sampler_map:
+        cfg.use_sampler = bool(use_sampler_map[int(tf)])
+    if point_use_sampler is not None:
+        cfg.use_sampler = bool(point_use_sampler)
+
+    alpha_value = None
+    if point_criterion_alpha is not None:
+        alpha_value = float(point_criterion_alpha)
+    elif int(tf) in alpha_map:
+        alpha_value = float(alpha_map[int(tf)])
+
+    if alpha_value is not None:
+        cfg.criterion_name = "focal"
+        if "criterion_cfg" not in cfg or cfg.criterion_cfg is None:
+            cfg.criterion_cfg = {}
+        cfg.criterion_cfg.alpha = float(alpha_value)
+        if "gamma" not in cfg.criterion_cfg:
+            cfg.criterion_cfg.gamma = 2.0
+    elif clear_criterion_for_unmapped_tf:
+        cfg.pop("criterion_name", None)
+        cfg.pop("criterion_cfg", None)
+
+    for key, value in extra_overrides.items():
+        set_key(cfg, key, value)
+
+    if int(tf) in set_by_tf_map:
+        for key, value in set_by_tf_map[int(tf)].items():
+            set_key(cfg, str(key), value)
+
+    if point_overrides:
+        for key, value in point_overrides.items():
+            set_key(cfg, str(key), value)
+
+    return cfg
 
 
 def _build_parser():
@@ -260,23 +474,29 @@ def main():
     parser = _build_parser()
     args = parser.parse_args()
 
+    exp_cfg = {}
     exp_cfg_path = None
     if args.exp_config:
         exp_cfg_path = Path(args.exp_config).resolve()
         exp_cfg = load_exp_config(exp_cfg_path)
         args = _override_args_from_exp_config(args, exp_cfg)
 
-    tfs = parse_optional_csv(args.tfs, int)
-    mfs = parse_optional_csv(args.mfs, float)
     seeds = parse_optional_csv(args.seeds, int)
-    if not tfs:
-        raise ValueError("No Tfore values found.")
-    if not mfs:
-        raise ValueError("No Mf values found.")
     if not seeds:
         raise ValueError("No seed values found.")
 
-    tf_mf_pairs, pair_mode = build_tf_mf_pairs(tfs=tfs, mfs=mfs, pair_mode_raw=args.pair_mode)
+    grid_points = _expand_grid_to_points(exp_cfg) if exp_cfg else None
+    if grid_points is None:
+        tfs = parse_optional_csv(args.tfs, int)
+        mfs = parse_optional_csv(args.mfs, float)
+        if not tfs:
+            raise ValueError("No Tfore values found.")
+        if not mfs:
+            raise ValueError("No Mf values found.")
+        tf_mf_pairs, pair_mode = build_tf_mf_pairs(tfs=tfs, mfs=mfs, pair_mode_raw=args.pair_mode)
+    else:
+        tf_mf_pairs = []
+        pair_mode = "grid"
 
     time_bias_map = parse_mapping(args.time_bias_by_tf, int, str)
     use_sampler_map = parse_mapping(args.use_sampler_by_tf, int, parse_bool_text)
@@ -315,7 +535,23 @@ def main():
             else None
         ),
         "pair_mode": pair_mode,
-        "pairs": [{"Tfore": tf, "Mf": mf} for tf, mf in tf_mf_pairs],
+        "pairs": (
+            [{"Tfore": tf, "Mf": mf} for tf, mf in tf_mf_pairs]
+            if grid_points is None
+            else [
+                {
+                    "name": point.get("name"),
+                    "Tfore": point.get("Tfore"),
+                    "Mf": point.get("Mf"),
+                    "seed": point.get("seed"),
+                    "seeds": point.get("seeds"),
+                    "time_bias_type": point.get("time_bias_type"),
+                    "use_sampler": point.get("use_sampler"),
+                    "criterion_alpha": point.get("criterion_alpha"),
+                }
+                for point in grid_points
+            ]
+        ),
         "seeds": seeds,
         "time_bias_type": args.time_bias_type,
         "time_bias_by_tf": time_bias_map,
@@ -333,78 +569,137 @@ def main():
     dump_json(workspace.exp_dir / "plan.json", plan)
 
     tasks = []
-    for tf, mf in tf_mf_pairs:
-        for seed in seeds:
-            variant_name = _build_variant_name(tf=tf, mf=mf, seed=seed)
-            run_dir = workspace.runs_dir / variant_name
-            run_dir.mkdir(parents=True, exist_ok=True)
+    if grid_points is None:
+        for tf, mf in tf_mf_pairs:
+            for seed in seeds:
+                variant_name = _build_variant_name(tf=tf, mf=mf, seed=seed)
+                run_dir = workspace.runs_dir / variant_name
+                run_dir.mkdir(parents=True, exist_ok=True)
 
-            cfg = OmegaConf.load(str(workspace.base_config_path))
-            cfg.Twindow = int(args.twindow)
-            cfg.Tfore = int(tf)
-            cfg.Mf = float(mf)
-            cfg.dt = int(args.dt)
-            cfg.context_len = int(args.context_len)
-            cfg.seed = int(seed)
+                cfg = OmegaConf.load(str(workspace.base_config_path))
+                cfg = _build_task_cfg(
+                    cfg=cfg,
+                    twindow=int(args.twindow),
+                    dt=int(args.dt),
+                    context_len=int(args.context_len),
+                    tf=int(tf),
+                    mf=float(mf),
+                    seed=int(seed),
+                    apply_ref_profile=apply_ref_profile,
+                    resume_path_override=args.resume_path_override,
+                    global_time_bias_type=args.time_bias_type,
+                    time_bias_map=time_bias_map,
+                    use_sampler_map=use_sampler_map,
+                    alpha_map=alpha_map,
+                    clear_criterion_for_unmapped_tf=clear_criterion_for_unmapped_tf,
+                    extra_overrides=extra_overrides,
+                    set_by_tf_map=set_by_tf_map,
+                )
 
-            if apply_ref_profile:
-                cfg.resume_path = args.resume_path_override
-                cfg.load_specific_parts = ["encoder"]
-                if "mixer_model_config" not in cfg or cfg.mixer_model_config is None:
-                    cfg.mixer_model_config = {}
-                cfg.mlp_dropout = 0.5
-                cfg.mlp_hdw = [128]
-                cfg.use_sampler = True
+                cfg_path = run_dir / "config_input.yaml"
+                OmegaConf.save(cfg, str(cfg_path))
 
-            if args.time_bias_type is not None:
-                cfg.time_bias_type = args.time_bias_type
-            if int(tf) in time_bias_map:
-                cfg.time_bias_type = time_bias_map[int(tf)]
-            if int(tf) in use_sampler_map:
-                cfg.use_sampler = bool(use_sampler_map[int(tf)])
+                tasks.append(
+                    {
+                        "run": variant_name,
+                        "Twindow": int(args.twindow),
+                        "Tfore": int(tf),
+                        "Mf": float(mf),
+                        "seed": int(seed),
+                        "time_bias_type": getattr(cfg, "time_bias_type", None),
+                        "criterion_alpha": (
+                            float(cfg.criterion_cfg.alpha)
+                            if (
+                                "criterion_cfg" in cfg
+                                and cfg.criterion_cfg is not None
+                                and "alpha" in cfg.criterion_cfg
+                            )
+                            else None
+                        ),
+                        "run_dir": str(run_dir),
+                        "cfg_path": str(cfg_path),
+                    }
+                )
+    else:
+        for point in grid_points:
+            if "Tfore" not in point or point.get("Tfore") is None:
+                raise ValueError(f"grid point {point.get('name')} missing required key: Tfore")
+            if "Mf" not in point or point.get("Mf") is None:
+                raise ValueError(f"grid point {point.get('name')} missing required key: Mf")
 
-            if int(tf) in alpha_map:
-                cfg.criterion_name = "focal"
-                if "criterion_cfg" not in cfg or cfg.criterion_cfg is None:
-                    cfg.criterion_cfg = {}
-                cfg.criterion_cfg.alpha = float(alpha_map[int(tf)])
-                if "gamma" not in cfg.criterion_cfg:
-                    cfg.criterion_cfg.gamma = 2.0
-            elif clear_criterion_for_unmapped_tf:
-                cfg.pop("criterion_name", None)
-                cfg.pop("criterion_cfg", None)
+            tf = int(point.get("Tfore"))
+            mf = float(point.get("Mf"))
+            point_name = str(point.get("name") or "grid")
+            point_seeds = _resolve_point_seeds(point, default_seeds=seeds)
+            if not point_seeds:
+                raise ValueError(f"grid point {point_name} resolved empty seeds.")
 
-            for key, value in extra_overrides.items():
-                set_key(cfg, key, value)
+            point_overrides = point.get("overrides", {})
+            if point_overrides is None:
+                point_overrides = {}
+            if not isinstance(point_overrides, dict):
+                raise ValueError(f"grid point {point_name} overrides must be mapping/object.")
 
-            if int(tf) in set_by_tf_map:
-                for key, value in set_by_tf_map[int(tf)].items():
-                    set_key(cfg, str(key), value)
+            point_time_bias_type = point.get("time_bias_type")
+            point_use_sampler = point.get("use_sampler")
+            point_criterion_alpha = point.get("criterion_alpha")
 
-            cfg_path = run_dir / "config_input.yaml"
-            OmegaConf.save(cfg, str(cfg_path))
+            for seed in point_seeds:
+                variant_name = _normalize_run_name(
+                    f"{point_name}_seed_{int(seed)}",
+                    fallback=f"grid_seed_{int(seed)}",
+                )
+                run_dir = workspace.runs_dir / variant_name
+                run_dir.mkdir(parents=True, exist_ok=True)
 
-            tasks.append(
-                {
-                    "run": variant_name,
-                    "Twindow": int(args.twindow),
-                    "Tfore": int(tf),
-                    "Mf": float(mf),
-                    "seed": int(seed),
-                    "time_bias_type": getattr(cfg, "time_bias_type", None),
-                    "criterion_alpha": (
-                        float(cfg.criterion_cfg.alpha)
-                        if (
-                            "criterion_cfg" in cfg
-                            and cfg.criterion_cfg is not None
-                            and "alpha" in cfg.criterion_cfg
-                        )
-                        else None
-                    ),
-                    "run_dir": str(run_dir),
-                    "cfg_path": str(cfg_path),
-                }
-            )
+                cfg = OmegaConf.load(str(workspace.base_config_path))
+                cfg = _build_task_cfg(
+                    cfg=cfg,
+                    twindow=int(args.twindow),
+                    dt=int(args.dt),
+                    context_len=int(args.context_len),
+                    tf=tf,
+                    mf=mf,
+                    seed=int(seed),
+                    apply_ref_profile=apply_ref_profile,
+                    resume_path_override=args.resume_path_override,
+                    global_time_bias_type=args.time_bias_type,
+                    time_bias_map=time_bias_map,
+                    use_sampler_map=use_sampler_map,
+                    alpha_map=alpha_map,
+                    clear_criterion_for_unmapped_tf=clear_criterion_for_unmapped_tf,
+                    extra_overrides=extra_overrides,
+                    set_by_tf_map=set_by_tf_map,
+                    point_use_sampler=point_use_sampler,
+                    point_criterion_alpha=point_criterion_alpha,
+                    point_time_bias_type=point_time_bias_type,
+                    point_overrides=point_overrides,
+                )
+
+                cfg_path = run_dir / "config_input.yaml"
+                OmegaConf.save(cfg, str(cfg_path))
+
+                tasks.append(
+                    {
+                        "run": variant_name,
+                        "Twindow": int(args.twindow),
+                        "Tfore": tf,
+                        "Mf": mf,
+                        "seed": int(seed),
+                        "time_bias_type": getattr(cfg, "time_bias_type", None),
+                        "criterion_alpha": (
+                            float(cfg.criterion_cfg.alpha)
+                            if (
+                                "criterion_cfg" in cfg
+                                and cfg.criterion_cfg is not None
+                                and "alpha" in cfg.criterion_cfg
+                            )
+                            else None
+                        ),
+                        "run_dir": str(run_dir),
+                        "cfg_path": str(cfg_path),
+                    }
+                )
 
     execute_tasks(
         tasks=tasks,
