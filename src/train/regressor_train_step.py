@@ -5,7 +5,17 @@ from tqdm import tqdm
 from src.utils.metrics import regression_metrics, log_metrics, plot_regression_scatter, plot_regression_series
 from .trainer import step_scheduler
 
-def train(data_loader, model, criterion, optimizer,scheduler, device, accumulation_steps=2,ema_model=None):
+def train(
+    data_loader,
+    model,
+    criterion,
+    optimizer,
+    scheduler,
+    device,
+    accumulation_steps=2,
+    ema_model=None,
+    max_grad_norm=3.0,
+):
     model.train()
     total_loss = 0
     all_node_preds = []  
@@ -33,7 +43,7 @@ def train(data_loader, model, criterion, optimizer,scheduler, device, accumulati
         loss.backward()
         
         if (batch + 1) % accumulation_steps == 0 or (batch + 1) == len(data_loader): 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
             optimizer.step()  
             optimizer.zero_grad()
             step_scheduler(scheduler, event='step')

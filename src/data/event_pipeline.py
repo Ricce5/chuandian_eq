@@ -151,63 +151,63 @@ def _compute_window_feature_map(
     global_mag: np.ndarray | None = None,
 ) -> dict[str, float]:
     feature_map = {col: np.nan for col in feature_cols}
-    if history_mag.size == 0:
-        return feature_map
+    has_local_history = history_mag.size > 0
 
-    if "Num" in feature_map:
-        feature_map["Num"] = history_mag.size
-    if "Mag_max" in feature_map:
-        feature_map["Mag_max"] = np.max(history_mag)
-    if "Mag_mean" in feature_map:
-        feature_map["Mag_mean"] = np.mean(history_mag)
+    if has_local_history:
+        if "Num" in feature_map:
+            feature_map["Num"] = history_mag.size
+        if "Mag_max" in feature_map:
+            feature_map["Mag_max"] = np.max(history_mag)
+        if "Mag_mean" in feature_map:
+            feature_map["Mag_mean"] = np.mean(history_mag)
 
-    (
-        b_lsq,
-        a_lsq,
-        std_gr_lsq,
-        b_mlk,
-        a_mlk,
-        std_gr_mlk,
-        dM_lsq,
-        dM_mlk,
-        b_std_lsq,
-        b_std_mlk,
-        _num_mag_int,
-    ) = seismic_features.calculate_magnitudes_and_features(history_mag, Mc=float(Mc), dMag=float(dMag))
+        (
+            b_lsq,
+            a_lsq,
+            std_gr_lsq,
+            b_mlk,
+            a_mlk,
+            std_gr_mlk,
+            dM_lsq,
+            dM_mlk,
+            b_std_lsq,
+            b_std_mlk,
+            _num_mag_int,
+        ) = seismic_features.calculate_magnitudes_and_features(history_mag, Mc=float(Mc), dMag=float(dMag))
 
-    scalar_map = {
-        "b_lsq": b_lsq,
-        "a_lsq": a_lsq,
-        "std_gr_lsq": std_gr_lsq,
-        "b_mlk": b_mlk,
-        "a_mlk": a_mlk,
-        "std_gr_mlk": std_gr_mlk,
-        "dM_lsq": dM_lsq,
-        "dM_mlk": dM_mlk,
-        "b_std_lsq": b_std_lsq,
-        "b_std_mlk": b_std_mlk,
-        "prob_x7_lsq": np.exp(-3 * b_lsq / seismic_features.LOG10_E) if np.isfinite(b_lsq) else np.nan,
-        "prob_x7_mlk": np.exp(-3 * b_mlk / seismic_features.LOG10_E) if np.isfinite(b_mlk) else np.nan,
-        "Energy_sqrt": np.sqrt(np.sum(10 ** (12 + 1.8 * history_mag))),
-    }
-    for key, value in scalar_map.items():
-        if key in feature_map:
-            feature_map[key] = value
+        scalar_map = {
+            "b_lsq": b_lsq,
+            "a_lsq": a_lsq,
+            "std_gr_lsq": std_gr_lsq,
+            "b_mlk": b_mlk,
+            "a_mlk": a_mlk,
+            "std_gr_mlk": std_gr_mlk,
+            "dM_lsq": dM_lsq,
+            "dM_mlk": dM_mlk,
+            "b_std_lsq": b_std_lsq,
+            "b_std_mlk": b_std_mlk,
+            "prob_x7_lsq": np.exp(-3 * b_lsq / seismic_features.LOG10_E) if np.isfinite(b_lsq) else np.nan,
+            "prob_x7_mlk": np.exp(-3 * b_mlk / seismic_features.LOG10_E) if np.isfinite(b_mlk) else np.nan,
+            "Energy_sqrt": np.sqrt(np.sum(10 ** (12 + 1.8 * history_mag))),
+        }
+        for key, value in scalar_map.items():
+            if key in feature_map:
+                feature_map[key] = value
 
-    if "beta" in feature_map or "zvalue" in feature_map:
-        twindow_eff = float(t_reference - history_t[0]) if history_t.size > 0 else np.nan
-        if np.isfinite(twindow_eff) and twindow_eff > 0:
-            beta, zvalue = seismic_features.calculate_seismic_change_rate(
-                history_t,
-                Twindow=twindow_eff,
-                t=t_reference,
-            )
-        else:
-            beta, zvalue = np.nan, np.nan
-        if "beta" in feature_map:
-            feature_map["beta"] = beta
-        if "zvalue" in feature_map:
-            feature_map["zvalue"] = zvalue
+        if "beta" in feature_map or "zvalue" in feature_map:
+            twindow_eff = float(t_reference - history_t[0]) if history_t.size > 0 else np.nan
+            if np.isfinite(twindow_eff) and twindow_eff > 0:
+                beta, zvalue = seismic_features.calculate_seismic_change_rate(
+                    history_t,
+                    Twindow=twindow_eff,
+                    t=t_reference,
+                )
+            else:
+                beta, zvalue = np.nan, np.nan
+            if "beta" in feature_map:
+                feature_map["beta"] = beta
+            if "zvalue" in feature_map:
+                feature_map["zvalue"] = zvalue
 
     if elapsed_thresholds:
         mode = _resolve_t_elaps_mode(t_elaps_mode)

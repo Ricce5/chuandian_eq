@@ -1,0 +1,50 @@
+{
+  "model": "clf_mixer_attnpl_t",
+  "base_config": "/root/autodl-tmp/em_eqf/config/clf_mixer_attnpl_t.yaml",
+  "base_config_snapshot": "/root/autodl-tmp/em_eqf/tmp/tmp_clf_set_by_tf_check3/configs/clf_mixer_attnpl_t.yaml",
+  "exp_config": null,
+  "exp_config_snapshot": null,
+  "pair_mode": true,
+  "pairs": [
+    {
+      "Tfore": 10,
+      "Mf": 4.0
+    },
+    {
+      "Tfore": 20,
+      "Mf": 4.5
+    },
+    {
+      "Tfore": 90,
+      "Mf": 5.5
+    }
+  ],
+  "seeds": [
+    0
+  ],
+  "time_bias_type": null,
+  "time_bias_by_tf": {},
+  "use_sampler_by_tf": {},
+  "alpha_by_tf": {
+    "10": 0.5,
+    "20": 0.25,
+    "90": 0.25
+  },
+  "set_by_tf": {
+    "10": {
+      "batch_size": 64
+    },
+    "90": {
+      "batch_size": 64
+    }
+  },
+  "apply_ref_profile": true,
+  "clear_criterion_for_unmapped_tf": true,
+  "max_parallel": 1,
+  "gpu_ids": [],
+  "jobs_per_gpu": 1,
+  "stop_on_error": false,
+  "extra_overrides": {
+    "batch_size": 128
+  }
+}

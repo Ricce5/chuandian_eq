@@ -135,6 +135,7 @@ def train_and_save(
     accumulation_steps = getattr(args, "accumulation_steps", 1)
     use_ema = getattr(args, "use_ema", False)
     ema_decay = getattr(args, "ema_decay", 0.999)
+    max_grad_norm = float(getattr(args, "max_grad_norm", 3.0))
 
     train_metrics = {}
     val_metrics = {}
@@ -164,6 +165,7 @@ def train_and_save(
             train_kwargs = {}
             if is_tpp_family(args.model):
                 train_kwargs["use_amp"] = getattr(args, "use_amp", False)
+            train_kwargs["max_grad_norm"] = max_grad_norm
 
             train_loss, train_metrics = train(
                 train_loader,

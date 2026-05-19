@@ -185,3 +185,32 @@ def test_full_window_feature_frame_global_t_elaps_uses_catalog_history():
     global_nan = out_global["T_elaps7"].isna().sum()
     assert global_nan <= window_nan
     assert np.any(~np.isclose(out_window["T_elaps7"], out_global["T_elaps7"], equal_nan=True))
+
+
+def test_window_feature_map_global_telaps_computed_even_when_subwindow_empty():
+    # sub-window contains no events, but global history has >= threshold events.
+    history_t = np.array([], dtype=float)
+    history_mag = np.array([], dtype=float)
+    global_t = np.array([10.0, 20.0, 30.0, 40.0], dtype=float)
+    global_mag = np.array([5.0, 6.2, 5.8, 6.6], dtype=float)
+    t_reference = 50.0
+    feature_cols = ["Num", "T_elaps6"]
+    elapsed_thresholds = {"T_elaps6": 6.0}
+
+    feature_map = event_pipeline._compute_window_feature_map(
+        history_t,
+        history_mag,
+        feature_cols=feature_cols,
+        Mc=3.0,
+        dMag=0.1,
+        t_reference=t_reference,
+        elapsed_thresholds=elapsed_thresholds,
+        t_elaps_mode="global",
+        global_t=global_t,
+        global_mag=global_mag,
+    )
+
+    # last global event >= 6.0 occurs at t=40.0
+    assert np.isclose(feature_map["T_elaps6"], 10.0)
+    # window-based scalar features remain NaN for empty local history.
+    assert np.isnan(feature_map["Num"])

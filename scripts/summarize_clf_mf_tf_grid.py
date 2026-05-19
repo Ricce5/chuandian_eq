@@ -54,8 +54,50 @@ def _group_sort_key(item):
     return tf, mf
 
 
+def _resolve_cfg_path(run_dir: Path, cfg_path_raw) -> Path | None:
+    candidates: List[Path] = []
+
+    if cfg_path_raw:
+        raw = Path(str(cfg_path_raw)).expanduser()
+        if raw.is_absolute():
+            candidates.append(raw.resolve())
+        else:
+            candidates.append((run_dir / raw).resolve())
+
+    candidates.extend(
+        [
+            run_dir / "config_input.yaml",
+            run_dir / "config.yaml",
+        ]
+    )
+
+    seen = set()
+    for path in candidates:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        if path.exists():
+            return path
+    return None
+
+
+def _dedupe_summary_rows(summary_rows: Sequence[Dict]) -> List[Dict]:
+    deduped: Dict[str, Dict] = {}
+    extras: List[Dict] = []
+
+    for item in summary_rows:
+        run_name = item.get("run")
+        if not run_name:
+            extras.append(item)
+            continue
+        deduped[str(run_name)] = item
+
+    return list(deduped.values()) + extras
+
+
 def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict]:
-    summary_rows = load_summary_rows(exp_dir)
+    summary_rows = _dedupe_summary_rows(load_summary_rows(exp_dir))
 
     rows: List[Dict] = []
     for item in summary_rows:
@@ -64,6 +106,7 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict
             continue
 
         run_dir = resolve_run_dir(exp_dir, str(run_name), item.get("run_dir"), ckpt_select="auto")
+        cfg_path = _resolve_cfg_path(run_dir, item.get("cfg_path"))
         metrics_path = find_metrics_file(run_dir, ckpt_select="auto")
         metrics = {}
         if metrics_path and metrics_path.exists():
@@ -74,6 +117,7 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict
         row = {
             "run": run_name,
             "run_dir": str(run_dir),
+            "cfg_path": str(cfg_path) if cfg_path else "",
             "metrics_path": str(metrics_path) if metrics_path else "",
             "Twindow": item.get("Twindow"),
             "Tfore": item.get("Tfore"),

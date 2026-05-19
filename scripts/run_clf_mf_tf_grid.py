@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 
 from omegaconf import OmegaConf
+import yaml
 
 from automation import (
     apply_exp_config_overrides,
@@ -23,6 +24,36 @@ from automation import (
 def _build_variant_name(tf, mf, seed):
     mf_str = str(mf).replace(".", "p")
     return f"tf_{tf}_mf_{mf_str}_seed_{seed}"
+
+
+def _parse_set_by_tf(raw) -> dict[int, dict]:
+    if raw is None:
+        return {}
+
+    if isinstance(raw, dict):
+        loaded = raw
+    else:
+        text = str(raw).strip()
+        if not text:
+            return {}
+        loaded = yaml.safe_load(text)
+
+    if loaded is None:
+        return {}
+    if not isinstance(loaded, dict):
+        raise ValueError("set_by_tf must be a mapping: {Tfore: {dotted.key: value, ...}, ...}")
+
+    out: dict[int, dict] = {}
+    for tf_raw, overrides in loaded.items():
+        tf = int(tf_raw)
+        if overrides is None:
+            continue
+        if not isinstance(overrides, dict):
+            raise ValueError(
+                f"set_by_tf[{tf}] must be a mapping of config overrides, got: {type(overrides)}"
+            )
+        out[tf] = dict(overrides)
+    return out
 
 
 def _build_parser():
@@ -95,6 +126,15 @@ def _build_parser():
         help=(
             "Optional per-Tfore focal alpha mapping. "
             "Format: tf:alpha,tf:alpha ; empty string disables alpha override."
+        ),
+    )
+    parser.add_argument(
+        "--set_by_tf",
+        type=str,
+        default="",
+        help=(
+            "Optional per-Tfore config overrides in YAML/JSON mapping string. "
+            "Example: '{10: {batch_size: 64}, 90: {batch_size: 64}}'."
         ),
     )
     parser.add_argument(
@@ -186,6 +226,7 @@ def _override_args_from_exp_config(args, exp_cfg: dict):
         "base_config": "base_config",
         "pair_mode": "pair_mode",
         "time_bias_type": "time_bias_type",
+        "set_by_tf": "set_by_tf",
         "clear_criterion_for_unmapped_tf": "clear_criterion_for_unmapped_tf",
         "apply_ref_profile": "apply_ref_profile",
         "resume_path_override": "resume_path_override",
@@ -240,6 +281,7 @@ def main():
     time_bias_map = parse_mapping(args.time_bias_by_tf, int, str)
     use_sampler_map = parse_mapping(args.use_sampler_by_tf, int, parse_bool_text)
     alpha_map = parse_mapping(args.alpha_by_tf, int, float)
+    set_by_tf_map = _parse_set_by_tf(getattr(args, "set_by_tf", ""))
     clear_criterion_for_unmapped_tf = parse_bool_text(args.clear_criterion_for_unmapped_tf)
     apply_ref_profile = parse_bool_text(args.apply_ref_profile)
 
@@ -279,6 +321,7 @@ def main():
         "time_bias_by_tf": time_bias_map,
         "use_sampler_by_tf": use_sampler_map,
         "alpha_by_tf": alpha_map,
+        "set_by_tf": set_by_tf_map,
         "apply_ref_profile": apply_ref_profile,
         "clear_criterion_for_unmapped_tf": clear_criterion_for_unmapped_tf,
         "max_parallel": max_parallel,
@@ -333,6 +376,10 @@ def main():
 
             for key, value in extra_overrides.items():
                 set_key(cfg, key, value)
+
+            if int(tf) in set_by_tf_map:
+                for key, value in set_by_tf_map[int(tf)].items():
+                    set_key(cfg, str(key), value)
 
             cfg_path = run_dir / "config_input.yaml"
             OmegaConf.save(cfg, str(cfg_path))
