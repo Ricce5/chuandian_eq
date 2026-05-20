@@ -659,3 +659,22 @@
 2026-05-19 17:04:45,103 INFO src.cli.workflows: Test loss: 0.027258535847067833
 2026-05-19 17:04:45,965 INFO src.cli.common: Saved test metrics to checkpoints/lstm_20260519-165848/metrics_test_last_1.json
 2026-05-19 17:04:45,966 INFO src.cli.common: Metrics: {'RMSE': 0.7786785802338432, 'MAE': 0.630647586343067, 'MSE': 0.6063403313149938, 'MAPE': 13.349332920574374, 'R2': -0.8119467090974293, 'PearsonR': 0.041928458831528355, 'PearsonR_diff': -0.07191252288834421, 'DA': 0.038461538461538464, 'SpearmanR': 0.016054864188288234, 'SpearmanR_diff': -0.0700384080804724, 'DTW': 60.26078748703003, 'DTW_normalized': 0.32929392069415314}
+2026-05-20 11:47:10,461 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-20 11:47:11,379 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/lstm_regressor/lstm_regressor_Mag_elaps_5.5-6-6.5-7_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_0_dt_10_feature_step_none_feature_window_none_lstm_feature_mode_external_sliding_time_step_5.pkl
+2026-05-20 11:47:12,970 INFO src.data.preparation_modules.lstm: Using legacy T_elaps NaN strategy: zero fill via clean_data.
+2026-05-20 11:47:12,972 INFO src.data.lstm_loader: Original number of samples: 1818, number of samples after cleaning: 1818
+2026-05-20 11:47:12,972 INFO src.data.lstm_loader: Replaced NaN values in X with 0.0
+2026-05-20 11:47:13,047 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-20 11:47:13,047 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-20 11:47:13,377 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-20 11:47:13,377 INFO src.train.config_setup: Full load summary: loaded=18, missing=0, unexpected=0
+2026-05-20 11:47:13,378 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-20 11:47:13,378 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-20 11:47:13,378 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-20 11:47:13,378 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-20 11:47:13,378 INFO src.train.config_setup: Using regression criterion: smooth_l1
+2026-05-20 11:47:13,378 INFO src.train.config_setup: Criterion config: {'beta': 0.6}
+2026-05-20 11:47:13,379 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-20 11:47:13,544 INFO src.cli.workflows: Test loss: 0.03064289502799511
+2026-05-20 11:47:14,023 INFO src.cli.common: Saved test metrics to checkpoints/lstm_20260519-165848/metrics_test_best_1.json
+2026-05-20 11:47:14,023 INFO src.cli.common: Metrics: {'RMSE': 0.8320974837089083, 'MAE': 0.7043770336713947, 'MSE': 0.692386222394697, 'MAPE': 15.351070195316241, 'R2': -1.069080469002687, 'PearsonR': 0.6316758466644686, 'PearsonR_diff': 0.021403092216236316, 'DA': 0.04395604395604396, 'SpearmanR': 0.38372786909866, 'SpearmanR_diff': 0.11068647303360549, 'DTW': 109.38378810882568, 'DTW_normalized': 0.5977256180810147}

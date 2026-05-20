@@ -15,6 +15,7 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 from src.utils.bootstrap_ci import (
     MultiModelCurveBootstrapResult,
     MultiModelBootstrapResult,
+    PointEstimateMode,
     SeedAggregationMethod,
     TaskType,
     bootstrap_multi_model_curve_ci,
@@ -162,6 +163,7 @@ def paired_metric_bootstrap(
     metric_config,
     use_hierarchical_seed_sample: bool,
     seed_aggregation: SeedAggregationMethod,
+    point_estimate_mode: PointEstimateMode = "ensemble",
     baseline_model: str | None = None,
     model_predictions: Mapping[str, Sequence[float] | np.ndarray] | None = None,
     model_seed_predictions: Mapping[str, Sequence[Sequence[float] | np.ndarray] | np.ndarray]
@@ -186,6 +188,7 @@ def paired_metric_bootstrap(
             config=metric_config,
             baseline_model=baseline_model,
             seed_aggregation=seed_aggregation,
+            point_estimate_mode=point_estimate_mode,
         )
 
     if not model_predictions:
@@ -276,6 +279,7 @@ def build_classification_bootstrap_export_rows(
     threshold_optimize_metric: str,
     use_hierarchical_seed_sample: bool,
     seed_aggregation: SeedAggregationMethod = "mean",
+    point_estimate_mode: PointEstimateMode = "ensemble",
     baseline_model: str | None = None,
     sort_export_by: Sequence[str] = ("Mf", "Tfore", "model"),
     sort_delta_by: Sequence[str] = ("Mf", "Tfore", "comparison"),
@@ -334,6 +338,7 @@ def build_classification_bootstrap_export_rows(
             metric_config=bootstrap_preset.metric_config(seed=int(auc_seed_base + i)),
             use_hierarchical_seed_sample=use_hierarchical_seed_sample,
             seed_aggregation=seed_aggregation,
+            point_estimate_mode=point_estimate_mode,
             baseline_model=effective_baseline,
             model_predictions=model_predictions,
             model_seed_predictions=model_seed_predictions,
@@ -345,6 +350,7 @@ def build_classification_bootstrap_export_rows(
             metric_config=bootstrap_preset.metric_config(seed=int(ap_seed_base + i)),
             use_hierarchical_seed_sample=use_hierarchical_seed_sample,
             seed_aggregation=seed_aggregation,
+            point_estimate_mode=point_estimate_mode,
             baseline_model=effective_baseline,
             model_predictions=model_predictions,
             model_seed_predictions=model_seed_predictions,
@@ -569,6 +575,7 @@ def build_rf_em_window_ci_cache(
     bootstrap_preset,
     use_hierarchical_seed_sample: bool,
     seed_aggregation: SeedAggregationMethod = "mean",
+    point_estimate_mode: PointEstimateMode = "ensemble",
     left_model_name: str = "RF",
     right_model_name: str = "EM-EQF",
     roc_seed_base: int = 100,
@@ -634,6 +641,7 @@ def build_rf_em_window_ci_cache(
             metric_config=bootstrap_preset.metric_config(seed=int(auc_seed_base + i)),
             use_hierarchical_seed_sample=use_hierarchical_seed_sample,
             seed_aggregation=seed_aggregation,
+            point_estimate_mode=point_estimate_mode,
             baseline_model=right_model_name,
             model_predictions=model_predictions,
             model_seed_predictions=model_seed_predictions,
@@ -645,6 +653,7 @@ def build_rf_em_window_ci_cache(
             metric_config=bootstrap_preset.metric_config(seed=int(ap_seed_base + i)),
             use_hierarchical_seed_sample=use_hierarchical_seed_sample,
             seed_aggregation=seed_aggregation,
+            point_estimate_mode=point_estimate_mode,
             baseline_model=right_model_name,
             model_predictions=model_predictions,
             model_seed_predictions=model_seed_predictions,

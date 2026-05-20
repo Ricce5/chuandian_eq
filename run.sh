@@ -39,23 +39,10 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
 
 
 
-  python scripts/run_clf_mf_tf_grid.py \
-    --mfs 4,4.5,4.5,5,5.5 \
-    --seeds 0,1,2 \
-    --exp_name clf_mf_tf_multi_seed_$(date +%Y%m%d-%H%M%S)
-
-
-  python scripts/run_clf_mf_tf_grid.py \
-    --tfs 10,20,30,60,90 \
-    --mfs 4,4.5,4.5,5,5.5 \
-    --seeds 0,1,2 \
-    --max_parallel 3 \
-    --gpu_ids 0 \
-    --exp_name clf_grid_parallel_1
 
   python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_tf_90_stability_grid_v2 --best_metric auc
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_2  --best_metric auc
    python scripts/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_grid_max_grad_norm  --ckpt_select last
 
 

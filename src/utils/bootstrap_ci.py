@@ -36,6 +36,7 @@ CurveType = Literal["roc", "pr"]
 MetricName = Literal["auc", "ap", "mse", "rmse", "mae", "r2"]
 MetricLike = MetricName | str | Callable[[np.ndarray, np.ndarray], float]
 SeedAggregationMethod = Literal["mean", "median"]
+PointEstimateMode = Literal["ensemble", "mean"]
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,7 @@ __all__ = [
     "bootstrap_multi_model_curve_ci",
     "bootstrap_multi_model_metric_ci",
     "bootstrap_multi_model_metric_ci_hierarchical",
+    "PointEstimateMode",
     "bootstrap_curve_ci",
     "bootstrap_metric_ci",
 ]
@@ -1032,14 +1034,18 @@ def bootstrap_multi_model_metric_ci_hierarchical(
     config: BootstrapConfig | None = None,
     baseline_model: str | None = None,
     seed_aggregation: SeedAggregationMethod = "mean",
+    point_estimate_mode: PointEstimateMode = "ensemble",
 ) -> MultiModelBootstrapResult:
     """Hierarchical paired bootstrap over ``seed + sample`` for aligned models.
 
     Workflow per resample:
     1) Sample seed indices with replacement (same indices shared by all models).
     2) Sample observation indices according to ``config.sampling``.
-    3) Aggregate per-seed predictions to one vector using ``seed_aggregation``.
-    4) Compute metric per model and pairwise deltas on the paired resample.
+    3) Compute per-model metric according to ``point_estimate_mode``:
+       - ``"ensemble"``: aggregate per-seed predictions with ``seed_aggregation``
+         then evaluate metric once;
+       - ``"mean"``: evaluate each seed prediction separately and average metrics.
+    4) Compute pairwise deltas on the paired resample.
 
     This captures both seed-level variability and sample-level variability.
     """
@@ -1050,6 +1056,11 @@ def bootstrap_multi_model_metric_ci_hierarchical(
     cfg = config or BootstrapConfig()
     if cfg.n_resamples <= 0:
         raise ValueError("config.n_resamples must be positive.")
+    if point_estimate_mode not in ("ensemble", "mean"):
+        raise ValueError(
+            f"Unsupported point_estimate_mode: {point_estimate_mode!r}. "
+            "Expected 'ensemble' or 'mean'."
+        )
 
     y_true_arr, seed_pred_map, n_seeds = _prepare_multi_model_seed_predictions(
         y_true,
@@ -1074,11 +1085,18 @@ def bootstrap_multi_model_metric_ci_hierarchical(
 
     point_values: dict[str, float] = {}
     for name in model_names:
-        agg_full = _aggregate_seed_prediction_matrix(
-            seed_pred_map[name],
-            method=seed_aggregation,
-        )
-        point_values[name] = float(metric_fn(y_true_arr, agg_full))
+        if point_estimate_mode == "ensemble":
+            agg_full = _aggregate_seed_prediction_matrix(
+                seed_pred_map[name],
+                method=seed_aggregation,
+            )
+            point_values[name] = float(metric_fn(y_true_arr, agg_full))
+        else:
+            seed_values = [
+                float(metric_fn(y_true_arr, seed_pred_map[name][seed_idx]))
+                for seed_idx in range(n_seeds)
+            ]
+            point_values[name] = float(np.mean(np.asarray(seed_values, dtype=np.float64)))
 
     samples_by_model: dict[str, list[float]] = {name: [] for name in model_names}
     for _ in range(cfg.n_resamples):
@@ -1092,9 +1110,18 @@ def bootstrap_multi_model_metric_ci_hierarchical(
         failed = False
         for name in model_names:
             seed_matrix = seed_pred_map[name][seed_idx][:, obs_idx]
-            yp = _aggregate_seed_prediction_matrix(seed_matrix, method=seed_aggregation)
             try:
-                batch_values[name] = float(metric_fn(yt, yp))
+                if point_estimate_mode == "ensemble":
+                    yp = _aggregate_seed_prediction_matrix(seed_matrix, method=seed_aggregation)
+                    batch_values[name] = float(metric_fn(yt, yp))
+                else:
+                    seed_metric_values = [
+                        float(metric_fn(yt, seed_matrix[row_idx]))
+                        for row_idx in range(seed_matrix.shape[0])
+                    ]
+                    batch_values[name] = float(
+                        np.mean(np.asarray(seed_metric_values, dtype=np.float64))
+                    )
             except Exception:
                 failed = True
                 break

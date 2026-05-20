@@ -103,6 +103,7 @@ def test_build_classification_bootstrap_export_rows_returns_expected_fields():
         threshold_optimize_metric="f1",
         use_hierarchical_seed_sample=True,
         seed_aggregation="mean",
+        point_estimate_mode="mean",
         baseline_model="EM-EQF",
         window_model_rows_getter=lambda row: row["models"],
     )
@@ -154,6 +155,7 @@ def test_build_rf_em_window_ci_cache_outputs_expected_keys():
         bootstrap_preset=preset,
         use_hierarchical_seed_sample=True,
         seed_aggregation="mean",
+        point_estimate_mode="mean",
     )
     assert len(ci_cache) == 2
     item = ci_cache[0]
@@ -220,6 +222,7 @@ def test_compute_regression_paired_block_bootstrap_tables_non_hierarchical():
         baseline_model="B",
         use_hierarchical_seed_sample=False,
         seed_aggregation="mean",
+        point_estimate_mode="ensemble",
         experiments=None,
         device="cpu",
         project_root=None,
@@ -234,4 +237,3 @@ def test_compute_regression_paired_block_bootstrap_tables_non_hierarchical():
     assert set(model_df["metric"].unique()) == {"rmse", "mae"}
     assert "ci_95" in model_df.columns
     assert "ci_95" in delta_df.columns
-

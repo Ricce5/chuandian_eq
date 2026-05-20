@@ -309,3 +309,46 @@ def test_bootstrap_multi_model_metric_ci_hierarchical_validates_seed_count_align
         assert "same number of seed predictions" in str(exc)
     else:
         raise AssertionError("Expected ValueError for mismatched per-model seed counts.")
+
+
+def test_bootstrap_multi_model_metric_ci_hierarchical_point_estimate_mode_mean_differs_from_ensemble():
+    y_true, y_prob_base = _make_binary_data(seed=515)
+    rng = np.random.default_rng(516)
+    n = y_prob_base.shape[0]
+    n_seeds = 3
+
+    seed_preds_a = []
+    seed_preds_b = []
+    for _ in range(n_seeds):
+        noise_a = 0.08 * rng.normal(size=n)
+        noise_b = 0.10 * rng.normal(size=n)
+        seed_preds_a.append(np.clip(y_prob_base + noise_a, 1e-6, 1 - 1e-6))
+        seed_preds_b.append(np.clip(y_prob_base - 0.06 + noise_b, 1e-6, 1 - 1e-6))
+
+    config = BootstrapConfig(n_resamples=64, seed=517, sampling="block", block_size=8)
+    ensemble_result = bootstrap_multi_model_metric_ci_hierarchical(
+        y_true,
+        {"model_a": seed_preds_a, "model_b": seed_preds_b},
+        metric="auc",
+        baseline_model="model_b",
+        seed_aggregation="mean",
+        point_estimate_mode="ensemble",
+        config=config,
+    )
+    mean_result = bootstrap_multi_model_metric_ci_hierarchical(
+        y_true,
+        {"model_a": seed_preds_a, "model_b": seed_preds_b},
+        metric="auc",
+        baseline_model="model_b",
+        seed_aggregation="mean",
+        point_estimate_mode="mean",
+        config=config,
+    )
+
+    assert "model_a" in ensemble_result.model_results
+    assert "model_a" in mean_result.model_results
+    est_ensemble = ensemble_result.model_results["model_a"].point_estimate
+    est_mean = mean_result.model_results["model_a"].point_estimate
+    assert np.isfinite(est_ensemble)
+    assert np.isfinite(est_mean)
+    assert abs(float(est_ensemble) - float(est_mean)) > 1e-7

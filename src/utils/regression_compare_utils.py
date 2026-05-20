@@ -16,6 +16,7 @@ import pandas as pd
 from src.utils.classifier_compare_utils import paired_metric_bootstrap
 from src.utils.bootstrap_ci import (
     BootstrapConfig,
+    PointEstimateMode,
     SeedAggregationMethod,
     resolve_seed_checkpoint_paths,
 )
@@ -334,6 +335,7 @@ def compute_regression_paired_block_bootstrap_tables(
     baseline_model: str | None,
     use_hierarchical_seed_sample: bool,
     seed_aggregation: SeedAggregationMethod,
+    point_estimate_mode: PointEstimateMode = "ensemble",
     experiments: Sequence[Mapping[str, Any]] | None,
     device: Any,
     project_root: Path,
@@ -396,6 +398,7 @@ def compute_regression_paired_block_bootstrap_tables(
                 metric_config=config,
                 use_hierarchical_seed_sample=use_hierarchical_seed_sample,
                 seed_aggregation=seed_aggregation,
+                point_estimate_mode=point_estimate_mode,
                 baseline_model=effective_baseline_model,
                 model_predictions=model_predictions,
                 model_seed_predictions=model_seed_predictions,
@@ -455,4 +458,3 @@ def compute_regression_paired_block_bootstrap_tables(
         )
 
     return model_df, delta_df, common_n_seeds
-
