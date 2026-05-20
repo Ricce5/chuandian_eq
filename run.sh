@@ -95,7 +95,7 @@ best,last --config config/reg_mixer_attnpl_t.yaml --model reg_mixer_attnpl_t
 
   python scripts/run_lstm_mf_tf_grid.py --exp_config config/experiments/lstm_mf_tf_grid.yaml
 
-  python scripts/summarize_lstm_mf_tf_grid.py --exp_dir experiments/lstm_seed --best_metric MAE --best_mode min
+  python scripts/summarize_lstm_mf_tf_grid.py --exp_dir experiments/lstm_5_seeds_v6 --best_metric MAE --best_mode min
 
     python scripts/run_reg_mixer_attnpl_grid.py \
     --exp_config config/experiments/reg_mixer_attnpl_grid.yaml

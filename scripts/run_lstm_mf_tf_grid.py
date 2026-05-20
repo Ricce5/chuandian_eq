@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import re
 from pathlib import Path
 
 from omegaconf import OmegaConf
@@ -15,6 +16,7 @@ from automation import (
     parse_optional_csv,
     parse_set_overrides,
     set_key,
+    try_load_summary,
 )
 
 
@@ -23,11 +25,149 @@ def _build_variant_name(tf, mf, seed):
     return f"tf_{tf}_mf_{mf_str}_seed_{seed}"
 
 
+def _normalize_run_name(raw: str, fallback: str):
+    text = str(raw or "").strip()
+    if not text:
+        text = fallback
+    text = re.sub(r"[^0-9a-zA-Z._-]+", "_", text)
+    text = text.strip("._-")
+    return text or fallback
+
+
+def _expand_grid_to_points(exp_cfg: dict):
+    """
+    Expand exp config key `grid` into a normalized points list for lstm grids.
+
+    Supported schema:
+      grid:
+        name_prefix: tf180                  # optional
+        common:                             # optional
+          Tfore: 180                        # optional
+          Mf: 3                             # optional
+          Twindow: 360                      # optional
+          dt: 10                            # optional
+          context_len: 0                    # optional
+          seed: 0 | seeds: [0,1,2]          # optional
+          criterion_name: smooth_l1         # optional
+          criterion_beta: 0.2               # optional
+          overrides: {...}                  # optional
+        points:                             # required non-empty list
+          - name: p1                        # optional
+            overrides: {...}                # optional
+            # point-level keys can override common keys
+    """
+    if not isinstance(exp_cfg, dict):
+        return None
+
+    grid_cfg = exp_cfg.get("grid")
+    if grid_cfg is None:
+        return None
+    if not isinstance(grid_cfg, dict):
+        raise ValueError("exp config key `grid` must be a mapping/object.")
+
+    points = grid_cfg.get("points")
+    if not isinstance(points, list) or not points:
+        raise ValueError("exp config key `grid.points` must be a non-empty list.")
+
+    name_prefix = str(grid_cfg.get("name_prefix", "grid")).strip()
+    common = grid_cfg.get("common", {})
+    if common is None:
+        common = {}
+    if not isinstance(common, dict):
+        raise ValueError("exp config key `grid.common` must be a mapping/object.")
+
+    common_overrides = common.get("overrides", {})
+    if common_overrides is None:
+        common_overrides = {}
+    if not isinstance(common_overrides, dict):
+        raise ValueError("exp config key `grid.common.overrides` must be a mapping/object.")
+
+    reserved_keys = {
+        "name",
+        "Twindow",
+        "Tfore",
+        "Mf",
+        "dt",
+        "context_len",
+        "seed",
+        "seeds",
+        "criterion_name",
+        "criterion_beta",
+        "overrides",
+    }
+    forward_keys = {
+        "Twindow",
+        "Tfore",
+        "Mf",
+        "dt",
+        "context_len",
+        "seed",
+        "seeds",
+        "criterion_name",
+        "criterion_beta",
+    }
+
+    expanded = []
+    for idx, point in enumerate(points):
+        if not isinstance(point, dict):
+            raise ValueError(f"grid.points[{idx}] must be a mapping/object.")
+
+        point_overrides = point.get("overrides", {})
+        if point_overrides is None:
+            point_overrides = {}
+        if not isinstance(point_overrides, dict):
+            raise ValueError(f"grid.points[{idx}].overrides must be a mapping/object.")
+
+        point_name_raw = point.get("name", f"{idx + 1:02d}")
+        point_name = _normalize_run_name(point_name_raw, fallback=f"{idx + 1:02d}")
+        if name_prefix:
+            variant_name = _normalize_run_name(
+                f"{name_prefix}_{point_name}",
+                fallback=f"{name_prefix}_{idx + 1:02d}",
+            )
+        else:
+            variant_name = point_name
+
+        merged = {"name": variant_name}
+        for key in forward_keys:
+            if key in common:
+                merged[key] = common[key]
+            if key in point:
+                merged[key] = point[key]
+
+        shorthand_overrides = {
+            key: value
+            for key, value in point.items()
+            if key not in reserved_keys
+        }
+        merged_overrides = {}
+        merged_overrides.update(common_overrides)
+        merged_overrides.update(shorthand_overrides)
+        merged_overrides.update(point_overrides)
+        merged["overrides"] = merged_overrides
+
+        expanded.append(merged)
+
+    return expanded
+
+
+def _resolve_point_seeds(point: dict, default_seeds: list[int]) -> list[int]:
+    if "seeds" in point and point.get("seeds") is not None:
+        raw = point.get("seeds")
+        if isinstance(raw, (list, tuple)):
+            return [int(x) for x in raw]
+        return parse_optional_csv(str(raw), int)
+    if "seed" in point and point.get("seed") is not None:
+        return [int(point.get("seed"))]
+    return [int(x) for x in default_seeds]
+
+
 def _build_parser():
     parser = argparse.ArgumentParser(
         description=(
-            "Batch run LSTM over (Tfore, Mf, seed) grid. "
-            "Each run writes checkpoint to a subfolder under one new experiments folder."
+            "Batch run LSTM in two modes: "
+            "matrix (tfs x mfs x seeds) or "
+            "grid (expand grid.points then run)."
         )
     )
     parser.add_argument("--model", type=str, default="lstm")
@@ -35,7 +175,10 @@ def _build_parser():
         "--exp_config",
         type=str,
         default=None,
-        help="Path to external experiment config (.yaml/.yml/.json). If provided, overrides CLI args.",
+        help=(
+            "Path to external experiment config (.yaml/.yml/.json). "
+            "Supports matrix keys (tfs/mfs/seeds) or grid.points."
+        ),
     )
     parser.add_argument("--base_config", type=str, default="config/lstm.yaml")
     parser.add_argument(
@@ -62,7 +205,8 @@ def _build_parser():
         default="false",
         choices=["true", "false"],
         help=(
-            "true: zip tfs and mfs as pairs; false: full cartesian product of all tfs x mfs."
+            "true: zip tfs and mfs as pairs; false: full cartesian product of all tfs x mfs. "
+            "Ignored when exp_config.grid.points is used."
         ),
     )
     parser.add_argument(
@@ -137,6 +281,16 @@ def _build_parser():
         action="store_true",
         help="Stop scheduling new runs once any run fails.",
     )
+    parser.add_argument(
+        "--resume_exp",
+        action="store_true",
+        help="Resume existing experiment folder if exp_name already exists.",
+    )
+    parser.add_argument(
+        "--skip_done",
+        action="store_true",
+        help="Skip runs that already have successful train/test results in summary.json.",
+    )
     return parser
 
 
@@ -158,6 +312,8 @@ def _override_args_from_exp_config(args, exp_cfg: dict):
         "max_parallel": "max_parallel",
         "jobs_per_gpu": "jobs_per_gpu",
         "stop_on_error": "stop_on_error",
+        "resume_exp": "resume_exp",
+        "skip_done": "skip_done",
     }
     csv_like_keys = {
         "tfs": "tfs",
@@ -173,23 +329,30 @@ def main():
     parser = _build_parser()
     args = parser.parse_args()
 
+    exp_cfg = {}
     exp_cfg_path = None
     if args.exp_config:
         exp_cfg_path = Path(args.exp_config).resolve()
         exp_cfg = load_exp_config(exp_cfg_path)
         args = _override_args_from_exp_config(args, exp_cfg)
 
-    tfs = parse_optional_csv(args.tfs, int)
-    mfs = parse_optional_csv(args.mfs, float)
     seeds = parse_optional_csv(args.seeds, int)
-    if not tfs:
-        raise ValueError("No Tfore values found.")
-    if not mfs:
-        raise ValueError("No Mf values found.")
     if not seeds:
         raise ValueError("No seed values found.")
 
-    tf_mf_pairs, pair_mode = build_tf_mf_pairs(tfs=tfs, mfs=mfs, pair_mode_raw=args.pair_mode)
+    grid_points = _expand_grid_to_points(exp_cfg) if exp_cfg else None
+    if grid_points is None:
+        tfs = parse_optional_csv(args.tfs, int)
+        mfs = parse_optional_csv(args.mfs, float)
+        if not tfs:
+            raise ValueError("No Tfore values found.")
+        if not mfs:
+            raise ValueError("No Mf values found.")
+
+        tf_mf_pairs, pair_mode = build_tf_mf_pairs(tfs=tfs, mfs=mfs, pair_mode_raw=args.pair_mode)
+    else:
+        tf_mf_pairs = []
+        pair_mode = "grid"
     extra_overrides = parse_set_overrides(args.set)
 
     workspace = create_experiment_workspace(
@@ -199,9 +362,10 @@ def main():
         exp_name=args.exp_name,
         default_name_prefix="lstm_mf_tf_grid",
         exp_cfg_path=exp_cfg_path,
-        allow_existing_without_resume=True,
+        resume_exp=bool(args.resume_exp),
         base_snapshot_prefix="base_",
     )
+    existing_summary, existing_by_run = try_load_summary(workspace.exp_dir / "summary.json")
 
     gpu_ids = parse_optional_csv(args.gpu_ids, int)
     max_parallel, jobs_per_gpu = adjust_parallel_limits(
@@ -221,7 +385,25 @@ def main():
             else None
         ),
         "pair_mode": pair_mode,
-        "pairs": [{"Tfore": tf, "Mf": mf} for tf, mf in tf_mf_pairs],
+        "pairs": (
+            [{"Tfore": tf, "Mf": mf} for tf, mf in tf_mf_pairs]
+            if grid_points is None
+            else [
+                {
+                    "name": point.get("name"),
+                    "Twindow": point.get("Twindow"),
+                    "Tfore": point.get("Tfore"),
+                    "Mf": point.get("Mf"),
+                    "dt": point.get("dt"),
+                    "context_len": point.get("context_len"),
+                    "seed": point.get("seed"),
+                    "seeds": point.get("seeds"),
+                    "criterion_name": point.get("criterion_name"),
+                    "criterion_beta": point.get("criterion_beta"),
+                }
+                for point in grid_points
+            ]
+        ),
         "seeds": seeds,
         "criterion_name": args.criterion_name,
         "criterion_beta": args.criterion_beta,
@@ -229,48 +411,59 @@ def main():
         "gpu_ids": gpu_ids,
         "jobs_per_gpu": jobs_per_gpu,
         "stop_on_error": bool(args.stop_on_error),
+        "resume_exp": bool(args.resume_exp),
+        "skip_done": bool(args.skip_done),
         "extra_overrides": extra_overrides,
     }
     dump_json(workspace.exp_dir / "plan.json", plan)
 
     tasks = []
-    for tf, mf in tf_mf_pairs:
-        for seed in seeds:
-            variant_name = _build_variant_name(tf=tf, mf=mf, seed=seed)
-            run_dir = workspace.runs_dir / variant_name
-            run_dir.mkdir(parents=True, exist_ok=True)
+    if grid_points is None:
+        for tf, mf in tf_mf_pairs:
+            for seed in seeds:
+                variant_name = _build_variant_name(tf=tf, mf=mf, seed=seed)
+                run_dir = workspace.runs_dir / variant_name
+                run_dir.mkdir(parents=True, exist_ok=True)
 
-            cfg = OmegaConf.load(str(workspace.base_config_path))
-            cfg.Twindow = int(args.twindow)
-            cfg.Tfore = int(tf)
-            cfg.Mf = float(mf)
-            cfg.dt = int(args.dt)
-            cfg.context_len = int(args.context_len)
-            cfg.seed = int(seed)
+                cfg = OmegaConf.load(str(workspace.base_config_path))
+                cfg.Twindow = int(args.twindow)
+                cfg.Tfore = int(tf)
+                cfg.Mf = float(mf)
+                cfg.dt = int(args.dt)
+                cfg.context_len = int(args.context_len)
+                cfg.seed = int(seed)
 
-            if args.criterion_name is not None:
-                cfg.criterion_name = args.criterion_name
-            if args.criterion_beta is not None:
-                if "criterion_cfg" not in cfg or cfg.criterion_cfg is None:
-                    cfg.criterion_cfg = {}
-                cfg.criterion_cfg.beta = float(args.criterion_beta)
+                if args.criterion_name is not None:
+                    cfg.criterion_name = args.criterion_name
+                if args.criterion_beta is not None:
+                    if "criterion_cfg" not in cfg or cfg.criterion_cfg is None:
+                        cfg.criterion_cfg = {}
+                    cfg.criterion_cfg.beta = float(args.criterion_beta)
 
-            for key, value in extra_overrides.items():
-                set_key(cfg, key, value)
+                for key, value in extra_overrides.items():
+                    set_key(cfg, key, value)
 
-            cfg_path = run_dir / "config_input.yaml"
-            OmegaConf.save(cfg, str(cfg_path))
+                cfg_path = run_dir / "config_input.yaml"
+                OmegaConf.save(cfg, str(cfg_path))
 
-            criterion_beta = None
-            if (
-                "criterion_cfg" in cfg
-                and cfg.criterion_cfg is not None
-                and "beta" in cfg.criterion_cfg
-            ):
-                criterion_beta = float(cfg.criterion_cfg.beta)
+                criterion_beta = None
+                if (
+                    "criterion_cfg" in cfg
+                    and cfg.criterion_cfg is not None
+                    and "beta" in cfg.criterion_cfg
+                ):
+                    criterion_beta = float(cfg.criterion_cfg.beta)
 
-            tasks.append(
-                {
+                skip_reason = None
+                if args.skip_done:
+                    prev = existing_by_run.get(variant_name)
+                    if isinstance(prev, dict):
+                        train_ok = prev.get("train_returncode") in (None, 0)
+                        test_ok = prev.get("test_returncode") in (None, 0)
+                        if train_ok and test_ok:
+                            skip_reason = "summary_done"
+
+                task = {
                     "run": variant_name,
                     "Twindow": int(args.twindow),
                     "Tfore": int(tf),
@@ -281,7 +474,125 @@ def main():
                     "run_dir": str(run_dir),
                     "cfg_path": str(cfg_path),
                 }
+                if skip_reason is None:
+                    tasks.append(task)
+    else:
+        for point in grid_points:
+            if "Tfore" not in point or point.get("Tfore") is None:
+                raise ValueError(f"grid point {point.get('name')} missing required key: Tfore")
+            if "Mf" not in point or point.get("Mf") is None:
+                raise ValueError(f"grid point {point.get('name')} missing required key: Mf")
+
+            tf = int(point.get("Tfore"))
+            mf = float(point.get("Mf"))
+            point_name = str(point.get("name") or "grid")
+            point_seeds = _resolve_point_seeds(point, default_seeds=seeds)
+            if not point_seeds:
+                raise ValueError(f"grid point {point_name} resolved empty seeds.")
+
+            point_overrides = point.get("overrides", {})
+            if point_overrides is None:
+                point_overrides = {}
+            if not isinstance(point_overrides, dict):
+                raise ValueError(f"grid point {point_name} overrides must be mapping/object.")
+
+            point_twindow = int(point.get("Twindow", args.twindow))
+            point_dt = int(point.get("dt", args.dt))
+            point_context_len = int(point.get("context_len", args.context_len))
+
+            has_point_criterion_name = "criterion_name" in point
+            has_point_criterion_beta = "criterion_beta" in point
+            point_criterion_name = (
+                point.get("criterion_name") if has_point_criterion_name else args.criterion_name
             )
+            point_criterion_beta = (
+                point.get("criterion_beta") if has_point_criterion_beta else args.criterion_beta
+            )
+
+            for seed in point_seeds:
+                variant_name = _normalize_run_name(
+                    f"{point_name}_seed_{int(seed)}",
+                    fallback=f"grid_seed_{int(seed)}",
+                )
+                run_dir = workspace.runs_dir / variant_name
+                run_dir.mkdir(parents=True, exist_ok=True)
+
+                cfg = OmegaConf.load(str(workspace.base_config_path))
+                cfg.Twindow = int(point_twindow)
+                cfg.Tfore = int(tf)
+                cfg.Mf = float(mf)
+                cfg.dt = int(point_dt)
+                cfg.context_len = int(point_context_len)
+                cfg.seed = int(seed)
+
+                if point_criterion_name is not None:
+                    cfg.criterion_name = point_criterion_name
+                elif has_point_criterion_name:
+                    cfg.pop("criterion_name", None)
+
+                if point_criterion_beta is not None:
+                    if "criterion_cfg" not in cfg or cfg.criterion_cfg is None:
+                        cfg.criterion_cfg = {}
+                    cfg.criterion_cfg.beta = float(point_criterion_beta)
+                elif has_point_criterion_beta and "criterion_cfg" in cfg and cfg.criterion_cfg is not None:
+                    cfg.criterion_cfg.pop("beta", None)
+
+                for key, value in extra_overrides.items():
+                    set_key(cfg, key, value)
+                for key, value in point_overrides.items():
+                    set_key(cfg, str(key), value)
+
+                cfg_path = run_dir / "config_input.yaml"
+                OmegaConf.save(cfg, str(cfg_path))
+
+                criterion_beta = None
+                if (
+                    "criterion_cfg" in cfg
+                    and cfg.criterion_cfg is not None
+                    and "beta" in cfg.criterion_cfg
+                ):
+                    criterion_beta = float(cfg.criterion_cfg.beta)
+
+                skip_reason = None
+                if args.skip_done:
+                    prev = existing_by_run.get(variant_name)
+                    if isinstance(prev, dict):
+                        train_ok = prev.get("train_returncode") in (None, 0)
+                        test_ok = prev.get("test_returncode") in (None, 0)
+                        if train_ok and test_ok:
+                            skip_reason = "summary_done"
+
+                task = {
+                    "run": variant_name,
+                    "Twindow": int(point_twindow),
+                    "Tfore": tf,
+                    "Mf": mf,
+                    "seed": int(seed),
+                    "criterion_name": getattr(cfg, "criterion_name", None),
+                    "criterion_beta": criterion_beta,
+                    "run_dir": str(run_dir),
+                    "cfg_path": str(cfg_path),
+                }
+                if skip_reason is None:
+                    tasks.append(task)
+
+    skipped_count = 0
+    if args.skip_done:
+        if grid_points is None:
+            total_planned = len(tf_mf_pairs) * len(seeds)
+        else:
+            total_planned = 0
+            for point in grid_points:
+                if not isinstance(point, dict):
+                    continue
+                point_seeds = _resolve_point_seeds(point, default_seeds=seeds)
+                total_planned += len(point_seeds)
+        skipped_count = max(0, total_planned - len(tasks))
+        print(f"[INFO] skip_done enabled: {skipped_count} skipped, {len(tasks)} to run.")
+
+    if not tasks:
+        print("[INFO] No pending tasks to run.")
+        return
 
     execute_tasks(
         tasks=tasks,
@@ -292,6 +603,7 @@ def main():
         max_parallel=max_parallel,
         jobs_per_gpu=jobs_per_gpu,
         stop_on_error=bool(args.stop_on_error),
+        initial_summary=existing_summary,
     )
 
     print(f"\nDone. Experiment folder: {workspace.exp_dir}")

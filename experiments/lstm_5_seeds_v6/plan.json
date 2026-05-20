@@ -1,0 +1,65 @@
+{
+  "model": "lstm",
+  "base_config": "/root/autodl-tmp/em_eqf/config/lstm.yaml",
+  "base_config_snapshot": "/root/autodl-tmp/em_eqf/experiments/lstm_5_seeds_v6/configs/base_lstm.yaml",
+  "exp_config": "/root/autodl-tmp/em_eqf/config/experiments/lstm_mf_tf_grid.yaml",
+  "exp_config_snapshot": "/root/autodl-tmp/em_eqf/experiments/lstm_5_seeds_v6/configs/lstm_mf_tf_grid.yaml",
+  "pair_mode": "grid",
+  "pairs": [
+    {
+      "name": "lstm__base",
+      "Twindow": null,
+      "Tfore": 180,
+      "Mf": 3,
+      "dt": null,
+      "context_len": null,
+      "seed": null,
+      "seeds": null,
+      "criterion_name": null,
+      "criterion_beta": null
+    },
+    {
+      "name": "lstm__top_h64_l2_bs128_step_wd1e2",
+      "Twindow": null,
+      "Tfore": 180,
+      "Mf": 3,
+      "dt": null,
+      "context_len": null,
+      "seed": null,
+      "seeds": null,
+      "criterion_name": null,
+      "criterion_beta": null
+    },
+    {
+      "name": "lstm__top_h64_l2_bs128",
+      "Twindow": null,
+      "Tfore": 180,
+      "Mf": 3,
+      "dt": null,
+      "context_len": null,
+      "seed": null,
+      "seeds": null,
+      "criterion_name": null,
+      "criterion_beta": null
+    }
+  ],
+  "seeds": [
+    0,
+    2,
+    3,
+    4,
+    7,
+    8
+  ],
+  "criterion_name": "smooth_l1",
+  "criterion_beta": 0.6,
+  "max_parallel": 3,
+  "gpu_ids": [
+    0
+  ],
+  "jobs_per_gpu": 3,
+  "stop_on_error": false,
+  "resume_exp": true,
+  "skip_done": true,
+  "extra_overrides": {}
+}

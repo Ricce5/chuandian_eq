@@ -10,6 +10,7 @@ __all__ = [
     "bootstrap_ci",
     "bootstrap_presets",
     "classifier_compare_utils",
+    "regression_compare_utils",
     "catalog_pathing",
     "catalog_tests",
     "catalog_utils",

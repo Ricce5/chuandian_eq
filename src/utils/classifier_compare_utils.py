@@ -7,15 +7,17 @@ moving repeated data-processing logic into importable functions.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
 from src.utils.bootstrap_ci import (
+    MultiModelCurveBootstrapResult,
     MultiModelBootstrapResult,
     SeedAggregationMethod,
     TaskType,
+    bootstrap_multi_model_curve_ci,
     bootstrap_multi_model_metric_ci,
     bootstrap_multi_model_metric_ci_hierarchical,
 )
@@ -168,7 +170,10 @@ def paired_metric_bootstrap(
 ) -> MultiModelBootstrapResult:
     """Run paired metric bootstrap in either ensemble or hierarchical mode."""
 
-    y_true_arr = np.asarray(y_true).astype(int).reshape(-1)
+    if task == "classification":
+        y_true_arr = np.asarray(y_true).astype(int).reshape(-1)
+    else:
+        y_true_arr = np.asarray(y_true, dtype=np.float64).reshape(-1)
 
     if use_hierarchical_seed_sample:
         if not model_seed_predictions:
@@ -194,6 +199,500 @@ def paired_metric_bootstrap(
         config=metric_config,
         baseline_model=baseline_model,
     )
+
+
+def _default_window_model_rows(
+    window_row: Mapping[str, Any],
+    *,
+    left_model_name: str = "RF",
+    right_model_name: str = "EM-EQF",
+) -> dict[str, dict[str, Any]]:
+    """Normalize per-window notebook row to ``{model_name: model_payload}``.
+
+    Supports both:
+    1) modern shape with ``window_row["models"]``;
+    2) legacy two-model shape used by baseline notebook.
+    """
+
+    if "models" in window_row:
+        model_rows = window_row["models"]
+        if not isinstance(model_rows, Mapping):
+            raise TypeError("window_row['models'] must be a mapping.")
+        out: dict[str, dict[str, Any]] = {}
+        for name, payload in model_rows.items():
+            if not isinstance(payload, Mapping):
+                raise TypeError(f"window_row['models'][{name!r}] must be a mapping.")
+            out[str(name)] = dict(payload)
+        return out
+
+    required = (
+        "y_test_rf",
+        "y_prob_rf",
+        "rf_seed_probs",
+        "rf_metrics_mean",
+        "y_test_em",
+        "y_prob_em",
+        "em_seed_probs",
+        "em_metrics_mean",
+    )
+    missing = [key for key in required if key not in window_row]
+    if missing:
+        raise KeyError(
+            "window_row must contain either 'models' or legacy RF/EM keys. "
+            f"Missing keys: {missing}"
+        )
+
+    return {
+        str(left_model_name): {
+            "metrics": dict(window_row["rf_metrics_mean"]),
+            "y_true": window_row["y_test_rf"],
+            "y_prob": window_row["y_prob_rf"],
+            "seed_probs": window_row["rf_seed_probs"],
+            "seed_metrics": window_row.get("rf_seed_metrics", []),
+        },
+        str(right_model_name): {
+            "metrics": dict(window_row["em_metrics_mean"]),
+            "y_true": window_row["y_test_em"],
+            "y_prob": window_row["y_prob_em"],
+            "seed_probs": window_row["em_seed_probs"],
+            "seed_metrics": window_row.get("em_seed_metrics", []),
+        },
+    }
+
+
+def _optional_delta(left: float | None, right: float | None) -> float | None:
+    """Safely compute ``left-right`` for optional values."""
+
+    if left is None or right is None:
+        return None
+    return float(left) - float(right)
+
+
+def build_classification_bootstrap_export_rows(
+    *,
+    multi_results: Sequence[Mapping[str, Any]],
+    bootstrap_preset,
+    round_fn: Callable[[Any], float | None],
+    threshold_optimize_metric: str,
+    use_hierarchical_seed_sample: bool,
+    seed_aggregation: SeedAggregationMethod = "mean",
+    baseline_model: str | None = None,
+    sort_export_by: Sequence[str] = ("Mf", "Tfore", "model"),
+    sort_delta_by: Sequence[str] = ("Mf", "Tfore", "comparison"),
+    auc_seed_base: int = 9100,
+    ap_seed_base: int = 9300,
+    window_model_rows_getter: Callable[[Mapping[str, Any]], Mapping[str, Mapping[str, Any]]] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Build metrics/delta bootstrap export rows for classifier notebooks.
+
+    Parameters are aligned with baseline/pretrain notebook usage and keep all
+    exported fields stable while reducing repeated bootstrap loop code.
+    """
+
+    ci_low_pct, ci_high_pct = bootstrap_preset.ci
+    metrics_rows: list[dict[str, Any]] = []
+    delta_rows: list[dict[str, Any]] = []
+
+    for i, window_row in enumerate(multi_results):
+        model_rows = (
+            dict(window_model_rows_getter(window_row))
+            if window_model_rows_getter is not None
+            else _default_window_model_rows(window_row)
+        )
+        model_names = list(model_rows.keys())
+        if len(model_names) == 0:
+            continue
+
+        effective_baseline = baseline_model or model_names[0]
+        if effective_baseline not in model_rows:
+            raise ValueError(
+                f"baseline_model={effective_baseline!r} not found in model rows. "
+                f"Available={model_names}"
+            )
+
+        y_true_ref = np.asarray(model_rows[effective_baseline]["y_true"]).astype(int).reshape(-1)
+        for model_name, model_payload in model_rows.items():
+            y_true_ref = ensure_identical_labels(
+                model_payload["y_true"],
+                y_true_ref,
+                context=(
+                    f"window (Mf={window_row.get('Mf')}, Tfore={window_row.get('Tfore')}), "
+                    f"baseline={effective_baseline}, current={model_name}"
+                ),
+            )
+
+        model_predictions = {
+            name: np.asarray(payload["y_prob"], dtype=np.float64).reshape(-1)
+            for name, payload in model_rows.items()
+        }
+
+        model_seed_predictions = build_seed_prediction_map_from_models(model_rows)
+
+        auc_result = paired_metric_bootstrap(
+            y_true=y_true_ref,
+            metric_name="auc",
+            metric_config=bootstrap_preset.metric_config(seed=int(auc_seed_base + i)),
+            use_hierarchical_seed_sample=use_hierarchical_seed_sample,
+            seed_aggregation=seed_aggregation,
+            baseline_model=effective_baseline,
+            model_predictions=model_predictions,
+            model_seed_predictions=model_seed_predictions,
+            task="classification",
+        )
+        ap_result = paired_metric_bootstrap(
+            y_true=y_true_ref,
+            metric_name="ap",
+            metric_config=bootstrap_preset.metric_config(seed=int(ap_seed_base + i)),
+            use_hierarchical_seed_sample=use_hierarchical_seed_sample,
+            seed_aggregation=seed_aggregation,
+            baseline_model=effective_baseline,
+            model_predictions=model_predictions,
+            model_seed_predictions=model_seed_predictions,
+            task="classification",
+        )
+
+        seed_metric_std_by_model: dict[str, dict[str, float | None]] = {}
+        for model_name in model_names:
+            seed_metrics = model_rows[model_name].get("seed_metrics", [])
+            if len(seed_metrics) > 0:
+                seed_metric_std_by_model[model_name] = {
+                    "auc_seed_std": round_fn(np.std([float(m["auc"]) for m in seed_metrics])),
+                    "pr_auc_seed_std": round_fn(np.std([float(m["pr_auc"]) for m in seed_metrics])),
+                }
+            else:
+                seed_metric_std_by_model[model_name] = {
+                    "auc_seed_std": None,
+                    "pr_auc_seed_std": None,
+                }
+
+        point_metrics_by_model: dict[str, dict[str, float | None]] = {}
+        for model_name in model_names:
+            metrics = model_rows[model_name].get("metrics", {})
+            point_metrics_by_model[model_name] = {
+                "threshold": round_fn(metrics.get("threshold")),
+                "f1": round_fn(metrics.get("f1")),
+                "recall": round_fn(metrics.get("recall")),
+                "precision": round_fn(metrics.get("precision")),
+                "R": round_fn(metrics.get("R")),
+                "auc": round_fn(metrics.get("auc")),
+                "pr_auc": round_fn(metrics.get("pr_auc")),
+            }
+
+        window_id = int(window_row.get("window_id", i))
+        mf_value = float(window_row["Mf"])
+        tfore_value = int(window_row["Tfore"])
+
+        for model_name in model_names:
+            point_metrics = point_metrics_by_model[model_name]
+            auc_ci = auc_result.model_results[model_name]
+            ap_ci = ap_result.model_results[model_name]
+
+            metrics_rows.append(
+                {
+                    "window_id": window_id,
+                    "Mf": mf_value,
+                    "Tfore": tfore_value,
+                    "model": str(model_name),
+                    "n_test": int(y_true_ref.shape[0]),
+                    "positive_rate": round_fn(np.mean(y_true_ref)),
+                    "threshold_optimize_metric": threshold_optimize_metric,
+                    "threshold": point_metrics["threshold"],
+                    "threshold_ci_low": None,
+                    "threshold_ci_high": None,
+                    "f1": point_metrics["f1"],
+                    "f1_ci_low": None,
+                    "f1_ci_high": None,
+                    "recall": point_metrics["recall"],
+                    "recall_ci_low": None,
+                    "recall_ci_high": None,
+                    "precision": point_metrics["precision"],
+                    "precision_ci_low": None,
+                    "precision_ci_high": None,
+                    "r": point_metrics["R"],
+                    "r_ci_low": None,
+                    "r_ci_high": None,
+                    "auc": point_metrics["auc"],
+                    "auc_ci_low": round_fn(auc_ci.ci_low),
+                    "auc_ci_high": round_fn(auc_ci.ci_high),
+                    "ap": point_metrics["pr_auc"],
+                    "auc_seed_std": seed_metric_std_by_model.get(model_name, {}).get("auc_seed_std"),
+                    "pr_auc_seed_std": seed_metric_std_by_model.get(model_name, {}).get("pr_auc_seed_std"),
+                    "ap_ci_low": round_fn(ap_ci.ci_low),
+                    "ap_ci_high": round_fn(ap_ci.ci_high),
+                    "ci_low_percentile": round_fn(ci_low_pct),
+                    "ci_high_percentile": round_fn(ci_high_pct),
+                    "bootstrap_sampling": str(bootstrap_preset.sampling),
+                    "bootstrap_n_resamples": int(bootstrap_preset.n_resamples_metric),
+                    "bootstrap_block_size": (
+                        int(bootstrap_preset.block_size)
+                        if (
+                            bootstrap_preset.sampling == "block"
+                            and bootstrap_preset.block_size is not None
+                        )
+                        else None
+                    ),
+                    "bootstrap_circular_block": bool(bootstrap_preset.circular_block),
+                    "threshold_valid_resamples": None,
+                    "f1_valid_resamples": None,
+                    "recall_valid_resamples": None,
+                    "precision_valid_resamples": None,
+                    "r_valid_resamples": None,
+                    "auc_valid_resamples": int(auc_ci.valid_resamples),
+                    "ap_valid_resamples": int(ap_ci.valid_resamples),
+                }
+            )
+
+        for model_name in model_names:
+            if model_name == effective_baseline:
+                continue
+
+            delta_key = (model_name, effective_baseline)
+            if (
+                delta_key not in auc_result.pairwise_deltas
+                or delta_key not in ap_result.pairwise_deltas
+            ):
+                continue
+
+            baseline_metrics = point_metrics_by_model[effective_baseline]
+            model_metrics = point_metrics_by_model[model_name]
+            auc_delta = auc_result.pairwise_deltas[delta_key]
+            ap_delta = ap_result.pairwise_deltas[delta_key]
+
+            auc_delta_point = _optional_delta(model_metrics["auc"], baseline_metrics["auc"])
+            ap_delta_point = _optional_delta(model_metrics["pr_auc"], baseline_metrics["pr_auc"])
+
+            delta_rows.append(
+                {
+                    "window_id": window_id,
+                    "Mf": mf_value,
+                    "Tfore": tfore_value,
+                    "comparison": f"{model_name}_minus_{effective_baseline}",
+                    "threshold_delta": round_fn(_optional_delta(model_metrics["threshold"], baseline_metrics["threshold"])),
+                    "threshold_delta_ci_low": None,
+                    "threshold_delta_ci_high": None,
+                    "f1_delta": round_fn(_optional_delta(model_metrics["f1"], baseline_metrics["f1"])),
+                    "f1_delta_ci_low": None,
+                    "f1_delta_ci_high": None,
+                    "recall_delta": round_fn(_optional_delta(model_metrics["recall"], baseline_metrics["recall"])),
+                    "recall_delta_ci_low": None,
+                    "recall_delta_ci_high": None,
+                    "precision_delta": round_fn(_optional_delta(model_metrics["precision"], baseline_metrics["precision"])),
+                    "precision_delta_ci_low": None,
+                    "precision_delta_ci_high": None,
+                    "r_delta": round_fn(_optional_delta(model_metrics["R"], baseline_metrics["R"])),
+                    "r_delta_ci_low": None,
+                    "r_delta_ci_high": None,
+                    "auc_delta": round_fn(auc_delta_point),
+                    "auc_delta_ci_low": round_fn(auc_delta.ci_low),
+                    "auc_delta_ci_high": round_fn(auc_delta.ci_high),
+                    "ap_delta": round_fn(ap_delta_point),
+                    "ap_delta_ci_low": round_fn(ap_delta.ci_low),
+                    "ap_delta_ci_high": round_fn(ap_delta.ci_high),
+                    "ci_low_percentile": round_fn(ci_low_pct),
+                    "ci_high_percentile": round_fn(ci_high_pct),
+                    "valid_resamples": int(min(auc_delta.valid_resamples, ap_delta.valid_resamples)),
+                }
+            )
+
+    metrics_rows = sorted(
+        metrics_rows,
+        key=lambda row: tuple(row[key] for key in sort_export_by),
+    )
+    delta_rows = sorted(
+        delta_rows,
+        key=lambda row: tuple(row[key] for key in sort_delta_by),
+    )
+    return metrics_rows, delta_rows
+
+
+def summarize_classification_metric_rows(
+    metrics_rows: Sequence[Mapping[str, Any]],
+    *,
+    round_fn: Callable[[Any], float | None],
+) -> dict[str, dict[str, float | None]]:
+    """Summarize per-model averages/std from exported metric rows."""
+
+    if len(metrics_rows) == 0:
+        return {}
+
+    summary_by_model: dict[str, dict[str, float | None]] = {}
+    model_names = sorted({str(row["model"]) for row in metrics_rows})
+
+    def _numeric_values(rows: Sequence[Mapping[str, Any]], key: str) -> list[float]:
+        out: list[float] = []
+        for row in rows:
+            value = row.get(key)
+            if value is None:
+                continue
+            out.append(float(value))
+        return out
+
+    def _safe_mean(values: list[float]) -> float | None:
+        if len(values) == 0:
+            return None
+        return round_fn(np.mean(values))
+
+    def _safe_std(values: list[float]) -> float | None:
+        if len(values) == 0:
+            return None
+        return round_fn(np.std(values))
+
+    for model_name in model_names:
+        rows_i = [row for row in metrics_rows if str(row["model"]) == model_name]
+        threshold_values = _numeric_values(rows_i, "threshold")
+        f1_values = _numeric_values(rows_i, "f1")
+        recall_values = _numeric_values(rows_i, "recall")
+        precision_values = _numeric_values(rows_i, "precision")
+        r_values = _numeric_values(rows_i, "r")
+        auc_values = _numeric_values(rows_i, "auc")
+        ap_values = _numeric_values(rows_i, "ap")
+
+        summary_by_model[model_name] = {
+            "mean_threshold": _safe_mean(threshold_values),
+            "mean_f1": _safe_mean(f1_values),
+            "mean_recall": _safe_mean(recall_values),
+            "mean_precision": _safe_mean(precision_values),
+            "mean_r": _safe_mean(r_values),
+            "mean_auc": _safe_mean(auc_values),
+            "std_auc": _safe_std(auc_values),
+            "mean_ap": _safe_mean(ap_values),
+            "std_ap": _safe_std(ap_values),
+            "num_windows": int(len(rows_i)),
+        }
+
+    return summary_by_model
+
+
+def build_rf_em_window_ci_cache(
+    plot_results: Sequence[Mapping[str, Any]],
+    *,
+    bootstrap_preset,
+    use_hierarchical_seed_sample: bool,
+    seed_aggregation: SeedAggregationMethod = "mean",
+    left_model_name: str = "RF",
+    right_model_name: str = "EM-EQF",
+    roc_seed_base: int = 100,
+    pr_seed_base: int = 300,
+    auc_seed_base: int = 500,
+    ap_seed_base: int = 700,
+) -> list[dict[str, tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[float, float]]]:
+    """Build CI cache for RF/EM-style faceted ROC/PR notebook plots.
+
+    Each returned element contains:
+    - ``roc_rf``, ``roc_em``, ``pr_rf``, ``pr_em``: ``(grid, ci_low, ci_high)``
+    - ``auc_ci_rf``, ``auc_ci_em``, ``ap_ci_rf``, ``ap_ci_em``: ``(low, high)``
+    """
+
+    ci_cache: list[dict[str, tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[float, float]]] = []
+
+    for i, row in enumerate(plot_results):
+        model_rows = _default_window_model_rows(
+            row,
+            left_model_name=left_model_name,
+            right_model_name=right_model_name,
+        )
+
+        if left_model_name not in model_rows or right_model_name not in model_rows:
+            raise KeyError(
+                f"Expected both models in row: {left_model_name!r}, {right_model_name!r}. "
+                f"Available={list(model_rows.keys())}"
+            )
+
+        y_true_left = np.asarray(model_rows[left_model_name]["y_true"]).astype(int).reshape(-1)
+        y_true_right = np.asarray(model_rows[right_model_name]["y_true"]).astype(int).reshape(-1)
+        y_true = ensure_identical_labels(
+            y_true_left,
+            y_true_right,
+            context=f"window (Mf={row.get('Mf')}, Tfore={row.get('Tfore')})",
+        )
+
+        model_predictions = {
+            left_model_name: np.asarray(model_rows[left_model_name]["y_prob"], dtype=np.float64).reshape(-1),
+            right_model_name: np.asarray(model_rows[right_model_name]["y_prob"], dtype=np.float64).reshape(-1),
+        }
+        model_seed_predictions = {
+            left_model_name: np.asarray(model_rows[left_model_name]["seed_probs"], dtype=np.float64),
+            right_model_name: np.asarray(model_rows[right_model_name]["seed_probs"], dtype=np.float64),
+        }
+
+        roc_result: MultiModelCurveBootstrapResult = bootstrap_multi_model_curve_ci(
+            y_true=y_true,
+            model_predictions=model_predictions,
+            curve="roc",
+            config=bootstrap_preset.curve_config(seed=int(roc_seed_base + i)),
+        )
+        pr_result: MultiModelCurveBootstrapResult = bootstrap_multi_model_curve_ci(
+            y_true=y_true,
+            model_predictions=model_predictions,
+            curve="pr",
+            config=bootstrap_preset.curve_config(seed=int(pr_seed_base + i)),
+        )
+
+        auc_result = paired_metric_bootstrap(
+            y_true=y_true,
+            metric_name="auc",
+            metric_config=bootstrap_preset.metric_config(seed=int(auc_seed_base + i)),
+            use_hierarchical_seed_sample=use_hierarchical_seed_sample,
+            seed_aggregation=seed_aggregation,
+            baseline_model=right_model_name,
+            model_predictions=model_predictions,
+            model_seed_predictions=model_seed_predictions,
+            task="classification",
+        )
+        ap_result = paired_metric_bootstrap(
+            y_true=y_true,
+            metric_name="ap",
+            metric_config=bootstrap_preset.metric_config(seed=int(ap_seed_base + i)),
+            use_hierarchical_seed_sample=use_hierarchical_seed_sample,
+            seed_aggregation=seed_aggregation,
+            baseline_model=right_model_name,
+            model_predictions=model_predictions,
+            model_seed_predictions=model_seed_predictions,
+            task="classification",
+        )
+
+        ci_cache.append(
+            {
+                "roc_rf": (
+                    roc_result.grid,
+                    roc_result.model_results[left_model_name].ci_low,
+                    roc_result.model_results[left_model_name].ci_high,
+                ),
+                "roc_em": (
+                    roc_result.grid,
+                    roc_result.model_results[right_model_name].ci_low,
+                    roc_result.model_results[right_model_name].ci_high,
+                ),
+                "pr_rf": (
+                    pr_result.grid,
+                    pr_result.model_results[left_model_name].ci_low,
+                    pr_result.model_results[left_model_name].ci_high,
+                ),
+                "pr_em": (
+                    pr_result.grid,
+                    pr_result.model_results[right_model_name].ci_low,
+                    pr_result.model_results[right_model_name].ci_high,
+                ),
+                "auc_ci_rf": (
+                    float(auc_result.model_results[left_model_name].ci_low),
+                    float(auc_result.model_results[left_model_name].ci_high),
+                ),
+                "auc_ci_em": (
+                    float(auc_result.model_results[right_model_name].ci_low),
+                    float(auc_result.model_results[right_model_name].ci_high),
+                ),
+                "ap_ci_rf": (
+                    float(ap_result.model_results[left_model_name].ci_low),
+                    float(ap_result.model_results[left_model_name].ci_high),
+                ),
+                "ap_ci_em": (
+                    float(ap_result.model_results[right_model_name].ci_low),
+                    float(ap_result.model_results[right_model_name].ci_high),
+                ),
+            }
+        )
+
+    return ci_cache
 
 
 def metric_ylim(
@@ -256,4 +755,3 @@ def style_metric_axis(ax, *, ylabel: str, ylim: tuple[float, float], style_axes_
     ax.yaxis.set_major_locator(MultipleLocator(major_step))
     ax.yaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(direction="in", length=3.2, width=0.8, top=False, right=False)
-
