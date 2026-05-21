@@ -327,6 +327,53 @@ def test_build_model_seed_data_dicts_respects_max_seed_count_and_cache(tmp_path)
     ]
 
 
+def test_build_model_seed_data_dicts_respects_selected_seeds(tmp_path):
+    project_root = tmp_path
+    runs_root = project_root / "experiments" / "reg_grid" / "runs"
+    for seed in range(6):
+        run_dir = runs_root / f"tf_90_mf_5p5_seed_{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "best_model_1.pth").write_bytes(f"seed-{seed}".encode("utf-8"))
+
+    experiments = [
+        {
+            "title": "A",
+            "checkpoint": "experiments/reg_grid/runs/tf_90_mf_5p5_seed_0",
+            "prepare_fn": lambda *_args, **_kwargs: None,
+        }
+    ]
+    load_calls: list[list[str]] = []
+
+    def fake_loader(seed_experiments, device):
+        load_calls.append([str(exp["title"]) for exp in seed_experiments])
+        data_dicts = []
+        for exp in seed_experiments:
+            seed_idx = int(str(exp["title"]).rsplit("_", 1)[-1])
+            y_true = np.asarray([0.0, 1.0], dtype=np.float64)
+            y_pred = np.asarray([seed_idx, seed_idx + 0.5], dtype=np.float64)
+            data_dicts.append({"Test": (y_true, y_pred)})
+        return data_dicts, ["Test"]
+
+    model_seed_data_dicts, common_n_seeds = build_model_seed_data_dicts(
+        experiments=experiments,
+        titles=["A"],
+        device="cpu",
+        project_root=project_root,
+        get_data_dicts_from_checkpoints_fn=fake_loader,
+        selected_seeds=[5, 2, 4],
+        max_seed_count=None,
+        seed_cache_path=None,
+        use_seed_cache=False,
+        save_seed_cache=False,
+    )
+    assert common_n_seeds == 3
+    assert len(model_seed_data_dicts["A"]) == 3
+    assert load_calls == [[
+        "A__seed_0",
+        "A__seed_1",
+        "A__seed_2",
+    ]]
+
 def test_run_classification_bootstrap_export_pipeline_writes_artifacts(tmp_path):
     multi_results = [_make_classifier_window_row(seed=21), _make_classifier_window_row(seed=22)]
     preset = PairedBootstrapPreset(

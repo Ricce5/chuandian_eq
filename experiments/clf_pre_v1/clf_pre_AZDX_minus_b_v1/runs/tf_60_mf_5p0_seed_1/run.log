@@ -1,0 +1,161 @@
+2026-05-21 16:24:13,090 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-21 16:24:13,719 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_5.0_Tfore_60_Twindow_180_context_len_1_dt_10.pkl
+2026-05-21 16:24:14,104 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-21 16:24:14,120 INFO src.data.event_loader: lengths of samples: min=32, max=981, avg=129.55
+2026-05-21 16:24:14,121 INFO src.data.event_loader: Number of positive samples: 808
+2026-05-21 16:24:14,121 INFO src.data.event_loader: Number of negative samples: 651
+2026-05-21 16:24:14,122 INFO src.data.event_loader: Positive samples: 673, Negative samples: 494
+2026-05-21 16:24:14,122 INFO src.data.event_loader: Total samples: 1167, Positive ratio: 0.58, Negative ratio: 0.42
+2026-05-21 16:24:14,123 INFO src.data.event_loader: Positive samples: 87, Negative samples: 58
+2026-05-21 16:24:14,123 INFO src.data.event_loader: Total samples: 145, Positive ratio: 0.60, Negative ratio: 0.40
+2026-05-21 16:24:14,123 INFO src.data.event_loader: Positive samples: 48, Negative samples: 99
+2026-05-21 16:24:14,123 INFO src.data.event_loader: Total samples: 147, Positive ratio: 0.33, Negative ratio: 0.67
+2026-05-21 16:24:14,182 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260510-211348/last_model_1.pth
+2026-05-21 16:24:15,150 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-21 16:24:15,150 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-21 16:24:15,198 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-21 16:24:15,198 INFO src.train.config_setup: Loading model weights: load_specific_parts=['encoder']
+2026-05-21 16:24:15,200 INFO src.train.config_setup: Selective load summary: requested_parts=['encoder'], target_in_model=40, matched_in_checkpoint=30, loaded=30, missing_after_load=10, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
+2026-05-21 16:24:15,200 INFO src.train.config_setup: Selective load coverage [encoder]: target=40, hit=30, missing=10, complete=False
+2026-05-21 16:24:15,200 WARNING src.train.config_setup: Selective load coverage missing preview [encoder]: ['base_model.encoder.layers.2.mixer.in_proj.bias', 'base_model.encoder.layers.2.mixer.in_proj.weight', 'base_model.encoder.layers.2.mixer.out_proj.bias', 'base_model.encoder.layers.2.mixer.out_proj.weight', 'base_model.encoder.layers.2.mlp.fc1.weight', 'base_model.encoder.layers.2.mlp.fc2.weight', 'base_model.encoder.layers.2.norm.bias', 'base_model.encoder.layers.2.norm.weight'] ... (+2 more)
+2026-05-21 16:24:15,200 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.2.mixer.in_proj.bias', 'base_model.encoder.layers.2.mixer.in_proj.weight', 'base_model.encoder.layers.2.mixer.out_proj.bias', 'base_model.encoder.layers.2.mixer.out_proj.weight', 'base_model.encoder.layers.2.mlp.fc1.weight', 'base_model.encoder.layers.2.mlp.fc2.weight', 'base_model.encoder.layers.2.norm.bias', 'base_model.encoder.layers.2.norm.weight', 'base_model.encoder.layers.2.norm2.bias', 'base_model.encoder.layers.2.norm2.weight']
+2026-05-21 16:24:15,200 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.2.mixer.in_proj.bias', 'base_model.encoder.layers.2.mixer.in_proj.weight', 'base_model.encoder.layers.2.mixer.out_proj.bias', 'base_model.encoder.layers.2.mixer.out_proj.weight', 'base_model.encoder.layers.2.mlp.fc1.weight', 'base_model.encoder.layers.2.mlp.fc2.weight', 'base_model.encoder.layers.2.norm.bias', 'base_model.encoder.layers.2.norm.weight', 'base_model.encoder.layers.2.norm2.bias', 'base_model.encoder.layers.2.norm2.weight']
+2026-05-21 16:24:15,200 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.layers.1.mixer.dt_bias', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.1.mixer.norm.weight', 'base_model.encoder.norm_f.weight', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.1.mixer.out_proj.weight', 'base_model.encoder.layers.1.mixer.in_proj.weight', 'base_model.encoder.layers.1.mixer.A_log', 'base_model.encoder.layers.0.mlp.fc1.weight', 'base_model.encoder.norm_f.bias'] ... (+20 more)
+2026-05-21 16:24:15,201 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-21 16:24:15,201 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-21 16:24:15,201 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-21 16:24:15,201 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-21 16:24:15,202 INFO src.train.config_setup: Using classification criterion: focal
+2026-05-21 16:24:15,202 INFO src.train.config_setup: Criterion config: {'alpha': 0.5, 'gamma': 2.0}
+2026-05-21 16:24:15,203 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-21 16:24:15,203 INFO src.train.trainer: Epoch 1
+2026-05-21 16:24:29,777 INFO src.train.trainer: New best validation loss: 0.1102, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:24:29,782 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:29,782 INFO src.train.trainer: Epoch 2
+2026-05-21 16:24:34,078 INFO src.train.trainer: New best validation loss: 0.0859, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:24:34,086 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:34,087 INFO src.train.trainer: Epoch 3
+2026-05-21 16:24:38,018 INFO src.train.trainer: New best validation loss: 0.0842, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:24:38,026 INFO src.train.trainer: Last model at epoch 3 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:38,027 INFO src.train.trainer: Epoch 4
+2026-05-21 16:24:41,672 INFO src.train.trainer: Last model at epoch 4 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:41,673 INFO src.train.trainer: Epoch 5
+2026-05-21 16:24:45,315 INFO src.train.trainer: Last model at epoch 5 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:45,315 INFO src.train.trainer: Epoch 6
+2026-05-21 16:24:48,970 INFO src.train.trainer: Last model at epoch 6 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:48,970 INFO src.train.trainer: Epoch 7
+2026-05-21 16:24:52,717 INFO src.train.trainer: Last model at epoch 7 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:52,718 INFO src.train.trainer: Epoch 8
+2026-05-21 16:24:56,180 INFO src.train.trainer: Last model at epoch 8 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:56,200 INFO src.train.trainer: Epoch 9
+2026-05-21 16:24:59,954 INFO src.train.trainer: New best validation loss: 0.0768, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:24:59,960 INFO src.train.trainer: Last model at epoch 9 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:24:59,960 INFO src.train.trainer: Epoch 10
+2026-05-21 16:25:03,854 INFO src.train.trainer: Last model at epoch 10 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:03,854 INFO src.train.trainer: Epoch 11
+2026-05-21 16:25:07,647 INFO src.train.trainer: Last model at epoch 11 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:07,647 INFO src.train.trainer: Epoch 12
+2026-05-21 16:25:11,513 INFO src.train.trainer: Last model at epoch 12 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:11,514 INFO src.train.trainer: Epoch 13
+2026-05-21 16:25:14,708 INFO src.train.trainer: Last model at epoch 13 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:14,708 INFO src.train.trainer: Epoch 14
+2026-05-21 16:25:17,899 INFO src.train.trainer: Last model at epoch 14 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:17,899 INFO src.train.trainer: Epoch 15
+2026-05-21 16:25:21,033 INFO src.train.trainer: New best validation loss: 0.0746, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:25:21,039 INFO src.train.trainer: Last model at epoch 15 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:21,039 INFO src.train.trainer: Epoch 16
+2026-05-21 16:25:24,282 INFO src.train.trainer: Last model at epoch 16 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:24,282 INFO src.train.trainer: Epoch 17
+2026-05-21 16:25:28,368 INFO src.train.trainer: Last model at epoch 17 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:28,368 INFO src.train.trainer: Epoch 18
+2026-05-21 16:25:32,258 INFO src.train.trainer: Last model at epoch 18 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:32,258 INFO src.train.trainer: Epoch 19
+2026-05-21 16:25:35,404 INFO src.train.trainer: Last model at epoch 19 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:35,404 INFO src.train.trainer: Epoch 20
+2026-05-21 16:25:38,316 INFO src.train.trainer: New best validation loss: 0.0740, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:25:38,323 INFO src.train.trainer: Last model at epoch 20 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:38,323 INFO src.train.trainer: Epoch 21
+2026-05-21 16:25:41,540 INFO src.train.trainer: New best validation loss: 0.0716, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:25:41,546 INFO src.train.trainer: Last model at epoch 21 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:41,546 INFO src.train.trainer: Epoch 22
+2026-05-21 16:25:45,819 INFO src.train.trainer: Last model at epoch 22 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:45,819 INFO src.train.trainer: Epoch 23
+2026-05-21 16:25:49,843 INFO src.train.trainer: Last model at epoch 23 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:49,843 INFO src.train.trainer: Epoch 24
+2026-05-21 16:25:53,417 INFO src.train.trainer: New best validation loss: 0.0707, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:25:53,423 INFO src.train.trainer: Last model at epoch 24 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:53,423 INFO src.train.trainer: Epoch 25
+2026-05-21 16:25:56,788 INFO src.train.trainer: Last model at epoch 25 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:25:56,788 INFO src.train.trainer: Epoch 26
+2026-05-21 16:26:00,389 INFO src.train.trainer: New best validation loss: 0.0694, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:26:00,405 INFO src.train.trainer: Last model at epoch 26 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:00,405 INFO src.train.trainer: Epoch 27
+2026-05-21 16:26:04,004 INFO src.train.trainer: New best validation loss: 0.0687, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:26:04,010 INFO src.train.trainer: Last model at epoch 27 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:04,010 INFO src.train.trainer: Epoch 28
+2026-05-21 16:26:07,532 INFO src.train.trainer: Last model at epoch 28 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:07,532 INFO src.train.trainer: Epoch 29
+2026-05-21 16:26:10,871 INFO src.train.trainer: Last model at epoch 29 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:10,871 INFO src.train.trainer: Epoch 30
+2026-05-21 16:26:14,387 INFO src.train.trainer: Last model at epoch 30 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:14,388 INFO src.train.trainer: Epoch 31
+2026-05-21 16:26:17,682 INFO src.train.trainer: Last model at epoch 31 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:17,682 INFO src.train.trainer: Epoch 32
+2026-05-21 16:26:20,830 INFO src.train.trainer: New best validation loss: 0.0683, saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/best_model_1.pth
+2026-05-21 16:26:20,839 INFO src.train.trainer: Last model at epoch 32 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:20,839 INFO src.train.trainer: Epoch 33
+2026-05-21 16:26:24,084 INFO src.train.trainer: Last model at epoch 33 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:24,084 INFO src.train.trainer: Epoch 34
+2026-05-21 16:26:27,677 INFO src.train.trainer: Last model at epoch 34 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:27,677 INFO src.train.trainer: Epoch 35
+2026-05-21 16:26:31,288 INFO src.train.trainer: Last model at epoch 35 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:31,288 INFO src.train.trainer: Epoch 36
+2026-05-21 16:26:34,612 INFO src.train.trainer: Last model at epoch 36 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:34,613 INFO src.train.trainer: Epoch 37
+2026-05-21 16:26:37,762 INFO src.train.trainer: Last model at epoch 37 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:37,762 INFO src.train.trainer: Epoch 38
+2026-05-21 16:26:40,932 INFO src.train.trainer: Last model at epoch 38 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:40,933 INFO src.train.trainer: Epoch 39
+2026-05-21 16:26:44,433 INFO src.train.trainer: Last model at epoch 39 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:44,433 INFO src.train.trainer: Epoch 40
+2026-05-21 16:26:47,970 INFO src.train.trainer: Last model at epoch 40 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:47,970 INFO src.train.trainer: Epoch 41
+2026-05-21 16:26:51,499 INFO src.train.trainer: Last model at epoch 41 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:51,499 INFO src.train.trainer: Epoch 42
+2026-05-21 16:26:54,836 INFO src.train.trainer: Last model at epoch 42 saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/last_model_1.pth
+2026-05-21 16:26:54,836 INFO src.train.trainer: Early stopping triggered at epoch 42 (best epoch: 32, best val loss: 0.068321)
+2026-05-21 16:27:03,696 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
+2026-05-21 16:27:04,264 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/classifier/classifier_Mc_3_Mf_5.0_Tfore_60_Twindow_180_context_len_1_dt_10.pkl
+2026-05-21 16:27:04,592 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
+2026-05-21 16:27:04,616 INFO src.data.event_loader: lengths of samples: min=32, max=981, avg=129.55
+2026-05-21 16:27:04,617 INFO src.data.event_loader: Number of positive samples: 808
+2026-05-21 16:27:04,617 INFO src.data.event_loader: Number of negative samples: 651
+2026-05-21 16:27:04,618 INFO src.data.event_loader: Positive samples: 673, Negative samples: 494
+2026-05-21 16:27:04,618 INFO src.data.event_loader: Total samples: 1167, Positive ratio: 0.58, Negative ratio: 0.42
+2026-05-21 16:27:04,618 INFO src.data.event_loader: Positive samples: 87, Negative samples: 58
+2026-05-21 16:27:04,618 INFO src.data.event_loader: Total samples: 145, Positive ratio: 0.60, Negative ratio: 0.40
+2026-05-21 16:27:04,618 INFO src.data.event_loader: Positive samples: 48, Negative samples: 99
+2026-05-21 16:27:04,618 INFO src.data.event_loader: Total samples: 147, Positive ratio: 0.33, Negative ratio: 0.67
+2026-05-21 16:27:04,963 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
+2026-05-21 16:27:04,963 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
+2026-05-21 16:27:04,971 INFO src.train.config_setup: Restoring model from checkpoint.
+2026-05-21 16:27:04,971 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
+2026-05-21 16:27:04,972 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
+2026-05-21 16:27:04,973 INFO src.train.config_setup: Full load summary: loaded=56, missing=0, unexpected=0
+2026-05-21 16:27:04,974 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
+2026-05-21 16:27:04,974 INFO src.train.config_setup: Checkpoint train metrics available.
+2026-05-21 16:27:04,974 INFO src.train.config_setup: Checkpoint val metrics available.
+2026-05-21 16:27:04,974 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
+2026-05-21 16:27:04,974 INFO src.train.config_setup: Using classification criterion: focal
+2026-05-21 16:27:04,974 INFO src.train.config_setup: Criterion config: {'alpha': 0.5, 'gamma': 2.0}
+2026-05-21 16:27:04,975 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
+2026-05-21 16:27:04,975 INFO src.cli.common: Using threshold 0.4524357318878174 from checkpoint val_metrics for testing.
+2026-05-21 16:27:09,660 INFO src.utils.metrics: ROC curve saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/roc_curve.png
+2026-05-21 16:27:09,784 INFO src.utils.metrics: PR curve saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/pr_curve.png
+2026-05-21 16:27:09,864 INFO src.utils.metrics: Confusion matrix saved to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/confusion_matrix.png
+2026-05-21 16:27:09,865 INFO src.cli.workflows: Test loss: 0.06284628659486771
+2026-05-21 16:27:10,902 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/train_pred_distribution.png
+2026-05-21 16:27:11,360 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/val_pred_distribution.png
+2026-05-21 16:27:11,769 INFO src.train.classifier_train_step: Prediction distribution plot has been saved to: /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/test_pred_distribution.png
+2026-05-21 16:27:11,770 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/clf_pre_v1/clf_pre_AZDX_minus_b_v1/runs/tf_60_mf_5p0_seed_1/metrics_test_best_1.json
+2026-05-21 16:27:11,770 INFO src.cli.common: Metrics: {'precision': 0.3357664233576642, 'recall': 0.9583333333333334, 'f1': 0.4972972972972973, 'auc': 0.8684764309764309, 'pr_auc': 0.841553116561329, 'fpr': 0.9191919191919192, 'tpr': 0.9583333333333334, 'R': 0.039141414141414144, 'conf': 8.977180262954524e-65, 'threshold': 0.4524357318878174}

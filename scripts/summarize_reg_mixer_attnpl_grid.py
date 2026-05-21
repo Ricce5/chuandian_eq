@@ -9,21 +9,19 @@ collects per-run test metrics, and exports:
 """
 
 import argparse
-import re
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Sequence
 
 from automation import (
+    build_variant_or_matrix_group_key,
     build_group_best_rows,
     build_group_stats_rows,
-    find_metrics_file,
     group_by_key,
-    load_summary_rows,
-    lookup_metric_value,
-    read_json,
     resolve_best_metric_name,
-    resolve_run_dir,
-    to_float,
+    safe_mapping,
+    split_seed_suffix,
+    sort_group_type_name_key,
+    collect_per_run_summary_rows,
     write_csv,
     write_json,
 )
@@ -44,74 +42,29 @@ DEFAULT_METRIC_KEYS = (
     "DTW",
     "DTW_normalized",
 )
-SEED_SUFFIX_PATTERN = re.compile(r"^(?P<base>.+)_seed_(?P<seed>\d+)$")
-
-
-def _split_seed_suffix(run_name: str) -> Tuple[str, Optional[int]]:
-    text = str(run_name or "")
-    matched = SEED_SUFFIX_PATTERN.match(text)
-    if not matched:
-        return text, None
-    base = matched.group("base")
-    try:
-        seed_value = int(matched.group("seed"))
-    except (TypeError, ValueError):
-        seed_value = None
-    return base, seed_value
-
-
 def _resolve_group_key(row: Dict):
-    variant_name = str(row.get("variant_name") or "").strip()
-    if variant_name:
-        return "variant", variant_name
-    attn_layer_idx = row.get("attn_layer_idx")
-    load_strategy = row.get("load_strategy")
-    if attn_layer_idx is None or load_strategy is None:
-        return None
-    return "matrix", f"attn_l{int(attn_layer_idx)}__{str(load_strategy)}"
+    return build_variant_or_matrix_group_key(row)
 
 
 def _group_sort_key(item):
-    (group_type, group_name), _ = item
-    return group_type, group_name
+    return sort_group_type_name_key(item)
 
 
 def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select: str = "best") -> List[Dict]:
-    summary_rows = load_summary_rows(exp_dir)
-
-    rows: List[Dict] = []
-    for item in summary_rows:
-        run_name = item.get("run")
-        if not run_name:
-            continue
-
-        run_name = str(run_name)
-        variant_name, seed_from_run_name = _split_seed_suffix(run_name)
-        variant_source = item.get("variant_source")
-        if not isinstance(variant_source, dict):
-            variant_source = {}
-
-        run_dir = resolve_run_dir(exp_dir, run_name, item.get("run_dir"), ckpt_select="auto")
-        metrics_path = find_metrics_file(run_dir, ckpt_select=ckpt_select)
-        metrics = {}
-        if metrics_path and metrics_path.exists():
-            loaded = read_json(metrics_path)
-            if isinstance(loaded, dict):
-                metrics = loaded
-
+    def _row_extra_builder(**kwargs):
+        item = kwargs["item"]
+        run_name = kwargs["run_name"]
+        variant_name, seed_from_run_name = split_seed_suffix(run_name)
+        variant_source = safe_mapping(item.get("variant_source"))
         row_seed = item.get("seed")
         if row_seed is None:
             row_seed = seed_from_run_name
-
-        row = {
-            "run": run_name,
+        return {
             "variant_name": variant_name if seed_from_run_name is not None else "",
             "group_type": "variant" if seed_from_run_name is not None else "matrix",
             "source_run": variant_source.get("run"),
             "source_profile": variant_source.get("profile"),
             "source_trial": variant_source.get("trial"),
-            "run_dir": str(run_dir),
-            "metrics_path": str(metrics_path) if metrics_path else "",
             "attn_layer_idx": item.get("attn_layer_idx"),
             "load_strategy": item.get("load_strategy"),
             "load_strategy_value": item.get("load_strategy_value"),
@@ -120,26 +73,21 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str], ckpt_select:
             "train_returncode": item.get("train_returncode"),
             "test_returncode": item.get("test_returncode"),
             "test_skipped_reason": item.get("test_skipped_reason"),
-            "status_ok": int(
-                (item.get("train_returncode") in (None, 0))
-                and (item.get("test_returncode") in (None, 0))
-            ),
-            "metrics_found": int(bool(metrics)),
         }
-        for key in metric_keys:
-            row[key] = to_float(lookup_metric_value(metrics, key))
-        rows.append(row)
 
-    rows.sort(
-        key=lambda row: (
+    return collect_per_run_summary_rows(
+        exp_dir=exp_dir,
+        metric_keys=metric_keys,
+        ckpt_select=ckpt_select,
+        row_extra_builder=_row_extra_builder,
+        sort_key_fn=lambda row: (
             str(row.get("variant_name") or ""),
             int(row["attn_layer_idx"]) if row.get("attn_layer_idx") is not None else 10**9,
             str(row.get("load_strategy") or ""),
             int(row["seed"]) if row.get("seed") is not None else 10**9,
             str(row["run"]),
-        )
+        ),
     )
-    return rows
 
 
 def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str]) -> List[Dict]:

@@ -1,164 +1,27 @@
 #!/usr/bin/env python3
 import argparse
-import re
 from pathlib import Path
 
 from omegaconf import OmegaConf
 
 from automation import (
+    apply_encoder_load_strategy,
     apply_exp_config_overrides,
     adjust_parallel_limits,
+    build_attn_load_seed_variant_name,
     create_experiment_workspace,
     dump_json,
+    expand_grid_points,
     execute_tasks,
     load_exp_config,
+    normalize_run_name,
+    parse_load_strategies,
     parse_optional_csv,
     parse_set_overrides,
+    resolve_variant_load_strategy,
     set_key,
     try_load_summary,
 )
-
-
-def _build_variant_name(attn_layer: int, load_strategy: str, seed: int):
-    return f"attn_l{attn_layer}_load_{load_strategy}_seed_{seed}"
-
-
-def _normalize_run_name(raw: str, fallback: str):
-    text = str(raw or "").strip()
-    if not text:
-        text = fallback
-    text = re.sub(r"[^0-9a-zA-Z._-]+", "_", text)
-    text = text.strip("._-")
-    return text or fallback
-
-
-def _parse_load_strategy_item(raw: str):
-    item = raw.strip()
-    if not item:
-        raise ValueError("Empty load strategy item.")
-    if ":" not in item:
-        raise ValueError(f"Invalid load strategy item: {raw!r}. Expected name:value")
-    name, value = item.split(":", 1)
-    name = name.strip()
-    value = value.strip().lower()
-    if value in {"none", "null"}:
-        parsed = None
-    elif value in {"input_layer0_layer1", "input_l0_l1", "layer01_input", "l01_input", "three"}:
-        parsed = "input_layer0_layer1"
-    elif value in {"input_layer", "input", "input_proj", "inproj"}:
-        parsed = "input_layer"
-    elif value in {"layer0", "l0"}:
-        parsed = "layer0"
-    elif value in {"layer1", "l1"}:
-        parsed = "layer1"
-    elif value in {"layer0_input", "l0_input", "first", "first_layer"}:
-        parsed = "layer0_input"
-    elif value in {"layer1_input", "l1_input", "second", "second_layer"}:
-        parsed = "layer1_input"
-    elif value in {"encoder"}:
-        parsed = "encoder"
-    else:
-        raise ValueError(
-            f"Unsupported load strategy value: {value!r}. "
-            "Use one of: none, input_layer0_layer1, input_layer, layer0, layer1, layer0_input, layer1_input, encoder."
-        )
-    return name, parsed
-
-
-def _parse_load_strategies(raw: str):
-    items = [x.strip() for x in str(raw).split(",") if x.strip()]
-    if not items:
-        raise ValueError("No load strategies provided.")
-    parsed = {}
-    for item in items:
-        name, value = _parse_load_strategy_item(item)
-        parsed[name] = value
-    return parsed
-
-
-def _parse_single_strategy_value(raw: str):
-    _, parsed = _parse_load_strategy_item(f"variant:{raw}")
-    return parsed
-
-
-def _resolve_variant_load_strategy(raw_value, load_strategy_map: dict):
-    # Keep base-config preload settings when variant doesn't specify load_strategy.
-    if raw_value is None:
-        return "base", "__KEEP_BASE__"
-    text = str(raw_value).strip()
-    if not text:
-        return "base", "__KEEP_BASE__"
-    text_lower = text.lower()
-    if text_lower in {"base", "keep_base", "inherit"}:
-        return "base", "__KEEP_BASE__"
-    if text in load_strategy_map:
-        return text, load_strategy_map[text]
-    parsed = _parse_single_strategy_value(text)
-    if parsed is None:
-        return "none", None
-    alias_name = text.lower().replace(":", "_")
-    alias_name = re.sub(r"[^0-9a-zA-Z._-]+", "_", alias_name)
-    return alias_name, parsed
-
-
-def _apply_load_strategy(cfg, strategy_value, pretrain_resume_path: str):
-    cfg.pop("load_specific_parts", None)
-    cfg.pop("encoder_param_keywords", None)
-    cfg.pop("resume_path", None)
-    if strategy_value is None:
-        return
-    if strategy_value == "encoder":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = ["encoder"]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    if strategy_value == "input_layer0_layer1":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = [
-            "base_model.encoder.input_proj",
-            "base_model.encoder.layers.0",
-            "base_model.encoder.layers.1",
-        ]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    if strategy_value == "input_layer":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = [
-            "base_model.encoder.input_proj",
-        ]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    if strategy_value == "layer0":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = [
-            "base_model.encoder.layers.0",
-        ]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    if strategy_value == "layer1":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = [
-            "base_model.encoder.layers.1",
-        ]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    if strategy_value == "layer0_input":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = [
-            "base_model.encoder.layers.0",
-            "base_model.encoder.input_proj",
-        ]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    if strategy_value == "layer1_input":
-        cfg.resume_path = pretrain_resume_path
-        cfg.load_specific_parts = [
-            "base_model.encoder.layers.1",
-            "base_model.encoder.input_proj",
-        ]
-        cfg.encoder_param_keywords = list(cfg.load_specific_parts)
-        return
-    raise ValueError(f"Unsupported load strategy: {strategy_value!r}")
 
 
 def _build_parser():
@@ -318,7 +181,7 @@ def _build_tasks_matrix_mode(
     for attn_layer in attn_layers:
         for load_name, load_value in load_strategy_map.items():
             for seed in seeds:
-                variant_name = _build_variant_name(
+                variant_name = build_attn_load_seed_variant_name(
                     attn_layer=attn_layer,
                     load_strategy=load_name,
                     seed=seed,
@@ -332,7 +195,7 @@ def _build_tasks_matrix_mode(
                     cfg.mixer_model_config = {}
                 cfg.mixer_model_config.attn_layer_idx = [int(attn_layer)]
                 cfg.seed = int(seed)
-                _apply_load_strategy(cfg, load_value, pretrain_resume_path=pretrain_resume_path)
+                apply_encoder_load_strategy(cfg, load_value, pretrain_resume_path=pretrain_resume_path)
 
                 for key, value in extra_overrides.items():
                     set_key(cfg, key, value)
@@ -385,12 +248,12 @@ def _build_tasks_variant_mode(
             raise ValueError(f"variants[{idx}] must be a mapping/object.")
         attn_layer_raw = variant.get("attn_layer_idx")
         attn_layer = int(attn_layer_raw) if attn_layer_raw is not None else None
-        load_name, load_value = _resolve_variant_load_strategy(variant.get("load_strategy"), load_strategy_map)
+        load_name, load_value = resolve_variant_load_strategy(variant.get("load_strategy"), load_strategy_map)
         raw_name = variant.get("name", f"variant_{idx + 1:02d}")
         fallback_name = f"variant_{idx + 1:02d}"
-        variant_name = _normalize_run_name(raw_name, fallback=fallback_name)
+        variant_name = normalize_run_name(raw_name, fallback=fallback_name)
         if variant_name in seen_names:
-            variant_name = _normalize_run_name(f"{variant_name}_{idx + 1:02d}", fallback=fallback_name)
+            variant_name = normalize_run_name(f"{variant_name}_{idx + 1:02d}", fallback=fallback_name)
         seen_names.add(variant_name)
 
         overrides = variant.get("overrides", {})
@@ -411,7 +274,7 @@ def _build_tasks_variant_mode(
             seed_values = [int(variant_seeds)]
 
         for seed in seed_values:
-            run_name = _normalize_run_name(f"{variant_name}_seed_{seed}", fallback=f"{fallback_name}_seed_{seed}")
+            run_name = normalize_run_name(f"{variant_name}_seed_{seed}", fallback=f"{fallback_name}_seed_{seed}")
             run_dir = runs_dir / run_name
             run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -423,7 +286,7 @@ def _build_tasks_variant_mode(
                 cfg.mixer_model_config.attn_layer_idx = [int(attn_layer)]
             cfg.seed = int(seed)
             if load_value != "__KEEP_BASE__":
-                _apply_load_strategy(cfg, load_value, pretrain_resume_path=pretrain_resume_path)
+                apply_encoder_load_strategy(cfg, load_value, pretrain_resume_path=pretrain_resume_path)
 
             for key, value in overrides.items():
                 set_key(cfg, str(key), value)
@@ -483,33 +346,7 @@ def _expand_grid_to_variants(exp_cfg: dict):
             # point-level source_* / load_strategy / attn_layer_idx / seed(s) are allowed
             # point-level extra keys (not reserved) are treated as overrides shorthand
     """
-    if not isinstance(exp_cfg, dict):
-        return None
-
-    grid_cfg = exp_cfg.get("grid")
-    if grid_cfg is None:
-        return None
-    if not isinstance(grid_cfg, dict):
-        raise ValueError("exp config key `grid` must be a mapping/object.")
-
-    points = grid_cfg.get("points")
-    if not isinstance(points, list) or not points:
-        raise ValueError("exp config key `grid.points` must be a non-empty list.")
-
-    name_prefix = str(grid_cfg.get("name_prefix", "grid")).strip()
-    common = grid_cfg.get("common", {})
-    if common is None:
-        common = {}
-    if not isinstance(common, dict):
-        raise ValueError("exp config key `grid.common` must be a mapping/object.")
-
-    common_overrides = common.get("overrides", {})
-    if common_overrides is None:
-        common_overrides = {}
-    if not isinstance(common_overrides, dict):
-        raise ValueError("exp config key `grid.common.overrides` must be a mapping/object.")
-
-    reserved_keys = {
+    reserved_keys = (
         "name",
         "source_run",
         "source_profile",
@@ -519,8 +356,8 @@ def _expand_grid_to_variants(exp_cfg: dict):
         "seed",
         "seeds",
         "overrides",
-    }
-    forward_keys = {
+    )
+    forward_keys = (
         "source_run",
         "source_profile",
         "source_trial",
@@ -528,47 +365,13 @@ def _expand_grid_to_variants(exp_cfg: dict):
         "attn_layer_idx",
         "seed",
         "seeds",
-    }
-
-    variants = []
-    for idx, point in enumerate(points):
-        if not isinstance(point, dict):
-            raise ValueError(f"grid.points[{idx}] must be a mapping/object.")
-
-        point_overrides = point.get("overrides", {})
-        if point_overrides is None:
-            point_overrides = {}
-        if not isinstance(point_overrides, dict):
-            raise ValueError(f"grid.points[{idx}].overrides must be a mapping/object.")
-
-        point_name_raw = point.get("name", f"{idx + 1:02d}")
-        point_name = _normalize_run_name(point_name_raw, fallback=f"{idx + 1:02d}")
-        if name_prefix:
-            variant_name = _normalize_run_name(f"{name_prefix}_{point_name}", fallback=f"{name_prefix}_{idx + 1:02d}")
-        else:
-            variant_name = point_name
-
-        variant = {"name": variant_name}
-        for key in forward_keys:
-            if key in common:
-                variant[key] = common[key]
-            if key in point:
-                variant[key] = point[key]
-
-        shorthand_overrides = {
-            key: value
-            for key, value in point.items()
-            if key not in reserved_keys
-        }
-        merged_overrides = {}
-        merged_overrides.update(common_overrides)
-        merged_overrides.update(shorthand_overrides)
-        merged_overrides.update(point_overrides)
-        variant["overrides"] = merged_overrides
-
-        variants.append(variant)
-
-    return variants
+    )
+    return expand_grid_points(
+        exp_cfg,
+        forward_keys=forward_keys,
+        reserved_keys=reserved_keys,
+        default_name_prefix="grid",
+    )
 
 
 def main():
@@ -584,7 +387,7 @@ def main():
 
     attn_layers = parse_optional_csv(args.attn_layers, int)
     seeds = parse_optional_csv(args.seeds, int)
-    load_strategy_map = _parse_load_strategies(args.load_strategies)
+    load_strategy_map = parse_load_strategies(args.load_strategies)
 
     extra_overrides = parse_set_overrides(args.set)
 

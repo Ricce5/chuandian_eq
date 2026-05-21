@@ -9,19 +9,19 @@ collects per-run test metrics, and exports:
 """
 
 import argparse
-import re
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 from automation import (
+    build_tf_mf_group_key,
+    build_variant_group_key,
     build_group_best_rows,
     build_group_stats_rows,
-    find_metrics_file,
+    collect_per_run_summary_rows,
     group_by_key,
-    load_summary_rows,
-    read_json,
-    resolve_run_dir,
-    to_float,
+    is_single_window_variant_grid,
+    resolve_cfg_path,
+    resolve_tf_mf_group_mode,
     write_csv,
     write_json,
 )
@@ -43,39 +43,15 @@ DEFAULT_METRIC_KEYS = (
 
 
 def _build_tf_mf_group_key(row: Dict):
-    tf = row.get("Tfore")
-    mf = row.get("Mf")
-    if tf is None or mf is None:
-        return None
-    return int(tf), float(mf)
+    return build_tf_mf_group_key(row)
 
 
 def _group_sort_key(item):
-    (tf, mf), _ = item
-    return tf, mf
-
-
-def _infer_variant_name_from_run(run_name: str | None) -> str | None:
-    if not run_name:
-        return None
-    text = str(run_name)
-    marker = "_seed_"
-    if marker in text:
-        text = text.split(marker, 1)[0]
-
-    # Support single-window transfer grids whose run names look like
-    # `tf90_scratch_seed_0` -> `scratch`.
-    match = re.match(r"^tf\d+_(.+)$", text)
-    if match:
-        return match.group(1)
-    return text
+    return item[0]
 
 
 def _build_variant_group_key(row: Dict):
-    variant = row.get("variant_name")
-    if variant:
-        return str(variant)
-    return _infer_variant_name_from_run(row.get("run"))
+    return build_variant_group_key(row, strip_tf_prefix=True)
 
 
 def _variant_group_sort_key(item):
@@ -83,72 +59,15 @@ def _variant_group_sort_key(item):
     return str(variant)
 
 
-def _resolve_cfg_path(run_dir: Path, cfg_path_raw) -> Path | None:
-    candidates: List[Path] = []
-
-    if cfg_path_raw:
-        raw = Path(str(cfg_path_raw)).expanduser()
-        if raw.is_absolute():
-            candidates.append(raw.resolve())
-        else:
-            candidates.append((run_dir / raw).resolve())
-
-    candidates.extend(
-        [
-            run_dir / "config_input.yaml",
-            run_dir / "config.yaml",
-        ]
-    )
-
-    seen = set()
-    for path in candidates:
-        key = str(path)
-        if key in seen:
-            continue
-        seen.add(key)
-        if path.exists():
-            return path
-    return None
-
-
-def _dedupe_summary_rows(summary_rows: Sequence[Dict]) -> List[Dict]:
-    deduped: Dict[str, Dict] = {}
-    extras: List[Dict] = []
-
-    for item in summary_rows:
-        run_name = item.get("run")
-        if not run_name:
-            extras.append(item)
-            continue
-        deduped[str(run_name)] = item
-
-    return list(deduped.values()) + extras
-
-
 def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict]:
-    summary_rows = _dedupe_summary_rows(load_summary_rows(exp_dir))
-
-    rows: List[Dict] = []
-    for item in summary_rows:
-        run_name = item.get("run")
-        if not run_name:
-            continue
-
-        run_dir = resolve_run_dir(exp_dir, str(run_name), item.get("run_dir"), ckpt_select="auto")
-        cfg_path = _resolve_cfg_path(run_dir, item.get("cfg_path"))
-        metrics_path = find_metrics_file(run_dir, ckpt_select="auto")
-        metrics = {}
-        if metrics_path and metrics_path.exists():
-            loaded = read_json(metrics_path)
-            if isinstance(loaded, dict):
-                metrics = loaded
-
-        row = {
-            "run": run_name,
-            "variant_name": _infer_variant_name_from_run(run_name),
-            "run_dir": str(run_dir),
+    def _row_extra_builder(**kwargs):
+        item = kwargs["item"]
+        run_name = kwargs["run_name"]
+        run_dir = kwargs["run_dir"]
+        cfg_path = resolve_cfg_path(run_dir, item.get("cfg_path"))
+        return {
+            "variant_name": build_variant_group_key({"run": run_name}, strip_tf_prefix=True),
             "cfg_path": str(cfg_path) if cfg_path else "",
-            "metrics_path": str(metrics_path) if metrics_path else "",
             "Twindow": item.get("Twindow"),
             "Tfore": item.get("Tfore"),
             "Mf": item.get("Mf"),
@@ -159,17 +78,20 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict
             "train_returncode": item.get("train_returncode"),
             "test_returncode": item.get("test_returncode"),
             "test_skipped_reason": item.get("test_skipped_reason"),
-            "status_ok": int(
-                (item.get("train_returncode") in (None, 0))
-                and (item.get("test_returncode") in (None, 0))
-            ),
-            "metrics_found": int(bool(metrics)),
         }
-        for key in metric_keys:
-            row[key] = to_float(metrics.get(key))
-        rows.append(row)
 
-    return rows
+    return collect_per_run_summary_rows(
+        exp_dir=exp_dir,
+        metric_keys=metric_keys,
+        ckpt_select="auto",
+        row_extra_builder=_row_extra_builder,
+        sort_key_fn=lambda row: (
+            int(row["Tfore"]) if row.get("Tfore") is not None else 10**9,
+            float(row["Mf"]) if row.get("Mf") is not None else float("inf"),
+            int(row["seed"]) if row.get("seed") is not None else 10**9,
+            str(row["run"]),
+        ),
+    )
 
 
 def _sort_per_run_rows(rows: Sequence[Dict], group_mode: str) -> List[Dict]:
@@ -193,39 +115,6 @@ def _sort_per_run_rows(rows: Sequence[Dict], group_mode: str) -> List[Dict]:
     )
 
 
-def _resolve_group_mode(rows: Sequence[Dict], mode_raw: str) -> str:
-    mode = str(mode_raw).strip().lower()
-    if mode in {"tf_mf", "variant"}:
-        return mode
-    if mode != "auto":
-        raise ValueError("--group_by must be one of: auto, tf_mf, variant")
-
-    combos = set()
-    variants = set()
-    for row in rows:
-        tf = row.get("Tfore")
-        mf = row.get("Mf")
-        if tf is not None and mf is not None:
-            combos.add((int(tf), float(mf)))
-        vn = _build_variant_group_key(row)
-        if vn is not None:
-            variants.add(vn)
-
-    if len(combos) <= 1 and len(variants) > 1:
-        return "variant"
-    return "tf_mf"
-
-
-def _is_single_window_variant_grid(rows: Sequence[Dict]) -> bool:
-    combos = set()
-    for row in rows:
-        tf = row.get("Tfore")
-        mf = row.get("Mf")
-        if tf is not None and mf is not None:
-            combos.add((int(tf), float(mf)))
-    return len(combos) == 1 and len({r.get("variant_name") for r in rows if r.get("variant_name")}) > 1
-
-
 def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str], group_mode: str) -> Tuple[List[Dict], List[Dict]]:
     if group_mode == "variant":
         grouped = group_by_key(rows, _build_variant_group_key)
@@ -241,7 +130,7 @@ def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str], group_mode: str
         )
         return group_stats, []
 
-    if _is_single_window_variant_grid(rows):
+    if is_single_window_variant_grid(rows):
         grouped = group_by_key(rows, _build_variant_group_key)
 
         def _base_row_builder(group_key: str, _items: Sequence[Dict]):
@@ -297,7 +186,7 @@ def group_best_rows(rows: Sequence[Dict], metric: str, maximize: bool, group_mod
             sort_key_fn=_variant_group_sort_key,
         )
 
-    if _is_single_window_variant_grid(rows):
+    if is_single_window_variant_grid(rows):
         grouped = group_by_key(rows, _build_variant_group_key)
 
         def _base_row_builder(group_key: str, _items: Sequence[Dict], best: Dict | None):
@@ -408,7 +297,7 @@ def main():
         raise ValueError("--metrics must contain at least one key")
 
     per_run_rows = collect_per_run_rows(exp_dir, metric_keys)
-    group_mode = _resolve_group_mode(per_run_rows, args.group_by)
+    group_mode = resolve_tf_mf_group_mode(per_run_rows, args.group_by, _build_variant_group_key)
     per_run_rows = _sort_per_run_rows(per_run_rows, group_mode)
     group_stats, _ = group_rows(per_run_rows, metric_keys, group_mode=group_mode)
     best_rows = group_best_rows(

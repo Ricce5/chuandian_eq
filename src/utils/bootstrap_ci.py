@@ -188,14 +188,23 @@ def _candidate_base_paths(
     return _dedupe_paths(candidates)
 
 
-def _seed_key_for_sort(path: Path) -> tuple[int, str]:
-    """Sort checkpoint paths by ``seed`` suffix when available."""
+def _seed_index_for_path(path: Path) -> int | None:
+    """Extract ``seed`` suffix index from a run/checkpoint path when available."""
 
     run_name = path.parent.name if path.suffix.lower() == ".pth" else path.name
     match = _SEED_DIR_PATTERN.fullmatch(run_name)
     if match is None:
+        return None
+    return int(match.group("seed"))
+
+
+def _seed_key_for_sort(path: Path) -> tuple[int, str]:
+    """Sort checkpoint paths by ``seed`` suffix when available."""
+
+    seed_idx = _seed_index_for_path(path)
+    if seed_idx is None:
         return math.inf, str(path)
-    return int(match.group("seed")), str(path)
+    return seed_idx, str(path)
 
 
 def resolve_checkpoint_path(
@@ -250,6 +259,7 @@ def resolve_seed_checkpoint_paths(
     project_root: str | Path | None = None,
     checkpoints_root: str | Path | None = None,
     checkpoint_filename: str = "best_model_1.pth",
+    selected_seeds: Sequence[int] | None = None,
     max_seed_count: int | None = None,
     sort_by_seed: bool = True,
 ) -> list[Path]:
@@ -259,6 +269,7 @@ def resolve_seed_checkpoint_paths(
     - single run directory/file path;
     - seed run directory like ``.../tf_90_mf_5p5_seed_1`` (collect siblings);
     - non-seed base directory like ``.../tf_90_mf_5p5`` (collect ``*_seed_*``);
+    - optional explicit ``selected_seeds`` filter by ``*_seed_<int>`` suffix;
     - optional cap on the number of returned seed checkpoints.
     - sequence of any of the above.
     """
@@ -340,8 +351,38 @@ def resolve_seed_checkpoint_paths(
         collected.extend(resolved_from_entry)
 
     deduped = _dedupe_paths([path.expanduser().resolve() for path in collected])
+    normalized_selected_seeds: list[int] | None = None
+    if selected_seeds is not None:
+        normalized_selected_seeds = []
+        seen_selected_seeds: set[int] = set()
+        for raw_seed in selected_seeds:
+            seed_idx = int(raw_seed)
+            if seed_idx in seen_selected_seeds:
+                continue
+            seen_selected_seeds.add(seed_idx)
+            normalized_selected_seeds.append(seed_idx)
+        if len(normalized_selected_seeds) == 0:
+            raise ValueError("selected_seeds must be non-empty when provided.")
+
+        selected_seed_set = set(normalized_selected_seeds)
+        deduped = [
+            path
+            for path in deduped
+            if (_seed_index_for_path(path) is not None and _seed_index_for_path(path) in selected_seed_set)
+        ]
+        if len(deduped) == 0:
+            raise ValueError(
+                "No checkpoints matched selected_seeds="
+                f"{sorted(selected_seed_set)} for path_like={path_like!r}."
+            )
     if sort_by_seed:
         deduped = sorted(deduped, key=_seed_key_for_sort)
+    if normalized_selected_seeds is not None and not sort_by_seed:
+        seed_order = {seed_idx: order for order, seed_idx in enumerate(normalized_selected_seeds)}
+        deduped = sorted(
+            deduped,
+            key=lambda path: seed_order.get(_seed_index_for_path(path), math.inf),
+        )
     if max_seed_count is not None:
         max_seed_count = int(max_seed_count)
         if max_seed_count <= 0:

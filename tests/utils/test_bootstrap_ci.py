@@ -240,6 +240,23 @@ def test_resolve_seed_checkpoint_paths_applies_max_seed_count(tmp_path):
     assert resolved_names == ["tf_90_mf_5p5_seed_0", "tf_90_mf_5p5_seed_1"]
 
 
+def test_resolve_seed_checkpoint_paths_filters_selected_seeds(tmp_path):
+    project_root = tmp_path
+    runs_root = project_root / "experiments" / "clf_grid_r_2" / "runs"
+    for seed in [0, 1, 2, 3]:
+        run_dir = runs_root / f"tf_90_mf_5p5_seed_{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "best_model_1.pth").write_bytes(f"seed-{seed}".encode("utf-8"))
+
+    resolved_paths = resolve_seed_checkpoint_paths(
+        "experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1",
+        project_root=project_root,
+        selected_seeds=[3, 1],
+    )
+    resolved_names = [path.parent.name for path in resolved_paths]
+    assert resolved_names == ["tf_90_mf_5p5_seed_1", "tf_90_mf_5p5_seed_3"]
+
+
 def test_resolve_seed_checkpoint_paths_collects_prefix_seed_runs(tmp_path):
     project_root = tmp_path
     runs_root = project_root / "experiments" / "clf_grid_r_2" / "runs"

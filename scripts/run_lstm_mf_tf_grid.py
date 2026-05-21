@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import re
 from pathlib import Path
 
 from omegaconf import OmegaConf
@@ -8,30 +7,20 @@ from omegaconf import OmegaConf
 from automation import (
     apply_exp_config_overrides,
     adjust_parallel_limits,
+    build_tf_mf_seed_variant_name,
     build_tf_mf_pairs,
     create_experiment_workspace,
     dump_json,
+    expand_grid_points,
     execute_tasks,
     load_exp_config,
+    normalize_run_name,
     parse_optional_csv,
     parse_set_overrides,
+    resolve_point_seeds,
     set_key,
     try_load_summary,
 )
-
-
-def _build_variant_name(tf, mf, seed):
-    mf_str = str(mf).replace(".", "p")
-    return f"tf_{tf}_mf_{mf_str}_seed_{seed}"
-
-
-def _normalize_run_name(raw: str, fallback: str):
-    text = str(raw or "").strip()
-    if not text:
-        text = fallback
-    text = re.sub(r"[^0-9a-zA-Z._-]+", "_", text)
-    text = text.strip("._-")
-    return text or fallback
 
 
 def _expand_grid_to_points(exp_cfg: dict):
@@ -56,33 +45,7 @@ def _expand_grid_to_points(exp_cfg: dict):
             overrides: {...}                # optional
             # point-level keys can override common keys
     """
-    if not isinstance(exp_cfg, dict):
-        return None
-
-    grid_cfg = exp_cfg.get("grid")
-    if grid_cfg is None:
-        return None
-    if not isinstance(grid_cfg, dict):
-        raise ValueError("exp config key `grid` must be a mapping/object.")
-
-    points = grid_cfg.get("points")
-    if not isinstance(points, list) or not points:
-        raise ValueError("exp config key `grid.points` must be a non-empty list.")
-
-    name_prefix = str(grid_cfg.get("name_prefix", "grid")).strip()
-    common = grid_cfg.get("common", {})
-    if common is None:
-        common = {}
-    if not isinstance(common, dict):
-        raise ValueError("exp config key `grid.common` must be a mapping/object.")
-
-    common_overrides = common.get("overrides", {})
-    if common_overrides is None:
-        common_overrides = {}
-    if not isinstance(common_overrides, dict):
-        raise ValueError("exp config key `grid.common.overrides` must be a mapping/object.")
-
-    reserved_keys = {
+    reserved_keys = (
         "name",
         "Twindow",
         "Tfore",
@@ -94,8 +57,8 @@ def _expand_grid_to_points(exp_cfg: dict):
         "criterion_name",
         "criterion_beta",
         "overrides",
-    }
-    forward_keys = {
+    )
+    forward_keys = (
         "Twindow",
         "Tfore",
         "Mf",
@@ -105,61 +68,13 @@ def _expand_grid_to_points(exp_cfg: dict):
         "seeds",
         "criterion_name",
         "criterion_beta",
-    }
-
-    expanded = []
-    for idx, point in enumerate(points):
-        if not isinstance(point, dict):
-            raise ValueError(f"grid.points[{idx}] must be a mapping/object.")
-
-        point_overrides = point.get("overrides", {})
-        if point_overrides is None:
-            point_overrides = {}
-        if not isinstance(point_overrides, dict):
-            raise ValueError(f"grid.points[{idx}].overrides must be a mapping/object.")
-
-        point_name_raw = point.get("name", f"{idx + 1:02d}")
-        point_name = _normalize_run_name(point_name_raw, fallback=f"{idx + 1:02d}")
-        if name_prefix:
-            variant_name = _normalize_run_name(
-                f"{name_prefix}_{point_name}",
-                fallback=f"{name_prefix}_{idx + 1:02d}",
-            )
-        else:
-            variant_name = point_name
-
-        merged = {"name": variant_name}
-        for key in forward_keys:
-            if key in common:
-                merged[key] = common[key]
-            if key in point:
-                merged[key] = point[key]
-
-        shorthand_overrides = {
-            key: value
-            for key, value in point.items()
-            if key not in reserved_keys
-        }
-        merged_overrides = {}
-        merged_overrides.update(common_overrides)
-        merged_overrides.update(shorthand_overrides)
-        merged_overrides.update(point_overrides)
-        merged["overrides"] = merged_overrides
-
-        expanded.append(merged)
-
-    return expanded
-
-
-def _resolve_point_seeds(point: dict, default_seeds: list[int]) -> list[int]:
-    if "seeds" in point and point.get("seeds") is not None:
-        raw = point.get("seeds")
-        if isinstance(raw, (list, tuple)):
-            return [int(x) for x in raw]
-        return parse_optional_csv(str(raw), int)
-    if "seed" in point and point.get("seed") is not None:
-        return [int(point.get("seed"))]
-    return [int(x) for x in default_seeds]
+    )
+    return expand_grid_points(
+        exp_cfg,
+        forward_keys=forward_keys,
+        reserved_keys=reserved_keys,
+        default_name_prefix="grid",
+    )
 
 
 def _build_parser():
@@ -421,7 +336,7 @@ def main():
     if grid_points is None:
         for tf, mf in tf_mf_pairs:
             for seed in seeds:
-                variant_name = _build_variant_name(tf=tf, mf=mf, seed=seed)
+                variant_name = build_tf_mf_seed_variant_name(tf=tf, mf=mf, seed=seed)
                 run_dir = workspace.runs_dir / variant_name
                 run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -486,7 +401,7 @@ def main():
             tf = int(point.get("Tfore"))
             mf = float(point.get("Mf"))
             point_name = str(point.get("name") or "grid")
-            point_seeds = _resolve_point_seeds(point, default_seeds=seeds)
+            point_seeds = resolve_point_seeds(point, default_seeds=seeds)
             if not point_seeds:
                 raise ValueError(f"grid point {point_name} resolved empty seeds.")
 
@@ -510,7 +425,7 @@ def main():
             )
 
             for seed in point_seeds:
-                variant_name = _normalize_run_name(
+                variant_name = normalize_run_name(
                     f"{point_name}_seed_{int(seed)}",
                     fallback=f"grid_seed_{int(seed)}",
                 )
@@ -585,7 +500,7 @@ def main():
             for point in grid_points:
                 if not isinstance(point, dict):
                     continue
-                point_seeds = _resolve_point_seeds(point, default_seeds=seeds)
+                point_seeds = resolve_point_seeds(point, default_seeds=seeds)
                 total_planned += len(point_seeds)
         skipped_count = max(0, total_planned - len(tasks))
         print(f"[INFO] skip_done enabled: {skipped_count} skipped, {len(tasks)} to run.")

@@ -45,7 +45,7 @@ diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tp
     python scripts/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_single_window_pretrain.yaml
 
 
-  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_single_window_pretrain_b64_lr3e3 --best_metric auc
+  python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_pre_v1/clf_pre_scratch_v1 --best_metric auc
 
 
   python scripts/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_scratch_2  --best_metric auc
@@ -112,3 +112,12 @@ python scripts/summarize_clf_seed_across_experiments.py --seed 1 --out_dir exper
     --ckpt_select last \
 
 
+
+
+ python scripts/run_clf_grid_five_experiments.py --exp_name_suffix v1 --exp_root experiments/clf_pre_v1 --seeds 0,1,2,3,4,5,6,7
+
+
+ python scripts/run_clf_grid_five_experiments.py --dry_run
+
+
+  python scripts/summarize_clf_seed_across_experiments.py  --exp_name_suffix v1 --exp_root experiments/clf_pre_v1
