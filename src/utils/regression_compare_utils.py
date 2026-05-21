@@ -113,6 +113,7 @@ def resolve_seed_checkpoint_map(
     titles: Sequence[str],
     *,
     project_root: Path,
+    max_seed_count: int | None = None,
 ) -> tuple[dict[str, list[Path]], int]:
     """Resolve and align per-model seed checkpoint paths from experiment specs."""
 
@@ -136,6 +137,7 @@ def resolve_seed_checkpoint_map(
             path_like,
             project_root=project_root,
             checkpoint_filename=checkpoint_filename,
+            max_seed_count=max_seed_count,
         )
         seed_ckpts_by_model[model_title] = [Path(path) for path in seed_ckpts]
 
@@ -166,6 +168,7 @@ def build_model_seed_data_dicts(
     device: Any,
     project_root: Path,
     get_data_dicts_from_checkpoints_fn: Callable[[Sequence[Mapping[str, Any]], Any], tuple[list[Any], list[str]]],
+    max_seed_count: int | None = None,
     seed_cache_path: Path | None = None,
     use_seed_cache: bool = True,
     save_seed_cache: bool = True,
@@ -181,9 +184,11 @@ def build_model_seed_data_dicts(
         cached_titles = cache_payload.get("titles")
         cached_models = cache_payload.get("model_seed_data_dicts")
         cached_n_seeds = cache_payload.get("common_n_seeds")
+        cached_max_seed_count = cache_payload.get("max_seed_count")
         if (
             isinstance(cached_models, dict)
             and cached_titles == list(titles)
+            and cached_max_seed_count == max_seed_count
             and all(title in cached_models for title in titles)
         ):
             print(f"Loaded bootstrap multi-seed cache from: {seed_cache_path}")
@@ -194,6 +199,7 @@ def build_model_seed_data_dicts(
         experiments,
         titles,
         project_root=project_root,
+        max_seed_count=max_seed_count,
     )
 
     seed_experiments: list[dict[str, Any]] = []
@@ -228,6 +234,7 @@ def build_model_seed_data_dicts(
                 {
                     "titles": list(titles),
                     "common_n_seeds": int(common_n_seeds),
+                    "max_seed_count": max_seed_count,
                     "model_seed_data_dicts": model_seed_data_dicts,
                 },
                 f,
@@ -342,6 +349,7 @@ def compute_regression_paired_block_bootstrap_tables(
     canonical_split_name_fn: Callable[[str], str],
     get_data_dicts_from_checkpoints_fn: Callable[[Sequence[Mapping[str, Any]], Any], tuple[list[Any], list[str]]],
     mode_label: str,
+    max_seed_count: int | None = None,
     seed_cache_path: Path | None = None,
     use_seed_cache: bool = True,
     save_seed_cache: bool = True,
@@ -358,6 +366,7 @@ def compute_regression_paired_block_bootstrap_tables(
             device=device,
             project_root=project_root,
             get_data_dicts_from_checkpoints_fn=get_data_dicts_from_checkpoints_fn,
+            max_seed_count=max_seed_count,
             seed_cache_path=seed_cache_path,
             use_seed_cache=use_seed_cache,
             save_seed_cache=save_seed_cache,
@@ -415,6 +424,11 @@ def compute_regression_paired_block_bootstrap_tables(
                         "metric": str(metric_name),
                         "n_obs": int(y_true.size),
                         "point_estimate": float(boot.point_estimate),
+                        "point_estimate_std": (
+                            float(boot.point_estimate_std)
+                            if boot.point_estimate_std is not None
+                            else None
+                        ),
                         "ci_low": float(boot.ci_low),
                         "ci_high": float(boot.ci_high),
                         "valid_resamples": int(boot.valid_resamples),

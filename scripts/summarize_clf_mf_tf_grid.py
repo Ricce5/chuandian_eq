@@ -9,6 +9,7 @@ collects per-run test metrics, and exports:
 """
 
 import argparse
+import re
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -60,7 +61,13 @@ def _infer_variant_name_from_run(run_name: str | None) -> str | None:
     text = str(run_name)
     marker = "_seed_"
     if marker in text:
-        return text.split(marker, 1)[0]
+        text = text.split(marker, 1)[0]
+
+    # Support single-window transfer grids whose run names look like
+    # `tf90_scratch_seed_0` -> `scratch`.
+    match = re.match(r"^tf\d+_(.+)$", text)
+    if match:
+        return match.group(1)
     return text
 
 
@@ -162,15 +169,28 @@ def collect_per_run_rows(exp_dir: Path, metric_keys: Sequence[str]) -> List[Dict
             row[key] = to_float(metrics.get(key))
         rows.append(row)
 
-    rows.sort(
+    return rows
+
+
+def _sort_per_run_rows(rows: Sequence[Dict], group_mode: str) -> List[Dict]:
+    if group_mode == "variant":
+        return sorted(
+            rows,
+            key=lambda r: (
+                str(r.get("variant_name") or ""),
+                int(r["seed"]) if r.get("seed") is not None else 10**9,
+                str(r["run"]),
+            ),
+        )
+    return sorted(
+        rows,
         key=lambda r: (
             int(r["Tfore"]) if r.get("Tfore") is not None else 10**9,
             float(r["Mf"]) if r.get("Mf") is not None else float("inf"),
             int(r["seed"]) if r.get("seed") is not None else 10**9,
             str(r["run"]),
-        )
+        ),
     )
-    return rows
 
 
 def _resolve_group_mode(rows: Sequence[Dict], mode_raw: str) -> str:
@@ -196,8 +216,32 @@ def _resolve_group_mode(rows: Sequence[Dict], mode_raw: str) -> str:
     return "tf_mf"
 
 
+def _is_single_window_variant_grid(rows: Sequence[Dict]) -> bool:
+    combos = set()
+    for row in rows:
+        tf = row.get("Tfore")
+        mf = row.get("Mf")
+        if tf is not None and mf is not None:
+            combos.add((int(tf), float(mf)))
+    return len(combos) == 1 and len({r.get("variant_name") for r in rows if r.get("variant_name")}) > 1
+
+
 def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str], group_mode: str) -> Tuple[List[Dict], List[Dict]]:
     if group_mode == "variant":
+        grouped = group_by_key(rows, _build_variant_group_key)
+
+        def _base_row_builder(group_key: str, _items: Sequence[Dict]):
+            return {"variant_name": str(group_key)}
+
+        group_stats = build_group_stats_rows(
+            grouped=grouped,
+            metric_keys=metric_keys,
+            base_row_builder=_base_row_builder,
+            sort_key_fn=_variant_group_sort_key,
+        )
+        return group_stats, []
+
+    if _is_single_window_variant_grid(rows):
         grouped = group_by_key(rows, _build_variant_group_key)
 
         def _base_row_builder(group_key: str, _items: Sequence[Dict]):
@@ -231,6 +275,29 @@ def group_rows(rows: Sequence[Dict], metric_keys: Sequence[str], group_mode: str
 
 def group_best_rows(rows: Sequence[Dict], metric: str, maximize: bool, group_mode: str) -> List[Dict]:
     if group_mode == "variant":
+        grouped = group_by_key(rows, _build_variant_group_key)
+
+        def _base_row_builder(group_key: str, _items: Sequence[Dict], best: Dict | None):
+            row = {"variant_name": str(group_key)}
+            if best is not None:
+                row.update(
+                    {
+                        "run_dir": best.get("run_dir"),
+                        "metrics_path": best.get("metrics_path"),
+                        "status_ok": best.get("status_ok"),
+                    }
+                )
+            return row
+
+        return build_group_best_rows(
+            grouped=grouped,
+            metric=metric,
+            maximize=maximize,
+            base_row_builder=_base_row_builder,
+            sort_key_fn=_variant_group_sort_key,
+        )
+
+    if _is_single_window_variant_grid(rows):
         grouped = group_by_key(rows, _build_variant_group_key)
 
         def _base_row_builder(group_key: str, _items: Sequence[Dict], best: Dict | None):
@@ -342,6 +409,7 @@ def main():
 
     per_run_rows = collect_per_run_rows(exp_dir, metric_keys)
     group_mode = _resolve_group_mode(per_run_rows, args.group_by)
+    per_run_rows = _sort_per_run_rows(per_run_rows, group_mode)
     group_stats, _ = group_rows(per_run_rows, metric_keys, group_mode=group_mode)
     best_rows = group_best_rows(
         per_run_rows,

@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import roc_auc_score
 
 from src.utils.bootstrap_ci import (
     BootstrapConfig,
@@ -77,6 +78,17 @@ def test_bootstrap_metric_supports_classification_and_regression():
     assert reg_result.metric_name == "rmse"
     assert np.isfinite(reg_result.point_estimate)
     assert reg_result.valid_resamples > 0
+
+    dtw_result = bootstrap_metric(
+        y_true_reg,
+        y_pred,
+        metric="dtw",
+        task="regression",
+        config=BootstrapConfig(n_resamples=32, seed=10, sampling="iid"),
+    )
+    assert dtw_result.metric_name == "dtw"
+    assert np.isfinite(dtw_result.point_estimate)
+    assert dtw_result.valid_resamples > 0
 
 
 def test_bootstrap_multi_model_metric_ci_uses_paired_indices():
@@ -209,6 +221,23 @@ def test_resolve_seed_checkpoint_paths_collects_sibling_seed_runs(tmp_path):
         "tf_90_mf_5p5_seed_1",
         "tf_90_mf_5p5_seed_2",
     ]
+
+
+def test_resolve_seed_checkpoint_paths_applies_max_seed_count(tmp_path):
+    project_root = tmp_path
+    runs_root = project_root / "experiments" / "clf_grid_r_2" / "runs"
+    for seed in [3, 1, 0, 2]:
+        run_dir = runs_root / f"tf_90_mf_5p5_seed_{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "best_model_1.pth").write_bytes(f"seed-{seed}".encode("utf-8"))
+
+    resolved_paths = resolve_seed_checkpoint_paths(
+        "experiments/clf_grid_r_2/runs/tf_90_mf_5p5_seed_1",
+        project_root=project_root,
+        max_seed_count=2,
+    )
+    resolved_names = [path.parent.name for path in resolved_paths]
+    assert resolved_names == ["tf_90_mf_5p5_seed_0", "tf_90_mf_5p5_seed_1"]
 
 
 def test_resolve_seed_checkpoint_paths_collects_prefix_seed_runs(tmp_path):
@@ -352,3 +381,37 @@ def test_bootstrap_multi_model_metric_ci_hierarchical_point_estimate_mode_mean_d
     assert np.isfinite(est_ensemble)
     assert np.isfinite(est_mean)
     assert abs(float(est_ensemble) - float(est_mean)) > 1e-7
+    assert ensemble_result.model_results["model_a"].point_estimate_std is None
+    assert mean_result.model_results["model_a"].point_estimate_std is not None
+    assert float(mean_result.model_results["model_a"].point_estimate_std) >= 0.0
+
+
+def test_bootstrap_multi_model_metric_ci_hierarchical_point_std_uses_sample_std_ddof1():
+    y_true, y_prob_base = _make_binary_data(seed=611)
+    rng = np.random.default_rng(612)
+    n = y_prob_base.shape[0]
+    n_seeds = 4
+
+    seed_preds = []
+    for _ in range(n_seeds):
+        noise = 0.05 * rng.normal(size=n)
+        seed_preds.append(np.clip(y_prob_base + noise, 1e-6, 1 - 1e-6))
+
+    result = bootstrap_multi_model_metric_ci_hierarchical(
+        y_true,
+        {"model_a": seed_preds, "model_b": seed_preds},
+        metric="auc",
+        baseline_model="model_b",
+        seed_aggregation="mean",
+        point_estimate_mode="mean",
+        config=BootstrapConfig(n_resamples=24, seed=613, sampling="iid"),
+    )
+
+    metric_values = [
+        float(roc_auc_score(np.asarray(y_true).astype(int).reshape(-1), np.asarray(pred).reshape(-1)))
+        for pred in seed_preds
+    ]
+    expected_sample_std = float(np.std(np.asarray(metric_values, dtype=np.float64), ddof=1))
+    got_std = float(result.model_results["model_a"].point_estimate_std)
+    assert np.isfinite(got_std)
+    assert abs(got_std - expected_sample_std) < 1e-12

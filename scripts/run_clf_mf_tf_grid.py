@@ -19,6 +19,7 @@ from automation import (
     parse_set_overrides,
     parse_mapping,
     set_key,
+    try_load_summary,
 )
 
 
@@ -431,6 +432,16 @@ def _build_parser():
         action="store_true",
         help="Stop remaining tasks once any task fails.",
     )
+    parser.add_argument(
+        "--resume_exp",
+        action="store_true",
+        help="Resume existing experiment folder if exp_name already exists.",
+    )
+    parser.add_argument(
+        "--skip_done",
+        action="store_true",
+        help="Skip runs that already have successful train/test results in summary.json.",
+    )
     return parser
 
 
@@ -455,6 +466,8 @@ def _override_args_from_exp_config(args, exp_cfg: dict):
         "max_parallel": "max_parallel",
         "jobs_per_gpu": "jobs_per_gpu",
         "stop_on_error": "stop_on_error",
+        "resume_exp": "resume_exp",
+        "skip_done": "skip_done",
     }
     csv_like_keys = {
         "tfs": "tfs",
@@ -514,8 +527,10 @@ def main():
         exp_name=args.exp_name,
         default_name_prefix="clf_mf_tf_grid",
         exp_cfg_path=exp_cfg_path,
-        allow_existing_without_resume=True,
+        resume_exp=bool(args.resume_exp),
     )
+
+    existing_summary, existing_by_run = try_load_summary(workspace.exp_dir / "summary.json")
 
     gpu_ids = parse_optional_csv(args.gpu_ids, int)
     max_parallel, jobs_per_gpu = adjust_parallel_limits(
@@ -564,6 +579,8 @@ def main():
         "gpu_ids": gpu_ids,
         "jobs_per_gpu": jobs_per_gpu,
         "stop_on_error": bool(args.stop_on_error),
+        "resume_exp": bool(args.resume_exp),
+        "skip_done": bool(args.skip_done),
         "extra_overrides": extra_overrides,
     }
     dump_json(workspace.exp_dir / "plan.json", plan)
@@ -599,27 +616,36 @@ def main():
                 cfg_path = run_dir / "config_input.yaml"
                 OmegaConf.save(cfg, str(cfg_path))
 
-                tasks.append(
-                    {
-                        "run": variant_name,
-                        "Twindow": int(args.twindow),
-                        "Tfore": int(tf),
-                        "Mf": float(mf),
-                        "seed": int(seed),
-                        "time_bias_type": getattr(cfg, "time_bias_type", None),
-                        "criterion_alpha": (
-                            float(cfg.criterion_cfg.alpha)
-                            if (
-                                "criterion_cfg" in cfg
-                                and cfg.criterion_cfg is not None
-                                and "alpha" in cfg.criterion_cfg
-                            )
-                            else None
-                        ),
-                        "run_dir": str(run_dir),
-                        "cfg_path": str(cfg_path),
-                    }
-                )
+                skip_reason = None
+                if args.skip_done:
+                    prev = existing_by_run.get(variant_name)
+                    if isinstance(prev, dict):
+                        train_ok = prev.get("train_returncode") in (None, 0)
+                        test_ok = prev.get("test_returncode") in (None, 0)
+                        if train_ok and test_ok:
+                            skip_reason = "summary_done"
+
+                task = {
+                    "run": variant_name,
+                    "Twindow": int(args.twindow),
+                    "Tfore": int(tf),
+                    "Mf": float(mf),
+                    "seed": int(seed),
+                    "time_bias_type": getattr(cfg, "time_bias_type", None),
+                    "criterion_alpha": (
+                        float(cfg.criterion_cfg.alpha)
+                        if (
+                            "criterion_cfg" in cfg
+                            and cfg.criterion_cfg is not None
+                            and "alpha" in cfg.criterion_cfg
+                        )
+                        else None
+                    ),
+                    "run_dir": str(run_dir),
+                    "cfg_path": str(cfg_path),
+                }
+                if skip_reason is None:
+                    tasks.append(task)
     else:
         for point in grid_points:
             if "Tfore" not in point or point.get("Tfore") is None:
@@ -679,27 +705,52 @@ def main():
                 cfg_path = run_dir / "config_input.yaml"
                 OmegaConf.save(cfg, str(cfg_path))
 
-                tasks.append(
-                    {
-                        "run": variant_name,
-                        "Twindow": int(args.twindow),
-                        "Tfore": tf,
-                        "Mf": mf,
-                        "seed": int(seed),
-                        "time_bias_type": getattr(cfg, "time_bias_type", None),
-                        "criterion_alpha": (
-                            float(cfg.criterion_cfg.alpha)
-                            if (
-                                "criterion_cfg" in cfg
-                                and cfg.criterion_cfg is not None
-                                and "alpha" in cfg.criterion_cfg
-                            )
-                            else None
-                        ),
-                        "run_dir": str(run_dir),
-                        "cfg_path": str(cfg_path),
-                    }
-                )
+                skip_reason = None
+                if args.skip_done:
+                    prev = existing_by_run.get(variant_name)
+                    if isinstance(prev, dict):
+                        train_ok = prev.get("train_returncode") in (None, 0)
+                        test_ok = prev.get("test_returncode") in (None, 0)
+                        if train_ok and test_ok:
+                            skip_reason = "summary_done"
+
+                task = {
+                    "run": variant_name,
+                    "Twindow": int(args.twindow),
+                    "Tfore": tf,
+                    "Mf": mf,
+                    "seed": int(seed),
+                    "time_bias_type": getattr(cfg, "time_bias_type", None),
+                    "criterion_alpha": (
+                        float(cfg.criterion_cfg.alpha)
+                        if (
+                            "criterion_cfg" in cfg
+                            and cfg.criterion_cfg is not None
+                            and "alpha" in cfg.criterion_cfg
+                        )
+                        else None
+                    ),
+                    "run_dir": str(run_dir),
+                    "cfg_path": str(cfg_path),
+                }
+                if skip_reason is None:
+                    tasks.append(task)
+
+    skipped_count = 0
+    if args.skip_done:
+        if grid_points is None:
+            total_planned = len(tf_mf_pairs) * len(seeds)
+        else:
+            total_planned = 0
+            for point in grid_points:
+                point_seeds = _resolve_point_seeds(point, default_seeds=seeds)
+                total_planned += len(point_seeds)
+        skipped_count = max(0, total_planned - len(tasks))
+        print(f"[INFO] skip_done enabled: {skipped_count} skipped, {len(tasks)} to run.")
+
+    if not tasks:
+        print("[INFO] No pending tasks to run.")
+        return
 
     execute_tasks(
         tasks=tasks,
@@ -710,6 +761,7 @@ def main():
         max_parallel=max_parallel,
         jobs_per_gpu=jobs_per_gpu,
         stop_on_error=bool(args.stop_on_error),
+        initial_summary=existing_summary,
     )
 
     print(f"\nDone. Experiment folder: {workspace.exp_dir}")

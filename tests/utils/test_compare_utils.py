@@ -4,11 +4,14 @@ from src.utils.bootstrap_presets import PairedBootstrapPreset
 from src.utils.classifier_compare_utils import (
     build_classification_bootstrap_export_rows,
     build_rf_em_window_ci_cache,
+    run_classification_bootstrap_export_pipeline,
+    render_classification_bootstrap_export,
     summarize_classification_metric_rows,
 )
 from src.utils.regression_compare_utils import (
     collect_regression_split_payload,
     compute_regression_paired_block_bootstrap_tables,
+    build_model_seed_data_dicts,
 )
 from src.utils.bootstrap_ci import BootstrapConfig
 
@@ -116,6 +119,13 @@ def test_build_classification_bootstrap_export_rows_returns_expected_fields():
     assert row0["bootstrap_sampling"] == "block"
     assert row0["bootstrap_n_resamples"] == 24
     assert row0["bootstrap_block_size"] == 8
+    assert "auc_point_estimate_std" in row0
+    assert "ap_point_estimate_std" in row0
+
+    rf_seed_rows = multi_results[0]["models"]["RF"]["seed_metrics"]
+    rf_auc_values = np.asarray([float(item["auc"]) for item in rf_seed_rows], dtype=np.float64)
+    rf_row = next(row for row in metrics_rows if row["model"] == "RF")
+    assert abs(float(rf_row["auc_seed_std"]) - float(np.std(rf_auc_values, ddof=1))) < 1e-4
 
     delta0 = delta_rows[0]
     assert "comparison" in delta0
@@ -237,3 +247,135 @@ def test_compute_regression_paired_block_bootstrap_tables_non_hierarchical():
     assert set(model_df["metric"].unique()) == {"rmse", "mae"}
     assert "ci_95" in model_df.columns
     assert "ci_95" in delta_df.columns
+
+
+def test_build_model_seed_data_dicts_respects_max_seed_count_and_cache(tmp_path):
+    project_root = tmp_path
+    runs_root = project_root / "experiments" / "reg_grid" / "runs"
+    for seed in range(6):
+        run_dir = runs_root / f"tf_90_mf_5p5_seed_{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "best_model_1.pth").write_bytes(f"seed-{seed}".encode("utf-8"))
+
+    experiments = [
+        {
+            "title": "A",
+            "checkpoint": "experiments/reg_grid/runs/tf_90_mf_5p5_seed_0",
+            "prepare_fn": lambda *_args, **_kwargs: None,
+        }
+    ]
+    load_calls: list[list[str]] = []
+
+    def fake_loader(seed_experiments, device):
+        load_calls.append([str(exp["title"]) for exp in seed_experiments])
+        data_dicts = []
+        for exp in seed_experiments:
+            seed_idx = int(str(exp["title"]).rsplit("_", 1)[-1])
+            y_true = np.asarray([0.0, 1.0], dtype=np.float64)
+            y_pred = np.asarray([seed_idx, seed_idx + 0.5], dtype=np.float64)
+            data_dicts.append({"Test": (y_true, y_pred)})
+        return data_dicts, ["Test"]
+
+    cache_path = tmp_path / "seed_cache.pkl"
+    model_seed_data_dicts, common_n_seeds = build_model_seed_data_dicts(
+        experiments=experiments,
+        titles=["A"],
+        device="cpu",
+        project_root=project_root,
+        get_data_dicts_from_checkpoints_fn=fake_loader,
+        max_seed_count=5,
+        seed_cache_path=cache_path,
+        use_seed_cache=True,
+        save_seed_cache=True,
+    )
+    assert common_n_seeds == 5
+    assert len(model_seed_data_dicts["A"]) == 5
+    assert load_calls == [[
+        "A__seed_0",
+        "A__seed_1",
+        "A__seed_2",
+        "A__seed_3",
+        "A__seed_4",
+    ]]
+
+    model_seed_data_dicts_2, common_n_seeds_2 = build_model_seed_data_dicts(
+        experiments=experiments,
+        titles=["A"],
+        device="cpu",
+        project_root=project_root,
+        get_data_dicts_from_checkpoints_fn=fake_loader,
+        max_seed_count=3,
+        seed_cache_path=cache_path,
+        use_seed_cache=True,
+        save_seed_cache=True,
+    )
+    assert common_n_seeds_2 == 3
+    assert len(model_seed_data_dicts_2["A"]) == 3
+    assert load_calls == [
+        [
+            "A__seed_0",
+            "A__seed_1",
+            "A__seed_2",
+            "A__seed_3",
+            "A__seed_4",
+        ],
+        [
+            "A__seed_0",
+            "A__seed_1",
+            "A__seed_2",
+        ],
+    ]
+
+
+def test_run_classification_bootstrap_export_pipeline_writes_artifacts(tmp_path):
+    multi_results = [_make_classifier_window_row(seed=21), _make_classifier_window_row(seed=22)]
+    preset = PairedBootstrapPreset(
+        sampling="block",
+        ci=(2.5, 97.5),
+        n_resamples_curve=12,
+        n_resamples_metric=16,
+        block_size=4,
+        circular_block=True,
+    )
+
+    artifacts = run_classification_bootstrap_export_pipeline(
+        multi_results=multi_results,
+        bootstrap_preset=preset,
+        round_fn=lambda x: None if x is None else round(float(x), 4),
+        threshold_optimize_metric="f1",
+        use_hierarchical_seed_sample=True,
+        export_dir=tmp_path,
+        export_stem="clf_ci",
+        export_label="unit",
+        round_decimals=4,
+        seed_aggregation="mean",
+        point_estimate_mode="mean",
+        baseline_model="EM-EQF",
+        window_model_rows_getter=lambda row: row["models"],
+        metadata={"dataset": "unit-test"},
+    )
+
+    assert artifacts.metrics_csv_path.exists()
+    assert artifacts.metrics_json_path.exists()
+    assert artifacts.deltas_csv_path is not None
+    assert artifacts.deltas_csv_path.exists()
+    assert len(artifacts.metrics_rows) == 4
+    assert artifacts.summary_by_model["RF"]["num_windows"] == 2
+    assert artifacts.json_payload["dataset"] == "unit-test"
+
+
+def test_render_classification_bootstrap_export_raises_on_empty_rows():
+    artifacts = type(
+        "Artifacts",
+        (),
+        {
+            "metrics_rows": [],
+        },
+    )()
+
+    try:
+        render_classification_bootstrap_export(artifacts)
+    except RuntimeError as exc:
+        assert "No metrics rows" in str(exc)
+    else:
+        raise AssertionError("Expected RuntimeError for empty metrics rows.")

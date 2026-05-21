@@ -29,11 +29,12 @@ from sklearn.metrics import (
     r2_score,
     roc_curve,
 )
+from fastdtw import fastdtw
 
 TaskType = Literal["classification", "regression"]
 SamplingMethod = Literal["iid", "block"]
 CurveType = Literal["roc", "pr"]
-MetricName = Literal["auc", "ap", "mse", "rmse", "mae", "r2"]
+MetricName = Literal["auc", "ap", "mse", "rmse", "mae", "r2", "dtw", "dtw_normalized"]
 MetricLike = MetricName | str | Callable[[np.ndarray, np.ndarray], float]
 SeedAggregationMethod = Literal["mean", "median"]
 PointEstimateMode = Literal["ensemble", "mean"]
@@ -79,6 +80,7 @@ class BootstrappedMetric:
     samples: np.ndarray
     valid_resamples: int
     total_resamples: int
+    point_estimate_std: float | None = None
 
 
 @dataclass
@@ -248,6 +250,7 @@ def resolve_seed_checkpoint_paths(
     project_root: str | Path | None = None,
     checkpoints_root: str | Path | None = None,
     checkpoint_filename: str = "best_model_1.pth",
+    max_seed_count: int | None = None,
     sort_by_seed: bool = True,
 ) -> list[Path]:
     """Resolve one or more checkpoints for seed-based runs.
@@ -256,6 +259,7 @@ def resolve_seed_checkpoint_paths(
     - single run directory/file path;
     - seed run directory like ``.../tf_90_mf_5p5_seed_1`` (collect siblings);
     - non-seed base directory like ``.../tf_90_mf_5p5`` (collect ``*_seed_*``);
+    - optional cap on the number of returned seed checkpoints.
     - sequence of any of the above.
     """
 
@@ -338,6 +342,11 @@ def resolve_seed_checkpoint_paths(
     deduped = _dedupe_paths([path.expanduser().resolve() for path in collected])
     if sort_by_seed:
         deduped = sorted(deduped, key=_seed_key_for_sort)
+    if max_seed_count is not None:
+        max_seed_count = int(max_seed_count)
+        if max_seed_count <= 0:
+            raise ValueError("max_seed_count must be positive when provided.")
+        deduped = deduped[:max_seed_count]
     return deduped
 
 
@@ -552,6 +561,23 @@ def _metric_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(r2_score(y_true, y_pred))
 
 
+def _metric_dtw(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """DTW distance metric implementation."""
+
+    dist, _ = fastdtw(y_true, y_pred, radius=1, dist=lambda a, b: abs(a - b))
+    return float(dist)
+
+
+def _metric_dtw_normalized(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Length-normalized DTW metric implementation."""
+
+    dtw = _metric_dtw(y_true, y_pred)
+    length = 0.5 * (len(y_true) + len(y_pred))
+    if length <= 0:
+        return float("nan")
+    return float(dtw / length)
+
+
 CLASSIFICATION_METRICS: dict[str, MetricFn] = {
     "auc": _metric_auc,
     "ap": _metric_ap,
@@ -561,6 +587,8 @@ REGRESSION_METRICS: dict[str, MetricFn] = {
     "rmse": _metric_rmse,
     "mae": _metric_mae,
     "r2": _metric_r2,
+    "dtw": _metric_dtw,
+    "dtw_normalized": _metric_dtw_normalized,
 }
 
 
@@ -1084,6 +1112,7 @@ def bootstrap_multi_model_metric_ci_hierarchical(
         )
 
     point_values: dict[str, float] = {}
+    point_stds: dict[str, float | None] = {}
     for name in model_names:
         if point_estimate_mode == "ensemble":
             agg_full = _aggregate_seed_prediction_matrix(
@@ -1091,12 +1120,19 @@ def bootstrap_multi_model_metric_ci_hierarchical(
                 method=seed_aggregation,
             )
             point_values[name] = float(metric_fn(y_true_arr, agg_full))
+            point_stds[name] = None
         else:
             seed_values = [
                 float(metric_fn(y_true_arr, seed_pred_map[name][seed_idx]))
                 for seed_idx in range(n_seeds)
             ]
-            point_values[name] = float(np.mean(np.asarray(seed_values, dtype=np.float64)))
+            point_arr = np.asarray(seed_values, dtype=np.float64)
+            point_values[name] = float(np.mean(point_arr))
+            point_stds[name] = (
+                float(np.std(point_arr, ddof=1))
+                if point_arr.size > 1
+                else 0.0
+            )
 
     samples_by_model: dict[str, list[float]] = {name: [] for name in model_names}
     for _ in range(cfg.n_resamples):
@@ -1138,6 +1174,7 @@ def bootstrap_multi_model_metric_ci_hierarchical(
         model_results[name] = BootstrappedMetric(
             metric_name=metric_name,
             point_estimate=point_values[name],
+            point_estimate_std=point_stds[name],
             ci_low=ci_low,
             ci_high=ci_high,
             samples=sample_arr,
@@ -1168,6 +1205,7 @@ def bootstrap_multi_model_metric_ci_hierarchical(
         pairwise_deltas[(left_name, right_name)] = BootstrappedMetric(
             metric_name=f"{metric_name}_delta",
             point_estimate=point_values[left_name] - point_values[right_name],
+            point_estimate_std=None,
             ci_low=ci_low,
             ci_high=ci_high,
             samples=delta_samples,
