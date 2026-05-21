@@ -1,0 +1,39 @@
+model: clf_mixer_attnpl_t
+base_config: config/clf_mixer_attnpl_t.yaml
+pair_mode: true
+tfs:
+- 10
+- 20
+- 30
+- 60
+- 90
+mfs:
+- 4
+- 4.5
+- 4.5
+- 5
+- 5.5
+twindow: 180
+dt: 10
+context_len: 1
+apply_ref_profile: false
+clear_criterion_for_unmapped_tf: true
+alpha_by_tf:
+  10: 0.5
+  20: 0.5
+  30: 0.5
+  60: 0.5
+  90: 0.75
+use_sampler_by_tf:
+  10: true
+  90: true
+set_by_tf:
+  10:
+    batch_size: 64
+  90:
+    batch_size: 64
+gpu_ids:
+- 0
+max_parallel: 6
+jobs_per_gpu: 6
+stop_on_error: false
