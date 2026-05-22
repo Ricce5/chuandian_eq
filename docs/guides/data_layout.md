@@ -46,17 +46,17 @@ done
 For newly added data, run:
 
 ```bash
-python scripts/reorganize_data_layout.py --data-root data
+python scripts/maintenance/reorganize_data_layout.py --data-root data
 ```
 
 Preview only:
 
 ```bash
-python scripts/reorganize_data_layout.py --data-root data --dry-run
+python scripts/maintenance/reorganize_data_layout.py --data-root data --dry-run
 ```
 
 Only selected datasets:
 
 ```bash
-python scripts/reorganize_data_layout.py --data-root data --datasets FORGE2022 PNR_1z PNR_2
+python scripts/maintenance/reorganize_data_layout.py --data-root data --datasets FORGE2022 PNR_1z PNR_2
 ```

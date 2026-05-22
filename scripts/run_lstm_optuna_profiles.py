@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
-from automation import build_profiles_runner_parser, run_optuna_profiles
+"""Backward-compatible entrypoint.
+
+This file delegates to: `run/run_lstm_optuna_profiles.py`.
+"""
+
+from pathlib import Path
+import runpy
+import sys
 
 
-def main():
-    parser = build_profiles_runner_parser(
-        description="One-click run LSTM Optuna for global/window profiles and aggregate best results.",
-        default_model="lstm",
-        default_config="config/lstm.yaml",
-        default_out_dir="tmp/lstm_optuna_profiles",
-    )
-    args = parser.parse_args()
-    run_optuna_profiles(args)
+def _delegate() -> None:
+    current_file = Path(__file__).resolve()
+    scripts_root = current_file.parent
+    repo_root = scripts_root.parent
+    target = scripts_root / "run/run_lstm_optuna_profiles.py"
+
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    if str(scripts_root) not in sys.path:
+        sys.path.insert(0, str(scripts_root))
+
+    runpy.run_path(str(target), run_name="__main__")
 
 
 if __name__ == "__main__":
-    main()
+    _delegate()

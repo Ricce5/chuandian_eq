@@ -10,7 +10,7 @@
 - `AUC`
 - `PR-AUC`
 
-对 `scripts/run_clf_trainhp_sweep.sh` 生成的 `hp_*` 子实验进行聚合分析，并回答：
+对 `scripts/run/run_clf_trainhp_sweep.sh` 生成的 `hp_*` 子实验进行聚合分析，并回答：
 
 1. 哪些超参数组合效果好 / 差？
 2. 为什么会出现“分数很高但不推荐”的配置？

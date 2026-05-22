@@ -126,5 +126,5 @@
 因此，上述历史 run 结论属于“修复前行为”统计；建议在修复后按同脚本复跑一轮确认结论是否保持。
 
 可复用脚本：
-- `scripts/analyze_optuna_last_val_loss_groups.py`
+- `scripts/analyze/analyze_optuna_last_val_loss_groups.py`
 

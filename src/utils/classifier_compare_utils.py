@@ -23,6 +23,7 @@ from src.utils.bootstrap_ci import (
     SeedAggregationMethod,
     TaskType,
     bootstrap_multi_model_curve_ci,
+    bootstrap_multi_model_curve_ci_hierarchical,
     bootstrap_multi_model_metric_ci,
     bootstrap_multi_model_metric_ci_hierarchical,
 )
@@ -831,18 +832,36 @@ def build_rf_em_window_ci_cache(
             right_model_name: np.asarray(model_rows[right_model_name]["seed_probs"], dtype=np.float64),
         }
 
-        roc_result: MultiModelCurveBootstrapResult = bootstrap_multi_model_curve_ci(
-            y_true=y_true,
-            model_predictions=model_predictions,
-            curve="roc",
-            config=bootstrap_preset.curve_config(seed=int(roc_seed_base + i)),
-        )
-        pr_result: MultiModelCurveBootstrapResult = bootstrap_multi_model_curve_ci(
-            y_true=y_true,
-            model_predictions=model_predictions,
-            curve="pr",
-            config=bootstrap_preset.curve_config(seed=int(pr_seed_base + i)),
-        )
+        if use_hierarchical_seed_sample:
+            roc_result: MultiModelCurveBootstrapResult = (
+                bootstrap_multi_model_curve_ci_hierarchical(
+                    y_true=y_true,
+                    model_seed_predictions=model_seed_predictions,
+                    curve="roc",
+                    config=bootstrap_preset.curve_config(seed=int(roc_seed_base + i)),
+                )
+            )
+            pr_result: MultiModelCurveBootstrapResult = (
+                bootstrap_multi_model_curve_ci_hierarchical(
+                    y_true=y_true,
+                    model_seed_predictions=model_seed_predictions,
+                    curve="pr",
+                    config=bootstrap_preset.curve_config(seed=int(pr_seed_base + i)),
+                )
+            )
+        else:
+            roc_result = bootstrap_multi_model_curve_ci(
+                y_true=y_true,
+                model_predictions=model_predictions,
+                curve="roc",
+                config=bootstrap_preset.curve_config(seed=int(roc_seed_base + i)),
+            )
+            pr_result = bootstrap_multi_model_curve_ci(
+                y_true=y_true,
+                model_predictions=model_predictions,
+                curve="pr",
+                config=bootstrap_preset.curve_config(seed=int(pr_seed_base + i)),
+            )
 
         auc_result = paired_metric_bootstrap(
             y_true=y_true,

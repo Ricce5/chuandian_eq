@@ -128,6 +128,7 @@ __all__ = [
     "resolve_checkpoint_path",
     "resolve_seed_checkpoint_paths",
     "bootstrap_multi_model_curve_ci",
+    "bootstrap_multi_model_curve_ci_hierarchical",
     "bootstrap_multi_model_metric_ci",
     "bootstrap_multi_model_metric_ci_hierarchical",
     "PointEstimateMode",
@@ -924,6 +925,117 @@ def bootstrap_multi_model_curve_ci(
             except Exception:
                 failed = True
                 break
+        if failed:
+            continue
+
+        for name, curve_values in batch_curves.items():
+            curves_by_model[name].append(curve_values)
+        valid_resamples += 1
+
+    model_results: dict[str, BootstrappedCurve] = {}
+    for name in model_names:
+        curves = curves_by_model[name]
+        if not curves:
+            model_results[name] = BootstrappedCurve(
+                curve=curve,
+                grid=grid,
+                ci_low=np.full_like(grid, np.nan),
+                ci_high=np.full_like(grid, np.nan),
+                valid_resamples=0,
+                total_resamples=int(cfg.n_resamples),
+            )
+            continue
+
+        curve_arr = np.asarray(curves, dtype=np.float64)
+        q_low, q_high = cfg.ci
+        ci_low = np.nanpercentile(curve_arr, q_low, axis=0)
+        ci_high = np.nanpercentile(curve_arr, q_high, axis=0)
+        model_results[name] = BootstrappedCurve(
+            curve=curve,
+            grid=grid,
+            ci_low=ci_low,
+            ci_high=ci_high,
+            valid_resamples=int(curve_arr.shape[0]),
+            total_resamples=int(cfg.n_resamples),
+        )
+
+    return MultiModelCurveBootstrapResult(
+        curve=curve,
+        grid=grid,
+        model_results=model_results,
+        valid_resamples=int(valid_resamples),
+        total_resamples=int(cfg.n_resamples),
+    )
+
+
+def bootstrap_multi_model_curve_ci_hierarchical(
+    y_true: Sequence[int] | np.ndarray,
+    model_seed_predictions: Mapping[
+        str,
+        Sequence[Sequence[float] | np.ndarray] | np.ndarray,
+    ],
+    *,
+    curve: CurveType = "roc",
+    config: BootstrapConfig | None = None,
+    grid_n: int = 201,
+) -> MultiModelCurveBootstrapResult:
+    """Paired hierarchical bootstrap curve CI over ``seed + sample``.
+
+    Workflow per resample:
+    1) Sample seed indices with replacement (shared across all models).
+    2) Sample observation indices according to ``config.sampling``.
+    3) For each model, compute one curve per sampled seed, interpolate to a
+       shared grid, then average those seed-level curves.
+
+    This aligns curve CI construction with seed-wise mean metric estimation.
+    """
+    cfg = config or BootstrapConfig(n_resamples=400)
+    if cfg.n_resamples <= 0:
+        raise ValueError("config.n_resamples must be positive.")
+    if grid_n <= 1:
+        raise ValueError("grid_n must be greater than 1.")
+
+    y_true_arr, seed_pred_map, n_seeds = _prepare_multi_model_seed_predictions(
+        y_true,
+        model_seed_predictions,
+    )
+    y_true_arr = y_true_arr.astype(int)
+
+    n_obs = y_true_arr.shape[0]
+    rng = np.random.default_rng(cfg.seed)
+    sampler = _make_index_sampler(n_obs, cfg)
+    grid = np.linspace(0.0, 1.0, grid_n)
+
+    model_names = list(seed_pred_map.keys())
+    curves_by_model: dict[str, list[np.ndarray]] = {name: [] for name in model_names}
+    valid_resamples = 0
+
+    for _ in range(cfg.n_resamples):
+        seed_idx = rng.integers(0, n_seeds, size=n_seeds, dtype=np.int64)
+        obs_idx = sampler(rng)
+        yt = y_true_arr[obs_idx]
+        if not _classification_sample_valid(yt):
+            continue
+
+        batch_curves: dict[str, np.ndarray] = {}
+        failed = False
+        for name in model_names:
+            seed_matrix = seed_pred_map[name][seed_idx][:, obs_idx]
+            try:
+                seed_curves = [
+                    _curve_to_grid(yt, seed_matrix[row_idx], curve=curve, grid=grid)
+                    for row_idx in range(seed_matrix.shape[0])
+                ]
+            except Exception:
+                failed = True
+                break
+
+            if len(seed_curves) == 0:
+                failed = True
+                break
+
+            batch_curves[name] = np.mean(np.asarray(seed_curves, dtype=np.float64), axis=0)
+
         if failed:
             continue
 

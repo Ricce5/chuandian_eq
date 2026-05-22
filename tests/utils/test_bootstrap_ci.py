@@ -9,6 +9,7 @@ from src.utils.bootstrap_ci import (
     bootstrap_metric,
     bootstrap_metric_ci,
     bootstrap_multi_model_curve_ci,
+    bootstrap_multi_model_curve_ci_hierarchical,
     bootstrap_multi_model_metric_ci,
     bootstrap_multi_model_metric_ci_hierarchical,
     resolve_checkpoint_path,
@@ -332,6 +333,42 @@ def test_bootstrap_multi_model_metric_ci_hierarchical_supports_seed_and_sample_r
     assert delta.valid_resamples > 0
     assert delta.samples.shape[0] == delta.valid_resamples
 
+
+def test_bootstrap_multi_model_curve_ci_hierarchical_uses_seedwise_mean_curves():
+    y_true, y_prob_base = _make_binary_data(seed=909)
+    n = y_prob_base.shape[0]
+
+    seed_preds_a = [
+        np.clip(y_prob_base + 0.0, 1e-6, 1 - 1e-6),
+        np.clip(y_prob_base + 0.04, 1e-6, 1 - 1e-6),
+        np.clip(y_prob_base - 0.04, 1e-6, 1 - 1e-6),
+    ]
+    seed_preds_b = [
+        np.clip(y_prob_base - 0.08, 1e-6, 1 - 1e-6),
+        np.clip(y_prob_base - 0.04, 1e-6, 1 - 1e-6),
+        np.clip(y_prob_base - 0.12, 1e-6, 1 - 1e-6),
+    ]
+
+    cfg = BootstrapConfig(n_resamples=48, seed=910, sampling="block", block_size=9)
+    result = bootstrap_multi_model_curve_ci_hierarchical(
+        y_true,
+        {"model_a": seed_preds_a, "model_b": seed_preds_b},
+        curve="roc",
+        config=cfg,
+        grid_n=101,
+    )
+
+    assert result.valid_resamples > 0
+    assert result.total_resamples == 48
+    assert set(result.model_results.keys()) == {"model_a", "model_b"}
+    for model_name in ("model_a", "model_b"):
+        curve_result = result.model_results[model_name]
+        assert curve_result.grid.shape == (101,)
+        assert curve_result.ci_low.shape == (101,)
+        assert curve_result.ci_high.shape == (101,)
+        assert np.isfinite(curve_result.ci_low).any()
+        assert np.isfinite(curve_result.ci_high).any()
+        assert curve_result.valid_resamples > 0
 
 def test_bootstrap_multi_model_metric_ci_hierarchical_validates_seed_count_alignment():
     y_true, y_prob_base = _make_binary_data(seed=401)

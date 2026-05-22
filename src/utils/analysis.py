@@ -1,9 +1,37 @@
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Iterator
 
 import numpy as np
 import torch
 from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
+
+
+@dataclass(slots=True)
+class TSNEScatterResult:
+    X_scaled: np.ndarray
+    X_tsne: np.ndarray
+    y_score: np.ndarray
+
+    def __iter__(self) -> Iterator[np.ndarray]:
+        yield self.X_scaled
+        yield self.X_tsne
+        yield self.y_score
+
+    def __len__(self) -> int:
+        return 3
+
+    def __getitem__(self, index: int) -> np.ndarray:
+        return (self.X_scaled, self.X_tsne, self.y_score)[index]
+
+    def __repr__(self) -> str:
+        return (
+            "TSNEScatterResult("
+            f"X_scaled.shape={self.X_scaled.shape}, "
+            f"X_tsne.shape={self.X_tsne.shape}, "
+            f"y_score.shape={self.y_score.shape}"
+            ")"
+        )
 
 
 @torch.no_grad()
@@ -62,7 +90,7 @@ def tsne_scatter(
     title_left: str = "t-SNE colored by true label (y_all)",
     title_right: str = "t-SNE colored by model score (y_pred_all)",
     show: bool = True,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> TSNEScatterResult:
     """
     Standardize features, run t-SNE, and plot two panels colored by
     truth and normalized prediction score. Returns standardized features,
@@ -108,4 +136,4 @@ def tsne_scatter(
     if show:
         plt.show()
 
-    return X_scaled, X_tsne, y_score
+    return TSNEScatterResult(X_scaled=X_scaled, X_tsne=X_tsne, y_score=y_score)
