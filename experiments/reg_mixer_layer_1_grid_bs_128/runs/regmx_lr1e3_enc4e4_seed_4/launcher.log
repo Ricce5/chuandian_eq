@@ -1,1146 +1,0 @@
-
-[CMD] /root/miniconda3/bin/python main.py --model reg_mixer_attnpl_t --mode train --config /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/config.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4
-2026-05-18 16:55:21.774385: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2026-05-18 16:55:21.793125: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1779094521.814107  749843 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1779094521.820352  749843 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1779094521.836962  749843 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779094521.836983  749843 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779094521.836985  749843 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779094521.836987  749843 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-05-18 16:55:21.841759: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-05-18 16:55:25,075 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
-2026-05-18 16:55:25,877 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
-2026-05-18 16:55:28,134 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
-2026-05-18 16:55:28,172 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
-2026-05-18 16:55:28,173 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
-2026-05-18 16:55:29,273 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
-2026-05-18 16:55:29,273 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
-2026-05-18 16:55:29,280 INFO src.train.config_setup: Restoring model from checkpoint.
-2026-05-18 16:55:29,280 INFO src.train.config_setup: Loading model weights: load_specific_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
-2026-05-18 16:55:29,282 INFO src.train.config_setup: Selective load summary: requested_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0'], target_in_model=18, matched_in_checkpoint=16, loaded=16, missing_after_load=2, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
-2026-05-18 16:55:29,282 INFO src.train.config_setup: Selective load coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-18 16:55:29,282 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.0]: target=14, hit=12, missing=2, complete=False
-2026-05-18 16:55:29,282 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.0]: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
-2026-05-18 16:55:29,282 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
-2026-05-18 16:55:29,282 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
-2026-05-18 16:55:29,282 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.layers.0.norm.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.mixer.in_proj.weight', 'base_model.encoder.layers.0.mlp.fc1.weight', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.out_proj.weight', 'base_model.encoder.layers.0.norm.bias'] ... (+6 more)
-2026-05-18 16:55:29,283 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
-2026-05-18 16:55:29,283 INFO src.train.config_setup: Checkpoint train metrics available.
-2026-05-18 16:55:29,283 INFO src.train.config_setup: Checkpoint val metrics available.
-2026-05-18 16:55:29,283 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
-2026-05-18 16:55:29,283 INFO src.train.config_setup: Using regression criterion: smooth_l1
-2026-05-18 16:55:29,283 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
-2026-05-18 16:55:29,284 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
-2026-05-18 16:55:29,284 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=18
-2026-05-18 16:55:29,284 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-18 16:55:29,284 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
-2026-05-18 16:55:29,284 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
-2026-05-18 16:55:29,285 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
-2026-05-18 16:55:29,285 INFO src.train.trainer: Epoch 1
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:12<?, ?it/s]Training:   8%|▊         | 1/12 [00:12<02:17, 12.51s/it]Training:  50%|█████     | 6/12 [00:12<00:09,  1.56s/it]Training:  92%|█████████▏| 11/12 [00:12<00:00,  1.41it/s]Training: 100%|██████████| 12/12 [00:12<00:00,  1.08s/it]
-Batch     0/   12 | Loss: 0.361953
-Training    RMSE: 0.3457 | MAE: 0.2768 | MSE: 0.1195 | MAPE: 68.9303 | R2: -6.0973 | PearsonR: -0.0514 | PearsonR_diff: 0.0016 | DA: 0.0467
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.25it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  2.25it/s]
-2026-05-18 16:55:43,137 INFO src.train.trainer: New best validation loss: 0.1261, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:55:43,142 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:43,142 INFO src.train.trainer: Epoch 2
-Validation  RMSE: 0.2699 | MAE: 0.2387 | MSE: 0.0728 | MAPE: 69.1106 | R2: -3.3861 | PearsonR: 0.0662 | PearsonR_diff: 0.0279 | DA: 0.0663
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.82it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.46it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.96it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.11it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.60it/s]
-Batch     0/   12 | Loss: 0.114335
-Training    RMSE: 0.2692 | MAE: 0.2148 | MSE: 0.0724 | MAPE: 56.7775 | R2: -3.3021 | PearsonR: 0.0808 | PearsonR_diff: 0.0198 | DA: 0.0515
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.50it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.16it/s]
-2026-05-18 16:55:44,773 INFO src.train.trainer: New best validation loss: 0.0330, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:55:44,784 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:44,784 INFO src.train.trainer: Epoch 3
-Validation  RMSE: 0.1419 | MAE: 0.1114 | MSE: 0.0201 | MAPE: 25.1616 | R2: -0.2118 | PearsonR: 0.0987 | PearsonR_diff: 0.0140 | DA: 0.0552
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.78it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.32it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.73it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 12.81it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 12.88it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.62it/s]
-Batch     0/   12 | Loss: 0.109585
-Training    RMSE: 0.2314 | MAE: 0.1852 | MSE: 0.0536 | MAPE: 49.0953 | R2: -2.1807 | PearsonR: -0.0628 | PearsonR_diff: -0.0023 | DA: 0.0494
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.53it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.22it/s]
-2026-05-18 16:55:46,520 INFO src.train.trainer: New best validation loss: 0.0313, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:55:46,528 INFO src.train.trainer: Last model at epoch 3 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:46,528 INFO src.train.trainer: Epoch 4
-Validation  RMSE: 0.1362 | MAE: 0.1069 | MSE: 0.0186 | MAPE: 24.5129 | R2: -0.1174 | PearsonR: 0.1156 | PearsonR_diff: -0.0107 | DA: 0.0552
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.16it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.94it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.20it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.85it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 14.45it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.81it/s]
-Batch     0/   12 | Loss: 0.112572
-Training    RMSE: 0.2072 | MAE: 0.1643 | MSE: 0.0429 | MAPE: 43.6744 | R2: -1.5503 | PearsonR: -0.0751 | PearsonR_diff: 0.0015 | DA: 0.0508
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.81it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]
-2026-05-18 16:55:48,292 INFO src.train.trainer: New best validation loss: 0.0309, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:55:48,299 INFO src.train.trainer: Last model at epoch 4 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:48,299 INFO src.train.trainer: Epoch 5
-Validation  RMSE: 0.1353 | MAE: 0.1063 | MSE: 0.0183 | MAPE: 24.4329 | R2: -0.1020 | PearsonR: 0.1457 | PearsonR_diff: -0.0095 | DA: 0.0497
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.80it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.94it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.70it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.76it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 17.31it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.57it/s]
-Batch     0/   12 | Loss: 0.070573
-Training    RMSE: 0.1836 | MAE: 0.1435 | MSE: 0.0337 | MAPE: 37.8322 | R2: -1.0022 | PearsonR: -0.0239 | PearsonR_diff: -0.0126 | DA: 0.0494
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.18it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.72it/s]
-2026-05-18 16:55:49,984 INFO src.train.trainer: New best validation loss: 0.0288, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:55:49,990 INFO src.train.trainer: Last model at epoch 5 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:49,990 INFO src.train.trainer: Epoch 6
-Validation  RMSE: 0.1284 | MAE: 0.1039 | MSE: 0.0165 | MAPE: 25.5019 | R2: 0.0079 | PearsonR: 0.1844 | PearsonR_diff: -0.0102 | DA: 0.0497
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.80it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.46it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.49it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 17.89it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.24it/s]
-Batch     0/   12 | Loss: 0.070816
-Training    RMSE: 0.1752 | MAE: 0.1381 | MSE: 0.0307 | MAPE: 36.3782 | R2: -0.8223 | PearsonR: -0.0500 | PearsonR_diff: -0.0450 | DA: 0.0439
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.83it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-2026-05-18 16:55:51,607 INFO src.train.trainer: Last model at epoch 6 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:51,607 INFO src.train.trainer: Epoch 7
-Validation  RMSE: 0.1316 | MAE: 0.1047 | MSE: 0.0173 | MAPE: 24.6987 | R2: -0.0437 | PearsonR: 0.1951 | PearsonR_diff: -0.0063 | DA: 0.0552
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.86it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.28it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 13.60it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.13it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.77it/s]
-Batch     0/   12 | Loss: 0.071286
-Training    RMSE: 0.1666 | MAE: 0.1299 | MSE: 0.0278 | MAPE: 34.1021 | R2: -0.6486 | PearsonR: -0.0248 | PearsonR_diff: 0.0309 | DA: 0.0515
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.40it/s]
-2026-05-18 16:55:53,232 INFO src.train.trainer: Last model at epoch 7 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:53,232 INFO src.train.trainer: Epoch 8
-Validation  RMSE: 0.1382 | MAE: 0.1085 | MSE: 0.0191 | MAPE: 24.5035 | R2: -0.1494 | PearsonR: 0.1830 | PearsonR_diff: -0.0150 | DA: 0.0497
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.87it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.54it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.20it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.76it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.46it/s]
-Batch     0/   12 | Loss: 0.081266
-Training    RMSE: 0.1644 | MAE: 0.1274 | MSE: 0.0270 | MAPE: 33.0769 | R2: -0.6041 | PearsonR: -0.0591 | PearsonR_diff: -0.0064 | DA: 0.0487
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.41it/s]
-2026-05-18 16:55:54,879 INFO src.train.trainer: Last model at epoch 8 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:54,879 INFO src.train.trainer: Epoch 9
-Validation  RMSE: 0.1398 | MAE: 0.1096 | MSE: 0.0195 | MAPE: 24.5345 | R2: -0.1769 | PearsonR: 0.1641 | PearsonR_diff: -0.0578 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.70it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.11it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.77it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.46it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.03it/s]
-Batch     0/   12 | Loss: 0.079657
-Training    RMSE: 0.1610 | MAE: 0.1236 | MSE: 0.0259 | MAPE: 32.2293 | R2: -0.5386 | PearsonR: -0.0979 | PearsonR_diff: -0.0070 | DA: 0.0467
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.35it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.03it/s]
-2026-05-18 16:55:56,481 INFO src.train.trainer: Last model at epoch 9 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:56,482 INFO src.train.trainer: Epoch 10
-Validation  RMSE: 0.1367 | MAE: 0.1077 | MSE: 0.0187 | MAPE: 24.5491 | R2: -0.1261 | PearsonR: 0.1522 | PearsonR_diff: -0.0653 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.01it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.09it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.97it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.70it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.08it/s]
-Batch     0/   12 | Loss: 0.069967
-Training    RMSE: 0.1575 | MAE: 0.1225 | MSE: 0.0248 | MAPE: 32.1548 | R2: -0.4732 | PearsonR: -0.0836 | PearsonR_diff: 0.0234 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]
-2026-05-18 16:55:58,084 INFO src.train.trainer: Last model at epoch 10 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:58,084 INFO src.train.trainer: Epoch 11
-Validation  RMSE: 0.1372 | MAE: 0.1080 | MSE: 0.0188 | MAPE: 24.5437 | R2: -0.1339 | PearsonR: 0.1736 | PearsonR_diff: -0.0676 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.69it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  6.61it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 10.80it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.10it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.94it/s]
-Batch     0/   12 | Loss: 0.067402
-Training    RMSE: 0.1519 | MAE: 0.1175 | MSE: 0.0231 | MAPE: 30.8063 | R2: -0.3698 | PearsonR: -0.0572 | PearsonR_diff: 0.0048 | DA: 0.0549
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.92it/s]
-2026-05-18 16:55:59,814 INFO src.train.trainer: Last model at epoch 11 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:55:59,814 INFO src.train.trainer: Epoch 12
-Validation  RMSE: 0.1382 | MAE: 0.1086 | MSE: 0.0191 | MAPE: 24.5464 | R2: -0.1501 | PearsonR: 0.1799 | PearsonR_diff: -0.0728 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.74it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.27it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.91it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.32it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.12it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.77it/s]
-Batch     0/   12 | Loss: 0.072675
-Training    RMSE: 0.1528 | MAE: 0.1186 | MSE: 0.0233 | MAPE: 31.1009 | R2: -0.3859 | PearsonR: -0.1027 | PearsonR_diff: -0.0095 | DA: 0.0522
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.34it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.02it/s]
-2026-05-18 16:56:01,554 INFO src.train.trainer: Last model at epoch 12 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:01,555 INFO src.train.trainer: Epoch 13
-Validation  RMSE: 0.1373 | MAE: 0.1081 | MSE: 0.0188 | MAPE: 24.6072 | R2: -0.1349 | PearsonR: 0.1591 | PearsonR_diff: -0.0938 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.83it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.58it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.48it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.16it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.58it/s]
-Batch     0/   12 | Loss: 0.067382
-Training    RMSE: 0.1492 | MAE: 0.1150 | MSE: 0.0223 | MAPE: 30.0518 | R2: -0.3217 | PearsonR: -0.0838 | PearsonR_diff: 0.0289 | DA: 0.0453
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.29it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.96it/s]
-2026-05-18 16:56:03,115 INFO src.train.trainer: Last model at epoch 13 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:03,116 INFO src.train.trainer: Epoch 14
-Validation  RMSE: 0.1376 | MAE: 0.1081 | MSE: 0.0189 | MAPE: 24.5314 | R2: -0.1400 | PearsonR: 0.1557 | PearsonR_diff: -0.1014 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.97it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.96it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.90it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.56it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.95it/s]
-Batch     0/   12 | Loss: 0.063123
-Training    RMSE: 0.1486 | MAE: 0.1145 | MSE: 0.0221 | MAPE: 29.9994 | R2: -0.3105 | PearsonR: -0.0986 | PearsonR_diff: -0.0384 | DA: 0.0494
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.01it/s]Validating: 100%|██████████| 2/2 [00:01<00:00,  1.89it/s]
-2026-05-18 16:56:05,191 INFO src.train.trainer: Last model at epoch 14 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:05,191 INFO src.train.trainer: Epoch 15
-Validation  RMSE: 0.1355 | MAE: 0.1072 | MSE: 0.0184 | MAPE: 24.7169 | R2: -0.1051 | PearsonR: 0.1718 | PearsonR_diff: -0.1128 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.92it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.53it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.48it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.12it/s]/root/miniconda3/lib/python3.12/site-packages/torch/optim/lr_scheduler.py:240: UserWarning: The epoch parameter in `scheduler.step()` was not necessary and is being deprecated where possible. Please use `scheduler.step()` to step the scheduler. During the deprecation, if epoch is different from None, the closed form is used instead of the new chainable form, where available. Please open an issue if you are unable to replicate your use case: https://github.com/pytorch/pytorch/issues/new/choose.
-  warnings.warn(EPOCH_DEPRECATION_WARNING, UserWarning)
-Training: 100%|██████████| 12/12 [00:01<00:00, 13.60it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.33it/s]
-Batch     0/   12 | Loss: 0.060536
-Training    RMSE: 0.1490 | MAE: 0.1140 | MSE: 0.0222 | MAPE: 29.8721 | R2: -0.3189 | PearsonR: -0.1015 | PearsonR_diff: 0.0197 | DA: 0.0508
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.52it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.25it/s]
-2026-05-18 16:56:06,838 INFO src.train.trainer: Last model at epoch 15 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:06,838 INFO src.train.trainer: Epoch 16
-Validation  RMSE: 0.1366 | MAE: 0.1075 | MSE: 0.0186 | MAPE: 24.5586 | R2: -0.1230 | PearsonR: 0.1554 | PearsonR_diff: -0.0864 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.24it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.31it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.73it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.43it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.44it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.39it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.53it/s]
-Batch     0/   12 | Loss: 0.062898
-Training    RMSE: 0.1469 | MAE: 0.1124 | MSE: 0.0216 | MAPE: 29.5359 | R2: -0.2815 | PearsonR: -0.0741 | PearsonR_diff: -0.0304 | DA: 0.0487
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.30it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.90it/s]
-2026-05-18 16:56:08,507 INFO src.train.trainer: Last model at epoch 16 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:08,507 INFO src.train.trainer: Epoch 17
-Validation  RMSE: 0.1406 | MAE: 0.1098 | MSE: 0.0198 | MAPE: 24.4777 | R2: -0.1904 | PearsonR: 0.1702 | PearsonR_diff: -0.1241 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.54it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  7.02it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 12.22it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.68it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.24it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.79it/s]
-Batch     0/   12 | Loss: 0.060785
-Training    RMSE: 0.1442 | MAE: 0.1113 | MSE: 0.0208 | MAPE: 29.4628 | R2: -0.2345 | PearsonR: -0.0360 | PearsonR_diff: 0.0304 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.68it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.50it/s]
-2026-05-18 16:56:09,986 INFO src.train.trainer: Last model at epoch 17 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:09,986 INFO src.train.trainer: Epoch 18
-Validation  RMSE: 0.1415 | MAE: 0.1103 | MSE: 0.0200 | MAPE: 24.5156 | R2: -0.2050 | PearsonR: 0.1687 | PearsonR_diff: -0.1287 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.70it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.14it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.51it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 12.69it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 12.76it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.46it/s]
-Batch     0/   12 | Loss: 0.066899
-Training    RMSE: 0.1444 | MAE: 0.1099 | MSE: 0.0209 | MAPE: 28.8961 | R2: -0.2385 | PearsonR: -0.0771 | PearsonR_diff: -0.0587 | DA: 0.0432
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.83it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]
-2026-05-18 16:56:11,895 INFO src.train.trainer: Last model at epoch 18 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:11,895 INFO src.train.trainer: Epoch 19
-Validation  RMSE: 0.1412 | MAE: 0.1101 | MSE: 0.0199 | MAPE: 24.4620 | R2: -0.2000 | PearsonR: 0.1963 | PearsonR_diff: -0.1384 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.99it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.95it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.86it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.09it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.71it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.46it/s]
-Batch     0/   12 | Loss: 0.067812
-Training    RMSE: 0.1430 | MAE: 0.1082 | MSE: 0.0205 | MAPE: 28.1877 | R2: -0.2149 | PearsonR: -0.0646 | PearsonR_diff: -0.0198 | DA: 0.0494
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.18it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.61it/s]
-2026-05-18 16:56:13,613 INFO src.train.trainer: Last model at epoch 19 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:13,614 INFO src.train.trainer: Epoch 20
-Validation  RMSE: 0.1379 | MAE: 0.1086 | MSE: 0.0190 | MAPE: 24.6251 | R2: -0.1454 | PearsonR: 0.1861 | PearsonR_diff: -0.1056 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.73it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.25it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.61it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 12.89it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 12.66it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.55it/s]
-Batch     0/   12 | Loss: 0.064305
-Training    RMSE: 0.1422 | MAE: 0.1082 | MSE: 0.0202 | MAPE: 28.2567 | R2: -0.2010 | PearsonR: -0.0691 | PearsonR_diff: -0.0501 | DA: 0.0426
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-2026-05-18 16:56:15,504 INFO src.train.trainer: Last model at epoch 20 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:15,504 INFO src.train.trainer: Epoch 21
-Validation  RMSE: 0.1380 | MAE: 0.1085 | MSE: 0.0190 | MAPE: 24.5729 | R2: -0.1471 | PearsonR: 0.1999 | PearsonR_diff: -0.0973 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.71it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.19it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.38it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 12.43it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.22it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.58it/s]
-Batch     0/   12 | Loss: 0.066061
-Training    RMSE: 0.1422 | MAE: 0.1086 | MSE: 0.0202 | MAPE: 28.2297 | R2: -0.2002 | PearsonR: -0.0698 | PearsonR_diff: 0.0432 | DA: 0.0480
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.50it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.24it/s]
-2026-05-18 16:56:17,244 INFO src.train.trainer: Last model at epoch 21 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:17,245 INFO src.train.trainer: Epoch 22
-Validation  RMSE: 0.1373 | MAE: 0.1081 | MSE: 0.0188 | MAPE: 24.5565 | R2: -0.1348 | PearsonR: 0.2411 | PearsonR_diff: -0.0809 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.14it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.60it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.56it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.21it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.36it/s]
-Batch     0/   12 | Loss: 0.063549
-Training    RMSE: 0.1394 | MAE: 0.1055 | MSE: 0.0194 | MAPE: 27.4758 | R2: -0.1544 | PearsonR: 0.0015 | PearsonR_diff: 0.0238 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]
-2026-05-18 16:56:18,831 INFO src.train.trainer: Last model at epoch 22 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:18,832 INFO src.train.trainer: Epoch 23
-Validation  RMSE: 0.1383 | MAE: 0.1088 | MSE: 0.0191 | MAPE: 24.5658 | R2: -0.1523 | PearsonR: 0.2385 | PearsonR_diff: -0.1032 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.04it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.61it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.99it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.89it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 17.02it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.29it/s]
-Batch     0/   12 | Loss: 0.062939
-Training    RMSE: 0.1394 | MAE: 0.1062 | MSE: 0.0194 | MAPE: 27.8134 | R2: -0.1536 | PearsonR: -0.0118 | PearsonR_diff: -0.0182 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.77it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.16it/s]
-2026-05-18 16:56:20,544 INFO src.train.trainer: Last model at epoch 23 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:20,544 INFO src.train.trainer: Epoch 24
-Validation  RMSE: 0.1373 | MAE: 0.1080 | MSE: 0.0189 | MAPE: 24.4815 | R2: -0.1356 | PearsonR: 0.2726 | PearsonR_diff: -0.0824 | DA: 0.0221
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.20it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.31it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.95it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.03it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 12.00it/s]
-Batch     0/   12 | Loss: 0.063949
-Training    RMSE: 0.1407 | MAE: 0.1080 | MSE: 0.0198 | MAPE: 28.2467 | R2: -0.1754 | PearsonR: -0.0493 | PearsonR_diff: 0.0019 | DA: 0.0590
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.89it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.30it/s]
-2026-05-18 16:56:22,167 INFO src.train.trainer: Last model at epoch 24 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:22,167 INFO src.train.trainer: Epoch 25
-Validation  RMSE: 0.1380 | MAE: 0.1081 | MSE: 0.0190 | MAPE: 24.2838 | R2: -0.1471 | PearsonR: 0.3781 | PearsonR_diff: -0.0852 | DA: 0.0221
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.79it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.49it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.42it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.06it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.46it/s]
-Batch     0/   12 | Loss: 0.063901
-Training    RMSE: 0.1363 | MAE: 0.1035 | MSE: 0.0186 | MAPE: 26.9181 | R2: -0.1026 | PearsonR: 0.0391 | PearsonR_diff: -0.0154 | DA: 0.0439
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]
-2026-05-18 16:56:23,808 INFO src.train.trainer: Last model at epoch 25 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:23,808 INFO src.train.trainer: Epoch 26
-Validation  RMSE: 0.1331 | MAE: 0.1054 | MSE: 0.0177 | MAPE: 24.2664 | R2: -0.0673 | PearsonR: 0.4074 | PearsonR_diff: -0.0940 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.81it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.52it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.43it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.03it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.56it/s]
-Batch     0/   12 | Loss: 0.056824
-Training    RMSE: 0.1378 | MAE: 0.1048 | MSE: 0.0190 | MAPE: 27.2179 | R2: -0.1281 | PearsonR: 0.0205 | PearsonR_diff: -0.0269 | DA: 0.0453
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.49it/s]
-2026-05-18 16:56:25,436 INFO src.train.trainer: Last model at epoch 26 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:25,436 INFO src.train.trainer: Epoch 27
-Validation  RMSE: 0.1302 | MAE: 0.1038 | MSE: 0.0169 | MAPE: 24.2763 | R2: -0.0204 | PearsonR: 0.4170 | PearsonR_diff: -0.1156 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.98it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.03it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.07it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 10.67it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.89it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.40it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.50it/s]
-Batch     0/   12 | Loss: 0.052194
-Training    RMSE: 0.1358 | MAE: 0.1038 | MSE: 0.0184 | MAPE: 27.1400 | R2: -0.0946 | PearsonR: 0.0505 | PearsonR_diff: -0.0073 | DA: 0.0487
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.85it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-2026-05-18 16:56:27,335 INFO src.train.trainer: New best validation loss: 0.0285, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:56:27,342 INFO src.train.trainer: Last model at epoch 27 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:27,343 INFO src.train.trainer: Epoch 28
-Validation  RMSE: 0.1292 | MAE: 0.1043 | MSE: 0.0167 | MAPE: 24.5536 | R2: -0.0055 | PearsonR: 0.4096 | PearsonR_diff: -0.1081 | DA: 0.0221
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.34it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.24it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.91it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.95it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.09it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.08it/s]
-Batch     0/   12 | Loss: 0.055504
-Training    RMSE: 0.1348 | MAE: 0.1028 | MSE: 0.0182 | MAPE: 26.8297 | R2: -0.0795 | PearsonR: 0.0921 | PearsonR_diff: 0.0115 | DA: 0.0542
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.01it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.53it/s]
-2026-05-18 16:56:29,008 INFO src.train.trainer: Last model at epoch 28 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:29,008 INFO src.train.trainer: Epoch 29
-Validation  RMSE: 0.1299 | MAE: 0.1044 | MSE: 0.0169 | MAPE: 24.4274 | R2: -0.0161 | PearsonR: 0.4219 | PearsonR_diff: -0.0705 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.43it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.68it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 14.80it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 18.48it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.88it/s]
-Batch     0/   12 | Loss: 0.050696
-Training    RMSE: 0.1343 | MAE: 0.1038 | MSE: 0.0180 | MAPE: 26.9997 | R2: -0.0712 | PearsonR: 0.1260 | PearsonR_diff: -0.0417 | DA: 0.0474
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.88it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.33it/s]
-2026-05-18 16:56:30,559 INFO src.train.trainer: Last model at epoch 29 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:30,559 INFO src.train.trainer: Epoch 30
-Validation  RMSE: 0.1273 | MAE: 0.1045 | MSE: 0.0162 | MAPE: 25.2409 | R2: 0.0236 | PearsonR: 0.3448 | PearsonR_diff: -0.0560 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.02it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.94it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.47it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.30it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.15it/s]
-Batch     0/   12 | Loss: 0.045571
-Training    RMSE: 0.1314 | MAE: 0.1006 | MSE: 0.0173 | MAPE: 26.2416 | R2: -0.0256 | PearsonR: 0.1979 | PearsonR_diff: 0.0065 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.02it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]
-2026-05-18 16:56:32,148 INFO src.train.trainer: New best validation loss: 0.0278, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:56:32,158 INFO src.train.trainer: Last model at epoch 30 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:32,158 INFO src.train.trainer: Epoch 31
-Validation  RMSE: 0.1246 | MAE: 0.1000 | MSE: 0.0155 | MAPE: 24.8845 | R2: 0.0646 | PearsonR: 0.3521 | PearsonR_diff: -0.0323 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.77it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.51it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  8.74it/s]Training:  67%|██████▋   | 8/12 [00:01<00:00, 11.01it/s]Training:  83%|████████▎ | 10/12 [00:01<00:00, 13.02it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 14.45it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.35it/s]
-Batch     0/   12 | Loss: 0.038908
-Training    RMSE: 0.1311 | MAE: 0.1024 | MSE: 0.0172 | MAPE: 26.8332 | R2: -0.0203 | PearsonR: 0.2279 | PearsonR_diff: 0.0516 | DA: 0.0549
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.40it/s]
-2026-05-18 16:56:34,048 INFO src.train.trainer: New best validation loss: 0.0271, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/best_model_1.pth
-2026-05-18 16:56:34,057 INFO src.train.trainer: Last model at epoch 31 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:34,058 INFO src.train.trainer: Epoch 32
-Validation  RMSE: 0.1202 | MAE: 0.0945 | MSE: 0.0145 | MAPE: 24.9971 | R2: 0.1296 | PearsonR: 0.3762 | PearsonR_diff: -0.0680 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.83it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.54it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  7.37it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00,  9.79it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 11.79it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.25it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.01it/s]
-Batch     0/   12 | Loss: 0.028428
-Training    RMSE: 0.1265 | MAE: 0.0976 | MSE: 0.0160 | MAPE: 25.3685 | R2: 0.0502 | PearsonR: 0.3110 | PearsonR_diff: -0.0142 | DA: 0.0522
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-2026-05-18 16:56:35,985 INFO src.train.trainer: Last model at epoch 32 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:35,985 INFO src.train.trainer: Epoch 33
-Validation  RMSE: 0.1228 | MAE: 0.0983 | MSE: 0.0151 | MAPE: 26.1679 | R2: 0.0914 | PearsonR: 0.3198 | PearsonR_diff: -0.0204 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.02it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.24it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.33it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.01it/s]Training:  83%|████████▎ | 10/12 [00:01<00:00, 13.97it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.14it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.04it/s]
-Batch     0/   12 | Loss: 0.028840
-Training    RMSE: 0.1326 | MAE: 0.1033 | MSE: 0.0176 | MAPE: 27.0923 | R2: -0.0447 | PearsonR: 0.2653 | PearsonR_diff: -0.0434 | DA: 0.0460
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.32it/s]
-2026-05-18 16:56:37,799 INFO src.train.trainer: Last model at epoch 33 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:37,799 INFO src.train.trainer: Epoch 34
-Validation  RMSE: 0.1226 | MAE: 0.0980 | MSE: 0.0150 | MAPE: 26.8650 | R2: 0.0946 | PearsonR: 0.3377 | PearsonR_diff: -0.0421 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.80it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.28it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.04it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.91it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.37it/s]
-Batch     0/   12 | Loss: 0.026658
-Training    RMSE: 0.1354 | MAE: 0.1054 | MSE: 0.0183 | MAPE: 27.7467 | R2: -0.0887 | PearsonR: 0.2528 | PearsonR_diff: 0.0329 | DA: 0.0508
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.89it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.31it/s]
-2026-05-18 16:56:39,472 INFO src.train.trainer: Last model at epoch 34 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:39,472 INFO src.train.trainer: Epoch 35
-Validation  RMSE: 0.1323 | MAE: 0.1049 | MSE: 0.0175 | MAPE: 24.6421 | R2: -0.0538 | PearsonR: 0.2681 | PearsonR_diff: -0.1043 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.85it/s]Training:  25%|██▌       | 3/12 [00:00<00:02,  4.40it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  8.59it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 11.98it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.64it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.45it/s]
-Batch     0/   12 | Loss: 0.041754
-Training    RMSE: 0.1399 | MAE: 0.1065 | MSE: 0.0196 | MAPE: 28.8556 | R2: -0.1616 | PearsonR: 0.1427 | PearsonR_diff: -0.0243 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.87it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]
-2026-05-18 16:56:41,376 INFO src.train.trainer: Last model at epoch 35 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:41,376 INFO src.train.trainer: Epoch 36
-Validation  RMSE: 0.1504 | MAE: 0.1191 | MSE: 0.0226 | MAPE: 25.8471 | R2: -0.3616 | PearsonR: 0.3386 | PearsonR_diff: -0.1076 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.97it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.56it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  8.98it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.29it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.77it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.68it/s]
-Batch     0/   12 | Loss: 0.055422
-Training    RMSE: 0.1345 | MAE: 0.1021 | MSE: 0.0181 | MAPE: 26.7055 | R2: -0.0750 | PearsonR: 0.1778 | PearsonR_diff: -0.0179 | DA: 0.0508
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.82it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]
-2026-05-18 16:56:43,250 INFO src.train.trainer: Last model at epoch 36 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:43,250 INFO src.train.trainer: Epoch 37
-Validation  RMSE: 0.1556 | MAE: 0.1239 | MSE: 0.0242 | MAPE: 26.8696 | R2: -0.4588 | PearsonR: 0.2155 | PearsonR_diff: -0.1203 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.95it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.51it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.63it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 12.31it/s]Training:  83%|████████▎ | 10/12 [00:01<00:00, 14.11it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.21it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.06it/s]
-Batch     0/   12 | Loss: 0.048759
-Training    RMSE: 0.1272 | MAE: 0.0968 | MSE: 0.0162 | MAPE: 25.2690 | R2: 0.0397 | PearsonR: 0.2834 | PearsonR_diff: -0.0527 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.32it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.98it/s]
-2026-05-18 16:56:44,963 INFO src.train.trainer: Last model at epoch 37 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:44,963 INFO src.train.trainer: Epoch 38
-Validation  RMSE: 0.1465 | MAE: 0.1187 | MSE: 0.0215 | MAPE: 26.2500 | R2: -0.2930 | PearsonR: 0.3372 | PearsonR_diff: 0.0015 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.84it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.06it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.19it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 11.89it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.18it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.77it/s]
-Batch     0/   12 | Loss: 0.050563
-Training    RMSE: 0.1259 | MAE: 0.0951 | MSE: 0.0159 | MAPE: 24.5438 | R2: 0.0583 | PearsonR: 0.3321 | PearsonR_diff: -0.0061 | DA: 0.0515
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.82it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.16it/s]
-2026-05-18 16:56:46,845 INFO src.train.trainer: Last model at epoch 38 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:46,846 INFO src.train.trainer: Epoch 39
-Validation  RMSE: 0.1522 | MAE: 0.1254 | MSE: 0.0232 | MAPE: 28.4615 | R2: -0.3942 | PearsonR: 0.0174 | PearsonR_diff: -0.0793 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.78it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.14it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.85it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.45it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.13it/s]
-Batch     0/   12 | Loss: 0.032058
-Training    RMSE: 0.1174 | MAE: 0.0883 | MSE: 0.0138 | MAPE: 22.8915 | R2: 0.1821 | PearsonR: 0.4478 | PearsonR_diff: 0.0037 | DA: 0.0535
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.88it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.30it/s]
-2026-05-18 16:56:48,544 INFO src.train.trainer: Last model at epoch 39 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:48,545 INFO src.train.trainer: Epoch 40
-Validation  RMSE: 0.1488 | MAE: 0.1223 | MSE: 0.0221 | MAPE: 27.6962 | R2: -0.3328 | PearsonR: 0.1402 | PearsonR_diff: -0.0931 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.81it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.48it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.98it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 18.73it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.62it/s]
-Batch     0/   12 | Loss: 0.026791
-Training    RMSE: 0.1159 | MAE: 0.0881 | MSE: 0.0134 | MAPE: 22.9396 | R2: 0.2029 | PearsonR: 0.4776 | PearsonR_diff: 0.0377 | DA: 0.0549
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.08it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s]
-2026-05-18 16:56:50,061 INFO src.train.trainer: Last model at epoch 40 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:50,061 INFO src.train.trainer: Epoch 41
-Validation  RMSE: 0.1551 | MAE: 0.1250 | MSE: 0.0241 | MAPE: 27.5299 | R2: -0.4485 | PearsonR: 0.1626 | PearsonR_diff: -0.0657 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.86it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  6.85it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 13.19it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.90it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.22it/s]
-Batch     0/   12 | Loss: 0.034658
-Training    RMSE: 0.1158 | MAE: 0.0884 | MSE: 0.0134 | MAPE: 23.2343 | R2: 0.2036 | PearsonR: 0.4709 | PearsonR_diff: 0.0262 | DA: 0.0501
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.86it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]
-2026-05-18 16:56:51,758 INFO src.train.trainer: Last model at epoch 41 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:51,759 INFO src.train.trainer: Epoch 42
-Validation  RMSE: 0.1445 | MAE: 0.1199 | MSE: 0.0209 | MAPE: 28.2860 | R2: -0.2570 | PearsonR: 0.1304 | PearsonR_diff: -0.1076 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.29it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.82it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.51it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.56it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.35it/s]
-Batch     0/   12 | Loss: 0.025563
-Training    RMSE: 0.1106 | MAE: 0.0841 | MSE: 0.0122 | MAPE: 21.7766 | R2: 0.2729 | PearsonR: 0.5337 | PearsonR_diff: 0.0436 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.03it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.52it/s]
-2026-05-18 16:56:53,319 INFO src.train.trainer: Last model at epoch 42 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:53,320 INFO src.train.trainer: Epoch 43
-Validation  RMSE: 0.1418 | MAE: 0.1154 | MSE: 0.0201 | MAPE: 27.1705 | R2: -0.2116 | PearsonR: 0.0108 | PearsonR_diff: -0.0822 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.00it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.99it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.04it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.51it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.68it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.12it/s]
-Batch     0/   12 | Loss: 0.023680
-Training    RMSE: 0.1082 | MAE: 0.0825 | MSE: 0.0117 | MAPE: 21.5212 | R2: 0.3042 | PearsonR: 0.5586 | PearsonR_diff: 0.0261 | DA: 0.0494
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-2026-05-18 16:56:54,993 INFO src.train.trainer: Last model at epoch 43 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:54,993 INFO src.train.trainer: Epoch 44
-Validation  RMSE: 0.1565 | MAE: 0.1280 | MSE: 0.0245 | MAPE: 29.7215 | R2: -0.4754 | PearsonR: -0.2211 | PearsonR_diff: -0.1500 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.89it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.81it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.40it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.08it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.53it/s]
-Batch     0/   12 | Loss: 0.029985
-Training    RMSE: 0.1079 | MAE: 0.0807 | MSE: 0.0116 | MAPE: 20.7770 | R2: 0.3090 | PearsonR: 0.5657 | PearsonR_diff: -0.0004 | DA: 0.0590
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.88it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]
-2026-05-18 16:56:56,763 INFO src.train.trainer: Last model at epoch 44 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:56,764 INFO src.train.trainer: Epoch 45
-Validation  RMSE: 0.1265 | MAE: 0.1083 | MSE: 0.0160 | MAPE: 25.8057 | R2: 0.0370 | PearsonR: 0.4161 | PearsonR_diff: 0.0389 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.31it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.56it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.41it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.40it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.87it/s]
-Batch     0/   12 | Loss: 0.021187
-Training    RMSE: 0.1050 | MAE: 0.0799 | MSE: 0.0110 | MAPE: 20.7959 | R2: 0.3459 | PearsonR: 0.5939 | PearsonR_diff: 0.0185 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.14it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.70it/s]
-2026-05-18 16:56:58,333 INFO src.train.trainer: Last model at epoch 45 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:56:58,333 INFO src.train.trainer: Epoch 46
-Validation  RMSE: 0.1415 | MAE: 0.1176 | MSE: 0.0200 | MAPE: 27.9176 | R2: -0.2058 | PearsonR: 0.0105 | PearsonR_diff: -0.1060 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.12it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.00it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.65it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.74it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 14.93it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.70it/s]
-Batch     0/   12 | Loss: 0.021769
-Training    RMSE: 0.0986 | MAE: 0.0754 | MSE: 0.0097 | MAPE: 19.6092 | R2: 0.4223 | PearsonR: 0.6521 | PearsonR_diff: 0.0044 | DA: 0.0563
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-2026-05-18 16:57:00,054 INFO src.train.trainer: Last model at epoch 46 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:00,054 INFO src.train.trainer: Epoch 47
-Validation  RMSE: 0.1443 | MAE: 0.1203 | MSE: 0.0208 | MAPE: 27.4122 | R2: -0.2547 | PearsonR: 0.1614 | PearsonR_diff: -0.0492 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.77it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.36it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.93it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.63it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.26it/s]
-Batch     0/   12 | Loss: 0.018724
-Training    RMSE: 0.0954 | MAE: 0.0728 | MSE: 0.0091 | MAPE: 18.8715 | R2: 0.4600 | PearsonR: 0.6824 | PearsonR_diff: 0.0381 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.02it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
-2026-05-18 16:57:01,709 INFO src.train.trainer: Last model at epoch 47 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:01,709 INFO src.train.trainer: Epoch 48
-Validation  RMSE: 0.1556 | MAE: 0.1265 | MSE: 0.0242 | MAPE: 27.6714 | R2: -0.4588 | PearsonR: 0.1493 | PearsonR_diff: -0.1075 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.96it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.82it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.85it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 18.28it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.43it/s]
-Batch     0/   12 | Loss: 0.017520
-Training    RMSE: 0.0972 | MAE: 0.0735 | MSE: 0.0094 | MAPE: 19.0658 | R2: 0.4389 | PearsonR: 0.6664 | PearsonR_diff: 0.0811 | DA: 0.0508
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.14it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.72it/s]
-2026-05-18 16:57:03,230 INFO src.train.trainer: Last model at epoch 48 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:03,230 INFO src.train.trainer: Epoch 49
-Validation  RMSE: 0.1543 | MAE: 0.1249 | MSE: 0.0238 | MAPE: 26.9349 | R2: -0.4341 | PearsonR: 0.2793 | PearsonR_diff: -0.0724 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.11it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.17it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.27it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 10.94it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.15it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.92it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.18it/s]
-Batch     0/   12 | Loss: 0.018158
-Training    RMSE: 0.0998 | MAE: 0.0765 | MSE: 0.0100 | MAPE: 19.9276 | R2: 0.4083 | PearsonR: 0.6459 | PearsonR_diff: 0.0545 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.49it/s]
-2026-05-18 16:57:04,998 INFO src.train.trainer: Last model at epoch 49 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:04,998 INFO src.train.trainer: Epoch 50
-Validation  RMSE: 0.1596 | MAE: 0.1261 | MSE: 0.0255 | MAPE: 27.3787 | R2: -0.5333 | PearsonR: 0.0699 | PearsonR_diff: -0.1335 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.84it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.73it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.11it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.32it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.72it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.65it/s]
-Batch     0/   12 | Loss: 0.018029
-Training    RMSE: 0.0980 | MAE: 0.0744 | MSE: 0.0096 | MAPE: 19.0727 | R2: 0.4301 | PearsonR: 0.6652 | PearsonR_diff: 0.0681 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-2026-05-18 16:57:06,847 INFO src.train.trainer: Last model at epoch 50 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:06,848 INFO src.train.trainer: Epoch 51
-Validation  RMSE: 0.1465 | MAE: 0.1216 | MSE: 0.0215 | MAPE: 27.1703 | R2: -0.2918 | PearsonR: 0.1611 | PearsonR_diff: -0.0244 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.96it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.83it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.79it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.42it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.91it/s]
-Batch     0/   12 | Loss: 0.014921
-Training    RMSE: 0.0934 | MAE: 0.0703 | MSE: 0.0087 | MAPE: 17.9840 | R2: 0.4819 | PearsonR: 0.6981 | PearsonR_diff: 0.0327 | DA: 0.0501
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.30it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.95it/s]
-2026-05-18 16:57:08,383 INFO src.train.trainer: Last model at epoch 51 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:08,383 INFO src.train.trainer: Epoch 52
-Validation  RMSE: 0.1428 | MAE: 0.1199 | MSE: 0.0204 | MAPE: 27.2914 | R2: -0.2283 | PearsonR: 0.2398 | PearsonR_diff: 0.0137 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.18it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.51it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.93it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 12.13it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 13.78it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.15it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.34it/s]
-Batch     0/   12 | Loss: 0.012567
-Training    RMSE: 0.0884 | MAE: 0.0667 | MSE: 0.0078 | MAPE: 17.5826 | R2: 0.5361 | PearsonR: 0.7353 | PearsonR_diff: 0.1223 | DA: 0.0563
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.02it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.51it/s]
-2026-05-18 16:57:10,125 INFO src.train.trainer: Last model at epoch 52 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:10,126 INFO src.train.trainer: Epoch 53
-Validation  RMSE: 0.1340 | MAE: 0.1129 | MSE: 0.0180 | MAPE: 26.0083 | R2: -0.0820 | PearsonR: 0.3211 | PearsonR_diff: 0.0098 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.85it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.57it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  7.40it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00,  9.99it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.13it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.63it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.18it/s]
-Batch     0/   12 | Loss: 0.011299
-Training    RMSE: 0.0900 | MAE: 0.0677 | MSE: 0.0081 | MAPE: 17.4109 | R2: 0.5185 | PearsonR: 0.7265 | PearsonR_diff: 0.0903 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.61it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.39it/s]
-2026-05-18 16:57:11,905 INFO src.train.trainer: Last model at epoch 53 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:11,905 INFO src.train.trainer: Epoch 54
-Validation  RMSE: 0.1348 | MAE: 0.1139 | MSE: 0.0182 | MAPE: 26.7660 | R2: -0.0945 | PearsonR: 0.2614 | PearsonR_diff: -0.0118 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.05it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.14it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.67it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.17it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.06it/s]
-Batch     0/   12 | Loss: 0.011921
-Training    RMSE: 0.0880 | MAE: 0.0668 | MSE: 0.0077 | MAPE: 17.4519 | R2: 0.5402 | PearsonR: 0.7400 | PearsonR_diff: 0.0518 | DA: 0.0522
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.33it/s]
-2026-05-18 16:57:13,608 INFO src.train.trainer: Last model at epoch 54 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:13,609 INFO src.train.trainer: Epoch 55
-Validation  RMSE: 0.1335 | MAE: 0.1130 | MSE: 0.0178 | MAPE: 27.3713 | R2: -0.0735 | PearsonR: 0.2239 | PearsonR_diff: 0.0067 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.17it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.01it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.68it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.90it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.14it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.99it/s]
-Batch     0/   12 | Loss: 0.014722
-Training    RMSE: 0.0905 | MAE: 0.0692 | MSE: 0.0082 | MAPE: 17.9555 | R2: 0.5133 | PearsonR: 0.7210 | PearsonR_diff: 0.0803 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.98it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-2026-05-18 16:57:15,294 INFO src.train.trainer: Last model at epoch 55 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:15,294 INFO src.train.trainer: Epoch 56
-Validation  RMSE: 0.1318 | MAE: 0.1125 | MSE: 0.0174 | MAPE: 27.2764 | R2: -0.0466 | PearsonR: 0.2222 | PearsonR_diff: 0.0053 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.39it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.91it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.95it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.73it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.02it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.43it/s]
-Batch     0/   12 | Loss: 0.011822
-Training    RMSE: 0.0902 | MAE: 0.0689 | MSE: 0.0081 | MAPE: 17.7912 | R2: 0.5166 | PearsonR: 0.7261 | PearsonR_diff: 0.0843 | DA: 0.0563
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.13it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.70it/s]
-2026-05-18 16:57:16,902 INFO src.train.trainer: Last model at epoch 56 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:16,902 INFO src.train.trainer: Epoch 57
-Validation  RMSE: 0.1403 | MAE: 0.1194 | MSE: 0.0197 | MAPE: 28.3411 | R2: -0.1858 | PearsonR: 0.1182 | PearsonR_diff: -0.0546 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.10it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.08it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.27it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.35it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.07it/s]
-Batch     0/   12 | Loss: 0.010547
-Training    RMSE: 0.0891 | MAE: 0.0687 | MSE: 0.0079 | MAPE: 17.9667 | R2: 0.5281 | PearsonR: 0.7349 | PearsonR_diff: 0.1029 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.20it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.81it/s]
-2026-05-18 16:57:18,438 INFO src.train.trainer: Last model at epoch 57 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:18,438 INFO src.train.trainer: Epoch 58
-Validation  RMSE: 0.1428 | MAE: 0.1169 | MSE: 0.0204 | MAPE: 26.2745 | R2: -0.2276 | PearsonR: 0.2326 | PearsonR_diff: -0.0485 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.47it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.27it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.94it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 13.13it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.86it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.80it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.17it/s]
-Batch     0/   12 | Loss: 0.009277
-Training    RMSE: 0.0947 | MAE: 0.0726 | MSE: 0.0090 | MAPE: 19.0857 | R2: 0.4678 | PearsonR: 0.6994 | PearsonR_diff: 0.0506 | DA: 0.0618
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-2026-05-18 16:57:20,123 INFO src.train.trainer: Last model at epoch 58 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:20,123 INFO src.train.trainer: Epoch 59
-Validation  RMSE: 0.1551 | MAE: 0.1290 | MSE: 0.0241 | MAPE: 28.6858 | R2: -0.4494 | PearsonR: 0.1966 | PearsonR_diff: -0.0689 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.77it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.38it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 14.09it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 17.26it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.74it/s]
-Batch     0/   12 | Loss: 0.017502
-Training    RMSE: 0.1000 | MAE: 0.0772 | MSE: 0.0100 | MAPE: 20.3326 | R2: 0.4066 | PearsonR: 0.6559 | PearsonR_diff: 0.0587 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.41it/s]
-2026-05-18 16:57:21,745 INFO src.train.trainer: Last model at epoch 59 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:21,746 INFO src.train.trainer: Epoch 60
-Validation  RMSE: 0.1802 | MAE: 0.1459 | MSE: 0.0325 | MAPE: 30.8013 | R2: -0.9545 | PearsonR: 0.2255 | PearsonR_diff: -0.1657 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.97it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.88it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.79it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.23it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.56it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.00it/s]
-Batch     0/   12 | Loss: 0.026894
-Training    RMSE: 0.1039 | MAE: 0.0811 | MSE: 0.0108 | MAPE: 21.0459 | R2: 0.3588 | PearsonR: 0.6302 | PearsonR_diff: 0.0893 | DA: 0.0563
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.29it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.87it/s]
-2026-05-18 16:57:23,367 INFO src.train.trainer: Last model at epoch 60 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:23,371 INFO src.train.trainer: Saved epoch 60 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/epoch_60_model_1.pth
-2026-05-18 16:57:23,371 INFO src.train.trainer: Epoch 61
-Validation  RMSE: 0.1963 | MAE: 0.1599 | MSE: 0.0385 | MAPE: 33.3247 | R2: -1.3206 | PearsonR: 0.1734 | PearsonR_diff: -0.1547 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.32it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.30it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.55it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.25it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 17.17it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.79it/s]
-Batch     0/   12 | Loss: 0.038534
-Training    RMSE: 0.1177 | MAE: 0.0923 | MSE: 0.0139 | MAPE: 23.7698 | R2: 0.1775 | PearsonR: 0.5163 | PearsonR_diff: 0.0685 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.41it/s]
-2026-05-18 16:57:24,993 INFO src.train.trainer: Last model at epoch 61 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:24,993 INFO src.train.trainer: Epoch 62
-Validation  RMSE: 0.1319 | MAE: 0.1098 | MSE: 0.0174 | MAPE: 25.8494 | R2: -0.0475 | PearsonR: 0.2660 | PearsonR_diff: 0.0247 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.85it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.11it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.12it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 13.94it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.27it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.53it/s]
-Batch     0/   12 | Loss: 0.010792
-Training    RMSE: 0.0961 | MAE: 0.0736 | MSE: 0.0092 | MAPE: 18.2854 | R2: 0.4516 | PearsonR: 0.7034 | PearsonR_diff: 0.1135 | DA: 0.0618
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.11it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s]
-2026-05-18 16:57:26,695 INFO src.train.trainer: Last model at epoch 62 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:26,696 INFO src.train.trainer: Epoch 63
-Validation  RMSE: 0.1321 | MAE: 0.1120 | MSE: 0.0175 | MAPE: 29.0493 | R2: -0.0511 | PearsonR: 0.1216 | PearsonR_diff: 0.0877 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.92it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.60it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.28it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.81it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.56it/s]
-Batch     0/   12 | Loss: 0.017509
-Training    RMSE: 0.0920 | MAE: 0.0693 | MSE: 0.0085 | MAPE: 18.0392 | R2: 0.4970 | PearsonR: 0.7127 | PearsonR_diff: 0.1289 | DA: 0.0604
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.10it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s]
-2026-05-18 16:57:28,299 INFO src.train.trainer: Last model at epoch 63 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:28,300 INFO src.train.trainer: Epoch 64
-Validation  RMSE: 0.1383 | MAE: 0.1170 | MSE: 0.0191 | MAPE: 27.3462 | R2: -0.1517 | PearsonR: 0.1860 | PearsonR_diff: 0.0668 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.14it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.18it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.69it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 12.95it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.48it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.23it/s]
-Batch     0/   12 | Loss: 0.012937
-Training    RMSE: 0.0874 | MAE: 0.0673 | MSE: 0.0076 | MAPE: 18.0474 | R2: 0.5467 | PearsonR: 0.7430 | PearsonR_diff: 0.0469 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.00it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.50it/s]
-2026-05-18 16:57:30,060 INFO src.train.trainer: Last model at epoch 64 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:30,061 INFO src.train.trainer: Epoch 65
-Validation  RMSE: 0.1639 | MAE: 0.1335 | MSE: 0.0269 | MAPE: 29.0061 | R2: -0.6187 | PearsonR: 0.1628 | PearsonR_diff: 0.0213 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.87it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.58it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 14.37it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 17.35it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.23it/s]
-Batch     0/   12 | Loss: 0.010998
-Training    RMSE: 0.0867 | MAE: 0.0664 | MSE: 0.0075 | MAPE: 17.4987 | R2: 0.5539 | PearsonR: 0.7532 | PearsonR_diff: 0.0852 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.11it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s]
-2026-05-18 16:57:31,609 INFO src.train.trainer: Last model at epoch 65 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:31,609 INFO src.train.trainer: Epoch 66
-Validation  RMSE: 0.1506 | MAE: 0.1260 | MSE: 0.0227 | MAPE: 28.1079 | R2: -0.3667 | PearsonR: 0.2817 | PearsonR_diff: 0.0627 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.32it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.14it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.86it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.54it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 17.40it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.80it/s]
-Batch     0/   12 | Loss: 0.010966
-Training    RMSE: 0.0848 | MAE: 0.0658 | MSE: 0.0072 | MAPE: 17.1192 | R2: 0.5729 | PearsonR: 0.7615 | PearsonR_diff: 0.1382 | DA: 0.0618
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-2026-05-18 16:57:33,223 INFO src.train.trainer: Last model at epoch 66 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:33,223 INFO src.train.trainer: Epoch 67
-Validation  RMSE: 0.1261 | MAE: 0.1070 | MSE: 0.0159 | MAPE: 25.0024 | R2: 0.0425 | PearsonR: 0.4515 | PearsonR_diff: 0.0989 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.00it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.77it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  7.64it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 10.13it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.11it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.50it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.24it/s]
-Batch     0/   12 | Loss: 0.011963
-Training    RMSE: 0.0799 | MAE: 0.0613 | MSE: 0.0064 | MAPE: 15.7687 | R2: 0.6205 | PearsonR: 0.7926 | PearsonR_diff: 0.0336 | DA: 0.0522
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
-2026-05-18 16:57:35,115 INFO src.train.trainer: Last model at epoch 67 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:35,116 INFO src.train.trainer: Epoch 68
-Validation  RMSE: 0.1251 | MAE: 0.1067 | MSE: 0.0156 | MAPE: 26.1386 | R2: 0.0581 | PearsonR: 0.3622 | PearsonR_diff: 0.1092 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.05it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.37it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.27it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.85it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 15.26it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.71it/s]
-Batch     0/   12 | Loss: 0.011154
-Training    RMSE: 0.0812 | MAE: 0.0620 | MSE: 0.0066 | MAPE: 16.0059 | R2: 0.6089 | PearsonR: 0.7863 | PearsonR_diff: 0.1269 | DA: 0.0583
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.07it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s]
-2026-05-18 16:57:36,803 INFO src.train.trainer: Last model at epoch 68 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:36,804 INFO src.train.trainer: Epoch 69
-Validation  RMSE: 0.1233 | MAE: 0.1055 | MSE: 0.0152 | MAPE: 26.5146 | R2: 0.0850 | PearsonR: 0.3733 | PearsonR_diff: 0.1054 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.11it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.42it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.39it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.84it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.24it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.76it/s]
-Batch     0/   12 | Loss: 0.008990
-Training    RMSE: 0.0843 | MAE: 0.0655 | MSE: 0.0071 | MAPE: 17.4050 | R2: 0.5776 | PearsonR: 0.7681 | PearsonR_diff: 0.0960 | DA: 0.0583
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.45it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.16it/s]
-2026-05-18 16:57:38,414 INFO src.train.trainer: Last model at epoch 69 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:38,414 INFO src.train.trainer: Epoch 70
-Validation  RMSE: 0.1430 | MAE: 0.1211 | MSE: 0.0204 | MAPE: 28.3486 | R2: -0.2307 | PearsonR: 0.2963 | PearsonR_diff: 0.1025 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.32it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.89it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 16.31it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 18.92it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 13.42it/s]
-Batch     0/   12 | Loss: 0.008368
-Training    RMSE: 0.0794 | MAE: 0.0616 | MSE: 0.0063 | MAPE: 16.4711 | R2: 0.6255 | PearsonR: 0.7956 | PearsonR_diff: 0.1254 | DA: 0.0618
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]
-2026-05-18 16:57:39,930 INFO src.train.trainer: Last model at epoch 70 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:39,931 INFO src.train.trainer: Epoch 71
-Validation  RMSE: 0.1605 | MAE: 0.1355 | MSE: 0.0258 | MAPE: 30.3980 | R2: -0.5508 | PearsonR: 0.2375 | PearsonR_diff: 0.0566 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.86it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.52it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  8.85it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.14it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.60it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.43it/s]
-Batch     0/   12 | Loss: 0.010867
-Training    RMSE: 0.0825 | MAE: 0.0628 | MSE: 0.0068 | MAPE: 16.3520 | R2: 0.5961 | PearsonR: 0.7820 | PearsonR_diff: 0.1347 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-2026-05-18 16:57:41,803 INFO src.train.trainer: Last model at epoch 71 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:41,803 INFO src.train.trainer: Epoch 72
-Validation  RMSE: 0.1630 | MAE: 0.1371 | MSE: 0.0266 | MAPE: 30.4113 | R2: -0.6007 | PearsonR: 0.2476 | PearsonR_diff: 0.0150 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.03it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.86it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.76it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.17it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.90it/s]
-Batch     0/   12 | Loss: 0.019239
-Training    RMSE: 0.0922 | MAE: 0.0704 | MSE: 0.0085 | MAPE: 18.2955 | R2: 0.4949 | PearsonR: 0.7134 | PearsonR_diff: 0.0935 | DA: 0.0549
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.38it/s]
-2026-05-18 16:57:43,417 INFO src.train.trainer: Last model at epoch 72 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:43,417 INFO src.train.trainer: Epoch 73
-Validation  RMSE: 0.1435 | MAE: 0.1215 | MSE: 0.0206 | MAPE: 27.9920 | R2: -0.2397 | PearsonR: 0.3035 | PearsonR_diff: 0.0432 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.94it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.89it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 18.75it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 13.82it/s]
-Batch     0/   12 | Loss: 0.009231
-Training    RMSE: 0.0877 | MAE: 0.0673 | MSE: 0.0077 | MAPE: 17.4406 | R2: 0.5434 | PearsonR: 0.7520 | PearsonR_diff: 0.1323 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.17it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.76it/s]
-2026-05-18 16:57:44,832 INFO src.train.trainer: Last model at epoch 73 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:44,832 INFO src.train.trainer: Epoch 74
-Validation  RMSE: 0.1218 | MAE: 0.1023 | MSE: 0.0148 | MAPE: 26.2722 | R2: 0.1067 | PearsonR: 0.3541 | PearsonR_diff: 0.0989 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.96it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.32it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.46it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.21it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.12it/s]
-Batch     0/   12 | Loss: 0.008560
-Training    RMSE: 0.0804 | MAE: 0.0615 | MSE: 0.0065 | MAPE: 15.6549 | R2: 0.6166 | PearsonR: 0.7971 | PearsonR_diff: 0.1222 | DA: 0.0501
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.29it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.91it/s]
-2026-05-18 16:57:46,440 INFO src.train.trainer: Last model at epoch 74 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:46,440 INFO src.train.trainer: Epoch 75
-Validation  RMSE: 0.1219 | MAE: 0.1012 | MSE: 0.0149 | MAPE: 26.7058 | R2: 0.1049 | PearsonR: 0.3663 | PearsonR_diff: 0.0993 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.22it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.67it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.51it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.62it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 14.87it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.60it/s]
-Batch     0/   12 | Loss: 0.011223
-Training    RMSE: 0.0842 | MAE: 0.0650 | MSE: 0.0071 | MAPE: 17.0467 | R2: 0.5788 | PearsonR: 0.7677 | PearsonR_diff: 0.1461 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.16it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.76it/s]
-2026-05-18 16:57:48,119 INFO src.train.trainer: Last model at epoch 75 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:48,119 INFO src.train.trainer: Epoch 76
-Validation  RMSE: 0.1374 | MAE: 0.1149 | MSE: 0.0189 | MAPE: 26.9347 | R2: -0.1368 | PearsonR: 0.3038 | PearsonR_diff: 0.0816 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.23it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.25it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.49it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.86it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.69it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.37it/s]
-Batch     0/   12 | Loss: 0.009457
-Training    RMSE: 0.0747 | MAE: 0.0574 | MSE: 0.0056 | MAPE: 15.5159 | R2: 0.6685 | PearsonR: 0.8215 | PearsonR_diff: 0.1209 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]
-2026-05-18 16:57:49,784 INFO src.train.trainer: Last model at epoch 76 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:49,784 INFO src.train.trainer: Epoch 77
-Validation  RMSE: 0.1498 | MAE: 0.1280 | MSE: 0.0225 | MAPE: 29.7988 | R2: -0.3520 | PearsonR: 0.2460 | PearsonR_diff: 0.0818 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.19it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.97it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.94it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 14.24it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.33it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.20it/s]
-Batch     0/   12 | Loss: 0.010956
-Training    RMSE: 0.0741 | MAE: 0.0558 | MSE: 0.0055 | MAPE: 14.3773 | R2: 0.6740 | PearsonR: 0.8237 | PearsonR_diff: 0.0959 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-2026-05-18 16:57:51,450 INFO src.train.trainer: Last model at epoch 77 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:51,450 INFO src.train.trainer: Epoch 78
-Validation  RMSE: 0.1331 | MAE: 0.1143 | MSE: 0.0177 | MAPE: 28.4900 | R2: -0.0667 | PearsonR: 0.3211 | PearsonR_diff: 0.0721 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.46it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.06it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.74it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.80it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 14.98it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.01it/s]
-Batch     0/   12 | Loss: 0.009056
-Training    RMSE: 0.0709 | MAE: 0.0539 | MSE: 0.0050 | MAPE: 14.1037 | R2: 0.7013 | PearsonR: 0.8389 | PearsonR_diff: 0.1215 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.83it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]
-2026-05-18 16:57:53,174 INFO src.train.trainer: Last model at epoch 78 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:53,174 INFO src.train.trainer: Epoch 79
-Validation  RMSE: 0.1352 | MAE: 0.1169 | MSE: 0.0183 | MAPE: 28.4099 | R2: -0.1004 | PearsonR: 0.3545 | PearsonR_diff: 0.0743 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.13it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.49it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.89it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.05it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.32it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.06it/s]
-Batch     0/   12 | Loss: 0.008764
-Training    RMSE: 0.0705 | MAE: 0.0532 | MSE: 0.0050 | MAPE: 13.8569 | R2: 0.7049 | PearsonR: 0.8412 | PearsonR_diff: 0.1421 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.86it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]
-2026-05-18 16:57:55,001 INFO src.train.trainer: Last model at epoch 79 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:55,002 INFO src.train.trainer: Epoch 80
-Validation  RMSE: 0.1329 | MAE: 0.1147 | MSE: 0.0177 | MAPE: 28.1034 | R2: -0.0632 | PearsonR: 0.3505 | PearsonR_diff: 0.0688 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.77it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.35it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 14.15it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 17.79it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.15it/s]
-Batch     0/   12 | Loss: 0.007831
-Training    RMSE: 0.0699 | MAE: 0.0523 | MSE: 0.0049 | MAPE: 13.6439 | R2: 0.7095 | PearsonR: 0.8448 | PearsonR_diff: 0.1206 | DA: 0.0652
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.09it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s]
-2026-05-18 16:57:56,553 INFO src.train.trainer: Last model at epoch 80 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:56,557 INFO src.train.trainer: Saved epoch 80 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/epoch_80_model_1.pth
-2026-05-18 16:57:56,557 INFO src.train.trainer: Epoch 81
-Validation  RMSE: 0.1422 | MAE: 0.1245 | MSE: 0.0202 | MAPE: 30.1407 | R2: -0.2183 | PearsonR: 0.3227 | PearsonR_diff: 0.0769 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.18it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.47it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.16it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.37it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.72it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.46it/s]
-Batch     0/   12 | Loss: 0.008119
-Training    RMSE: 0.0707 | MAE: 0.0541 | MSE: 0.0050 | MAPE: 13.9790 | R2: 0.7030 | PearsonR: 0.8400 | PearsonR_diff: 0.1500 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]
-2026-05-18 16:57:58,322 INFO src.train.trainer: Last model at epoch 81 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:57:58,323 INFO src.train.trainer: Epoch 82
-Validation  RMSE: 0.1310 | MAE: 0.1130 | MSE: 0.0172 | MAPE: 27.8901 | R2: -0.0339 | PearsonR: 0.3746 | PearsonR_diff: 0.0705 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.97it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.29it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  8.38it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 13.13it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 16.26it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.82it/s]
-Batch     0/   12 | Loss: 0.008030
-Training    RMSE: 0.0687 | MAE: 0.0531 | MSE: 0.0047 | MAPE: 13.7308 | R2: 0.7196 | PearsonR: 0.8491 | PearsonR_diff: 0.1474 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]
-2026-05-18 16:58:00,056 INFO src.train.trainer: Last model at epoch 82 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:00,057 INFO src.train.trainer: Epoch 83
-Validation  RMSE: 0.1341 | MAE: 0.1153 | MSE: 0.0180 | MAPE: 27.9351 | R2: -0.0823 | PearsonR: 0.3677 | PearsonR_diff: 0.0749 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.83it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.55it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.34it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.91it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.53it/s]
-Batch     0/   12 | Loss: 0.007319
-Training    RMSE: 0.0687 | MAE: 0.0521 | MSE: 0.0047 | MAPE: 13.6458 | R2: 0.7195 | PearsonR: 0.8508 | PearsonR_diff: 0.1067 | DA: 0.0542
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-2026-05-18 16:58:01,697 INFO src.train.trainer: Last model at epoch 83 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:01,698 INFO src.train.trainer: Epoch 84
-Validation  RMSE: 0.1468 | MAE: 0.1271 | MSE: 0.0216 | MAPE: 30.2085 | R2: -0.2983 | PearsonR: 0.2750 | PearsonR_diff: 0.0825 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.13it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.78it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.31it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 12.50it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.27it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.45it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.60it/s]
-Batch     0/   12 | Loss: 0.009181
-Training    RMSE: 0.0701 | MAE: 0.0533 | MSE: 0.0049 | MAPE: 13.8846 | R2: 0.7079 | PearsonR: 0.8425 | PearsonR_diff: 0.1566 | DA: 0.0590
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-2026-05-18 16:58:03,441 INFO src.train.trainer: Last model at epoch 84 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:03,441 INFO src.train.trainer: Epoch 85
-Validation  RMSE: 0.1398 | MAE: 0.1213 | MSE: 0.0195 | MAPE: 29.5446 | R2: -0.1770 | PearsonR: 0.2861 | PearsonR_diff: 0.0740 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.15it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.64it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  7.57it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 10.19it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.43it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 13.96it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.39it/s]
-Batch     0/   12 | Loss: 0.009324
-Training    RMSE: 0.0698 | MAE: 0.0536 | MSE: 0.0049 | MAPE: 13.8348 | R2: 0.7108 | PearsonR: 0.8443 | PearsonR_diff: 0.1464 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.82it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]
-2026-05-18 16:58:05,361 INFO src.train.trainer: Last model at epoch 85 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:05,361 INFO src.train.trainer: Epoch 86
-Validation  RMSE: 0.1417 | MAE: 0.1227 | MSE: 0.0201 | MAPE: 29.5325 | R2: -0.2099 | PearsonR: 0.3195 | PearsonR_diff: 0.0694 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.66it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.57it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.11it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.78it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.22it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.46it/s]
-Batch     0/   12 | Loss: 0.008282
-Training    RMSE: 0.0696 | MAE: 0.0518 | MSE: 0.0048 | MAPE: 13.3194 | R2: 0.7125 | PearsonR: 0.8469 | PearsonR_diff: 0.1235 | DA: 0.0563
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.82it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.19it/s]
-2026-05-18 16:58:07,273 INFO src.train.trainer: Last model at epoch 86 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:07,273 INFO src.train.trainer: Epoch 87
-Validation  RMSE: 0.1429 | MAE: 0.1239 | MSE: 0.0204 | MAPE: 29.6972 | R2: -0.2290 | PearsonR: 0.3093 | PearsonR_diff: 0.0657 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.78it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.58it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.08it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 13.03it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.78it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.00it/s]
-Batch     0/   12 | Loss: 0.008487
-Training    RMSE: 0.0699 | MAE: 0.0533 | MSE: 0.0049 | MAPE: 13.8786 | R2: 0.7098 | PearsonR: 0.8432 | PearsonR_diff: 0.1380 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.08it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.59it/s]
-2026-05-18 16:58:09,047 INFO src.train.trainer: Last model at epoch 87 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:09,047 INFO src.train.trainer: Epoch 88
-Validation  RMSE: 0.1420 | MAE: 0.1241 | MSE: 0.0202 | MAPE: 30.4749 | R2: -0.2139 | PearsonR: 0.3041 | PearsonR_diff: 0.0850 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.16it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.15it/s]Training:  50%|█████     | 6/12 [00:00<00:00,  9.61it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 12.75it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.01it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.19it/s]
-Batch     0/   12 | Loss: 0.009287
-Training    RMSE: 0.0691 | MAE: 0.0516 | MSE: 0.0048 | MAPE: 13.0508 | R2: 0.7162 | PearsonR: 0.8485 | PearsonR_diff: 0.1208 | DA: 0.0631
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.48it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.21it/s]
-2026-05-18 16:58:10,715 INFO src.train.trainer: Last model at epoch 88 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:10,715 INFO src.train.trainer: Epoch 89
-Validation  RMSE: 0.1355 | MAE: 0.1178 | MSE: 0.0184 | MAPE: 29.5231 | R2: -0.1051 | PearsonR: 0.3484 | PearsonR_diff: 0.0817 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.10it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.57it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 11.05it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.53it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 17.83it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.55it/s]
-Batch     0/   12 | Loss: 0.006497
-Training    RMSE: 0.0693 | MAE: 0.0527 | MSE: 0.0048 | MAPE: 13.7207 | R2: 0.7148 | PearsonR: 0.8467 | PearsonR_diff: 0.1455 | DA: 0.0590
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-2026-05-18 16:58:12,355 INFO src.train.trainer: Last model at epoch 89 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:12,355 INFO src.train.trainer: Epoch 90
-Validation  RMSE: 0.1416 | MAE: 0.1237 | MSE: 0.0201 | MAPE: 29.9220 | R2: -0.2079 | PearsonR: 0.3388 | PearsonR_diff: 0.0853 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.30it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  4.69it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  7.63it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 10.17it/s]Training:  75%|███████▌  | 9/12 [00:01<00:00, 12.39it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.01it/s]Training: 100%|██████████| 12/12 [00:01<00:00,  9.48it/s]
-Batch     0/   12 | Loss: 0.008242
-Training    RMSE: 0.0682 | MAE: 0.0526 | MSE: 0.0047 | MAPE: 13.9079 | R2: 0.7237 | PearsonR: 0.8523 | PearsonR_diff: 0.1442 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]
-2026-05-18 16:58:14,214 INFO src.train.trainer: Last model at epoch 90 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:14,215 INFO src.train.trainer: Epoch 91
-Validation  RMSE: 0.1525 | MAE: 0.1322 | MSE: 0.0233 | MAPE: 31.2175 | R2: -0.4006 | PearsonR: 0.2651 | PearsonR_diff: 0.0660 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.05it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.60it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.64it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.45it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.71it/s]
-Batch     0/   12 | Loss: 0.009753
-Training    RMSE: 0.0693 | MAE: 0.0536 | MSE: 0.0048 | MAPE: 14.0574 | R2: 0.7144 | PearsonR: 0.8482 | PearsonR_diff: 0.1297 | DA: 0.0631
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.15it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.73it/s]
-2026-05-18 16:58:15,794 INFO src.train.trainer: Last model at epoch 91 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:15,795 INFO src.train.trainer: Epoch 92
-Validation  RMSE: 0.1474 | MAE: 0.1277 | MSE: 0.0217 | MAPE: 30.2505 | R2: -0.3078 | PearsonR: 0.2942 | PearsonR_diff: 0.0585 | DA: 0.0276
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.29it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.73it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.47it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.27it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.31it/s]
-Batch     0/   12 | Loss: 0.007620
-Training    RMSE: 0.0672 | MAE: 0.0514 | MSE: 0.0045 | MAPE: 13.3567 | R2: 0.7318 | PearsonR: 0.8574 | PearsonR_diff: 0.1751 | DA: 0.0618
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.12it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s]
-2026-05-18 16:58:17,332 INFO src.train.trainer: Last model at epoch 92 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:17,332 INFO src.train.trainer: Epoch 93
-Validation  RMSE: 0.1384 | MAE: 0.1209 | MSE: 0.0192 | MAPE: 29.8488 | R2: -0.1540 | PearsonR: 0.3318 | PearsonR_diff: 0.0841 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.14it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.72it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.27it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.48it/s]Training:  92%|█████████▏| 11/12 [00:01<00:00, 14.93it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.55it/s]
-Batch     0/   12 | Loss: 0.009233
-Training    RMSE: 0.0692 | MAE: 0.0521 | MSE: 0.0048 | MAPE: 13.3200 | R2: 0.7159 | PearsonR: 0.8485 | PearsonR_diff: 0.0849 | DA: 0.0501
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.89it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]
-2026-05-18 16:58:19,085 INFO src.train.trainer: Last model at epoch 93 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:19,085 INFO src.train.trainer: Epoch 94
-Validation  RMSE: 0.1346 | MAE: 0.1167 | MSE: 0.0181 | MAPE: 29.4896 | R2: -0.0912 | PearsonR: 0.3241 | PearsonR_diff: 0.0782 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.24it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.19it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 10.85it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 13.87it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 14.99it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.94it/s]
-Batch     0/   12 | Loss: 0.006754
-Training    RMSE: 0.0699 | MAE: 0.0530 | MSE: 0.0049 | MAPE: 13.8019 | R2: 0.7101 | PearsonR: 0.8445 | PearsonR_diff: 0.1217 | DA: 0.0570
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.21it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.80it/s]
-2026-05-18 16:58:20,721 INFO src.train.trainer: Last model at epoch 94 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:20,721 INFO src.train.trainer: Epoch 95
-Validation  RMSE: 0.1408 | MAE: 0.1239 | MSE: 0.0198 | MAPE: 30.9266 | R2: -0.1941 | PearsonR: 0.3284 | PearsonR_diff: 0.0687 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.41it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  9.41it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 16.67it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 19.08it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 13.83it/s]
-Batch     0/   12 | Loss: 0.007668
-Training    RMSE: 0.0662 | MAE: 0.0502 | MSE: 0.0044 | MAPE: 13.0455 | R2: 0.7401 | PearsonR: 0.8616 | PearsonR_diff: 0.1496 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.50it/s]
-2026-05-18 16:58:22,176 INFO src.train.trainer: Last model at epoch 95 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:22,176 INFO src.train.trainer: Epoch 96
-Validation  RMSE: 0.1479 | MAE: 0.1303 | MSE: 0.0219 | MAPE: 31.8468 | R2: -0.3173 | PearsonR: 0.3006 | PearsonR_diff: 0.0722 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.13it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.16it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.16it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.83it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.33it/s]
-Batch     0/   12 | Loss: 0.008058
-Training    RMSE: 0.0661 | MAE: 0.0499 | MSE: 0.0044 | MAPE: 13.0048 | R2: 0.7404 | PearsonR: 0.8623 | PearsonR_diff: 0.1892 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.03it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.49it/s]
-2026-05-18 16:58:23,739 INFO src.train.trainer: Last model at epoch 96 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:23,739 INFO src.train.trainer: Epoch 97
-Validation  RMSE: 0.1504 | MAE: 0.1318 | MSE: 0.0226 | MAPE: 31.4726 | R2: -0.3628 | PearsonR: 0.3145 | PearsonR_diff: 0.0668 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.86it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.63it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.34it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 17.89it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.10it/s]
-Batch     0/   12 | Loss: 0.006624
-Training    RMSE: 0.0678 | MAE: 0.0511 | MSE: 0.0046 | MAPE: 13.2664 | R2: 0.7268 | PearsonR: 0.8546 | PearsonR_diff: 0.1376 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-2026-05-18 16:58:25,330 INFO src.train.trainer: Last model at epoch 97 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:25,330 INFO src.train.trainer: Epoch 98
-Validation  RMSE: 0.1514 | MAE: 0.1308 | MSE: 0.0229 | MAPE: 30.5049 | R2: -0.3808 | PearsonR: 0.2991 | PearsonR_diff: 0.0584 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.85it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.26it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.14it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.05it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.48it/s]
-Batch     0/   12 | Loss: 0.008195
-Training    RMSE: 0.0672 | MAE: 0.0508 | MSE: 0.0045 | MAPE: 13.3005 | R2: 0.7322 | PearsonR: 0.8559 | PearsonR_diff: 0.1761 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.97it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
-2026-05-18 16:58:26,969 INFO src.train.trainer: Last model at epoch 98 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:26,970 INFO src.train.trainer: Epoch 99
-Validation  RMSE: 0.1426 | MAE: 0.1249 | MSE: 0.0203 | MAPE: 30.4700 | R2: -0.2241 | PearsonR: 0.3330 | PearsonR_diff: 0.0680 | DA: 0.0331
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.80it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.18it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.33it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.73it/s]
-Batch     0/   12 | Loss: 0.007173
-Training    RMSE: 0.0679 | MAE: 0.0513 | MSE: 0.0046 | MAPE: 13.2545 | R2: 0.7259 | PearsonR: 0.8549 | PearsonR_diff: 0.1508 | DA: 0.0631
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.09it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.62it/s]
-2026-05-18 16:58:28,482 INFO src.train.trainer: Last model at epoch 99 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:28,483 INFO src.train.trainer: Epoch 100
-Validation  RMSE: 0.1361 | MAE: 0.1186 | MSE: 0.0185 | MAPE: 29.7179 | R2: -0.1155 | PearsonR: 0.3486 | PearsonR_diff: 0.0870 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.81it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.45it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.11it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.73it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.75it/s]
-Batch     0/   12 | Loss: 0.008509
-Training    RMSE: 0.0669 | MAE: 0.0502 | MSE: 0.0045 | MAPE: 12.7002 | R2: 0.7344 | PearsonR: 0.8597 | PearsonR_diff: 0.1764 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.31it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.95it/s]
-2026-05-18 16:58:30,025 INFO src.train.trainer: Last model at epoch 100 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:30,030 INFO src.train.trainer: Saved epoch 100 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/epoch_100_model_1.pth
-2026-05-18 16:58:30,030 INFO src.train.trainer: Epoch 101
-Validation  RMSE: 0.1356 | MAE: 0.1169 | MSE: 0.0184 | MAPE: 29.6458 | R2: -0.1067 | PearsonR: 0.3421 | PearsonR_diff: 0.1045 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.77it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.35it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.31it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.57it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.35it/s]
-Batch     0/   12 | Loss: 0.007249
-Training    RMSE: 0.0652 | MAE: 0.0503 | MSE: 0.0042 | MAPE: 13.0350 | R2: 0.7477 | PearsonR: 0.8654 | PearsonR_diff: 0.1928 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.22it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.86it/s]
-2026-05-18 16:58:31,622 INFO src.train.trainer: Last model at epoch 101 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:31,622 INFO src.train.trainer: Epoch 102
-Validation  RMSE: 0.1364 | MAE: 0.1178 | MSE: 0.0186 | MAPE: 30.1429 | R2: -0.1201 | PearsonR: 0.3327 | PearsonR_diff: 0.0913 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.31it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  6.67it/s]Training:  50%|█████     | 6/12 [00:00<00:00, 12.51it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 16.47it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 17.31it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.22it/s]
-Batch     0/   12 | Loss: 0.007695
-Training    RMSE: 0.0677 | MAE: 0.0510 | MSE: 0.0046 | MAPE: 13.1541 | R2: 0.7279 | PearsonR: 0.8573 | PearsonR_diff: 0.1735 | DA: 0.0659
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.54it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.32it/s]
-2026-05-18 16:58:33,081 INFO src.train.trainer: Last model at epoch 102 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:33,081 INFO src.train.trainer: Epoch 103
-Validation  RMSE: 0.1406 | MAE: 0.1230 | MSE: 0.0198 | MAPE: 30.0552 | R2: -0.1912 | PearsonR: 0.3276 | PearsonR_diff: 0.0750 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.89it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.63it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.23it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.35it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.35it/s]
-Batch     0/   12 | Loss: 0.005482
-Training    RMSE: 0.0693 | MAE: 0.0532 | MSE: 0.0048 | MAPE: 14.1267 | R2: 0.7150 | PearsonR: 0.8474 | PearsonR_diff: 0.1782 | DA: 0.0659
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.19it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.76it/s]
-2026-05-18 16:58:34,692 INFO src.train.trainer: Last model at epoch 103 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:34,692 INFO src.train.trainer: Epoch 104
-Validation  RMSE: 0.1540 | MAE: 0.1345 | MSE: 0.0237 | MAPE: 31.7897 | R2: -0.4288 | PearsonR: 0.2950 | PearsonR_diff: 0.0490 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.93it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.66it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.34it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.78it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.71it/s]
-Batch     0/   12 | Loss: 0.008157
-Training    RMSE: 0.0701 | MAE: 0.0535 | MSE: 0.0049 | MAPE: 14.0226 | R2: 0.7079 | PearsonR: 0.8478 | PearsonR_diff: 0.1442 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.27it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.90it/s]
-2026-05-18 16:58:36,247 INFO src.train.trainer: Last model at epoch 104 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:36,247 INFO src.train.trainer: Epoch 105
-Validation  RMSE: 0.1566 | MAE: 0.1353 | MSE: 0.0245 | MAPE: 31.2541 | R2: -0.4772 | PearsonR: 0.3103 | PearsonR_diff: 0.0248 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.05it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.34it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.53it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.79it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.31it/s]
-Batch     0/   12 | Loss: 0.008770
-Training    RMSE: 0.0724 | MAE: 0.0554 | MSE: 0.0052 | MAPE: 14.3349 | R2: 0.6885 | PearsonR: 0.8322 | PearsonR_diff: 0.1221 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.34it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.04it/s]
-2026-05-18 16:58:37,734 INFO src.train.trainer: Last model at epoch 105 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:37,734 INFO src.train.trainer: Epoch 106
-Validation  RMSE: 0.1346 | MAE: 0.1157 | MSE: 0.0181 | MAPE: 28.2038 | R2: -0.0905 | PearsonR: 0.3332 | PearsonR_diff: 0.0518 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.06it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.75it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.60it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.08it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.06it/s]
-Batch     0/   12 | Loss: 0.006059
-Training    RMSE: 0.0663 | MAE: 0.0498 | MSE: 0.0044 | MAPE: 12.7536 | R2: 0.7386 | PearsonR: 0.8651 | PearsonR_diff: 0.1558 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.06it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.59it/s]
-2026-05-18 16:58:39,393 INFO src.train.trainer: Last model at epoch 106 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:39,393 INFO src.train.trainer: Epoch 107
-Validation  RMSE: 0.1305 | MAE: 0.1111 | MSE: 0.0170 | MAPE: 28.4131 | R2: -0.0263 | PearsonR: 0.3350 | PearsonR_diff: 0.0763 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.98it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.54it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.74it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.65it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 15.72it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.86it/s]
-Batch     0/   12 | Loss: 0.005763
-Training    RMSE: 0.0643 | MAE: 0.0489 | MSE: 0.0041 | MAPE: 12.8598 | R2: 0.7546 | PearsonR: 0.8695 | PearsonR_diff: 0.1643 | DA: 0.0535
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.51it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.28it/s]
-2026-05-18 16:58:40,980 INFO src.train.trainer: Last model at epoch 107 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:40,980 INFO src.train.trainer: Epoch 108
-Validation  RMSE: 0.1407 | MAE: 0.1230 | MSE: 0.0198 | MAPE: 30.3881 | R2: -0.1915 | PearsonR: 0.2912 | PearsonR_diff: 0.0876 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.08it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.04it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.81it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.33it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.39it/s]
-Batch     0/   12 | Loss: 0.005927
-Training    RMSE: 0.0648 | MAE: 0.0483 | MSE: 0.0042 | MAPE: 12.4835 | R2: 0.7510 | PearsonR: 0.8678 | PearsonR_diff: 0.1977 | DA: 0.0638
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.98it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
-2026-05-18 16:58:42,623 INFO src.train.trainer: Last model at epoch 108 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:42,624 INFO src.train.trainer: Epoch 109
-Validation  RMSE: 0.1387 | MAE: 0.1205 | MSE: 0.0192 | MAPE: 29.8972 | R2: -0.1587 | PearsonR: 0.3014 | PearsonR_diff: 0.0814 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.39it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.86it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.74it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.93it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.10it/s]
-Batch     0/   12 | Loss: 0.006832
-Training    RMSE: 0.0640 | MAE: 0.0488 | MSE: 0.0041 | MAPE: 12.7000 | R2: 0.7569 | PearsonR: 0.8720 | PearsonR_diff: 0.1714 | DA: 0.0638
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.25it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.90it/s]
-2026-05-18 16:58:44,146 INFO src.train.trainer: Last model at epoch 109 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:44,147 INFO src.train.trainer: Epoch 110
-Validation  RMSE: 0.1402 | MAE: 0.1219 | MSE: 0.0197 | MAPE: 29.6156 | R2: -0.1836 | PearsonR: 0.3171 | PearsonR_diff: 0.0786 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.92it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.63it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.63it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.23it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.37it/s]
-Batch     0/   12 | Loss: 0.004905
-Training    RMSE: 0.0616 | MAE: 0.0472 | MSE: 0.0038 | MAPE: 12.3750 | R2: 0.7746 | PearsonR: 0.8803 | PearsonR_diff: 0.1915 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.09it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s]
-2026-05-18 16:58:45,765 INFO src.train.trainer: Last model at epoch 110 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:45,765 INFO src.train.trainer: Epoch 111
-Validation  RMSE: 0.1408 | MAE: 0.1228 | MSE: 0.0198 | MAPE: 30.0186 | R2: -0.1939 | PearsonR: 0.3126 | PearsonR_diff: 0.0803 | DA: 0.0387
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.12it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.04it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.88it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.07it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.33it/s]
-Batch     0/   12 | Loss: 0.006330
-Training    RMSE: 0.0644 | MAE: 0.0482 | MSE: 0.0042 | MAPE: 12.4031 | R2: 0.7534 | PearsonR: 0.8697 | PearsonR_diff: 0.2061 | DA: 0.0590
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-2026-05-18 16:58:47,421 INFO src.train.trainer: Last model at epoch 111 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:47,421 INFO src.train.trainer: Epoch 112
-Validation  RMSE: 0.1374 | MAE: 0.1195 | MSE: 0.0189 | MAPE: 29.7753 | R2: -0.1373 | PearsonR: 0.3187 | PearsonR_diff: 0.0790 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.26it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.40it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.63it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.48it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.06it/s]
-Batch     0/   12 | Loss: 0.006693
-Training    RMSE: 0.0619 | MAE: 0.0465 | MSE: 0.0038 | MAPE: 11.9175 | R2: 0.7726 | PearsonR: 0.8808 | PearsonR_diff: 0.1755 | DA: 0.0659
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]
-2026-05-18 16:58:49,011 INFO src.train.trainer: Last model at epoch 112 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:49,012 INFO src.train.trainer: Epoch 113
-Validation  RMSE: 0.1380 | MAE: 0.1199 | MSE: 0.0190 | MAPE: 30.1201 | R2: -0.1465 | PearsonR: 0.3097 | PearsonR_diff: 0.0851 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.27it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.72it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.68it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.81it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.76it/s]
-Batch     0/   12 | Loss: 0.007417
-Training    RMSE: 0.0627 | MAE: 0.0480 | MSE: 0.0039 | MAPE: 12.4887 | R2: 0.7665 | PearsonR: 0.8761 | PearsonR_diff: 0.1467 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.10it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.68it/s]
-2026-05-18 16:58:50,509 INFO src.train.trainer: Last model at epoch 113 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:50,510 INFO src.train.trainer: Epoch 114
-Validation  RMSE: 0.1437 | MAE: 0.1258 | MSE: 0.0206 | MAPE: 30.7857 | R2: -0.2432 | PearsonR: 0.2941 | PearsonR_diff: 0.0875 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.29it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.43it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.23it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.48it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.90it/s]
-Batch     0/   12 | Loss: 0.006504
-Training    RMSE: 0.0637 | MAE: 0.0477 | MSE: 0.0041 | MAPE: 12.3257 | R2: 0.7593 | PearsonR: 0.8729 | PearsonR_diff: 0.1594 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.83it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-2026-05-18 16:58:52,154 INFO src.train.trainer: Last model at epoch 114 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:52,154 INFO src.train.trainer: Epoch 115
-Validation  RMSE: 0.1430 | MAE: 0.1249 | MSE: 0.0204 | MAPE: 30.5549 | R2: -0.2311 | PearsonR: 0.2973 | PearsonR_diff: 0.0887 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.87it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.50it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.23it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.64it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.92it/s]
-Batch     0/   12 | Loss: 0.006963
-Training    RMSE: 0.0628 | MAE: 0.0472 | MSE: 0.0039 | MAPE: 12.2936 | R2: 0.7659 | PearsonR: 0.8767 | PearsonR_diff: 0.1805 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.09it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.71it/s]
-2026-05-18 16:58:53,806 INFO src.train.trainer: Last model at epoch 115 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:53,806 INFO src.train.trainer: Epoch 116
-Validation  RMSE: 0.1390 | MAE: 0.1208 | MSE: 0.0193 | MAPE: 29.5117 | R2: -0.1629 | PearsonR: 0.3288 | PearsonR_diff: 0.0801 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.51it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  9.61it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 16.64it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 18.28it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 13.77it/s]
-Batch     0/   12 | Loss: 0.005948
-Training    RMSE: 0.0589 | MAE: 0.0446 | MSE: 0.0035 | MAPE: 11.7528 | R2: 0.7938 | PearsonR: 0.8911 | PearsonR_diff: 0.2253 | DA: 0.0638
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.02it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.55it/s]
-2026-05-18 16:58:55,254 INFO src.train.trainer: Last model at epoch 116 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:55,254 INFO src.train.trainer: Epoch 117
-Validation  RMSE: 0.1400 | MAE: 0.1223 | MSE: 0.0196 | MAPE: 30.1849 | R2: -0.1795 | PearsonR: 0.3243 | PearsonR_diff: 0.0749 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.92it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.54it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.48it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.23it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.19it/s]
-Batch     0/   12 | Loss: 0.006782
-Training    RMSE: 0.0616 | MAE: 0.0465 | MSE: 0.0038 | MAPE: 12.0791 | R2: 0.7749 | PearsonR: 0.8813 | PearsonR_diff: 0.1487 | DA: 0.0549
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.08it/s]
-2026-05-18 16:58:56,841 INFO src.train.trainer: Last model at epoch 117 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:56,842 INFO src.train.trainer: Epoch 118
-Validation  RMSE: 0.1394 | MAE: 0.1221 | MSE: 0.0194 | MAPE: 30.5667 | R2: -0.1702 | PearsonR: 0.3218 | PearsonR_diff: 0.0751 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.80it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.34it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.06it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.15it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.10it/s]
-Batch     0/   12 | Loss: 0.005361
-Training    RMSE: 0.0620 | MAE: 0.0468 | MSE: 0.0038 | MAPE: 12.1186 | R2: 0.7720 | PearsonR: 0.8800 | PearsonR_diff: 0.1459 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.26it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.93it/s]
-2026-05-18 16:58:58,447 INFO src.train.trainer: Last model at epoch 118 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:58,447 INFO src.train.trainer: Epoch 119
-Validation  RMSE: 0.1396 | MAE: 0.1227 | MSE: 0.0195 | MAPE: 30.6833 | R2: -0.1739 | PearsonR: 0.3143 | PearsonR_diff: 0.0849 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.30it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.55it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.72it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.83it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.52it/s]
-Batch     0/   12 | Loss: 0.007812
-Training    RMSE: 0.0615 | MAE: 0.0458 | MSE: 0.0038 | MAPE: 11.8143 | R2: 0.7756 | PearsonR: 0.8818 | PearsonR_diff: 0.1251 | DA: 0.0604
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.58it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.34it/s]
-2026-05-18 16:58:59,883 INFO src.train.trainer: Last model at epoch 119 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:58:59,883 INFO src.train.trainer: Epoch 120
-Validation  RMSE: 0.1427 | MAE: 0.1252 | MSE: 0.0204 | MAPE: 30.6502 | R2: -0.2262 | PearsonR: 0.3273 | PearsonR_diff: 0.0900 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.72it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.07it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.74it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.62it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.81it/s]
-Batch     0/   12 | Loss: 0.007053
-Training    RMSE: 0.0622 | MAE: 0.0469 | MSE: 0.0039 | MAPE: 12.2296 | R2: 0.7703 | PearsonR: 0.8791 | PearsonR_diff: 0.1575 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.08it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.61it/s]
-2026-05-18 16:59:01,562 INFO src.train.trainer: Last model at epoch 120 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:01,567 INFO src.train.trainer: Saved epoch 120 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/epoch_120_model_1.pth
-2026-05-18 16:59:01,567 INFO src.train.trainer: Epoch 121
-Validation  RMSE: 0.1415 | MAE: 0.1239 | MSE: 0.0200 | MAPE: 30.2589 | R2: -0.2056 | PearsonR: 0.3246 | PearsonR_diff: 0.0852 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.96it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.74it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.48it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.48it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.41it/s]
-Batch     0/   12 | Loss: 0.007842
-Training    RMSE: 0.0630 | MAE: 0.0471 | MSE: 0.0040 | MAPE: 12.1849 | R2: 0.7646 | PearsonR: 0.8752 | PearsonR_diff: 0.1503 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.50it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.18it/s]
-2026-05-18 16:59:03,112 INFO src.train.trainer: Last model at epoch 121 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:03,112 INFO src.train.trainer: Epoch 122
-Validation  RMSE: 0.1426 | MAE: 0.1251 | MSE: 0.0203 | MAPE: 30.6580 | R2: -0.2249 | PearsonR: 0.3163 | PearsonR_diff: 0.0783 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.90it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.51it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 14.01it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.08it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.62it/s]
-Batch     0/   12 | Loss: 0.004353
-Training    RMSE: 0.0611 | MAE: 0.0461 | MSE: 0.0037 | MAPE: 11.9828 | R2: 0.7785 | PearsonR: 0.8833 | PearsonR_diff: 0.1549 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.40it/s]
-2026-05-18 16:59:04,750 INFO src.train.trainer: Last model at epoch 122 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:04,751 INFO src.train.trainer: Epoch 123
-Validation  RMSE: 0.1400 | MAE: 0.1222 | MSE: 0.0196 | MAPE: 30.2650 | R2: -0.1807 | PearsonR: 0.2916 | PearsonR_diff: 0.0745 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.64it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  6.68it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.32it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.23it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.35it/s]
-Batch     0/   12 | Loss: 0.005393
-Training    RMSE: 0.0619 | MAE: 0.0463 | MSE: 0.0038 | MAPE: 12.0279 | R2: 0.7725 | PearsonR: 0.8799 | PearsonR_diff: 0.1319 | DA: 0.0528
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.99it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.49it/s]
-2026-05-18 16:59:06,497 INFO src.train.trainer: Last model at epoch 123 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:06,497 INFO src.train.trainer: Epoch 124
-Validation  RMSE: 0.1422 | MAE: 0.1245 | MSE: 0.0202 | MAPE: 30.6475 | R2: -0.2173 | PearsonR: 0.2873 | PearsonR_diff: 0.0814 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.11it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.42it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.62it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 17.28it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.10it/s]
-Batch     0/   12 | Loss: 0.007045
-Training    RMSE: 0.0631 | MAE: 0.0480 | MSE: 0.0040 | MAPE: 12.3403 | R2: 0.7632 | PearsonR: 0.8762 | PearsonR_diff: 0.1650 | DA: 0.0597
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.50it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.25it/s]
-2026-05-18 16:59:07,975 INFO src.train.trainer: Last model at epoch 124 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:07,976 INFO src.train.trainer: Epoch 125
-Validation  RMSE: 0.1412 | MAE: 0.1232 | MSE: 0.0199 | MAPE: 30.3407 | R2: -0.2006 | PearsonR: 0.2963 | PearsonR_diff: 0.0839 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.91it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.54it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.40it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 16.96it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.14it/s]
-Batch     0/   12 | Loss: 0.007214
-Training    RMSE: 0.0612 | MAE: 0.0467 | MSE: 0.0037 | MAPE: 12.0490 | R2: 0.7777 | PearsonR: 0.8828 | PearsonR_diff: 0.2131 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.25it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.88it/s]
-2026-05-18 16:59:09,498 INFO src.train.trainer: Last model at epoch 125 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:09,499 INFO src.train.trainer: Epoch 126
-Validation  RMSE: 0.1374 | MAE: 0.1186 | MSE: 0.0189 | MAPE: 29.6710 | R2: -0.1367 | PearsonR: 0.3087 | PearsonR_diff: 0.0842 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.77it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.24it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.60it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.93it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.95it/s]
-Batch     0/   12 | Loss: 0.005539
-Training    RMSE: 0.0605 | MAE: 0.0454 | MSE: 0.0037 | MAPE: 11.8163 | R2: 0.7827 | PearsonR: 0.8856 | PearsonR_diff: 0.1801 | DA: 0.0659
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.10it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.66it/s]
-2026-05-18 16:59:11,157 INFO src.train.trainer: Last model at epoch 126 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:11,158 INFO src.train.trainer: Epoch 127
-Validation  RMSE: 0.1439 | MAE: 0.1249 | MSE: 0.0207 | MAPE: 30.5028 | R2: -0.2465 | PearsonR: 0.3182 | PearsonR_diff: 0.0789 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.83it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.34it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.50it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.31it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.29it/s]
-Batch     0/   12 | Loss: 0.005949
-Training    RMSE: 0.0615 | MAE: 0.0462 | MSE: 0.0038 | MAPE: 11.9944 | R2: 0.7755 | PearsonR: 0.8822 | PearsonR_diff: 0.1679 | DA: 0.0638
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.21it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.84it/s]
-2026-05-18 16:59:12,761 INFO src.train.trainer: Last model at epoch 127 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:12,761 INFO src.train.trainer: Epoch 128
-Validation  RMSE: 0.1442 | MAE: 0.1256 | MSE: 0.0208 | MAPE: 30.7222 | R2: -0.2530 | PearsonR: 0.2996 | PearsonR_diff: 0.0675 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.01it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.88it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.30it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.91it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.12it/s]
-Batch     0/   12 | Loss: 0.006225
-Training    RMSE: 0.0587 | MAE: 0.0454 | MSE: 0.0034 | MAPE: 11.8514 | R2: 0.7952 | PearsonR: 0.8926 | PearsonR_diff: 0.2154 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.15it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.74it/s]
-2026-05-18 16:59:14,300 INFO src.train.trainer: Last model at epoch 128 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:14,301 INFO src.train.trainer: Epoch 129
-Validation  RMSE: 0.1502 | MAE: 0.1318 | MSE: 0.0225 | MAPE: 31.9838 | R2: -0.3579 | PearsonR: 0.2968 | PearsonR_diff: 0.0723 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.86it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.42it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.77it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.80it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.53it/s]
-Batch     0/   12 | Loss: 0.007030
-Training    RMSE: 0.0633 | MAE: 0.0476 | MSE: 0.0040 | MAPE: 12.2637 | R2: 0.7624 | PearsonR: 0.8748 | PearsonR_diff: 0.1194 | DA: 0.0556
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.03it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.56it/s]
-2026-05-18 16:59:15,919 INFO src.train.trainer: Last model at epoch 129 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:15,920 INFO src.train.trainer: Epoch 130
-Validation  RMSE: 0.1424 | MAE: 0.1240 | MSE: 0.0203 | MAPE: 30.4256 | R2: -0.2210 | PearsonR: 0.2993 | PearsonR_diff: 0.0652 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.85it/s]Training:  25%|██▌       | 3/12 [00:00<00:01,  5.64it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.97it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 17.91it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.04it/s]
-Batch     0/   12 | Loss: 0.005922
-Training    RMSE: 0.0595 | MAE: 0.0446 | MSE: 0.0035 | MAPE: 11.5900 | R2: 0.7899 | PearsonR: 0.8901 | PearsonR_diff: 0.2063 | DA: 0.0652
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.04it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.56it/s]
-2026-05-18 16:59:17,496 INFO src.train.trainer: Last model at epoch 130 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:17,496 INFO src.train.trainer: Epoch 131
-Validation  RMSE: 0.1374 | MAE: 0.1186 | MSE: 0.0189 | MAPE: 29.7754 | R2: -0.1365 | PearsonR: 0.3063 | PearsonR_diff: 0.0751 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.78it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.23it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.60it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.45it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.52it/s]
-Batch     0/   12 | Loss: 0.005997
-Training    RMSE: 0.0595 | MAE: 0.0447 | MSE: 0.0035 | MAPE: 11.4687 | R2: 0.7899 | PearsonR: 0.8901 | PearsonR_diff: 0.1775 | DA: 0.0686
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.07it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.61it/s]
-2026-05-18 16:59:19,111 INFO src.train.trainer: Last model at epoch 131 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:19,111 INFO src.train.trainer: Epoch 132
-Validation  RMSE: 0.1385 | MAE: 0.1198 | MSE: 0.0192 | MAPE: 29.9593 | R2: -0.1545 | PearsonR: 0.3180 | PearsonR_diff: 0.0798 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.88it/s]Training:  42%|████▏     | 5/12 [00:00<00:00,  9.42it/s]Training:  75%|███████▌  | 9/12 [00:00<00:00, 15.14it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 15.95it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.58it/s]
-Batch     0/   12 | Loss: 0.005645
-Training    RMSE: 0.0613 | MAE: 0.0460 | MSE: 0.0038 | MAPE: 12.0235 | R2: 0.7768 | PearsonR: 0.8825 | PearsonR_diff: 0.1685 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.78it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.15it/s]
-2026-05-18 16:59:20,802 INFO src.train.trainer: Last model at epoch 132 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:20,802 INFO src.train.trainer: Epoch 133
-Validation  RMSE: 0.1468 | MAE: 0.1279 | MSE: 0.0215 | MAPE: 30.9020 | R2: -0.2976 | PearsonR: 0.2965 | PearsonR_diff: 0.0761 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.94it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.50it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.02it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.12it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.92it/s]
-Batch     0/   12 | Loss: 0.008456
-Training    RMSE: 0.0610 | MAE: 0.0463 | MSE: 0.0037 | MAPE: 11.9576 | R2: 0.7793 | PearsonR: 0.8834 | PearsonR_diff: 0.2068 | DA: 0.0618
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.41it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.12it/s]
-2026-05-18 16:59:22,404 INFO src.train.trainer: Last model at epoch 133 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:22,405 INFO src.train.trainer: Epoch 134
-Validation  RMSE: 0.1498 | MAE: 0.1314 | MSE: 0.0224 | MAPE: 32.1254 | R2: -0.3511 | PearsonR: 0.2776 | PearsonR_diff: 0.0820 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.75it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.14it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 13.31it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.63it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.20it/s]
-Batch     0/   12 | Loss: 0.005695
-Training    RMSE: 0.0627 | MAE: 0.0474 | MSE: 0.0039 | MAPE: 12.4307 | R2: 0.7664 | PearsonR: 0.8787 | PearsonR_diff: 0.1752 | DA: 0.0638
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-2026-05-18 16:59:24,082 INFO src.train.trainer: Last model at epoch 134 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:24,082 INFO src.train.trainer: Epoch 135
-Validation  RMSE: 0.1369 | MAE: 0.1180 | MSE: 0.0187 | MAPE: 29.3480 | R2: -0.1288 | PearsonR: 0.2950 | PearsonR_diff: 0.0886 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.92it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.89it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 14.31it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.60it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.54it/s]
-Batch     0/   12 | Loss: 0.005400
-Training    RMSE: 0.0605 | MAE: 0.0460 | MSE: 0.0037 | MAPE: 11.8775 | R2: 0.7826 | PearsonR: 0.8864 | PearsonR_diff: 0.1750 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-2026-05-18 16:59:25,719 INFO src.train.trainer: Last model at epoch 135 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:25,720 INFO src.train.trainer: Epoch 136
-Validation  RMSE: 0.1377 | MAE: 0.1192 | MSE: 0.0190 | MAPE: 29.6189 | R2: -0.1424 | PearsonR: 0.3046 | PearsonR_diff: 0.1074 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.86it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.45it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.11it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.26it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.09it/s]
-Batch     0/   12 | Loss: 0.004908
-Training    RMSE: 0.0574 | MAE: 0.0435 | MSE: 0.0033 | MAPE: 11.3837 | R2: 0.8045 | PearsonR: 0.8974 | PearsonR_diff: 0.2224 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.90it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.36it/s]
-2026-05-18 16:59:27,414 INFO src.train.trainer: Last model at epoch 136 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:27,414 INFO src.train.trainer: Epoch 137
-Validation  RMSE: 0.1433 | MAE: 0.1254 | MSE: 0.0205 | MAPE: 30.7526 | R2: -0.2373 | PearsonR: 0.2958 | PearsonR_diff: 0.1113 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.91it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.62it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.42it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.21it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.83it/s]
-Batch     0/   12 | Loss: 0.005225
-Training    RMSE: 0.0572 | MAE: 0.0434 | MSE: 0.0033 | MAPE: 11.3374 | R2: 0.8055 | PearsonR: 0.8980 | PearsonR_diff: 0.2162 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.12it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.71it/s]
-2026-05-18 16:59:28,983 INFO src.train.trainer: Last model at epoch 137 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:28,983 INFO src.train.trainer: Epoch 138
-Validation  RMSE: 0.1440 | MAE: 0.1261 | MSE: 0.0207 | MAPE: 31.3600 | R2: -0.2483 | PearsonR: 0.2881 | PearsonR_diff: 0.1123 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.83it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.39it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.08it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.12it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.14it/s]
-Batch     0/   12 | Loss: 0.006220
-Training    RMSE: 0.0620 | MAE: 0.0450 | MSE: 0.0038 | MAPE: 11.6290 | R2: 0.7714 | PearsonR: 0.8801 | PearsonR_diff: 0.1349 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-2026-05-18 16:59:30,661 INFO src.train.trainer: Last model at epoch 138 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:30,661 INFO src.train.trainer: Epoch 139
-Validation  RMSE: 0.1451 | MAE: 0.1273 | MSE: 0.0210 | MAPE: 31.4179 | R2: -0.2671 | PearsonR: 0.2874 | PearsonR_diff: 0.1056 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.09it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.22it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.09it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.64it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.34it/s]
-Batch     0/   12 | Loss: 0.006435
-Training    RMSE: 0.0606 | MAE: 0.0447 | MSE: 0.0037 | MAPE: 11.6341 | R2: 0.7820 | PearsonR: 0.8849 | PearsonR_diff: 0.1404 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.61it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.39it/s]
-2026-05-18 16:59:32,109 INFO src.train.trainer: Last model at epoch 139 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:32,109 INFO src.train.trainer: Epoch 140
-Validation  RMSE: 0.1429 | MAE: 0.1253 | MSE: 0.0204 | MAPE: 31.1015 | R2: -0.2299 | PearsonR: 0.2964 | PearsonR_diff: 0.0990 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.99it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.07it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.95it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.71it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.86it/s]
-Batch     0/   12 | Loss: 0.005793
-Training    RMSE: 0.0593 | MAE: 0.0451 | MSE: 0.0035 | MAPE: 11.6941 | R2: 0.7915 | PearsonR: 0.8901 | PearsonR_diff: 0.1840 | DA: 0.0583
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.10it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.65it/s]
-2026-05-18 16:59:33,684 INFO src.train.trainer: Last model at epoch 140 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:33,689 INFO src.train.trainer: Saved epoch 140 snapshot to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/epoch_140_model_1.pth
-2026-05-18 16:59:33,689 INFO src.train.trainer: Epoch 141
-Validation  RMSE: 0.1432 | MAE: 0.1256 | MSE: 0.0205 | MAPE: 31.1356 | R2: -0.2353 | PearsonR: 0.3014 | PearsonR_diff: 0.0979 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.93it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.64it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.50it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.94it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.22it/s]
-Batch     0/   12 | Loss: 0.006989
-Training    RMSE: 0.0607 | MAE: 0.0462 | MSE: 0.0037 | MAPE: 11.7008 | R2: 0.7813 | PearsonR: 0.8861 | PearsonR_diff: 0.1693 | DA: 0.0693
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.12it/s]
-2026-05-18 16:59:35,262 INFO src.train.trainer: Last model at epoch 141 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:35,262 INFO src.train.trainer: Epoch 142
-Validation  RMSE: 0.1430 | MAE: 0.1254 | MSE: 0.0205 | MAPE: 31.0717 | R2: -0.2316 | PearsonR: 0.2992 | PearsonR_diff: 0.0993 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.88it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.50it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.24it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.77it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.48it/s]
-Batch     0/   12 | Loss: 0.004784
-Training    RMSE: 0.0593 | MAE: 0.0442 | MSE: 0.0035 | MAPE: 11.3437 | R2: 0.7908 | PearsonR: 0.8902 | PearsonR_diff: 0.1981 | DA: 0.0645
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.02it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.57it/s]
-2026-05-18 16:59:36,885 INFO src.train.trainer: Last model at epoch 142 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:36,885 INFO src.train.trainer: Epoch 143
-Validation  RMSE: 0.1406 | MAE: 0.1227 | MSE: 0.0198 | MAPE: 30.3683 | R2: -0.1913 | PearsonR: 0.3081 | PearsonR_diff: 0.1020 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.22it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.67it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 13.62it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 16.55it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.43it/s]
-Batch     0/   12 | Loss: 0.006198
-Training    RMSE: 0.0589 | MAE: 0.0442 | MSE: 0.0035 | MAPE: 11.5294 | R2: 0.7943 | PearsonR: 0.8915 | PearsonR_diff: 0.1754 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.21it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.80it/s]
-2026-05-18 16:59:38,394 INFO src.train.trainer: Last model at epoch 143 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:38,394 INFO src.train.trainer: Epoch 144
-Validation  RMSE: 0.1440 | MAE: 0.1258 | MSE: 0.0207 | MAPE: 30.8187 | R2: -0.2492 | PearsonR: 0.3002 | PearsonR_diff: 0.1016 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.76it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.20it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.43it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 14.86it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 10.86it/s]
-Batch     0/   12 | Loss: 0.004819
-Training    RMSE: 0.0591 | MAE: 0.0448 | MSE: 0.0035 | MAPE: 11.6720 | R2: 0.7922 | PearsonR: 0.8913 | PearsonR_diff: 0.2075 | DA: 0.0707
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.21it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.83it/s]
-2026-05-18 16:59:40,039 INFO src.train.trainer: Last model at epoch 144 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:40,039 INFO src.train.trainer: Epoch 145
-Validation  RMSE: 0.1422 | MAE: 0.1239 | MSE: 0.0202 | MAPE: 30.5334 | R2: -0.2184 | PearsonR: 0.2949 | PearsonR_diff: 0.0996 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.74it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.37it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.10it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.97it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.54it/s]
-Batch     0/   12 | Loss: 0.007026
-Training    RMSE: 0.0586 | MAE: 0.0441 | MSE: 0.0034 | MAPE: 11.2791 | R2: 0.7960 | PearsonR: 0.8929 | PearsonR_diff: 0.1964 | DA: 0.0625
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.24it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.89it/s]
-2026-05-18 16:59:41,606 INFO src.train.trainer: Last model at epoch 145 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:41,607 INFO src.train.trainer: Epoch 146
-Validation  RMSE: 0.1419 | MAE: 0.1234 | MSE: 0.0201 | MAPE: 30.2574 | R2: -0.2120 | PearsonR: 0.2907 | PearsonR_diff: 0.0968 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.90it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.53it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.89it/s]Training:  83%|████████▎ | 10/12 [00:00<00:00, 15.70it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.45it/s]
-Batch     0/   12 | Loss: 0.004390
-Training    RMSE: 0.0583 | MAE: 0.0436 | MSE: 0.0034 | MAPE: 11.3301 | R2: 0.7980 | PearsonR: 0.8944 | PearsonR_diff: 0.1919 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.10it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.67it/s]
-2026-05-18 16:59:43,214 INFO src.train.trainer: Last model at epoch 146 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:43,214 INFO src.train.trainer: Epoch 147
-Validation  RMSE: 0.1426 | MAE: 0.1240 | MSE: 0.0203 | MAPE: 30.3727 | R2: -0.2249 | PearsonR: 0.2903 | PearsonR_diff: 0.0908 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.81it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.17it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 11.29it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 15.87it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.17it/s]
-Batch     0/   12 | Loss: 0.005829
-Training    RMSE: 0.0601 | MAE: 0.0448 | MSE: 0.0036 | MAPE: 11.5737 | R2: 0.7855 | PearsonR: 0.8869 | PearsonR_diff: 0.1523 | DA: 0.0577
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.04it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.55it/s]
-2026-05-18 16:59:44,868 INFO src.train.trainer: Last model at epoch 147 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:44,868 INFO src.train.trainer: Epoch 148
-Validation  RMSE: 0.1414 | MAE: 0.1228 | MSE: 0.0200 | MAPE: 30.3133 | R2: -0.2036 | PearsonR: 0.2905 | PearsonR_diff: 0.0897 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:06,  1.75it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.26it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 12.21it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.91it/s]Training: 100%|██████████| 12/12 [00:01<00:00, 11.64it/s]
-Batch     0/   12 | Loss: 0.005596
-Training    RMSE: 0.0595 | MAE: 0.0450 | MSE: 0.0035 | MAPE: 11.7406 | R2: 0.7897 | PearsonR: 0.8900 | PearsonR_diff: 0.1824 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.01it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.53it/s]
-2026-05-18 16:59:46,484 INFO src.train.trainer: Last model at epoch 148 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:46,484 INFO src.train.trainer: Epoch 149
-Validation  RMSE: 0.1457 | MAE: 0.1271 | MSE: 0.0212 | MAPE: 31.1495 | R2: -0.2781 | PearsonR: 0.2803 | PearsonR_diff: 0.0890 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  1.94it/s]Training:  33%|███▎      | 4/12 [00:00<00:01,  7.99it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 14.13it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 16.94it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.21it/s]
-Batch     0/   12 | Loss: 0.005787
-Training    RMSE: 0.0586 | MAE: 0.0441 | MSE: 0.0034 | MAPE: 11.2803 | R2: 0.7960 | PearsonR: 0.8936 | PearsonR_diff: 0.2186 | DA: 0.0604
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.36it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.08it/s]
-2026-05-18 16:59:47,970 INFO src.train.trainer: Last model at epoch 149 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-2026-05-18 16:59:47,970 INFO src.train.trainer: Epoch 150
-Validation  RMSE: 0.1458 | MAE: 0.1275 | MSE: 0.0212 | MAPE: 31.3761 | R2: -0.2794 | PearsonR: 0.2820 | PearsonR_diff: 0.0909 | DA: 0.0442
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:04,  2.22it/s]Training:  33%|███▎      | 4/12 [00:00<00:00,  8.65it/s]Training:  67%|██████▋   | 8/12 [00:00<00:00, 15.70it/s]Training:  92%|█████████▏| 11/12 [00:00<00:00, 17.46it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 12.67it/s]
-Batch     0/   12 | Loss: 0.005914
-Training    RMSE: 0.0591 | MAE: 0.0449 | MSE: 0.0035 | MAPE: 11.7449 | R2: 0.7923 | PearsonR: 0.8912 | PearsonR_diff: 0.2013 | DA: 0.0611
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.07it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.63it/s]
-2026-05-18 16:59:49,484 INFO src.train.trainer: Last model at epoch 150 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/last_model_1.pth
-Validation  RMSE: 0.1427 | MAE: 0.1246 | MSE: 0.0204 | MAPE: 30.6747 | R2: -0.2262 | PearsonR: 0.2906 | PearsonR_diff: 0.0934 | DA: 0.0442
-
-[CMD] /root/miniconda3/bin/python main.py --model reg_mixer_attnpl_t --mode test --config /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/config.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4 --ckpt_select best
-2026-05-18 16:59:55.151414: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2026-05-18 16:59:55.169947: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1779094795.191499  771832 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1779094795.197723  771832 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1779094795.214199  771832 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779094795.214219  771832 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779094795.214222  771832 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779094795.214224  771832 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-05-18 16:59:55.218838: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-05-18 16:59:58,766 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
-2026-05-18 16:59:59,542 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
-2026-05-18 17:00:01,828 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
-2026-05-18 17:00:01,909 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
-2026-05-18 17:00:02,738 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
-2026-05-18 17:00:02,738 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
-2026-05-18 17:00:02,743 INFO src.train.config_setup: Restoring model from checkpoint.
-2026-05-18 17:00:02,743 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
-2026-05-18 17:00:02,744 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
-2026-05-18 17:00:02,744 INFO src.train.config_setup: Full load summary: loaded=44, missing=0, unexpected=0
-2026-05-18 17:00:02,745 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
-2026-05-18 17:00:02,745 INFO src.train.config_setup: Checkpoint train metrics available.
-2026-05-18 17:00:02,745 INFO src.train.config_setup: Checkpoint val metrics available.
-2026-05-18 17:00:02,745 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
-2026-05-18 17:00:02,745 INFO src.train.config_setup: Using regression criterion: smooth_l1
-2026-05-18 17:00:02,745 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
-2026-05-18 17:00:02,746 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
-2026-05-18 17:00:02,746 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.0004, matched=18
-2026-05-18 17:00:02,746 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-18 17:00:02,746 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
-2026-05-18 17:00:02,746 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
-2026-05-18 17:00:02,747 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
-Testing:   0%|          | 0/2 [00:00<?, ?it/s]Testing:  50%|█████     | 1/2 [00:05<00:05,  5.60s/it]Testing: 100%|██████████| 2/2 [00:05<00:00,  2.83s/it]
-2026-05-18 17:00:08,425 INFO src.cli.workflows: Test loss: 0.032177696004509926
-Test        RMSE: 0.8711 | MAE: 0.7122 | MSE: 0.7588 | MAPE: 15.7072 | R2: -1.2676 | PearsonR: -0.0676 | PearsonR_diff: 0.1046 | DA: 0.0440 | SpearmanR: -0.1184 | SpearmanR_diff: 0.0002 | DTW: 114.4683 | DTW_normalized: 0.6255
-2026-05-18 17:00:10,365 INFO src.cli.common: Saved test metrics to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr1e3_enc4e4_seed_4/metrics_test_best_1.json
-2026-05-18 17:00:10,365 INFO src.cli.common: Metrics: {'RMSE': 0.8711085071838339, 'MAE': 0.7122021400537647, 'MSE': 0.7588300312880477, 'MAPE': 15.707158313789563, 'R2': -1.2676374213589097, 'PearsonR': -0.06757157190189803, 'PearsonR_diff': 0.10464724359407436, 'DA': 0.04395604395604396, 'SpearmanR': -0.11844404670110394, 'SpearmanR_diff': 0.00022081049275597626, 'DTW': 114.46832826733589, 'DTW_normalized': 0.6255099905318902}

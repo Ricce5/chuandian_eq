@@ -1,181 +1,0 @@
-
-[CMD] /root/miniconda3/bin/python main.py --model reg_mixer_attnpl_t --mode train --config /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/config.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2
-2026-05-18 16:41:25.381792: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2026-05-18 16:41:25.403263: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1779093685.424818  678908 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1779093685.431002  678908 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1779093685.446770  678908 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779093685.446793  678908 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779093685.446796  678908 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779093685.446798  678908 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-05-18 16:41:25.451281: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2026-05-18 16:41:29,237 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
-2026-05-18 16:41:29,956 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
-2026-05-18 16:41:32,204 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
-2026-05-18 16:41:32,243 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
-2026-05-18 16:41:32,245 INFO src.cli.workflows: Loading checkpoint from: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
-2026-05-18 16:41:33,374 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
-2026-05-18 16:41:33,374 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
-2026-05-18 16:41:33,382 INFO src.train.config_setup: Restoring model from checkpoint.
-2026-05-18 16:41:33,382 INFO src.train.config_setup: Loading model weights: load_specific_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
-2026-05-18 16:41:33,384 INFO src.train.config_setup: Selective load summary: requested_parts=['base_model.encoder.input_proj', 'base_model.encoder.layers.0'], target_in_model=18, matched_in_checkpoint=16, loaded=16, missing_after_load=2, shape_mismatch=0, missing_in_model=0, out_of_scope_loaded=0
-2026-05-18 16:41:33,384 INFO src.train.config_setup: Selective load coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-18 16:41:33,384 INFO src.train.config_setup: Selective load coverage [base_model.encoder.layers.0]: target=14, hit=12, missing=2, complete=False
-2026-05-18 16:41:33,384 WARNING src.train.config_setup: Selective load coverage missing preview [base_model.encoder.layers.0]: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
-2026-05-18 16:41:33,384 WARNING src.train.config_setup: Checkpoint missing target parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
-2026-05-18 16:41:33,384 WARNING src.train.config_setup: Target not-loaded parameter preview: ['base_model.encoder.layers.0.mixer.conv1d.bias', 'base_model.encoder.layers.0.mixer.conv1d.weight']
-2026-05-18 16:41:33,384 INFO src.train.config_setup: Loaded parameter preview: ['base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.norm.weight', 'base_model.encoder.layers.0.norm2.weight', 'base_model.encoder.layers.0.mlp.fc1.weight', 'base_model.encoder.layers.0.mlp.fc2.weight', 'base_model.encoder.layers.0.norm2.bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.input_proj.0.bias'] ... (+6 more)
-2026-05-18 16:41:33,385 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
-2026-05-18 16:41:33,385 INFO src.train.config_setup: Checkpoint train metrics available.
-2026-05-18 16:41:33,385 INFO src.train.config_setup: Checkpoint val metrics available.
-2026-05-18 16:41:33,385 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
-2026-05-18 16:41:33,386 INFO src.train.config_setup: Using regression criterion: smooth_l1
-2026-05-18 16:41:33,386 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
-2026-05-18 16:41:33,387 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
-2026-05-18 16:41:33,387 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.00036, matched=18
-2026-05-18 16:41:33,387 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-18 16:41:33,387 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
-2026-05-18 16:41:33,387 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
-2026-05-18 16:41:33,388 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
-2026-05-18 16:41:33,388 INFO src.train.trainer: Epoch 1
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:15<?, ?it/s]Training:   8%|▊         | 1/12 [00:15<02:54, 15.89s/it]Training:  50%|█████     | 6/12 [00:15<00:11,  1.97s/it]Training:  92%|█████████▏| 11/12 [00:17<00:01,  1.04s/it]Training: 100%|██████████| 12/12 [00:17<00:00,  1.47s/it]
-Batch     0/   12 | Loss: 0.094275
-Training    RMSE: 0.2617 | MAE: 0.2078 | MSE: 0.0685 | MAPE: 55.7997 | R2: -3.0680 | PearsonR: 0.0261 | PearsonR_diff: 0.0356 | DA: 0.0515
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  2.06it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  3.61it/s]
-2026-05-18 16:41:51,569 INFO src.train.trainer: New best validation loss: 0.0381, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/best_model_1.pth
-2026-05-18 16:41:51,573 INFO src.train.trainer: Last model at epoch 1 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/last_model_1.pth
-2026-05-18 16:41:51,573 INFO src.train.trainer: Epoch 2
-Validation  RMSE: 0.1462 | MAE: 0.1206 | MSE: 0.0214 | MAPE: 29.5924 | R2: -0.2871 | PearsonR: 0.0207 | PearsonR_diff: 0.0619 | DA: 0.0608
-Training:   0%|          | 0/12 [00:00<?, ?it/s]                                                Training:   0%|          | 0/12 [00:00<?, ?it/s]Training:   8%|▊         | 1/12 [00:00<00:05,  2.18it/s]Training:  58%|█████▊    | 7/12 [00:00<00:00, 15.78it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 23.79it/s]Training: 100%|██████████| 12/12 [00:00<00:00, 16.41it/s]
-Batch     0/   12 | Loss: 0.114012
-Training    RMSE: 0.2336 | MAE: 0.1850 | MSE: 0.0546 | MAPE: 48.1708 | R2: -2.2411 | PearsonR: -0.0592 | PearsonR_diff: 0.0281 | DA: 0.0487
-Validating:   0%|          | 0/2 [00:00<?, ?it/s]Validating:  50%|█████     | 1/2 [00:00<00:00,  3.13it/s]Validating: 100%|██████████| 2/2 [00:00<00:00,  4.94it/s]
-2026-05-18 16:41:52,722 INFO src.train.trainer: New best validation loss: 0.0340, saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/best_model_1.pth
-2026-05-18 16:41:52,729 INFO src.train.trainer: Last model at epoch 2 saved to /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/last_model_1.pth
-2026-05-18 16:41:52,729 INFO src.train.trainer: Epoch 3
-Validation  RMSE: 0.1408 | MAE: 0.1069 | MSE: 0.0198 | MAPE: 24.3871 | R2: -0.1941 | PearsonR: 0.0126 | PearsonR_diff: 0.0422 | DA: 0.0497
-Training:   0%|          | 0/12 [00:00<?, ?it/s]ERROR: Unexpected segmentation fault encountered in worker.
- ERROR: Unexpected segmentation fault encountered in worker.
- ERROR: Unexpected segmentation fault encountered in worker.
- ERROR: Unexpected segmentation fault encountered in worker.
- ERROR: Unexpected segmentation fault encountered in worker.
- ERROR: Unexpected segmentation fault encountered in worker.
- ERROR: Unexpected segmentation fault encountered in worker.
- Training:   0%|          | 0/12 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 1243, in _try_get_data
-    data = self._data_queue.get(timeout=timeout)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/queue.py", line 180, in get
-    self.not_empty.wait(remaining)
-  File "/root/miniconda3/lib/python3.12/threading.py", line 359, in wait
-    gotit = waiter.acquire(True, timeout)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
-    _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 681018) is killed by signal: Segmentation fault. 
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/root/autodl-tmp/em_eqf/main.py", line 32, in <module>
-    main()
-  File "/root/autodl-tmp/em_eqf/main.py", line 22, in main
-    run_train(args_cli, args, device)
-  File "/root/autodl-tmp/em_eqf/src/cli/workflows.py", line 55, in run_train
-    trainer.train_and_save(
-  File "/root/autodl-tmp/em_eqf/src/train/trainer.py", line 168, in train_and_save
-    train_loss, train_metrics = train(
-                                ^^^^^^
-  File "/root/autodl-tmp/em_eqf/src/train/regressor_train_step.py", line 14, in train
-    for batch, (x, y) in enumerate(tqdm(data_loader, desc="Training")):
-  File "/root/miniconda3/lib/python3.12/site-packages/tqdm/std.py", line 1181, in __iter__
-    for obj in iterable:
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 701, in __next__
-    data = self._next_data()
-           ^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 1448, in _next_data
-    idx, data = self._get_data()
-                ^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 1402, in _get_data
-    success, data = self._try_get_data()
-                    ^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 1256, in _try_get_data
-    raise RuntimeError(
-RuntimeError: DataLoader worker (pid(s) 681018) exited unexpectedly
-
-[CMD] /root/miniconda3/bin/python main.py --model reg_mixer_attnpl_t --mode test --config /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2/config.yaml --checkpoint_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128/runs/regmx_lr9e4_enc3p6e4_seed_2 --ckpt_select best
-2026-05-18 17:49:41.476541: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2026-05-18 17:49:41.493729: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1779097781.511541  966092 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1779097781.516839  966092 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1779097781.531428  966092 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779097781.531452  966092 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779097781.531454  966092 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1779097781.531455  966092 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2026-05-18 17:49:41.535614: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-/root/miniconda3/lib/python3.12/site-packages/torch/cuda/__init__.py:129: UserWarning: CUDA initialization: Unexpected error from cudaGetDeviceCount(). Did you run some cuda functions before calling NumCudaDevices() that might have already set an error? Error 304: OS call failed or operation not supported on this OS (Triggered internally at ../c10/cuda/CUDAFunctions.cpp:108.)
-  return torch._C._cuda_getDeviceCount() > 0
-2026-05-18 17:49:44,739 INFO src.data.preprocessing: CSV files found: ['chuandian_2021.csv']
-2026-05-18 17:49:45,511 INFO src.utils.file_utils: Loading cached data from: data/ChuanDian/regressor/regressor_Mc_3_Mf_3_Tfore_180_Twindow_360_context_len_1_dt_10.pkl
-2026-05-18 17:49:47,741 INFO src.data.preprocessing: Catalog statistics: {'tau_unfiltered': 0.15339908988298961, 'tau_q025': 0.08114294020924717, 'tau_q05': 0.5134664350189269, 'tau_mean': 1.3070542199341526, 'tau_max': 25.18216435192153, 'tau_min': 0.0, 'time_max': 18770.72654999979, 'time_mean': 10030.9430649837, 'mag_completeness': 3.0, 'mag_mean': 3.456916005014626, 'mag_max': 8.0, 'mag_min': 3.0, 'b_value': 0.856738547623331, 'b_std': 0.0071499224812533796, 'b_n': 14358}
-2026-05-18 17:49:47,780 INFO src.data.event_loader: lengths of samples: min=96, max=1340, avg=265.71
-2026-05-18 17:49:48,528 INFO src.models.adapters.mixer_task: using time scale base 1.3070542199341526 (key: tau_mean)
-2026-05-18 17:49:48,528 INFO src.models.adapters.mixer_task: tau mean: tensor(1.3071)
-2026-05-18 17:49:48,533 INFO src.train.config_setup: Restoring model from checkpoint.
-2026-05-18 17:49:48,534 INFO src.train.config_setup: Loading model weights: load_specific_parts=None
-2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint loaded: <All keys matched successfully>
-2026-05-18 17:49:48,536 INFO src.train.config_setup: Full load summary: loaded=44, missing=0, unexpected=0
-2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint hyperparameters loaded.
-2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint train metrics available.
-2026-05-18 17:49:48,536 INFO src.train.config_setup: Checkpoint val metrics available.
-2026-05-18 17:49:48,536 INFO src.train.config_setup: Freeze skipped (checkpoint_restore): freeze_parts is empty.
-2026-05-18 17:49:48,537 INFO src.train.config_setup: Using regression criterion: smooth_l1
-2026-05-18 17:49:48,537 INFO src.train.config_setup: Criterion config: {'beta': 0.3}
-2026-05-18 17:49:48,537 INFO src.train.config_setup: encoder_param_keywords: ['base_model.encoder.input_proj', 'base_model.encoder.layers.0']
-2026-05-18 17:49:48,537 INFO src.train.config_setup: encoder_lr grouping summary: lr=0.00036, matched=18
-2026-05-18 17:49:48,537 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.input_proj]: target=4, hit=4, missing=0, complete=True
-2026-05-18 17:49:48,538 INFO src.train.config_setup: Encoder LR coverage [base_model.encoder.layers.0]: target=14, hit=14, missing=0, complete=True
-2026-05-18 17:49:48,538 INFO src.train.config_setup: encoder_lr matched preview: ['base_model.encoder.input_proj.0.weight', 'base_model.encoder.input_proj.0.bias', 'base_model.encoder.input_proj.3.weight', 'base_model.encoder.input_proj.3.bias', 'base_model.encoder.layers.0.norm.weight', 'base_model.encoder.layers.0.norm.bias', 'base_model.encoder.layers.0.mixer.dt_bias', 'base_model.encoder.layers.0.mixer.A_log', 'base_model.encoder.layers.0.mixer.D', 'base_model.encoder.layers.0.mixer.in_proj.weight'] ... (+8 more)
-2026-05-18 17:49:48,538 INFO src.train.config_setup: Not resuming optimizer/scheduler state; reset training state to start_epoch=0, best_val_loss=inf.
-Testing:   0%|          | 0/2 [00:00<?, ?it/s]Testing:   0%|          | 0/2 [00:00<?, ?it/s]
-Traceback (most recent call last):
-  File "/root/autodl-tmp/em_eqf/main.py", line 32, in <module>
-    main()
-  File "/root/autodl-tmp/em_eqf/main.py", line 24, in main
-    run_test(args_cli, args, device)
-  File "/root/autodl-tmp/em_eqf/src/cli/workflows.py", line 123, in run_test
-    test_loss, metrics = train_step.test(**test_kwargs)
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/autodl-tmp/em_eqf/src/train/regressor_train_step.py", line 98, in test
-    for batch, (x, y) in enumerate(tqdm(data_loader, desc="Testing")):
-  File "/root/miniconda3/lib/python3.12/site-packages/tqdm/std.py", line 1181, in __iter__
-    for obj in iterable:
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 484, in __iter__
-    return self._get_iterator()
-           ^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 415, in _get_iterator
-    return _MultiProcessingDataLoaderIter(self)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 1099, in __init__
-    self._worker_result_queue = multiprocessing_context.Queue()  # type: ignore[var-annotated]
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/multiprocessing/context.py", line 103, in Queue
-    return Queue(maxsize, ctx=self.get_context())
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/multiprocessing/queues.py", line 43, in __init__
-    self._rlock = ctx.Lock()
-                  ^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/multiprocessing/context.py", line 68, in Lock
-    return Lock(ctx=self.get_context())
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/root/miniconda3/lib/python3.12/multiprocessing/synchronize.py", line 169, in __init__
-    SemLock.__init__(self, SEMAPHORE, 1, 1, ctx=ctx)
-  File "/root/miniconda3/lib/python3.12/multiprocessing/synchronize.py", line 57, in __init__
-    sl = self._semlock = _multiprocessing.SemLock(
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^
-PermissionError: [Errno 13] Permission denied
