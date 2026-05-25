@@ -26,8 +26,6 @@ python main.py --model clf_tm_cv_attnpl_t --mode train
 python main.py --model reg_mixer_attnpl_t --mode test --checkpoint experiments/reg_mixer_ablation_5_seeds/runs/reg_ab_minus_pretrain_seed_4
 python main.py --model lstm --mode test --checkpoint ./checkpoints/lstm_20250906-152053
 
-diff ./checkpoints/mixer_tpp_20250821-125414/config.yaml  ./checkpoints/mixer_tpp_20250907-112659/config.yaml
-
 
 
   python main.py \
@@ -119,5 +117,6 @@ python scripts/summarize/summarize_clf_seed_across_experiments.py --seed 1 --out
 
  python scripts/run/run_clf_grid_five_experiments.py --dry_run
 
-
   python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs experiments/clf_pre_v1
+
+    git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
