@@ -1,1 +1,0 @@
-对齐checkpoints/clf_mixer_attnpl_t_20260203-174253，但权重衰减调1e-5

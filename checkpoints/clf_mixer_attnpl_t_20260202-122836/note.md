@@ -1,1 +1,0 @@
-对齐checkpoints/clf_mixer_attnpl_t_20260126-180606但没有预训练
