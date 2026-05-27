@@ -264,6 +264,9 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         batch: DotDict,
         log_h_intensity: torch.Tensor,
         eps: float = 1e-10,
+        *,
+        t_query: torch.Tensor | None = None,
+        event_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Return a background-dominance regularizer (per sequence).
 
@@ -272,22 +275,34 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         background contribution ``f`` and smaller triggering contribution ``h``.
         """
 
-        background_intensity = self.intensity(batch)
+        background_intensity = self.intensity(batch, t_query=t_query)
         triggering_intensity = torch.exp(log_h_intensity)
         triggering_intensity = clamp_preserve_gradients(
             triggering_intensity,
             eps,
             float("inf"),
         )
+        if background_intensity.shape != triggering_intensity.shape:
+            raise ValueError(
+                "Shape mismatch in normalizing_term: "
+                f"background_intensity{tuple(background_intensity.shape)} vs "
+                f"triggering_intensity{tuple(triggering_intensity.shape)}."
+            )
 
         background_ratio = background_intensity / (
             triggering_intensity + background_intensity + eps
         )
 
-        event_mask = getattr(batch, "nll_event_mask", None)
+        if event_mask is None:
+            event_mask = getattr(batch, "nll_event_mask", None)
         if event_mask is None:
             raise ValueError(
                 "batch must contain 'nll_event_mask' for normalizing_term computation."
+            )
+        if event_mask.shape != background_ratio.shape:
+            raise ValueError(
+                "Shape mismatch in normalizing_term: "
+                f"event_mask{tuple(event_mask.shape)} vs background_ratio{tuple(background_ratio.shape)}."
             )
         event_mask = event_mask.to(
             device=background_ratio.device,

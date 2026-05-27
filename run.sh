@@ -13,7 +13,7 @@ python main.py --model clf_mixer_attnpl_t --mode test --checkpoint experiments/c
 python main.py --model clf_rnn 
 python main.py --model thp --mode train
 python main.py --model rtpp --mode test --checkpoint ./checkpoints/rtpp_20250907-144043
-python main.py --model rtpp --mode train
+python main.py --model rtpp_v2 --mode test
 python main.py --model nhpp --mode train --checkpoint ./checkpoints/nhpp_20260317-174553
 python main.py --model etas --mode test --checkpoint checkpoints/etas_20251231-123806
 python main.py --model etas_zhuang --mode test

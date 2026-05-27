@@ -497,12 +497,21 @@ class ETAS(TPPModel):
             bg_kl = self.bg_model.kl_term(batch, eps=eps)
         bg_norm = None
         if self.bg_model is not None and self.bg_norm_weight > 0.0 and hasattr(self.bg_model, "normalizing_term"):
-            h_intensity = self.h_intensity(batch, t_query=t_select)
+            h_intensity = self._intensity_from_history(
+                t_query=t_select,
+                t_history=t,
+                productivity=productivity,
+                survival_mask_bool=survival_mask_bool,
+                query_chunk_size=self.query_chunk_size,
+                history_chunk_size=self.history_chunk_size,
+            )
             log_h_intensity = torch.log(h_intensity.clamp_min(eps))
             bg_norm = self.bg_model.normalizing_term(
                 batch,
                 log_h_intensity,
                 eps=eps,
+                t_query=t_select,
+                event_mask=intensity_mask,
             )
 
         nll_total = nll_time

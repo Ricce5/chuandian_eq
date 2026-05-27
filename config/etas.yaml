@@ -5,37 +5,34 @@ task_type: tpp
 # 训练参数
 
 
-fix_mu: false
-# fixed_mu_value: 0
+
+bg_model: mamba
+bg_model_cfg:
+ d_feature: 1 
+ d_state: 64
+ d_model: 16
+ model_type: mamba  # mamba | mamba2
+ scale_init: 1000.0
+ smooth_kernel_size: 3
+
+
+bg_learning_rate: 5e-4
+
+fix_mu: true
+fixed_mu_value: 0
 richter_b: null
 
-
 base_rate_init: 0.26
-omori_p_init: 1.2
-omori_c_init: 0.03
-productivity_k_init: 0.05
-productivity_alpha_init: 0.44
 
 batch_size: 1
 accumulation_steps: 1
 warmup_ratio: 0.1
 learning_rate: 1e-2 # 5e-4
 weight_decay: 5e-3
+loss_reduction: per_event
 loss_weights:
-  bg_kl_weight: 1.0
-  bg_norm_weight: 0.0
-loss_reduction: per_time
-# etas_query_chunk_size: 4096
-etas_history_chunk_size: 9192
-etas_grad_checkpoint: true
-etas_enforce_subcritical: true
-etas_max_branching_ratio: 0.95
-etas_effective_branching_t_max: 1.0e4
-etas_enforce_p_gt_one: true
-etas_min_omori_p: 1.001
-etas_constraint_softness: 1.0e-1
-log_etas_params_each_epoch: true
-
+  bg_kl_weight: 0
+  bg_norm_weight: 0.5
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -45,6 +42,8 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 # 
 
+etas_enforce_subcritical: false
+etas_enforce_p_gt_one: false
 
 # 其他参数
 dim: 1
@@ -54,8 +53,14 @@ cuda_id: "0"
 
 
 # 数据与控制参数
-dataset: SCEDC  
+dataset: CB_HAB1a
 seed: 0
 minibatch_training: false
 split_by_time: true
 time_order:  [train, val, test]
+
+
+catalog_cfg:
+  freq: "1D"
+  mag_completeness: -0.4
+  # end_ts: "2020-6-16T01:00:00"

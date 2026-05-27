@@ -150,6 +150,18 @@ class RecurrentTPPV2(RecurrentTPPSamplingMixin, TPPModel):
     @staticmethod
     def _resolve_loss_weights(args) -> dict[str, float]:
         raw_cfg = dict(getattr(args, "loss_weights", {}) or {})
+        if not raw_cfg:
+            for legacy_key in (
+                "time_weight",
+                "mag_weight",
+                "b_weight",
+                "b_smooth_weight",
+                "bg_weight",
+                "bg_kl_weight",
+                "bg_norm_weight",
+            ):
+                if hasattr(args, legacy_key):
+                    raw_cfg[legacy_key] = getattr(args, legacy_key)
         weights = {
             "time_weight": float(raw_cfg.pop("time_weight", 1.0)),
             "mag_weight": float(raw_cfg.pop("mag_weight", 1.0)),

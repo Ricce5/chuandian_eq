@@ -1,6 +1,20 @@
 from .registry import ModelBuilder
 
 
+def _resolve_loss_weights(args):
+    configured = getattr(args, "loss_weights", None)
+    if configured is not None:
+        return configured
+
+    legacy_weights = {}
+    if hasattr(args, "bg_kl_weight"):
+        legacy_weights["bg_kl_weight"] = getattr(args, "bg_kl_weight")
+    if hasattr(args, "bg_norm_weight"):
+        legacy_weights["bg_norm_weight"] = getattr(args, "bg_norm_weight")
+
+    return legacy_weights or None
+
+
 @ModelBuilder.register("thp")
 class THPBuilder(ModelBuilder):
     def __call__(self, args, device):
@@ -212,7 +226,7 @@ class ETASBuilder(ModelBuilder):
             enforce_p_gt_one=getattr(args, "etas_enforce_p_gt_one", True),
             min_omori_p=getattr(args, "etas_min_omori_p", 1.001),
             constraint_softness=getattr(args, "etas_constraint_softness", 1e-3),
-            loss_weights=getattr(args, "loss_weights", None),
+            loss_weights=_resolve_loss_weights(args),
         )
         if getattr(args, "use_double_precision", False):
             model.double()
@@ -263,7 +277,7 @@ class ETASZhuangBuilder(ModelBuilder):
             enforce_p_gt_one=getattr(args, "etas_enforce_p_gt_one", True),
             min_omori_p=getattr(args, "etas_min_omori_p", 1.001),
             constraint_softness=getattr(args, "etas_constraint_softness", 1e-3),
-            loss_weights=getattr(args, "loss_weights", None),
+            loss_weights=_resolve_loss_weights(args),
         )
         if getattr(args, "use_double_precision", False):
             model.double()

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -29,6 +30,7 @@ class SlidingWindowForecastConfig:
     slide_step: float = 12
     quantiles: tuple[float, float] = (2.5, 97.5)
     samples_per_batch: int = 1000
+    predict_b: bool | None = None
     return_sim_count_matrix: bool = False
     compute_mag_max: bool = False
     return_sim_mag_max_matrix: bool = False
@@ -397,6 +399,7 @@ def run_sliding_window_forecast(
     slide_step: float = 12,
     quantiles: tuple[float, float] = (2.5, 97.5),
     samples_per_batch: int = 1000,
+    predict_b: bool | None = None,
     return_sim_count_matrix: bool = False,
     compute_mag_max: bool = False,
     return_sim_mag_max_matrix: bool = False,
@@ -412,6 +415,7 @@ def run_sliding_window_forecast(
         slide_step: Step size to slide the forecast window.
         quantiles: Lower and upper percentiles for prediction intervals.
         samples_per_batch: Number of simulated samples per forecast window.
+        predict_b: Optional explicit b-prediction mode passed to model.sample.
         return_sim_count_matrix: If True, return matrix of simulated counts.
         compute_mag_max: If True, compute maximum magnitude per forecast sample.
         return_sim_mag_max_matrix: If True, return matrix of simulated max magnitudes.
@@ -425,6 +429,7 @@ def run_sliding_window_forecast(
         slide_step = float(config.slide_step)
         quantiles = tuple(config.quantiles)
         samples_per_batch = int(config.samples_per_batch)
+        predict_b = config.predict_b
         return_sim_count_matrix = bool(config.return_sim_count_matrix)
         compute_mag_max = bool(config.compute_mag_max)
         return_sim_mag_max_matrix = bool(config.return_sim_mag_max_matrix)
@@ -446,6 +451,15 @@ def run_sliding_window_forecast(
 
     model.eval()
 
+    try:
+        sample_params = inspect.signature(model.sample).parameters
+        supports_predict_b = "predict_b" in sample_params or any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in sample_params.values()
+        )
+    except Exception:
+        supports_predict_b = False
+
     for t_forecast in t_forecast_list:
         t_end = min(t_forecast + duration, end)
 
@@ -454,12 +468,15 @@ def run_sliding_window_forecast(
         observed_seq = seq.get_subsequence(t_forecast, t_end, reset_t_nll_to_end=True).to(device)
 
         # Generate forecast samples
-        forecasts = model.sample(
-            batch_size=samples_per_batch,
-            duration=(t_end - t_forecast),
-            past_seq=past_seq,
-            return_sequences=True,
-        )
+        sample_kwargs = {
+            "batch_size": samples_per_batch,
+            "duration": (t_end - t_forecast),
+            "past_seq": past_seq,
+            "return_sequences": True,
+        }
+        if predict_b is not None and supports_predict_b:
+            sample_kwargs["predict_b"] = bool(predict_b)
+        forecasts = model.sample(**sample_kwargs)
 
         fc_counts = np.fromiter((len(fc) for fc in forecasts), dtype=np.int32)
         counts_list.append(len(observed_seq))
@@ -748,8 +765,14 @@ def resolve_view_mode(config_value, *, auto_use_zoom: bool):
     return mode
 
 
-SLIDING_CACHE_VERSION = 1
+SLIDING_CACHE_VERSION = 2
 DEFAULT_SLIDING_CACHE_FILENAME = "sliding_window_cache.npz"
+
+
+def _cache_predict_b_mode(predict_b: bool | None) -> int:
+    if predict_b is None:
+        return -1
+    return int(bool(predict_b))
 
 
 def build_sliding_cache_metadata(
@@ -759,6 +782,7 @@ def build_sliding_cache_metadata(
     slide_step: float,
     quantiles: tuple[float, float],
     samples_per_batch: int,
+    predict_b: bool | None = None,
 ):
     return {
         "cache_version": int(SLIDING_CACHE_VERSION),
@@ -767,6 +791,7 @@ def build_sliding_cache_metadata(
         "quantile_low": float(quantiles[0]),
         "quantile_high": float(quantiles[1]),
         "samples_per_batch": int(samples_per_batch),
+        "predict_b_mode": int(_cache_predict_b_mode(predict_b)),
         "seq_start": float(seq.arrival_times[0].item()),
         "seq_end": float(seq.arrival_times[-1].item()),
     }
@@ -793,6 +818,7 @@ def save_sliding_window_cache(
         quantile_low=np.float64(metadata["quantile_low"]),
         quantile_high=np.float64(metadata["quantile_high"]),
         samples_per_batch=np.int64(metadata["samples_per_batch"]),
+        predict_b_mode=np.int64(metadata["predict_b_mode"]),
         seq_start=np.float64(metadata["seq_start"]),
         seq_end=np.float64(metadata["seq_end"]),
         t_forecast_list=np.asarray(t_forecast_list, dtype=np.float64),
@@ -816,6 +842,7 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
         "quantile_low",
         "quantile_high",
         "samples_per_batch",
+        "predict_b_mode",
         "seq_start",
         "seq_end",
         "t_forecast_list",
@@ -833,6 +860,8 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
             if int(np.asarray(data["cache_version"]).item()) != int(metadata["cache_version"]):
                 return None
             if int(np.asarray(data["samples_per_batch"]).item()) != int(metadata["samples_per_batch"]):
+                return None
+            if int(np.asarray(data["predict_b_mode"]).item()) != int(metadata["predict_b_mode"]):
                 return None
 
             float_keys = ("duration", "slide_step", "quantile_low", "quantile_high", "seq_start", "seq_end")
@@ -873,6 +902,7 @@ def evaluate_sliding_window_forecast_plots(
     sliding_step: float,
     sliding_quantiles: tuple[float, float],
     samples_per_batch: int,
+    predict_b: bool | None = None,
     sliding_view_mode: str = "auto",
     load_sliding_cache: bool = True,
     force_recompute_sliding: bool = False,
@@ -891,6 +921,7 @@ def evaluate_sliding_window_forecast_plots(
         slide_step=sliding_step,
         quantiles=sliding_quantiles,
         samples_per_batch=samples_per_batch,
+        predict_b=predict_b,
     )
 
     loaded_from_cache = False
@@ -914,6 +945,7 @@ def evaluate_sliding_window_forecast_plots(
                 slide_step=sliding_step,
                 quantiles=sliding_quantiles,
                 samples_per_batch=samples_per_batch,
+                predict_b=predict_b,
                 return_sim_count_matrix=True,
                 compute_mag_max = True,
                 return_sim_mag_max_matrix= True,
