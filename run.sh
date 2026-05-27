@@ -120,3 +120,4 @@ python scripts/summarize/summarize_clf_seed_across_experiments.py --seed 1 --out
   python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs experiments/clf_pre_v1
 
     git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
+    python scripts/summarize/summarize_rtpp_v2_grid.py --exp_dir experiments/rtpp_v2_ablation --ckpt_select best

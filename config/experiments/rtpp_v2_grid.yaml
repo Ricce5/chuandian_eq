@@ -1,0 +1,45 @@
+model: rtpp_v2
+base_config: config/rtpp_v2.yaml
+
+seeds: [0, 2, 3, 4, 7]
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 2
+jobs_per_gpu: 2
+stop_on_error: false
+
+exp_root: experiments
+exp_name: rtpp_v2_ablation
+
+run_test: true
+ckpt_select: both
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: rtpp_v2
+  points:
+    - name: base
+
+    - name: time_legacy
+      overrides:
+        rtpp_time_preprocess: legacy
+        rtpp_time_parametrization: legacy
+
+    - name: no_bg
+      overrides:
+        bg_model: null
+        time_use_bg_context: false
+        b_use_bg_context: false
+
+    - name: with_b
+      overrides:
+        predict_b: true
+        use_b_updater: true
+        loss_weights.b_weight: 0.01
+        loss_weights.b_smooth_weight: 0.001
+
+    - name: no_bg_norm
+      overrides:
+        loss_weights.bg_norm_weight: 0.0

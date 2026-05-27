@@ -23,7 +23,11 @@ class ExperimentWorkspace:
 
 
 def resolve_repo_path(current_file: str, relative_path: str) -> Path:
-    repo_root = Path(current_file).resolve().parents[1]
+    current_path = Path(current_file).resolve()
+    if current_path.parent.name == "run" and current_path.parent.parent.name == "scripts":
+        repo_root = current_path.parents[2]
+    else:
+        repo_root = current_path.parents[1]
     return (repo_root / relative_path).resolve()
 
 
@@ -91,7 +95,7 @@ def create_experiment_workspace(
     allow_existing_without_resume: bool = False,
     base_snapshot_prefix: str = "",
 ):
-    repo_root = Path(current_file).resolve().parents[1]
+    repo_root = resolve_repo_path(current_file, ".")
     base_config_path = (repo_root / base_config).resolve()
     if not base_config_path.exists():
         raise FileNotFoundError(f"Base config not found: {base_config_path}")

@@ -1,0 +1,45 @@
+model: etas
+base_config: config/etas.yaml
+
+seeds: [0, 2, 3, 4, 7]
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 2
+jobs_per_gpu: 2
+stop_on_error: false
+
+exp_root: experiments
+exp_name: etas_ablation
+
+run_test: true
+ckpt_select: both
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: etas
+  points:
+    - name: base
+
+    - name: no_bg
+      overrides:
+        bg_model: null
+
+    - name: free_mu
+      overrides:
+        fix_mu: false
+
+    - name: enforce_constraints
+      overrides:
+        etas_enforce_subcritical: true
+        etas_enforce_p_gt_one: true
+        etas_max_branching_ratio: 0.98
+        etas_min_omori_p: 1.001
+        etas_constraint_softness: 1e-3
+
+    - name: chunked_query
+      overrides:
+        etas_query_chunk_size: 256
+        etas_history_chunk_size: 0
+        etas_grad_checkpoint: false
