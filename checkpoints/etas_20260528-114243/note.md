@@ -1,0 +1,1 @@
+  bg_norm_weight: 0

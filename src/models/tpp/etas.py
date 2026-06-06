@@ -1355,7 +1355,9 @@ class ETAS(TPPModel):
             if mu is not None:
                 if not self.fix_mu:
                     mu_t = _to_tensor(mu, self.log_mu)
-                    self.log_mu.copy_(torch.log(mu_t))
+                    self.log_mu.copy_(
+                        torch.log(mu_t.clamp_min(torch.finfo(mu_t.dtype).tiny))
+                    )
                 else:
                     mu_t = _to_tensor(mu, self.log_mu)
                     self.mu_fixed.copy_(mu_t)

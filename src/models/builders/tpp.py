@@ -191,7 +191,14 @@ class ETASBuilder(ModelBuilder):
     
         mag_completeness = args.mag_completeness
         mag_max = getattr(args, 'mag_max', 10)
-        base_rate_init = torch.tensor(getattr(args, "base_rate_init", 0.26), dtype=torch.float64)
+        if getattr(args, "bg_model", None) is not None:
+            base_rate_default = 0.0
+        else:
+            base_rate_default = 0.26
+        base_rate_init = torch.tensor(
+            getattr(args, "base_rate_init", base_rate_default),
+            dtype=torch.float64,
+        )
         omori_p_init = float(getattr(args, "omori_p_init", 1.08))
         omori_c_init = float(getattr(args, "omori_c_init", 0.1))
         productivity_k_init = float(getattr(args, "productivity_k_init", 0.0073))
