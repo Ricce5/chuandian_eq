@@ -15,6 +15,20 @@ def _resolve_loss_weights(args):
     return legacy_weights or None
 
 
+def _build_optional_bg_model(args, attr_name, device):
+    model_name = getattr(args, attr_name, None)
+    if model_name is None:
+        return None
+
+    cfg = getattr(args, f"{attr_name}_cfg", None)
+    if cfg is None:
+        raise ValueError(f"{attr_name}_cfg must be provided when {attr_name} is set.")
+
+    from src.models.bg import BGModel
+
+    return BGModel.by_name(model_name)(**cfg, device=device)
+
+
 @ModelBuilder.register("thp")
 class THPBuilder(ModelBuilder):
     def __call__(self, args, device):
@@ -204,11 +218,8 @@ class ETASBuilder(ModelBuilder):
         productivity_k_init = float(getattr(args, "productivity_k_init", 0.0073))
         productivity_alpha_init = float(getattr(args, "productivity_alpha_init", 1.0))
 
-        if getattr(args, 'bg_model', None) is not None:
-            from src.models.bg import BGModel
-            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
-        else:
-            bg_model = None
+        bg_model = _build_optional_bg_model(args, "bg_model", device)
+        k_model = _build_optional_bg_model(args, "k_model", device)
 
         model = ETAS(
             omori_p_init=omori_p_init,
@@ -221,6 +232,7 @@ class ETASBuilder(ModelBuilder):
             mag_max=mag_max,
             device=device,
             bg_model=bg_model,
+            k_model=k_model,
             fix_mu=getattr(args, "fix_mu", False),
             fixed_mu_value=getattr(args, "fixed_mu_value", None),
             loss_reduction=getattr(args, "loss_reduction", "per_time"),
@@ -255,13 +267,11 @@ class ETASZhuangBuilder(ModelBuilder):
         mag_completeness = args.mag_completeness
         mag_max = getattr(args, "mag_max", 10)
 
-        if getattr(args, "bg_model", None) is not None:
-            from src.models.bg import BGModel
-
-            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+        bg_model = _build_optional_bg_model(args, "bg_model", device)
+        k_model = _build_optional_bg_model(args, "k_model", device)
+        if bg_model is not None:
             base_rate_init = torch.tensor(getattr(args, "base_rate_init", 0.0), dtype=torch.float64)
         else:
-            bg_model = None
             base_rate_init = torch.tensor(0.26, dtype=torch.float64)
 
         model = ETASZhuang(
@@ -273,6 +283,7 @@ class ETASZhuangBuilder(ModelBuilder):
             mag_max=mag_max,
             device=device,
             bg_model=bg_model,
+            k_model=k_model,
             fix_mu=getattr(args, "fix_mu", False),
             fixed_mu_value=getattr(args, "fixed_mu_value", None),
             loss_reduction=getattr(args, "loss_reduction", "per_time"),

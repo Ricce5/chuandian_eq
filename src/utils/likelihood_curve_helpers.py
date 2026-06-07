@@ -410,6 +410,7 @@ def _cumulative_curve_etas_total_fast(model, sequence, device=None, eps=1e-10, q
         mag_all = batch.mag[0, :end_idx]
         t0 = batch.t_nll_start[0]
         int_h_prefix = model.prefix_h_integral(
+            batch=batch,
             t_all=t_all,
             mag_all=mag_all,
             t0=t0,

@@ -140,6 +140,7 @@ class ETASZhuang(TPPModel):
         report_params: bool = True,
         device: Optional[torch.device] = None,
         bg_model=None,
+        k_model=None,
         fix_mu: bool = False,
         fixed_mu_value: Optional[float] = None,
         loss_reduction: str = "per_time",
@@ -198,6 +199,7 @@ class ETASZhuang(TPPModel):
         self.report_params = report_params
         self.device = device
         self.bg_model = bg_model
+        self.k_model = k_model
         self.reduction = loss_reduction
         raw_weights = dict(loss_weights or {})
         self.bg_kl_weight = float(raw_weights.get("bg_kl_weight", 1.0))
@@ -253,6 +255,69 @@ class ETASZhuang(TPPModel):
     @property
     def alpha_e(self):
         return self.alpha_e_param
+
+    def _require_k_model_batch(self, batch: Batch) -> None:
+        if self.k_model is None:
+            return
+        if not hasattr(batch, "time_series") or batch.time_series is None:
+            raise ValueError("k_model requires batch.time_series.")
+        if not hasattr(batch, "time_series_times") or batch.time_series_times is None:
+            raise ValueError("k_model requires batch.time_series_times.")
+
+    def _sample_dynamic_K(
+        self,
+        batch: Batch,
+        t_query: torch.Tensor | None = None,
+    ) -> torch.Tensor | None:
+        if self.k_model is None:
+            return None
+        self._require_k_model_batch(batch)
+        if t_query is None:
+            arrival_times = getattr(batch, "arrival_times", None)
+            if arrival_times is None:
+                raise ValueError("batch.arrival_times is required when t_query is None.")
+            t_query = arrival_times
+
+        squeeze_batch = False
+        if t_query.ndim == 1:
+            batch_size = batch.time_series.shape[0]
+            if batch_size != 1:
+                raise ValueError("1D t_query is only supported when batch size is 1.")
+            t_query = t_query.unsqueeze(0)
+            squeeze_batch = True
+
+        dynamic_K = self.k_model.intensity(batch, t_query=t_query)
+        if squeeze_batch:
+            return dynamic_K.squeeze(0)
+        return dynamic_K
+
+    def K_at(
+        self,
+        batch: Batch,
+        t_query: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if t_query is None:
+            arrival_times = getattr(batch, "arrival_times", None)
+            if arrival_times is None:
+                raise ValueError("batch.arrival_times is required when t_query is None.")
+            t_query = arrival_times
+
+        dynamic_K = self._sample_dynamic_K(batch, t_query=t_query)
+        if dynamic_K is None:
+            return torch.ones_like(t_query, device=t_query.device, dtype=t_query.dtype) * self.K.to(
+                device=t_query.device,
+                dtype=t_query.dtype,
+            )
+
+        base_K = self.K.to(device=dynamic_K.device, dtype=dynamic_K.dtype)
+        return dynamic_K + base_K
+
+    def _require_static_productivity_for_sampling(self, method_name: str) -> None:
+        if self.k_model is not None:
+            raise NotImplementedError(
+                f"{method_name} is not implemented when k_model is enabled; "
+                "sampling would require an explicit injection trajectory."
+            )
 
     @staticmethod
     def _soft_upper_bound(
@@ -475,7 +540,8 @@ class ETASZhuang(TPPModel):
         )
 
         t_select, intensity_mask = masked_select_per_row(t, batch.nll_event_mask)
-        amp = self.K * torch.exp(self.alpha_e * (batch.mag - self.M_c))
+        K_history = self.K_at(batch, t_query=t)
+        amp = K_history * torch.exp(self.alpha_e * (batch.mag - self.M_c))
         productivity = self.omori_norm_factor * amp
         intensity = self._intensity_from_history(
             t_query=t_select,
@@ -566,7 +632,8 @@ class ETASZhuang(TPPModel):
         )
         if t_query is None:
             t_query = t
-        amp = self.K * torch.exp(self.alpha_e * (mag - self.M_c))
+        K_history = self.K_at(batch, t_query=t)
+        amp = K_history * torch.exp(self.alpha_e * (mag - self.M_c))
         productivity = self.omori_norm_factor * amp
         return self._intensity_from_history(
             t_query=t_query,
@@ -580,6 +647,7 @@ class ETASZhuang(TPPModel):
     def prefix_h_integral(
         self,
         *,
+        batch: Optional[Batch] = None,
         t_all: torch.Tensor,
         mag_all: torch.Tensor,
         t0: torch.Tensor,
@@ -588,7 +656,13 @@ class ETASZhuang(TPPModel):
     ) -> torch.Tensor:
         """Compute integral of ``h(s)`` from ``t0`` to each value in ``t_query``."""
         one_minus_p = 1.0 - self.p
-        productivity = self.k * torch.exp(self.alpha_e * (mag_all - self.M_c))
+        if self.k_model is not None:
+            if batch is None:
+                raise ValueError("batch is required for prefix_h_integral when k_model is enabled.")
+            K_all = self.K_at(batch, t_query=t_all.unsqueeze(0)).squeeze(0)
+            productivity = self.omori_norm_factor * K_all * torch.exp(self.alpha_e * (mag_all - self.M_c))
+        else:
+            productivity = self.k * torch.exp(self.alpha_e * (mag_all - self.M_c))
 
         dt_start = (t0 - t_all).clamp_min(0.0)
         dt_start_term = (dt_start + self.c).pow(one_minus_p)
@@ -637,6 +711,7 @@ class ETASZhuang(TPPModel):
         return_sequences: bool = False,
         verbose: bool = False,
     ) -> Union[Batch, List[Sequence]]:
+        self._require_static_productivity_for_sampling("sample_thinning")
         p = float(self.p.detach().cpu())
         c = float(self.c.detach().cpu())
         mu = float(self.mu.detach().cpu())
@@ -754,6 +829,7 @@ class ETASZhuang(TPPModel):
         n_jobs: int = -1,
         return_sequences: bool = False,
     ) -> Union[Batch, List[Sequence]]:
+        self._require_static_productivity_for_sampling("sample")
         p = float(self.p.detach().cpu())
         c = float(self.c.detach().cpu())
         mu = float(self.mu.detach().cpu())
@@ -916,6 +992,7 @@ class ETASZhuang(TPPModel):
         return_sequences: bool = False,
         dtype: torch.dtype = torch.float64,
     ) -> Union["Batch", List["Sequence"]]:
+        self._require_static_productivity_for_sampling("sample_gpu_parallel")
         device = self.device
         if device is None:
             device = next(self.parameters()).device

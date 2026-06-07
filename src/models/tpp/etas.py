@@ -135,6 +135,7 @@ class ETAS(TPPModel):
         report_params: bool = True,
         device: Optional[torch.device] = None,
         bg_model=None,
+        k_model=None,
         fix_mu: bool = False,
         fixed_mu_value: Optional[float] = None,
         loss_reduction: str = "per_time",
@@ -191,6 +192,7 @@ class ETAS(TPPModel):
         self.report_params = report_params
         self.device = device
         self.bg_model = bg_model
+        self.k_model = k_model
         self.reduction = loss_reduction
         raw_weights = dict(loss_weights or {})
         self.bg_kl_weight = float(raw_weights.get("bg_kl_weight", 1.0))
@@ -251,6 +253,69 @@ class ETAS(TPPModel):
     @property
     def alpha(self):
         return torch.exp(self.log_alpha)
+
+    def _require_k_model_batch(self, batch: Batch) -> None:
+        if self.k_model is None:
+            return
+        if not hasattr(batch, "time_series") or batch.time_series is None:
+            raise ValueError("k_model requires batch.time_series.")
+        if not hasattr(batch, "time_series_times") or batch.time_series_times is None:
+            raise ValueError("k_model requires batch.time_series_times.")
+
+    def _sample_dynamic_k(
+        self,
+        batch: Batch,
+        t_query: torch.Tensor | None = None,
+    ) -> torch.Tensor | None:
+        if self.k_model is None:
+            return None
+        self._require_k_model_batch(batch)
+        if t_query is None:
+            arrival_times = getattr(batch, "arrival_times", None)
+            if arrival_times is None:
+                raise ValueError("batch.arrival_times is required when t_query is None.")
+            t_query = arrival_times
+
+        squeeze_batch = False
+        if t_query.ndim == 1:
+            batch_size = batch.time_series.shape[0]
+            if batch_size != 1:
+                raise ValueError("1D t_query is only supported when batch size is 1.")
+            t_query = t_query.unsqueeze(0)
+            squeeze_batch = True
+
+        dynamic_k = self.k_model.intensity(batch, t_query=t_query)
+        if squeeze_batch:
+            return dynamic_k.squeeze(0)
+        return dynamic_k
+
+    def k_at(
+        self,
+        batch: Batch,
+        t_query: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if t_query is None:
+            arrival_times = getattr(batch, "arrival_times", None)
+            if arrival_times is None:
+                raise ValueError("batch.arrival_times is required when t_query is None.")
+            t_query = arrival_times
+
+        dynamic_k = self._sample_dynamic_k(batch, t_query=t_query)
+        if dynamic_k is None:
+            return torch.ones_like(t_query, device=t_query.device, dtype=t_query.dtype) * self.k.to(
+                device=t_query.device,
+                dtype=t_query.dtype,
+            )
+
+        base_k = self.k.to(device=dynamic_k.device, dtype=dynamic_k.dtype)
+        return dynamic_k + base_k
+
+    def _require_static_productivity_for_sampling(self, method_name: str) -> None:
+        if self.k_model is not None:
+            raise NotImplementedError(
+                f"{method_name} is not implemented when k_model is enabled; "
+                "sampling would require an explicit injection trajectory."
+            )
 
     @staticmethod
     def _soft_upper_bound(x: torch.Tensor, upper: torch.Tensor, softness: torch.Tensor) -> torch.Tensor:
@@ -448,7 +513,8 @@ class ETAS(TPPModel):
         t_select, intensity_mask = masked_select_per_row(t, batch.nll_event_mask)
         # productivity[0, j] = expected number of aftershocks after event t_j
         masked_mag = (batch.mag - self.M_c) * survival_mask      # (B, L)
-        productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
+        k_history = self.k_at(batch, t_query=t)
+        productivity = k_history * 10 ** (self.alpha * masked_mag)  # (B, L)
         survival_mask_bool = survival_mask.bool()
         intensity = self._intensity_from_history(
             t_query=t_select,
@@ -560,7 +626,8 @@ class ETAS(TPPModel):
         if t_query is None:
             t_query = t
         masked_mag = (mag - self.M_c) * survival_mask
-        productivity = self.k * 10 ** (self.alpha * masked_mag)  # (B, L)
+        k_history = self.k_at(batch, t_query=t)
+        productivity = k_history * 10 ** (self.alpha * masked_mag)  # (B, L)
         return self._intensity_from_history(
             t_query=t_query,
             t_history=t,
@@ -573,6 +640,7 @@ class ETAS(TPPModel):
     def prefix_h_integral(
         self,
         *,
+        batch: Optional[Batch] = None,
         t_all: torch.Tensor,
         mag_all: torch.Tensor,
         t0: torch.Tensor,
@@ -582,7 +650,16 @@ class ETAS(TPPModel):
         """Compute integral of ``h(s)`` from ``t0`` to each value in ``t_query``."""
         one_minus_p = 1.0 - self.p
         masked_mag = mag_all - self.M_c
-        productivity = self.k * 10 ** (self.alpha * masked_mag)
+        if self.k_model is not None:
+            if batch is None:
+                raise ValueError("batch is required for prefix_h_integral when k_model is enabled.")
+            k_all = self.k_at(batch, t_query=t_all.unsqueeze(0)).squeeze(0)
+        else:
+            k_all = torch.ones_like(t_all, device=t_all.device, dtype=t_all.dtype) * self.k.to(
+                device=t_all.device,
+                dtype=t_all.dtype,
+            )
+        productivity = k_all * 10 ** (self.alpha * masked_mag)
 
         dt_start = (t0 - t_all).clamp_min(0.0)
         dt_start_term = (dt_start + self.c).pow(one_minus_p)
@@ -650,6 +727,7 @@ class ETAS(TPPModel):
             return_sequences: if true, returns samples as list[Sequence].
                 if false, returns samples as Batch.
         """
+        self._require_static_productivity_for_sampling("sample_thinning")
         p, c, mu, k, alpha = [
             param.cpu().detach().numpy()
             for param in [self.p, self.c, self.mu, self.k, self.alpha]
@@ -782,6 +860,7 @@ class ETAS(TPPModel):
         Returns:
             batch: Sequences generated from the model.
         """
+        self._require_static_productivity_for_sampling("sample")
         # Move scalar parameters to CPU before any NumPy math.
         p = float(self.p.detach().cpu())
         c = float(self.c.detach().cpu())
@@ -1053,6 +1132,7 @@ class ETAS(TPPModel):
         Fixes mismatch between offspring counts and Omori inverse sampling.
         Supports float32/float64 via dtype argument.
         """
+        self._require_static_productivity_for_sampling("sample_gpu_parallel")
 
         device = self.device
         if device is None:
