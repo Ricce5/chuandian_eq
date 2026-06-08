@@ -458,14 +458,7 @@ class RecurrentTPPSamplingMixin:
         inter_times = torch.cat(inter_time_list, dim=1)
         magnitudes = torch.cat(mag_list, dim=1) if use_magnitude else None
 
-        duration = t_end - t_start
-        unclipped_arrival_times = inter_times.cumsum(-1)
         epsilon = 1e-5
-        padding_mask = unclipped_arrival_times > duration - epsilon
-        inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
-        end_idx = (1 - padding_mask.long()).sum(-1)
-        last_surv_time = (duration - inter_times.sum(-1)).clamp_min(0.0)
-        inter_times[torch.arange(batch_size, device=self.device), end_idx] = last_surv_time
 
         batch = build_sample_batch(
             inter_times=inter_times,
@@ -479,6 +472,7 @@ class RecurrentTPPSamplingMixin:
         )
         if return_b_values and len(b_list) > 0:
             b_values = torch.cat(b_list, dim=1)
+            padding_mask = batch.mask[:, : b_values.shape[1]].bool()
             b_values = torch.masked_fill(b_values, padding_mask, float("nan"))
             batch["b_sample"] = b_values
         return batch.to_list() if return_sequences else batch

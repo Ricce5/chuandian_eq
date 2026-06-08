@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Mapping, Optional, Sequence, Union
 
@@ -11,6 +12,8 @@ import torch
 from src.data import Catalog, Sequence as TppSequence, TppDataset
 from src.utils.catalog_pathing import build_hashed_catalog_root, to_serializable_ts
 from src.utils.catalog_utils import train_val_test_split_sequence
+
+logger = logging.getLogger(__name__)
 
 
 REQUIRED_SUMMARY_KEYS = (
@@ -184,6 +187,8 @@ class InducedTripletBase(Catalog):
         data_dir: Union[str, Path, None] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
+        normalize_time_series: Optional[bool] = None,
+        resample_freq_min: Optional[int] = None,
         freq: str = "1h",
         end_ts: Optional[Union[str, pd.Timestamp]] = None,
         train_start_ts: Optional[Union[str, pd.Timestamp]] = None,
@@ -192,6 +197,9 @@ class InducedTripletBase(Catalog):
     ):
         self.dataset_name = dataset_name
         self.normalize = normalize
+        if normalize_time_series is None:
+            normalize_time_series = normalize
+        self.normalize_time_series = bool(normalize_time_series)
         self.freq = str(freq)
         self.unit_td = pd.Timedelta(self.freq)
         if self.unit_td <= pd.Timedelta(0):
@@ -201,7 +209,8 @@ class InducedTripletBase(Catalog):
         self.summary = self._load_summary()
         self.column_aliases = self._build_column_aliases(self.summary.get("column_aliases"))
         self.time_column_units = self._build_time_column_units(self.summary.get("time_column_units"))
-        self.freq_min = self._resolve_freq_min()
+        self.source_freq_min = self._resolve_freq_min()
+        self.freq_min = self._resolve_requested_resample_freq_min(resample_freq_min)
         self.resample_freq_td = pd.to_timedelta(self.freq_min, unit="m")
         self.mag_completeness = self._resolve_mag_completeness(mag_completeness)
         self.start_time, self.end_time = self._resolve_time_range(end_ts=end_ts)
@@ -224,22 +233,29 @@ class InducedTripletBase(Catalog):
         val_start_t = float(np.clip((val_start_time - self.start_time) / self.unit_td, train_start_t, self.t_end))
         test_start_t = float(np.clip((test_start_time - self.start_time) / self.unit_td, val_start_t, self.t_end))
 
+        self.eq_file = self.data_dir / "processed" / f"{dataset_name}_eq_processed.csv"
+        self.inj_file, self.inj_source_freq_min = self._resolve_inj_source_file()
+        self.inj_source_freq_td = pd.to_timedelta(self.inj_source_freq_min, unit="m")
+        self.inj_resampled = bool(self.inj_source_freq_min != self.freq_min)
+
         self.root_dir = self._build_catalog_root(
             root_dir=root_dir,
             train_start_time=train_start_time,
             val_start_time=val_start_time,
             test_start_time=test_start_time,
         )
-        self.eq_file = self.data_dir / "processed" / f"{dataset_name}_eq_processed.csv"
-        self.inj_file = self.data_dir / "processed" / f"{dataset_name}_inj_{self.freq_min}min_processed.csv"
         self._validate_source_files()
 
         metadata = {
             "name": dataset_name,
             "freq": self.freq,
             "freq_min": self.freq_min,
+            "source_freq_min": self.source_freq_min,
+            "inj_source_freq_min": self.inj_source_freq_min,
+            "inj_resampled": self.inj_resampled,
             "mag_roundoff_error": 0.01,
             "mag_completeness": self.mag_completeness,
+            "normalize_time_series": self.normalize_time_series,
             "start_ts": self.start_time,
             "end_ts": self.end_time,
             "train_start_ts": train_start_time,
@@ -310,6 +326,128 @@ class InducedTripletBase(Catalog):
             raise ValueError(f"Invalid resample_freq_min={freq_min} for {self.dataset_name}.")
         return freq_min
 
+    def _resolve_requested_resample_freq_min(self, requested_freq_min: Optional[int]) -> int:
+        if requested_freq_min is None:
+            return int(self.source_freq_min)
+        freq_min = int(requested_freq_min)
+        if freq_min <= 0:
+            raise ValueError(
+                f"Requested resample_freq_min must be positive, got {requested_freq_min!r}."
+            )
+        return freq_min
+
+    def _list_available_inj_files(self) -> dict[int, Path]:
+        processed_dir = self.data_dir / "processed"
+        prefix = f"{self.dataset_name}_inj_"
+        suffix = "min_processed.csv"
+        out: dict[int, Path] = {}
+        for path in processed_dir.glob(f"{self.dataset_name}_inj_*min_processed.csv"):
+            name = path.name
+            if not name.startswith(prefix) or not name.endswith(suffix):
+                continue
+            raw = name[len(prefix) : -len(suffix)]
+            try:
+                freq_min = int(raw)
+            except ValueError:
+                continue
+            out[freq_min] = path
+        return out
+
+    def _resolve_inj_source_file(self) -> tuple[Path, int]:
+        available = self._list_available_inj_files()
+        if not available:
+            raise FileNotFoundError(
+                f"No processed injection files found for dataset {self.dataset_name!r} under "
+                f"{self.data_dir / 'processed'}."
+            )
+
+        if self.freq_min in available:
+            return available[self.freq_min], int(self.freq_min)
+
+        source_freq_min = min(available)
+        source_path = available[source_freq_min]
+        logger.info(
+            "Requested resample_freq_min=%s for %s, but exact processed file was not found. "
+            "Using source file %s (freq_min=%s) and resampling at load time.",
+            self.freq_min,
+            self.dataset_name,
+            source_path.name,
+            source_freq_min,
+        )
+        return source_path, int(source_freq_min)
+
+    def _resolve_runtime_resample_fill_policy(self) -> str:
+        policy = str(self.summary.get("inj_fill_policy", "")).strip().lower()
+        if "zero" in policy:
+            return "zero"
+        if "interp" in policy:
+            return "interpolate"
+        return "ffill"
+
+    def _build_target_resample_index(self) -> pd.DatetimeIndex:
+        target_index = pd.date_range(
+            start=self.start_time,
+            end=self.end_time,
+            freq=self.resample_freq_td,
+        )
+        if len(target_index) == 0:
+            target_index = pd.DatetimeIndex([self.start_time])
+        if target_index[0] != self.start_time:
+            target_index = pd.DatetimeIndex([self.start_time]).append(target_index)
+        if target_index[-1] != self.end_time:
+            target_index = target_index.append(pd.DatetimeIndex([self.end_time]))
+        return pd.DatetimeIndex(target_index.unique()).sort_values()
+
+    def _resample_inj_dataframe(self, df_ts: pd.DataFrame) -> pd.DataFrame:
+        if not self.inj_resampled:
+            return df_ts
+
+        source_time = self.start_time + pd.to_timedelta(
+            df_ts["t"].to_numpy(dtype=np.float64) * self.unit_td.total_seconds(),
+            unit="s",
+        )
+        source_series = pd.Series(
+            df_ts["rate"].to_numpy(dtype=np.float64),
+            index=pd.DatetimeIndex(source_time),
+            dtype=np.float64,
+        ).sort_index()
+        source_series = source_series.groupby(level=0).mean()
+
+        target_index = self._build_target_resample_index()
+
+        if self.resample_freq_td >= self.inj_source_freq_td:
+            resampled = source_series.resample(
+                self.resample_freq_td,
+                origin=self.start_time,
+                label="left",
+                closed="left",
+            ).mean()
+            resampled = resampled.reindex(resampled.index.union(target_index)).sort_index().ffill()
+            resampled = resampled.reindex(target_index).ffill().bfill()
+        else:
+            fill_policy = self._resolve_runtime_resample_fill_policy()
+            expanded = source_series.reindex(source_series.index.union(target_index)).sort_index()
+            if fill_policy == "zero":
+                expanded = expanded.fillna(0.0)
+            elif fill_policy == "interpolate":
+                expanded = expanded.interpolate(method="time").ffill().bfill()
+            else:
+                expanded = expanded.ffill().bfill()
+            resampled = expanded.reindex(target_index)
+
+        out = pd.DataFrame(
+            {
+                "ts_abs": target_index,
+                "rate": resampled.to_numpy(dtype=np.float64),
+            }
+        )
+        out["t"] = pd.Series(
+            (out["ts_abs"] - self.start_time) / self.unit_td,
+            index=out.index,
+            dtype=np.float64,
+        )
+        return out[["t", "rate"]]
+
     def _resolve_mag_completeness(self, requested_mc: Optional[float]) -> float:
         if requested_mc is None:
             requested_mc = float(self.summary["mc"])
@@ -342,9 +480,12 @@ class InducedTripletBase(Catalog):
         catalog_cfg = {
             "dataset_name": self.dataset_name,
             "normalize": self.normalize,
+            "normalize_time_series": self.normalize_time_series,
             "mag_completeness": self.mag_completeness,
             "freq": self.freq,
             "freq_min": self.freq_min,
+            "source_freq_min": self.source_freq_min,
+            "inj_source_freq_min": self.inj_source_freq_min,
             "end_ts": to_serializable_ts(self.end_time),
             "train_start_ts": to_serializable_ts(train_start_time),
             "val_start_ts": to_serializable_ts(val_start_time),
@@ -566,11 +707,17 @@ class InducedTripletBase(Catalog):
 
         df_ts = df_ts.groupby("t", as_index=False)["rate"].mean()
         df_ts.sort_values("t", inplace=True)
+        df_ts = self._resample_inj_dataframe(df_ts)
         if len(df_ts) < 2:
             raise ValueError(
                 "Injection time series must contain at least 2 timestamps after filtering. "
                 f"Got {len(df_ts)}."
             )
+        if self.normalize_time_series:
+            normalized_rate = self.normalize_fields(
+                {"inj_rate": df_ts["rate"].to_numpy(dtype=np.float64)}
+            )["inj_rate"]
+            df_ts["rate"] = normalized_rate.detach().cpu().numpy().astype(np.float64)
         return df_ts
 
     def generate_catalog(self):

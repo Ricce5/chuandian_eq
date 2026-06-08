@@ -13,6 +13,24 @@ import torch
 import src
 
 
+def _pad_sequence_like(
+    tensor: Optional[torch.Tensor],
+    *,
+    pad_cols: int,
+    pad_value: float = 0.0,
+) -> Optional[torch.Tensor]:
+    if tensor is None or pad_cols <= 0:
+        return tensor
+    if tensor.ndim < 2:
+        raise ValueError(
+            f"Expected a sequence-like tensor with ndim >= 2, got shape={tuple(tensor.shape)}."
+        )
+    pad_shape = list(tensor.shape)
+    pad_shape[1] = pad_cols
+    pad_tensor = tensor.new_full(pad_shape, pad_value)
+    return torch.cat([tensor, pad_tensor], dim=1)
+
+
 def build_sample_batch(
     *,
     inter_times: torch.Tensor,
@@ -40,6 +58,19 @@ def build_sample_batch(
     if check_last_surv_nonnegative and (last_surv_time < 0).any():
         min_value = float(last_surv_time.min().item())
         raise ValueError(f"last_surv_time < 0 detected (min={min_value})")
+
+    required_len = int(end_idx.max().item()) + 1 if batch_size > 0 else inter_times.shape[1]
+    pad_cols = max(required_len - inter_times.shape[1], 0)
+    if pad_cols > 0:
+        inter_times = _pad_sequence_like(inter_times, pad_cols=pad_cols, pad_value=0.0)
+        padding_pad = torch.ones(
+            batch_size,
+            pad_cols,
+            device=padding_mask.device,
+            dtype=padding_mask.dtype,
+        )
+        padding_mask = torch.cat([padding_mask, padding_pad], dim=1)
+        magnitudes = _pad_sequence_like(magnitudes, pad_cols=pad_cols, pad_value=0.0)
 
     arange = torch.arange(batch_size, device=device)
     inter_times[arange, end_idx] = last_surv_time

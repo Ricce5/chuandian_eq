@@ -126,12 +126,18 @@ class Catalog(Registrable):
             elif not isinstance(data, torch.Tensor):
                 raise TypeError(f"Expected np.ndarray or torch.Tensor, got {type(data)} for key {key}")
 
+            min_val = float(data.min())
+            max_val = float(data.max())
+            range_val = max_val - min_val
+            if range_val <= 0:
+                range_val = 1e-8
+
             self.norm_stats[key] = {
-                "min": float(data.min()),
-                "max": float(data.max())
+                "min": min_val,
+                "max": max_val,
             }
 
-            normed_data[key] = (data - self.norm_stats[key]["min"]) / (self.norm_stats[key]["max"] - self.norm_stats[key]["min"] )
+            normed_data[key] = (data - min_val) / range_val
 
         torch.save(self.norm_stats, self.root_dir / "norm_stats.pt")
         return normed_data

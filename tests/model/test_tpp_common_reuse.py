@@ -6,6 +6,7 @@ from src.data.batch import Batch
 from src.data.sequence import Sequence
 from src.models.tpp.common.inter_time_decoding import WeibullMixtureDecoder
 from src.models.tpp.common.oracle_blocks import OracleDistDecoder
+from src.models.tpp.common.sequence_ops import build_sample_batch
 from src.models.tpp.oracle import Oracle
 from src.models.tpp.recurrent import RecurrentTPP
 from src.models.tpp.recurrent.utils import run_rnn_with_chunking
@@ -163,3 +164,26 @@ def test_legacy_updater_factory_aliases_are_callable():
         write_back=False,
     )
     assert updater.__class__.__name__ == "BayesianGRBUpdater"
+
+
+def test_build_sample_batch_adds_survival_slot_when_event_slots_are_full():
+    inter_times = torch.tensor([[1.0, 1.0]], dtype=torch.float32)
+    magnitudes = torch.tensor([[2.5, 3.0]], dtype=torch.float32)
+
+    batch = build_sample_batch(
+        inter_times=inter_times,
+        t_start=0.0,
+        t_end=5.0,
+        device=torch.device("cpu"),
+        magnitudes=magnitudes,
+        clamp_last_surv_time=True,
+    )
+
+    assert batch.inter_times.shape == (1, 3)
+    assert int(batch.end_idx.item()) == 2
+    torch.testing.assert_close(batch.inter_times[0], torch.tensor([1.0, 1.0, 3.0]))
+    assert batch.mag.shape == (1, 3)
+
+    seq = batch.to_list()[0]
+    torch.testing.assert_close(seq.inter_times, torch.tensor([1.0, 1.0, 3.0]))
+    torch.testing.assert_close(seq.mag, torch.tensor([2.5, 3.0]))

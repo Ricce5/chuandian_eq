@@ -7,6 +7,7 @@ decorated with ``@Catalog.register(...)``.
 from . import (
     azdx,
     basel,
+    ccl,
     china_array,
     chuandian,
     cooper_basin,
@@ -25,6 +26,7 @@ from . import (
 __all__ = [
     "azdx",
     "basel",
+    "ccl",
     "china_array",
     "chuandian",
     "cooper_basin",

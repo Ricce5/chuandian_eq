@@ -180,12 +180,14 @@ class InducedTripletGroupedCatalog(Catalog):
         mag_completeness_map: Optional[Mapping[str, float]] = None,
         mag_completeness: Optional[float] = None,
         normalize: bool = True,
+        resample_freq_min: Optional[int] = None,
         freq: str = "1h",
     ):
         self.family_name = family_name
         self.valid_datasets = tuple(valid_datasets)
         self.normalize = normalize
         self.global_mag_completeness = mag_completeness
+        self.resample_freq_min = resample_freq_min
         self.freq = str(freq)
 
         freq_td = pd.Timedelta(self.freq)
@@ -209,6 +211,7 @@ class InducedTripletGroupedCatalog(Catalog):
             "split_groups": self.split_groups,
             "normalize": normalize,
             "mag_completeness": mag_completeness,
+            "resample_freq_min": self.resample_freq_min,
             "freq": self.freq,
         }
         self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
@@ -284,6 +287,7 @@ class InducedTripletGroupedCatalog(Catalog):
                 data_dir=component_data_dir,
                 mag_completeness=component_mc,
                 normalize=self.normalize,
+                resample_freq_min=self.resample_freq_min,
                 freq=self.freq,
             )
         return components
