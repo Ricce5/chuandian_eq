@@ -1124,19 +1124,23 @@ class ETAS(TPPModel):
         max_length: Optional[int] = 50_000,
         t_max: float = 1e10,
         return_sequences: bool = False,
-        dtype: torch.dtype = torch.float64, 
+        dtype: torch.dtype = torch.float64,
+        random_state: Optional[int] = None,
     ) -> Union["Batch", List["Sequence"]]:
         """
         GPU-parallel branching-process sampler for ETAS.
 
         Fixes mismatch between offspring counts and Omori inverse sampling.
-        Supports float32/float64 via dtype argument.
+        Supports float32/float64 via dtype argument and optional torch RNG seeding.
         """
         self._require_static_productivity_for_sampling("sample_gpu_parallel")
 
         device = self.device
         if device is None:
             device = next(self.parameters()).device
+        device = torch.device(device)
+        if random_state is not None:
+            torch.manual_seed(int(random_state))
 
         # ---- parameters on GPU ----
         p = self.p.to(device=device, dtype=dtype)
@@ -1148,11 +1152,17 @@ class ETAS(TPPModel):
 
         M_c = self.M_c.to(device=device, dtype=dtype)
         M_m = self.M_m.to(device=device, dtype=dtype)
+        b_value = float(b.detach().cpu().item())
+        M_c_value = float(M_c.detach().cpu().item())
+        M_m_value = float(M_m.detach().cpu().item())
+        mu_value = float(mu.detach().cpu().item())
 
         # ---- effective branching ratio check (CPU float) ----
         branch = self.effective_branching_ratio(t_max=t_max)
         if branch > 1:
-            raise ValueError(f"The process is explosive: branching ratio {branch:.2f} is > 1.")
+            raise ValueError(
+                f"The process is explosive: branching ratio {branch:.2f} is > 1."
+            )
 
         # ---- start/end per sequence ----
         if past_seq is not None:
@@ -1164,46 +1174,109 @@ class ETAS(TPPModel):
         t_end_vec = t_start_vec + float(duration)
 
         catalogs = []
+        generated_counts = torch.zeros((batch_size,), device=device, dtype=torch.int64)
 
         # ---- conditioning history (replicate across batch) ----
         if past_seq is not None:
-            past_tau = past_seq.inter_times.cpu().numpy().copy()
-            tau_tensor = torch.tensor(past_tau[:-1], dtype=dtype, device=device)
+            tau_tensor = torch.as_tensor(
+                past_seq.inter_times[:-1],
+                dtype=dtype,
+                device=device,
+            )
             arrival_single = torch.cumsum(tau_tensor, dim=0) + float(past_seq.t_start)
-            mags_single = torch.tensor(past_seq.mag, dtype=dtype, device=device)
+            mags_single = torch.as_tensor(past_seq.mag, dtype=dtype, device=device)
 
             # replicate
             arrival = arrival_single.expand(batch_size, -1).reshape(-1)
             mags = mags_single.expand(batch_size, -1).reshape(-1)
-            bid = torch.arange(batch_size, device=device, dtype=torch.int64).repeat_interleave(arrival_single.numel())
+            bid = torch.arange(
+                batch_size,
+                device=device,
+                dtype=torch.int64,
+            ).repeat_interleave(arrival_single.numel())
 
             catalogs.append((arrival, mags, bid))
 
         # ---- background events ----
-        lam = mu * duration
-        N_back = torch.poisson(lam.expand(batch_size)).to(torch.int64)
-        max_back = int(N_back.max().item()) if N_back.numel() > 0 else 0
+        if self.bg_model is None:
+            lam = mu * duration
+            N_back = torch.poisson(lam.expand(batch_size)).to(torch.int64)
+            max_back = int(N_back.max().item()) if N_back.numel() > 0 else 0
 
-        if max_back > 0:
-            u_time = torch.rand((batch_size, max_back), device=device, dtype=dtype)
-            t_back = t_start_vec[:, None] + u_time * float(duration)  # (B, max_back)
-            m_back = self._torch_gen_mag(
-                (batch_size, max_back),
-                b=float(b.item()),
-                M_min=float(M_c.item()),
-                M_max=float(M_m.item()),
+            if max_back > 0:
+                u_time = torch.rand((batch_size, max_back), device=device, dtype=dtype)
+                t_back = t_start_vec[:, None] + u_time * float(duration)  # (B, max_back)
+                m_back = self._torch_gen_mag(
+                    (batch_size, max_back),
+                    b=b_value,
+                    M_min=M_c_value,
+                    M_max=M_m_value,
+                    device=device,
+                    dtype=dtype,
+                )
+                mask_back = (
+                    torch.arange(max_back, device=device)[None, :] < N_back[:, None]
+                )
+
+                t_back_flat = t_back[mask_back]
+                m_back_flat = m_back[mask_back]
+                bid_flat = torch.repeat_interleave(
+                    torch.arange(batch_size, device=device, dtype=torch.int64),
+                    N_back,
+                )
+                catalogs.append((t_back_flat, m_back_flat, bid_flat))
+        else:
+            bg_times_list = self.bg_model.sample_nhpp_inverse(
+                B=batch_size,
+                t0=t_start_vec,
+                dt=torch.full(
+                    (batch_size,),
+                    float(duration),
+                    device=device,
+                    dtype=dtype,
+                ),
+                sample_sequence=True,
+                mu=mu_value,
+            )
+            if len(bg_times_list) != batch_size:
+                raise ValueError(
+                    f"Expected {batch_size} background sequences, got {len(bg_times_list)}."
+                )
+            bg_times_tensors = [
+                torch.as_tensor(times, device=device, dtype=dtype).reshape(-1)
+                for times in bg_times_list
+            ]
+            N_back = torch.as_tensor(
+                [times.numel() for times in bg_times_tensors],
                 device=device,
-                dtype=dtype,
+                dtype=torch.int64,
             )
-            mask_back = (torch.arange(max_back, device=device)[None, :] < N_back[:, None])
+            total_back = int(N_back.sum().item())
+            if total_back > 0:
+                t_back_flat = torch.cat(
+                    [times for times in bg_times_tensors if times.numel() > 0],
+                    dim=0,
+                )
+                m_back_flat = self._torch_gen_mag(
+                    (total_back,),
+                    b=b_value,
+                    M_min=M_c_value,
+                    M_max=M_m_value,
+                    device=device,
+                    dtype=dtype,
+                )
+                bid_flat = torch.repeat_interleave(
+                    torch.arange(batch_size, device=device, dtype=torch.int64),
+                    N_back,
+                )
+                catalogs.append((t_back_flat, m_back_flat, bid_flat))
 
-            t_back_flat = t_back[mask_back]
-            m_back_flat = m_back[mask_back]
-            bid_flat = torch.repeat_interleave(
-                torch.arange(batch_size, device=device, dtype=torch.int64),
-                N_back
+        generated_counts = generated_counts + N_back
+        if max_length is not None and torch.any(generated_counts > int(max_length)):
+            raise RuntimeError(
+                f"ETAS GPU sampling exceeded max_length={max_length} in background events; "
+                "increase max_length or reduce the background rate."
             )
-            catalogs.append((t_back_flat, m_back_flat, bid_flat))
 
         # ---- if no events at all ----
         if len(catalogs) == 0:
@@ -1280,20 +1353,29 @@ class ETAS(TPPModel):
             # sample child magnitudes
             m_child = self._torch_gen_mag(
                 (n_child_total,),
-                b=float(b.item()),
-                M_min=float(M_c.item()),
-                M_max=float(M_m.item()),
+                b=b_value,
+                M_min=M_c_value,
+                M_max=M_m_value,
                 device=device,
                 dtype=dtype,
             )
 
-            if (max_length is not None) and (total_events + n_child_total > max_length):
-                # discard / truncate explosive
-                break
+            child_counts = torch.bincount(bid_sel, minlength=batch_size)
+            if max_length is not None:
+                over_limit = generated_counts + child_counts > int(max_length)
+                if torch.any(over_limit):
+                    first_bad = int(torch.nonzero(over_limit, as_tuple=False)[0].item())
+                    attempted = int((generated_counts + child_counts)[first_bad].item())
+                    raise RuntimeError(
+                        f"ETAS GPU sampling exceeded max_length={max_length} for "
+                        f"sequence {first_bad} ({attempted} generated events); "
+                        "increase max_length or reduce the branching ratio."
+                    )
 
             child_catalog = (t_child, m_child, bid_sel)
             events_all.append(child_catalog)
             parent_catalog = child_catalog
+            generated_counts = generated_counts + child_counts
             total_events += n_child_total
 
         # ---- build sequences back from catalog ----

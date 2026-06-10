@@ -124,26 +124,71 @@ class LogNormalKernel(_BaseKernel):
         return self._normalize(h)
 
 
+class PowerLawKernel(_BaseKernel):
+    """
+    h(tau) ∝ (1 + tau / tau_scale)^(-alpha)
+
+    A stable heavy-tailed kernel for long-memory responses. Compared with
+    exponential decay, it decays more slowly and can better preserve
+    persistent effects over long horizons.
+    """
+    def __init__(
+        self,
+        kernel_size: int,
+        dt: float = 1.0,
+        normalize: bool = True,
+        init_alpha: float = 1.5,
+        init_tau: float = 10.0,
+    ):
+        super().__init__(kernel_size, dt, normalize)
+        self.log_alpha = nn.Parameter(torch.tensor(float(init_alpha)).log())
+        self.log_tau = nn.Parameter(torch.tensor(float(init_tau)).log())
+
+    def forward(self, device=None, dtype=None) -> torch.Tensor:
+        device = device or self.log_alpha.device
+        dtype = dtype or self.log_alpha.dtype
+        alpha = torch.exp(self.log_alpha).clamp_min(1e-4)
+        tau_scale = torch.exp(self.log_tau).clamp_min(1e-6)
+
+        tau = torch.arange(self.kernel_size, device=device, dtype=dtype) * self.dt
+        h = torch.pow(1.0 + tau / tau_scale, -alpha)
+        h = h.clamp_min(0.0)
+        return self._normalize(h)
+
+
 class MixtureKernel(_BaseKernel):
     """
-    Mixture kernel: h = sum_r w_r * h_r, w_r>=0 and sum w_r = 1
+    Mixture kernel: h = sum_r w_r * h_r.
+
+    When ``normalize_weights=True``, mixture weights satisfy
+    ``w_r >= 0`` and ``sum_r w_r = 1``.
+    Otherwise, weights remain nonnegative but are not normalized.
     Used for multi-scale responses (short delay + long delay).
     """
-    def __init__(self, kernels: list[_BaseKernel]):
+    def __init__(
+        self,
+        kernels: list[_BaseKernel],
+        normalize: bool = True,
+        normalize_weights: bool = True,
+    ):
         assert len(kernels) >= 2, "MixtureKernel needs >=2 component kernels."
         ks = kernels[0].kernel_size
         dt = kernels[0].dt
         for k in kernels:
             assert k.kernel_size == ks and k.dt == dt, "All kernels must share kernel_size and dt."
-        super().__init__(kernel_size=ks, dt=dt, normalize=True)
+        super().__init__(kernel_size=ks, dt=dt, normalize=normalize)
         self.kernels = nn.ModuleList(kernels)
         self.logits = nn.Parameter(torch.zeros(len(kernels)))  # mixture weights
+        self.normalize_weights = bool(normalize_weights)
 
     def forward(self, device=None, dtype=None) -> torch.Tensor:
         # Each sub-kernel is typically normalized; normalize after mixing.
         hs = [k(device=device, dtype=dtype) for k in self.kernels]  # list of (K,)
         H = torch.stack(hs, dim=0)                                  # (R, K)
-        w = torch.softmax(self.logits, dim=0).to(H.dtype)           # (R,)
+        if self.normalize_weights:
+            w = torch.softmax(self.logits, dim=0).to(H.dtype)       # (R,)
+        else:
+            w = F.softplus(self.logits).to(H.dtype)                 # (R,)
         h = (w.unsqueeze(1) * H).sum(dim=0)                         # (K,)
         return self._normalize(h)
 
@@ -160,6 +205,7 @@ class KernelBGModel(BGModel):
       - "exp"
       - "gamma"
       - "lognormal"
+      - "powerlaw"
       - "mix" (default: mixture of gamma + exp, configurable)
     """
     def __init__(
@@ -178,6 +224,9 @@ class KernelBGModel(BGModel):
         gamma_init_beta: float = 0.3,
         logn_init_mu: float = 2.0,
         logn_init_sigma: float = 1.0,
+        powerlaw_init_alpha: float = 1.5,
+        powerlaw_init_tau: float = 10.0,
+        mix_normalize_weights: bool = True,
     ):
         super().__init__(device=device, scale_init=scale_init)
         self.d_feature = int(d_feature)
@@ -191,11 +240,23 @@ class KernelBGModel(BGModel):
             self.kernel = GammaKernel(kernel_size, dt, normalize_kernel, init_k=gamma_init_k, init_beta=gamma_init_beta)
         elif kt in ("lognormal", "logn"):
             self.kernel = LogNormalKernel(kernel_size, dt, normalize_kernel, init_mu=logn_init_mu, init_sigma=logn_init_sigma)
+        elif kt in ("powerlaw", "power_law", "power"):
+            self.kernel = PowerLawKernel(
+                kernel_size,
+                dt,
+                normalize_kernel,
+                init_alpha=powerlaw_init_alpha,
+                init_tau=powerlaw_init_tau,
+            )
         elif kt in ("mix", "mixture"):
-            self.kernel = MixtureKernel([
-                GammaKernel(kernel_size, dt, normalize_kernel, init_k=gamma_init_k, init_beta=gamma_init_beta),
-                ExpKernel(kernel_size, dt, normalize_kernel, init_tau=exp_init_tau),
-            ])
+            self.kernel = MixtureKernel(
+                [
+                    GammaKernel(kernel_size, dt, normalize_kernel, init_k=gamma_init_k, init_beta=gamma_init_beta),
+                    ExpKernel(kernel_size, dt, normalize_kernel, init_tau=exp_init_tau),
+                ],
+                normalize=normalize_kernel,
+                normalize_weights=mix_normalize_weights,
+            )
         else:
             raise ValueError(f"Unknown kernel_type: {kernel_type}")
 

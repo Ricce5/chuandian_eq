@@ -3,7 +3,7 @@
 import importlib
 import sys
 
-from . import common, etas, etas_zhuang, njdtpp, oracle, recurrent
+from . import common, etas, etas_zhuang, netas, njdtpp, oracle, recurrent
 from .tpp_model import TPPModel
 
 _LEGACY_IMPORT_ALIASES = {
@@ -33,6 +33,7 @@ __all__ = [
     "recurrent",
     "etas",
     "etas_zhuang",
+    "netas",
     "njdtpp",
     "oracle",
 ]

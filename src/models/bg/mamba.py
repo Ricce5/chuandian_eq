@@ -7,6 +7,7 @@ from .kernel import (
     GammaKernel,
     LogNormalKernel,
     MixtureKernel,
+    PowerLawKernel,
 )
 
 
@@ -40,6 +41,9 @@ class MambaBGModel(BGModel):
         slow_gamma_init_beta: float = 0.3,
         slow_logn_init_mu: float = 2.0,
         slow_logn_init_sigma: float = 1.0,
+        slow_powerlaw_init_alpha: float = 1.5,
+        slow_powerlaw_init_tau: float = 10.0,
+        slow_mix_normalize_weights: bool = True,
         fast_mix_init: float = 0.7,
         device: torch.device | None = None,
         smooth_kernel_size: int | None = None,
@@ -94,6 +98,14 @@ class MambaBGModel(BGModel):
                     init_mu=slow_logn_init_mu,
                     init_sigma=slow_logn_init_sigma,
                 )
+            elif kt in ("powerlaw", "power_law", "power"):
+                self.slow_kernel = PowerLawKernel(
+                    kernel_size=slow_kernel_size,
+                    dt=slow_kernel_dt,
+                    normalize=slow_kernel_normalize,
+                    init_alpha=slow_powerlaw_init_alpha,
+                    init_tau=slow_powerlaw_init_tau,
+                )
             elif kt in ("mix", "mixture"):
                 self.slow_kernel = MixtureKernel(
                     [
@@ -110,7 +122,9 @@ class MambaBGModel(BGModel):
                             normalize=slow_kernel_normalize,
                             init_tau=slow_exp_init_tau,
                         ),
-                    ]
+                    ],
+                    normalize=slow_kernel_normalize,
+                    normalize_weights=slow_mix_normalize_weights,
                 )
             else:
                 raise ValueError(f"Unknown slow_kernel_type: {slow_kernel_type}")

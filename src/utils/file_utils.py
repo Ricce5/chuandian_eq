@@ -106,7 +106,8 @@ def save_or_load_data(base_path, generate_fn, args=None, filename=None, sub_dir=
 
 
 def find_latest_model_path(model_name, checkpoint_root="checkpoints"):
-    pattern = re.compile(rf"{model_name.lower()}_\d{{8}}-\d{{6}}$")
+    escaped_model_name = re.escape(model_name.lower())
+    pattern = re.compile(rf"^{escaped_model_name}_\d{{8}}-\d{{6}}$")
 
     # Find all subdirectories matching the pattern.
     all_subdirs = glob.glob(os.path.join(checkpoint_root, "*"))

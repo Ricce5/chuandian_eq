@@ -19,6 +19,7 @@ for _module_name in (
     "kernel",
     "latent_bg",
     "mamba",
+    "mamba_moe",
     "ncde",
     "proportional",
     "rnn",

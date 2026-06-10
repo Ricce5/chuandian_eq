@@ -10,6 +10,22 @@ from src.utils.catalog_pathing import build_tpp_catalog_init_kwargs
 from src.utils.utils import set_seed
 
 
+def _cache_background_sequence(model: Any, bg_cache_seq: Any | None) -> None:
+    if bg_cache_seq is None:
+        return
+    bg_model = getattr(model, "bg_model", None)
+    if bg_model is None:
+        return
+    time_series = getattr(bg_cache_seq, "time_series", None)
+    time_series_times = getattr(bg_cache_seq, "time_series_times", None)
+    if time_series is None or time_series_times is None:
+        return
+    bg_model.cache_batch(
+        time_series=time_series.unsqueeze(0),
+        time_series_times=time_series_times.unsqueeze(0),
+    )
+
+
 def resolve_registered_catalog_class(
     dataset_name: str,
     *,
@@ -63,6 +79,7 @@ def sample_tpp_forecasts(
     duration: float,
     num_samples: int,
     samples_per_batch: int,
+    bg_cache_seq: Any | None = None,
     seed: int | None = None,
     sample_max_length: int | None = None,
     predict_b: bool | None = None,
@@ -77,6 +94,7 @@ def sample_tpp_forecasts(
     if seed is not None:
         set_seed(seed)
     model.eval()
+    _cache_background_sequence(model, bg_cache_seq)
 
     try:
         sample_sig = inspect.signature(model.sample).parameters
@@ -98,6 +116,8 @@ def sample_tpp_forecasts(
         static_kwargs["verbose"] = verbose
     if predict_b is not None and _supports("predict_b"):
         static_kwargs["predict_b"] = predict_b
+    if bg_cache_seq is not None and _supports("bg_cache_seq"):
+        static_kwargs["bg_cache_seq"] = bg_cache_seq
     if seed is not None and _supports("random_state"):
         static_kwargs["random_state"] = int(seed)
     if sample_max_length is not None:

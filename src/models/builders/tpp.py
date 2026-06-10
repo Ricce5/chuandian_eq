@@ -15,6 +15,22 @@ def _resolve_loss_weights(args):
     return legacy_weights or None
 
 
+def _copy_bg_model_cfg(cfg):
+    if hasattr(cfg, "items"):
+        return {key: value for key, value in cfg.items()}
+    return dict(cfg)
+
+
+def _build_bg_model(model_name, cfg, device):
+    cfg_dict = _copy_bg_model_cfg(cfg)
+    if str(model_name) == "mamba_moe":
+        cfg_dict.pop("normalize_kernel_weights", None)
+
+    from src.models.bg import BGModel
+
+    return BGModel.by_name(model_name)(**cfg_dict, device=device)
+
+
 def _build_optional_bg_model(args, attr_name, device):
     model_name = getattr(args, attr_name, None)
     if model_name is None:
@@ -24,9 +40,7 @@ def _build_optional_bg_model(args, attr_name, device):
     if cfg is None:
         raise ValueError(f"{attr_name}_cfg must be provided when {attr_name} is set.")
 
-    from src.models.bg import BGModel
-
-    return BGModel.by_name(model_name)(**cfg, device=device)
+    return _build_bg_model(model_name, cfg, device)
 
 
 @ModelBuilder.register("thp")
@@ -94,8 +108,7 @@ class RTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.recurrent import RecurrentTPP
         if  getattr(args,'bg_model', None) is not None:
-            from src.models.bg import BGModel
-            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+            bg_model = _build_bg_model(args.bg_model, args.bg_model_cfg, device)
         else:
             bg_model = None
         return RecurrentTPP(args, device, bg_model)
@@ -111,9 +124,7 @@ class RTTPV2Builder(ModelBuilder):
         from src.models.tpp.recurrent.model_v2 import RecurrentTPPV2
 
         if getattr(args, "bg_model", None) is not None:
-            from src.models.bg import BGModel
-
-            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+            bg_model = _build_bg_model(args.bg_model, args.bg_model_cfg, device)
         else:
             bg_model = None
 
@@ -189,9 +200,8 @@ class OracleBuilder(ModelBuilder):
 class NHPPBuilder(ModelBuilder):
     def __call__(self, args, device):
         from src.models.tpp.nhpp import NHPP
-        from src.models.bg import BGModel
         assert hasattr(args, 'bg_model'), "NHPP requires a background model."
-        bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+        bg_model = _build_bg_model(args.bg_model, args.bg_model_cfg, device)
         return NHPP(args, device, bg_model)
 
 
@@ -307,6 +317,143 @@ class ETASZhuangBuilder(ModelBuilder):
         return model
 
 
+@ModelBuilder.register("netas")
+class NETASBuilder(ModelBuilder):
+    def __call__(self, args, device):
+        import torch
+
+        from src.models.tpp.common.recurrent_blocks import RNNTPPBackbone
+        from src.models.tpp.netas import MambaNETASEncoder, NETAS
+
+        encoder_type = str(getattr(args, "netas_encoder_type", "rnn")).strip().lower()
+        bg_model = _build_optional_bg_model(args, "bg_model", device)
+        if bg_model is not None:
+            base_rate_default = 0.0
+        else:
+            base_rate_default = 0.26
+
+        inter_time_min = float(
+            getattr(
+                args,
+                "netas_inter_time_min",
+                getattr(args, "rtpp_inter_time_min", getattr(args, "inter_time_min", 1e-10)),
+            )
+        )
+        inter_time_max = float(
+            getattr(
+                args,
+                "netas_inter_time_max",
+                getattr(args, "rtpp_inter_time_max", getattr(args, "time_max", 1e10)),
+            )
+        )
+        time_preprocess = str(
+            getattr(args, "netas_time_preprocess", getattr(args, "rtpp_time_preprocess", "legacy"))
+        )
+        tau_std = float(
+            getattr(args, "netas_log_tau_std", getattr(args, "rtpp_log_tau_std", 1.0))
+        )
+        context_size = int(args.d_model)
+        mag_mean = float(getattr(args, "mag_mean", args.mag_completeness))
+
+        if encoder_type == "rnn":
+            backbone = RNNTPPBackbone(
+                context_size=context_size,
+                tau_mean=float(args.tau_mean),
+                mag_mean=mag_mean,
+                rnn_type=str(getattr(args, "rnn_type", "GRU")),
+                num_rnn_layers=int(getattr(args, "num_rnn_layers", 1)),
+                dropout=float(getattr(args, "rnn_dropout", 0.0)),
+                input_magnitude=bool(getattr(args, "input_magnitude", True)),
+                num_extra_features=None,
+                use_residual=bool(getattr(args, "rtpp_use_residual", False)),
+                use_layernorm=bool(getattr(args, "rtpp_use_layernorm", False)),
+                time_preprocess=time_preprocess,
+                log_tau_std=tau_std,
+                inter_time_min=inter_time_min,
+                inter_time_max=inter_time_max,
+            )
+        elif encoder_type == "mamba":
+            backbone = MambaNETASEncoder(
+                context_size=context_size,
+                tau_mean=float(args.tau_mean),
+                mag_mean=mag_mean,
+                input_magnitude=bool(getattr(args, "input_magnitude", True)),
+                num_extra_features=None,
+                dropout=float(getattr(args, "rnn_dropout", 0.0)),
+                time_preprocess=time_preprocess,
+                log_tau_std=tau_std,
+                inter_time_min=inter_time_min,
+                inter_time_max=inter_time_max,
+                d_state=getattr(args, "netas_mamba_d_state", max(1, context_size // 2)),
+                d_conv=int(getattr(args, "netas_mamba_d_conv", 3)),
+                expand=int(getattr(args, "netas_mamba_expand", 2)),
+                dt_rank=getattr(args, "netas_mamba_dt_rank", "auto"),
+                use_conv=bool(getattr(args, "netas_mamba_use_conv", True)),
+                max_inference_len=int(getattr(args, "netas_max_inference_len", 10000)),
+                device=device,
+            )
+        else:
+            raise ValueError("netas_encoder_type must be one of ['rnn', 'mamba'].")
+
+        basis_rates = getattr(args, "netas_basis_rates", None)
+        basis_scales = getattr(args, "netas_basis_scales", None)
+        basis_shapes = getattr(args, "netas_basis_shapes", None)
+
+        model = NETAS(
+            event_encoder=backbone,
+            context_size=backbone.context_size,
+            basis_family=str(getattr(args, "netas_basis_family", "exponential")),
+            num_basis=int(getattr(args, "netas_num_basis", getattr(args, "num_components", 4))),
+            basis_rates=None if basis_rates is None else torch.as_tensor(basis_rates),
+            basis_scales=None if basis_scales is None else torch.as_tensor(basis_scales),
+            basis_shapes=None if basis_shapes is None else torch.as_tensor(basis_shapes),
+            basis_rate_min=float(getattr(args, "netas_basis_rate_min", 1e-3)),
+            basis_rate_max=float(getattr(args, "netas_basis_rate_max", 1e1)),
+            basis_scale_min=float(getattr(args, "netas_basis_scale_min", 1e-2)),
+            basis_scale_max=float(getattr(args, "netas_basis_scale_max", 1e2)),
+            basis_lomax_shape=float(getattr(args, "netas_basis_lomax_shape", 0.35)),
+            base_rate_init=torch.tensor(
+                getattr(args, "base_rate_init", base_rate_default),
+                dtype=torch.float64,
+            ),
+            productivity_alpha_init=float(
+                getattr(
+                    args,
+                    "netas_productivity_alpha_init",
+                    getattr(args, "productivity_alpha_init", 1.0),
+                )
+            ),
+            productivity_bias_init=float(getattr(args, "netas_productivity_bias_init", 0.0)),
+            productivity_mode=str(getattr(args, "netas_productivity_mode", "bounded")),
+            eta_max=float(getattr(args, "netas_eta_max", 0.95)),
+            branching_penalty_weight=float(
+                getattr(args, "netas_branching_penalty_weight", 0.0)
+            ),
+            branching_penalty_target=float(
+                getattr(args, "netas_branching_penalty_target", 0.95)
+            ),
+            richter_b=float(args.richter_b_mle),
+            mag_completeness=float(args.mag_completeness),
+            mag_max=float(getattr(args, "mag_max", 10.0)),
+            device=device,
+            bg_model=bg_model,
+            fix_mu=bool(getattr(args, "fix_mu", False)),
+            fixed_mu_value=getattr(args, "fixed_mu_value", None),
+            loss_reduction=str(getattr(args, "loss_reduction", "per_time")),
+            query_chunk_size=int(getattr(args, "etas_query_chunk_size", 0)),
+            history_chunk_size=int(getattr(args, "etas_history_chunk_size", 0)),
+            loss_weights=_resolve_loss_weights(args),
+        )
+        if getattr(args, "use_double_precision", False):
+            model.double()
+        else:
+            model.float()
+        if model.bg_model is not None:
+            model.bg_model.float()
+
+        return model
+
+
 @ModelBuilder.register("mtpp")
 class MTTPBuilder(ModelBuilder):
     def __call__(self, args, device):
@@ -387,7 +534,7 @@ class MixerTPPBuilder(ModelBuilder):
         b_range = getattr(args, 'b_range', None)
         b_init = getattr(args, 'b_init', 1.0)
         if getattr(args, 'bg_model', None) is not None:
-            bg_model = BGModel.by_name(args.bg_model)(**args.bg_model_cfg, device=device)
+            bg_model = _build_bg_model(args.bg_model, args.bg_model_cfg, device)
         else:
             bg_model = None
         return MixerTPP(base_model, hypernet_time, hypernet_mag, dropout=args.dropout,

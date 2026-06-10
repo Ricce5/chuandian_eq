@@ -31,6 +31,7 @@ class SlidingWindowForecastConfig:
     quantiles: tuple[float, float] = (2.5, 97.5)
     samples_per_batch: int = 1000
     predict_b: bool | None = None
+    bg_cache_seq: Any | None = None
     return_sim_count_matrix: bool = False
     compute_mag_max: bool = False
     return_sim_mag_max_matrix: bool = False
@@ -86,6 +87,22 @@ def _stack_or_empty(rows, *, cols: int, dtype):
     if rows:
         return np.stack(rows, axis=0)
     return np.empty((0, cols), dtype=dtype)
+
+
+def _cache_background_sequence(model: Any, bg_cache_seq: Any | None) -> None:
+    if bg_cache_seq is None:
+        return
+    bg_model = getattr(model, "bg_model", None)
+    if bg_model is None:
+        return
+    time_series = getattr(bg_cache_seq, "time_series", None)
+    time_series_times = getattr(bg_cache_seq, "time_series_times", None)
+    if time_series is None or time_series_times is None:
+        return
+    bg_model.cache_batch(
+        time_series=time_series.unsqueeze(0),
+        time_series_times=time_series_times.unsqueeze(0),
+    )
 
 
 def _as_1d_array(name: str, value):
@@ -400,6 +417,7 @@ def run_sliding_window_forecast(
     quantiles: tuple[float, float] = (2.5, 97.5),
     samples_per_batch: int = 1000,
     predict_b: bool | None = None,
+    bg_cache_seq: Any | None = None,
     return_sim_count_matrix: bool = False,
     compute_mag_max: bool = False,
     return_sim_mag_max_matrix: bool = False,
@@ -430,6 +448,7 @@ def run_sliding_window_forecast(
         quantiles = tuple(config.quantiles)
         samples_per_batch = int(config.samples_per_batch)
         predict_b = config.predict_b
+        bg_cache_seq = config.bg_cache_seq
         return_sim_count_matrix = bool(config.return_sim_count_matrix)
         compute_mag_max = bool(config.compute_mag_max)
         return_sim_mag_max_matrix = bool(config.return_sim_mag_max_matrix)
@@ -450,15 +469,19 @@ def run_sliding_window_forecast(
     sim_mag_max_rows: list[np.ndarray] = []
 
     model.eval()
+    _cache_background_sequence(model, bg_cache_seq)
 
     try:
         sample_params = inspect.signature(model.sample).parameters
-        supports_predict_b = "predict_b" in sample_params or any(
+        accepts_var_kwargs = any(
             param.kind == inspect.Parameter.VAR_KEYWORD
             for param in sample_params.values()
         )
+        supports_predict_b = "predict_b" in sample_params or accepts_var_kwargs
+        supports_bg_cache_seq = "bg_cache_seq" in sample_params or accepts_var_kwargs
     except Exception:
         supports_predict_b = False
+        supports_bg_cache_seq = False
 
     for t_forecast in t_forecast_list:
         t_end = min(t_forecast + duration, end)
@@ -476,6 +499,8 @@ def run_sliding_window_forecast(
         }
         if predict_b is not None and supports_predict_b:
             sample_kwargs["predict_b"] = bool(predict_b)
+        if bg_cache_seq is not None and supports_bg_cache_seq:
+            sample_kwargs["bg_cache_seq"] = bg_cache_seq
         forecasts = model.sample(**sample_kwargs)
 
         fc_counts = np.fromiter((len(fc) for fc in forecasts), dtype=np.int32)
@@ -903,6 +928,7 @@ def evaluate_sliding_window_forecast_plots(
     sliding_quantiles: tuple[float, float],
     samples_per_batch: int,
     predict_b: bool | None = None,
+    bg_cache_seq: Any | None = None,
     sliding_view_mode: str = "auto",
     load_sliding_cache: bool = True,
     force_recompute_sliding: bool = False,
@@ -946,10 +972,10 @@ def evaluate_sliding_window_forecast_plots(
                 quantiles=sliding_quantiles,
                 samples_per_batch=samples_per_batch,
                 predict_b=predict_b,
+                bg_cache_seq=bg_cache_seq,
                 return_sim_count_matrix=True,
-                compute_mag_max = True,
-                return_sim_mag_max_matrix= True,
-
+                compute_mag_max=True,
+                return_sim_mag_max_matrix=True,
             ),
         )
         if load_sliding_cache:
