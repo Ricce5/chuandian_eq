@@ -276,6 +276,89 @@ def test_netas_chunked_nll_matches_full_nll():
     torch.testing.assert_close(full_nll, chunked_nll, rtol=1e-5, atol=1e-7)
 
 
+def test_netas_learnable_lomax_basis_receives_gradients():
+    seq = Sequence(
+        inter_times=torch.tensor([0.4, 0.6, 0.8, 0.9], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([2.3, 2.7, 3.1], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq])
+    model = NETAS(
+        event_encoder=_ZeroEncoder(context_size=4),
+        context_size=4,
+        basis_family="lomax",
+        num_basis=2,
+        basis_scales=torch.tensor([0.5, 2.0], dtype=torch.float32),
+        basis_shapes=torch.tensor([0.6, 1.2], dtype=torch.float32),
+        basis_learnable="per_basis",
+        basis_max_log_deviation=0.5,
+        basis_learn_shapes=True,
+        base_rate_init=0.2,
+        productivity_alpha_init=0.0,
+        productivity_bias_init=0.0,
+        eta_max=0.8,
+        richter_b=1.0,
+        mag_completeness=2.0,
+        mag_max=8.0,
+        device=torch.device("cpu"),
+        loss_reduction="mean",
+        head_init_std=0.0,
+    )
+
+    torch.testing.assert_close(model.basis.effective_scales, model.basis.scales)
+    torch.testing.assert_close(model.basis.effective_shapes, model.basis.shapes)
+
+    loss = model.nll_loss(batch, reduction="mean")
+    loss.backward()
+
+    assert model.basis.scale_log_delta.grad is not None
+    assert model.basis.shape_log_delta.grad is not None
+    assert model.basis.scale_log_delta.grad.abs().sum() > 0.0
+    assert model.basis.shape_log_delta.grad.abs().sum() > 0.0
+
+
+def test_netas_head_init_allows_encoder_gradients_at_first_step():
+    torch.manual_seed(11)
+    seq = Sequence(
+        inter_times=torch.tensor([1.0, 0.5, 0.7, 0.8], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([2.5, 3.1, 2.9], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq])
+    encoder = RNNTPPBackbone(
+        context_size=8,
+        tau_mean=1.0,
+        mag_mean=2.0,
+        input_magnitude=True,
+    )
+    model = NETAS(
+        event_encoder=encoder,
+        context_size=8,
+        basis_family="exponential",
+        num_basis=3,
+        base_rate_init=0.1,
+        productivity_alpha_init=0.5,
+        productivity_bias_init=-0.5,
+        richter_b=1.0,
+        mag_completeness=2.0,
+        mag_max=8.0,
+        device=torch.device("cpu"),
+        loss_reduction="mean",
+        head_init_std=1e-2,
+    )
+
+    loss = model.nll_loss(batch, reduction="mean")
+    loss.backward()
+    encoder_grad = sum(
+        0.0 if param.grad is None else float(param.grad.abs().sum().item())
+        for param in model.event_encoder.parameters()
+    )
+
+    assert encoder_grad > 0.0
+
+
 def test_netas_builder_constructs_rnn_model():
     args = Namespace(
         model="netas",
@@ -299,6 +382,9 @@ def test_netas_builder_constructs_rnn_model():
         netas_eta_max=0.9,
         netas_productivity_alpha_init=0.8,
         netas_productivity_mode="softplus",
+        netas_basis_learnable="per_basis",
+        netas_basis_max_log_deviation=0.75,
+        netas_head_init_std=0.02,
         netas_branching_penalty_weight=0.3,
         netas_branching_penalty_target=0.85,
     )
@@ -310,6 +396,9 @@ def test_netas_builder_constructs_rnn_model():
     assert model.productivity_mode == "softplus"
     assert model.branching_penalty_weight == pytest.approx(0.3)
     assert model.branching_penalty_target == pytest.approx(0.85)
+    assert model.basis.learnable_mode == "per_basis"
+    assert model.basis.max_log_deviation == pytest.approx(0.75)
+    assert model.basis.rate_log_delta.shape == torch.Size([3])
     assert get_model_family("netas") == "tpp"
     assert get_train_step_module("netas") == "tpp_train_step"
 

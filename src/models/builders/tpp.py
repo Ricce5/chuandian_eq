@@ -412,6 +412,9 @@ class NETASBuilder(ModelBuilder):
             basis_scale_min=float(getattr(args, "netas_basis_scale_min", 1e-2)),
             basis_scale_max=float(getattr(args, "netas_basis_scale_max", 1e2)),
             basis_lomax_shape=float(getattr(args, "netas_basis_lomax_shape", 0.35)),
+            basis_learnable=str(getattr(args, "netas_basis_learnable", "fixed")),
+            basis_max_log_deviation=getattr(args, "netas_basis_max_log_deviation", 0.0),
+            basis_learn_shapes=bool(getattr(args, "netas_basis_learn_shapes", False)),
             base_rate_init=torch.tensor(
                 getattr(args, "base_rate_init", base_rate_default),
                 dtype=torch.float64,
@@ -424,6 +427,7 @@ class NETASBuilder(ModelBuilder):
                 )
             ),
             productivity_bias_init=float(getattr(args, "netas_productivity_bias_init", 0.0)),
+            head_init_std=float(getattr(args, "netas_head_init_std", 1e-2)),
             productivity_mode=str(getattr(args, "netas_productivity_mode", "bounded")),
             eta_max=float(getattr(args, "netas_eta_max", 0.95)),
             branching_penalty_weight=float(

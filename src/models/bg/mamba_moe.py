@@ -6,10 +6,10 @@ from mamba_ssm import Mamba, Mamba2
 from .base import BGModel
 from .kernel import (
     _causal_depthwise_conv1d,
+    DeltaKernel,
     ExpKernel,
     GammaKernel,
     LogNormalKernel,
-    MixtureKernel,
     PowerLawKernel,
 )
 
@@ -28,6 +28,8 @@ def _build_single_kernel(
     powerlaw_init_tau: float,
 ) -> nn.Module:
     kernel_type = str(kernel_type).lower()
+    if kernel_type in ("delta", "proportional", "identity"):
+        return DeltaKernel(kernel_size, dt, normalize_kernel)
     if kernel_type == "exp":
         return ExpKernel(kernel_size, dt, normalize_kernel, init_tau=exp_init_tau)
     if kernel_type == "gamma":
@@ -66,7 +68,7 @@ def _resolve_kernel_types(
     return [str(name).lower() for name in resolved]
 
 
-def _build_kernel_module(
+def _build_kernel_modules(
     kernel_types: list[str] | tuple[str, ...],
     kernel_size: int,
     dt: float,
@@ -80,38 +82,34 @@ def _build_kernel_module(
     powerlaw_init_tau: float,
 ) -> nn.Module:
     resolved_kernel_types = _resolve_kernel_types(kernel_types)
-    kernels = [
-        _build_single_kernel(
-            kernel_type=name,
-            kernel_size=kernel_size,
-            dt=dt,
-            normalize_kernel=normalize_kernel,
-            exp_init_tau=exp_init_tau,
-            gamma_init_k=gamma_init_k,
-            gamma_init_beta=gamma_init_beta,
-            logn_init_mu=logn_init_mu,
-            logn_init_sigma=logn_init_sigma,
-            powerlaw_init_alpha=powerlaw_init_alpha,
-            powerlaw_init_tau=powerlaw_init_tau,
-        )
-        for name in resolved_kernel_types
-    ]
-    if len(kernels) == 1:
-        return kernels[0]
-    return MixtureKernel(
-        kernels,
-        normalize=normalize_kernel,
-        normalize_weights=True,
+    return nn.ModuleList(
+        [
+            _build_single_kernel(
+                kernel_type=name,
+                kernel_size=kernel_size,
+                dt=dt,
+                normalize_kernel=normalize_kernel,
+                exp_init_tau=exp_init_tau,
+                gamma_init_k=gamma_init_k,
+                gamma_init_beta=gamma_init_beta,
+                logn_init_mu=logn_init_mu,
+                logn_init_sigma=logn_init_sigma,
+                powerlaw_init_alpha=powerlaw_init_alpha,
+                powerlaw_init_tau=powerlaw_init_tau,
+            )
+            for name in resolved_kernel_types
+        ]
     )
 
 
 @BGModel.register("mamba_moe")
 class MambaMoEBGModel(BGModel):
-    """Use a Mamba gate to combine proportional and kernel experts.
+    """Use a Mamba gate to combine experts listed in ``kernel_types``.
 
     The gate predicts one weight per expert at each timestep. Set
     ``normalize_expert_gates=True`` to use a softmax gate whose weights sum to
-    one across experts.
+    one across all experts. If you want a proportional expert, include
+    ``"delta"`` or ``"proportional"`` in ``kernel_types``.
     """
 
     def __init__(
@@ -154,6 +152,8 @@ class MambaMoEBGModel(BGModel):
         self.d_model = int(d_model)
         self.d_state = int(d_state)
         self.kernel_types = _resolve_kernel_types(kernel_types)
+        self.num_experts = len(self.kernel_types)
+        self.expert_names = tuple(self.kernel_types)
         self.gate_activation = str(gate_activation).lower()
         self.normalize_expert_gates = bool(normalize_expert_gates)
         if self.gate_activation not in {"sigmoid", "softplus", "none"}:
@@ -180,12 +180,9 @@ class MambaMoEBGModel(BGModel):
 
         self.fc_in = nn.Linear(d_feature, d_model, bias=False)
         self.mamba = mamba_cls(**mamba_kwargs)
-        self.gate_head = nn.Linear(d_model, 2, bias=True)
+        self.gate_head = nn.Linear(d_model, self.num_experts, bias=True)
 
-        self.proportional_head = nn.Linear(d_feature, 1, bias=False)
-        torch.nn.init.constant_(self.proportional_head.weight, 1.0)
-
-        self.kernel = _build_kernel_module(
+        self.kernel_modules = _build_kernel_modules(
             kernel_types=self.kernel_types,
             kernel_size=kernel_size,
             dt=dt,
@@ -198,6 +195,7 @@ class MambaMoEBGModel(BGModel):
             powerlaw_init_alpha=powerlaw_init_alpha,
             powerlaw_init_tau=powerlaw_init_tau,
         )
+        self.kernel = self.kernel_modules[0] if self.num_experts == 1 else self.kernel_modules
         self.use_mlp = bool(use_mlp)
         if self.use_mlp:
             self.kernel_head = nn.Sequential(
@@ -251,9 +249,15 @@ class MambaMoEBGModel(BGModel):
         return gate_logits
 
     def _kernel_expert(self, time_series: torch.Tensor) -> torch.Tensor:
-        kernel = self.kernel(device=time_series.device, dtype=time_series.dtype)
-        conv_out = _causal_depthwise_conv1d(time_series, kernel)
-        return self.kernel_head(conv_out)
+        expert_outputs = []
+        for kernel_module in self.kernel_modules:
+            kernel = kernel_module(device=time_series.device, dtype=time_series.dtype)
+            conv_out = _causal_depthwise_conv1d(time_series, kernel)
+            expert_outputs.append(self.kernel_head(conv_out))
+        return torch.cat(expert_outputs, dim=-1)
+
+    def _expert_outputs(self, time_series: torch.Tensor) -> torch.Tensor:
+        return self._kernel_expert(time_series)
 
     def context_trajectory(
         self,
@@ -268,12 +272,43 @@ class MambaMoEBGModel(BGModel):
             ).unsqueeze(-1)
         return time_series_times, gate_hidden
 
+    def gate_trajectory(self, ts_batch) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return gate weights on the stored time grid.
+
+        The returned weights are shaped ``(B, T, E)`` where
+        ``E = len(kernel_types)`` and correspond to the configured experts in
+        ``kernel_types`` order.
+        """
+        time_series, time_series_times, ts_mask = self._prepare_ts_inputs(ts_batch)
+        gate_hidden = self._gate_hidden(time_series)
+        gate_weights = self._gate_weights(gate_hidden)
+        if ts_mask is not None:
+            gate_weights = gate_weights * ts_mask.to(
+                device=gate_weights.device,
+                dtype=gate_weights.dtype,
+            ).unsqueeze(-1)
+        return time_series_times, gate_weights
+
+    gate_weights_trajectory = gate_trajectory
+
+    def expert_trajectory(self, ts_batch) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return per-expert contributions on the stored time grid.
+
+        The returned values are shaped ``(B, T, E)`` and follow the exact
+        ``kernel_types`` order.
+        """
+        time_series, time_series_times, ts_mask = self._prepare_ts_inputs(ts_batch)
+        expert_values = self._expert_outputs(time_series)
+        if ts_mask is not None:
+            expert_values = expert_values * ts_mask.to(
+                device=expert_values.device,
+                dtype=expert_values.dtype,
+            ).unsqueeze(-1)
+        return time_series_times, expert_values
+
     def scaled_intensity(self, time_series: torch.Tensor) -> torch.Tensor:
-        proportional_out = self.proportional_head(time_series)
-        kernel_out = self._kernel_expert(time_series)
         gate_hidden = self._gate_hidden(time_series)
         gate_weights = self._gate_weights(gate_hidden)
 
-        proportional_weight = gate_weights[..., :1]
-        kernel_weight = gate_weights[..., 1:]
-        return proportional_weight * proportional_out + kernel_weight * kernel_out
+        expert_values = self._expert_outputs(time_series)
+        return (gate_weights * expert_values).sum(dim=-1, keepdim=True)

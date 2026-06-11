@@ -17,6 +17,7 @@ for _module_name in (
     "conv_mlp",
     "gp_latent_bg",
     "kernel",
+    "kernel_mamba",
     "latent_bg",
     "mamba",
     "mamba_moe",

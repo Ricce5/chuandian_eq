@@ -156,6 +156,24 @@ class PowerLawKernel(_BaseKernel):
         return self._normalize(h)
 
 
+class DeltaKernel(_BaseKernel):
+    """Discrete delta kernel: h[0] = 1, h[t>0] = 0.
+
+    This acts as an identity shortcut under causal convolution and can be used
+    to represent the proportional branch as a kernel expert.
+    """
+
+    def __init__(self, kernel_size: int, dt: float = 1.0, normalize: bool = True):
+        super().__init__(kernel_size, dt, normalize)
+
+    def forward(self, device=None, dtype=None) -> torch.Tensor:
+        device = device or torch.device("cpu")
+        dtype = dtype or torch.float32
+        h = torch.zeros(self.kernel_size, device=device, dtype=dtype)
+        h[-1] = 1.0
+        return self._normalize(h)
+
+
 class MixtureKernel(_BaseKernel):
     """
     Mixture kernel: h = sum_r w_r * h_r.
@@ -206,6 +224,7 @@ class KernelBGModel(BGModel):
       - "gamma"
       - "lognormal"
       - "powerlaw"
+            - "delta" / "proportional" / "identity"
       - "mix" (default: mixture of gamma + exp, configurable)
     """
     def __init__(
@@ -248,6 +267,8 @@ class KernelBGModel(BGModel):
                 init_alpha=powerlaw_init_alpha,
                 init_tau=powerlaw_init_tau,
             )
+        elif kt in ("delta", "proportional", "identity"):
+            self.kernel = DeltaKernel(kernel_size, dt, normalize_kernel)
         elif kt in ("mix", "mixture"):
             self.kernel = MixtureKernel(
                 [

@@ -168,7 +168,12 @@ def masked_select_per_row(
 
 
 class FixedKernelBasis(nn.Module):
-    """Fixed normalized basis kernels for the NETAS trigger."""
+    """Normalized basis kernels for the NETAS trigger.
+
+    By default the basis is fixed. Setting ``learnable`` adds bounded log-space
+    deltas on top of the fixed positive parameters, preserving the ETAS-style
+    nonnegative normalized kernels while allowing modest data-driven adaptation.
+    """
 
     def __init__(
         self,
@@ -183,6 +188,9 @@ class FixedKernelBasis(nn.Module):
         scale_min: float = 1e-2,
         scale_max: float = 1e2,
         lomax_shape: float = 0.35,
+        learnable: str = "fixed",
+        max_log_deviation: Optional[float] = 0.0,
+        learn_shapes: bool = False,
     ) -> None:
         super().__init__()
         family_name = str(family).strip().lower()
@@ -191,6 +199,31 @@ class FixedKernelBasis(nn.Module):
         if int(num_basis) < 1:
             raise ValueError("num_basis must be >= 1.")
         self.family = family_name
+        learnable_name = str(learnable).strip().lower().replace("-", "_")
+        learnable_aliases = {
+            "none": "fixed",
+            "false": "fixed",
+            "fixed": "fixed",
+            "global": "global",
+            "global_scale": "global",
+            "shared": "global",
+            "per_basis": "per_basis",
+            "basis": "per_basis",
+            "full": "per_basis",
+            "true": "per_basis",
+        }
+        if learnable_name not in learnable_aliases:
+            raise ValueError(
+                "learnable must be one of ['fixed', 'global', 'per_basis']."
+            )
+        self.learnable_mode = learnable_aliases[learnable_name]
+        if max_log_deviation is None:
+            self.max_log_deviation = 0.0
+        else:
+            if float(max_log_deviation) < 0.0:
+                raise ValueError("max_log_deviation must be non-negative.")
+            self.max_log_deviation = float(max_log_deviation)
+        self.learn_shapes = bool(learn_shapes)
 
         if self.family == "exponential":
             if rates is None:
@@ -213,6 +246,7 @@ class FixedKernelBasis(nn.Module):
             if torch.any(rates <= 0):
                 raise ValueError("All exponential basis rates must be positive.")
             self.register_buffer("rates", rates)
+            self._register_log_delta("rate_log_delta", rates)
         else:
             if scales is None:
                 if scale_min <= 0 or scale_max <= 0:
@@ -229,7 +263,11 @@ class FixedKernelBasis(nn.Module):
                         dtype=torch.float32,
                     )
             if shapes is None:
-                shapes = torch.full((int(num_basis),), float(lomax_shape), dtype=torch.float32)
+                shapes = torch.full(
+                    (int(num_basis),),
+                    float(lomax_shape),
+                    dtype=torch.float32,
+                )
             scales = torch.as_tensor(scales, dtype=torch.float32).flatten()
             shapes = torch.as_tensor(shapes, dtype=torch.float32).flatten()
             if scales.numel() != int(num_basis) or shapes.numel() != int(num_basis):
@@ -238,6 +276,9 @@ class FixedKernelBasis(nn.Module):
                 raise ValueError("All Lomax basis scales/shapes must be positive.")
             self.register_buffer("scales", scales)
             self.register_buffer("shapes", shapes)
+            self._register_log_delta("scale_log_delta", scales)
+            if self.learn_shapes:
+                self._register_log_delta("shape_log_delta", shapes)
 
     @property
     def num_basis(self) -> int:
@@ -245,25 +286,63 @@ class FixedKernelBasis(nn.Module):
             return int(self.rates.numel())
         return int(self.scales.numel())
 
+    def _register_log_delta(self, name: str, base: torch.Tensor) -> None:
+        if self.learnable_mode == "fixed":
+            return
+        shape = (1,) if self.learnable_mode == "global" else tuple(base.shape)
+        self.register_parameter(
+            name,
+            nn.Parameter(torch.zeros(shape, dtype=base.dtype)),
+        )
+
+    def _bounded_log_delta(self, raw_delta: torch.Tensor) -> torch.Tensor:
+        if self.max_log_deviation > 0.0:
+            return self.max_log_deviation * torch.tanh(raw_delta)
+        return raw_delta
+
+    def _apply_log_delta(self, base: torch.Tensor, name: str) -> torch.Tensor:
+        raw_delta = getattr(self, name, None)
+        if raw_delta is None:
+            return base
+        log_delta = self._bounded_log_delta(raw_delta).to(
+            device=base.device,
+            dtype=base.dtype,
+        )
+        if log_delta.numel() == 1:
+            log_delta = log_delta.expand_as(base)
+        return base * torch.exp(log_delta)
+
+    @property
+    def effective_rates(self) -> torch.Tensor:
+        return self._apply_log_delta(self.rates, "rate_log_delta")
+
+    @property
+    def effective_scales(self) -> torch.Tensor:
+        return self._apply_log_delta(self.scales, "scale_log_delta")
+
+    @property
+    def effective_shapes(self) -> torch.Tensor:
+        return self._apply_log_delta(self.shapes, "shape_log_delta")
+
     def pdf(self, lag: torch.Tensor) -> torch.Tensor:
         lag = torch.clamp_min(lag, 0.0)
         if self.family == "exponential":
-            rates = self.rates.view(*([1] * lag.ndim), -1)
+            rates = self.effective_rates.view(*([1] * lag.ndim), -1)
             return rates * torch.exp(-rates * lag.unsqueeze(-1))
 
-        scales = self.scales.view(*([1] * lag.ndim), -1)
-        shapes = self.shapes.view(*([1] * lag.ndim), -1)
+        scales = self.effective_scales.view(*([1] * lag.ndim), -1)
+        shapes = self.effective_shapes.view(*([1] * lag.ndim), -1)
         one_plus = 1.0 + lag.unsqueeze(-1) / scales
         return (shapes / scales) * one_plus.pow(-(shapes + 1.0))
 
     def cdf(self, lag: torch.Tensor) -> torch.Tensor:
         lag = torch.clamp_min(lag, 0.0)
         if self.family == "exponential":
-            rates = self.rates.view(*([1] * lag.ndim), -1)
+            rates = self.effective_rates.view(*([1] * lag.ndim), -1)
             return 1.0 - torch.exp(-rates * lag.unsqueeze(-1))
 
-        scales = self.scales.view(*([1] * lag.ndim), -1)
-        shapes = self.shapes.view(*([1] * lag.ndim), -1)
+        scales = self.effective_scales.view(*([1] * lag.ndim), -1)
+        shapes = self.effective_shapes.view(*([1] * lag.ndim), -1)
         one_plus = 1.0 + lag.unsqueeze(-1) / scales
         return 1.0 - one_plus.pow(-shapes)
 
@@ -276,11 +355,11 @@ class FixedKernelBasis(nn.Module):
         lower = max(float(lower), 0.0)
         upper = max(float(upper), lower)
         if self.family == "exponential":
-            rates = _to_numpy_array(self.rates).astype(np.float64, copy=False)
+            rates = _to_numpy_array(self.effective_rates).astype(np.float64, copy=False)
             return np.exp(-rates * lower) - np.exp(-rates * upper)
 
-        scales = _to_numpy_array(self.scales).astype(np.float64, copy=False)
-        shapes = _to_numpy_array(self.shapes).astype(np.float64, copy=False)
+        scales = _to_numpy_array(self.effective_scales).astype(np.float64, copy=False)
+        shapes = _to_numpy_array(self.effective_shapes).astype(np.float64, copy=False)
         return (1.0 + lower / scales) ** (-shapes) - (1.0 + upper / scales) ** (-shapes)
 
     def sample_truncated_np(
@@ -300,15 +379,15 @@ class FixedKernelBasis(nn.Module):
         u = rng.random(int(size))
 
         if self.family == "exponential":
-            rate = float(self.rates[int(component_idx)].item())
+            rate = float(self.effective_rates[int(component_idx)].item())
             f_lower = 1.0 - math.exp(-rate * lower)
             f_upper = 1.0 - math.exp(-rate * upper)
             u = f_lower + (f_upper - f_lower) * u
             u = np.clip(u, 1e-12, 1.0 - 1e-12)
             return -np.log1p(-u) / rate
 
-        scale = float(self.scales[int(component_idx)].item())
-        shape = float(self.shapes[int(component_idx)].item())
+        scale = float(self.effective_scales[int(component_idx)].item())
+        shape = float(self.effective_shapes[int(component_idx)].item())
         f_lower = 1.0 - (1.0 + lower / scale) ** (-shape)
         f_upper = 1.0 - (1.0 + upper / scale) ** (-shape)
         u = f_lower + (f_upper - f_lower) * u
@@ -335,15 +414,15 @@ class FixedKernelBasis(nn.Module):
         u = rng.random(lower.shape)
 
         if self.family == "exponential":
-            rate = float(self.rates[int(component_idx)].item())
+            rate = float(self.effective_rates[int(component_idx)].item())
             f_lower = 1.0 - np.exp(-rate * lower)
             f_upper = 1.0 - np.exp(-rate * upper)
             u = f_lower + (f_upper - f_lower) * u
             u = np.clip(u, 1e-12, 1.0 - 1e-12)
             return -np.log1p(-u) / rate
 
-        scale = float(self.scales[int(component_idx)].item())
-        shape = float(self.shapes[int(component_idx)].item())
+        scale = float(self.effective_scales[int(component_idx)].item())
+        shape = float(self.effective_shapes[int(component_idx)].item())
         f_lower = 1.0 - (1.0 + lower / scale) ** (-shape)
         f_upper = 1.0 - (1.0 + upper / scale) ** (-shape)
         u = f_lower + (f_upper - f_lower) * u
@@ -552,9 +631,13 @@ class NETAS(TPPModel):
         basis_scale_min: float = 1e-2,
         basis_scale_max: float = 1e2,
         basis_lomax_shape: float = 0.35,
+        basis_learnable: str = "fixed",
+        basis_max_log_deviation: Optional[float] = 0.0,
+        basis_learn_shapes: bool = False,
         base_rate_init: Union[float, torch.Tensor] = 0.02,
         productivity_alpha_init: float = 1.0,
         productivity_bias_init: float = 0.0,
+        head_init_std: float = 1e-2,
         productivity_mode: str = "bounded",
         eta_max: float = 0.95,
         branching_penalty_weight: float = 0.0,
@@ -587,6 +670,8 @@ class NETAS(TPPModel):
             raise ValueError("branching_penalty_weight must be non-negative.")
         if branching_penalty_target <= 0.0:
             raise ValueError("branching_penalty_target must be positive.")
+        if head_init_std < 0.0:
+            raise ValueError("head_init_std must be non-negative.")
         if mag_max <= mag_completeness:
             raise ValueError("mag_max must be greater than mag_completeness.")
         if richter_b <= 0:
@@ -614,6 +699,9 @@ class NETAS(TPPModel):
             scale_min=float(basis_scale_min),
             scale_max=float(basis_scale_max),
             lomax_shape=float(basis_lomax_shape),
+            learnable=basis_learnable,
+            max_log_deviation=basis_max_log_deviation,
+            learn_shapes=bool(basis_learn_shapes),
         )
 
         self.productivity_head = nn.Linear(self.context_size, 1, bias=False)
@@ -624,8 +712,20 @@ class NETAS(TPPModel):
             torch.tensor(float(productivity_bias_init), dtype=torch.float32)
         )
         self.mixture_head = nn.Linear(self.context_size, self.basis.num_basis, bias=False)
-        nn.init.zeros_(self.productivity_head.weight)
-        nn.init.zeros_(self.mixture_head.weight)
+        if float(head_init_std) > 0.0:
+            nn.init.normal_(
+                self.productivity_head.weight,
+                mean=0.0,
+                std=float(head_init_std),
+            )
+            nn.init.normal_(
+                self.mixture_head.weight,
+                mean=0.0,
+                std=float(head_init_std),
+            )
+        else:
+            nn.init.zeros_(self.productivity_head.weight)
+            nn.init.zeros_(self.mixture_head.weight)
 
         self.register_buffer("eta_max", torch.tensor(float(eta_max), dtype=torch.float32))
         self.register_buffer("M_c", torch.tensor(float(mag_completeness), dtype=torch.float32))

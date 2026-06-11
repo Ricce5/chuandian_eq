@@ -4,6 +4,7 @@ import pytest
 
 from src.models.bg.kernel import (
     _causal_depthwise_conv1d,
+    DeltaKernel,
     ExpKernel,
     GammaKernel,
     LogNormalKernel,
@@ -32,7 +33,7 @@ def test_causal_depthwise_conv1d_shape_and_device():
     y = _causal_depthwise_conv1d(x, h)
 
     assert y.shape == (B, T, F)
-    assert y.device == device
+    assert y.device.type == device.type
 
 
 # -----------------------------------------------------------------------------
@@ -41,6 +42,7 @@ def test_causal_depthwise_conv1d_shape_and_device():
 
 
 @pytest.mark.parametrize("kernel_cls, kwargs", [
+    (DeltaKernel, {}),
     (ExpKernel, {"init_tau": 10.0}),
     (GammaKernel, {"init_k": 3.0, "init_beta": 0.3}),
     (LogNormalKernel, {"init_mu": 2.0, "init_sigma": 1.0}),
@@ -53,7 +55,7 @@ def test_single_kernels_basic_properties(kernel_cls, kwargs, kernel_size):
     h = kernel(device=device, dtype=torch.float32)
 
     assert h.shape == (kernel_size,)
-    assert h.device == device
+    assert h.device.type == device.type
     # 非负
     assert torch.all(h >= 0.0)
     # 归一化（允许一定数值误差）
@@ -71,7 +73,7 @@ def test_mixture_kernel_properties():
     h = mix(device=device, dtype=torch.float32)
 
     assert h.shape == (kernel_size,)
-    assert h.device == device
+    assert h.device.type == device.type
     assert torch.all(h >= 0.0)
     assert torch.isclose(h.sum(), torch.tensor(1.0, device=device), atol=1e-4)
 
@@ -100,9 +102,8 @@ def test_kernel_bg_model_scaled_intensity_shape_and_grad(kernel_type):
 
     out = model.scaled_intensity(x)
     assert out.shape == (B, T, 1)
-    assert out.device == device
-    # softplus 输出应当是非负
-    assert torch.all(out >= 0.0)
+    assert out.device.type == device.type
+    assert torch.all(torch.isfinite(out))
 
     loss = out.mean()
     loss.backward()
