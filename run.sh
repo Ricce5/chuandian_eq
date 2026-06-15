@@ -120,4 +120,11 @@ python scripts/summarize/summarize_clf_seed_across_experiments.py --seed 1 --out
   python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs experiments/clf_pre_v1
 
     git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
-    python scripts/summarize/summarize_rtpp_v2_grid.py --exp_dir experiments/rtpp_v2_ablation --ckpt_select best
+    python scripts/summarize_rtpp_v2_grid.py  --exp_dir experiments/rtpp_v2_multi_dataset_norm_0.2 --ckpt_select best
+
+
+
+  python scripts/summarize/summarize_etas_grid.py  --exp_dir experiments/etas_multi_dataset
+
+
+   python  scripts/run/run_etas_grid.py  --exp_config config/experiments/etas_multi_dataset.yaml

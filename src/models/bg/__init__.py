@@ -24,6 +24,7 @@ for _module_name in (
     "ncde",
     "proportional",
     "rnn",
+    "s4d",
     "ssm",
     "stochastic_ssm",
 ):

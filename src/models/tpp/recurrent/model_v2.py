@@ -370,7 +370,8 @@ class RecurrentTPPV2(RecurrentTPPSamplingMixin, TPPModel):
         reduction = self.reduction if reduction is None else reduction
         weights = self.weights
 
-        nll_time = -log_like  # trigger-time component
+        nll_trigger_time = -log_like
+        nll_time = nll_trigger_time
         nll_total = weights["time_weight"] * nll_time
         out = {
             "time": nll_time,
@@ -392,8 +393,8 @@ class RecurrentTPPV2(RecurrentTPPSamplingMixin, TPPModel):
                 eps=eps,
             )
 
-            nll_time = nll_time + nll_bg
-            nll_total = nll_total + weights["bg_weight"] * nll_bg
+            nll_time = nll_trigger_time + nll_bg
+            nll_total = weights["time_weight"] * nll_trigger_time + weights["bg_weight"] * nll_bg
             if bg_kl is not None:
                 nll_total = nll_total + weights["bg_kl_weight"] * bg_kl
             if bg_norm is not None:

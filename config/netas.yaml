@@ -24,8 +24,6 @@ step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
 # Optional background model
-
-
 bg_model: mamba
 bg_model_cfg:
  d_feature: 1 
@@ -34,6 +32,7 @@ bg_model_cfg:
  model_type: mamba  # mamba | mamba2
  scale_init: 1000.0
  smooth_kernel_size: 3
+
 
 fix_mu: true
 fixed_mu_value: 0.0
@@ -57,20 +56,15 @@ netas_mamba_dt_rank: auto
 netas_mamba_use_conv: true
 netas_max_inference_len: 10000
 
-# Trigger basis
+# Fixed trigger basis
 # λ_tr(t) = Σ_i η_i Σ_l ω_il q_l(t-t_i)
 netas_basis_family: lomax
-netas_num_basis: 20
+netas_num_basis: 10
 netas_basis_rate_min: 1e-3
 netas_basis_rate_max: 1e1
 netas_basis_scale_min: 1e-3
 netas_basis_scale_max: 1e2
 netas_basis_lomax_shape: 0.56
-# Semi-learnable basis: keep the log-spaced prior, learn bounded log-space shifts.
-# fixed | global | per_basis. max_log_deviation=1 allows each learned value to move by e^±1.
-netas_basis_learnable: per_basis
-netas_basis_max_log_deviation: 1.0
-netas_basis_learn_shapes: true
 # Optional explicit basis parameters:
 # netas_basis_rates: [0.001, 0.01, 0.1, 1.0, 10.0]
 # netas_basis_scales: [...]
@@ -81,7 +75,6 @@ netas_productivity_mode: softplus
 netas_eta_max: 0.95  # Only used when netas_productivity_mode is bounded.
 netas_productivity_alpha_init: 0.37
 netas_productivity_bias_init: -0.6
-netas_head_init_std: 1e-2
 netas_branching_penalty_target: 0.95
 
 # Time preprocessing for encoder inputs
@@ -101,12 +94,7 @@ save_dir: null
 cuda_id: "0"
 
 # Data and control parameters
-dataset: CB_HAB1a
-seed: 0
-minibatch_training: false
-split_by_time: true
-time_order: [train, val, test]
-
+dataset: St1-2018
 catalog_cfg:
   freq: "1D"
-  mag_completeness: -0.4
+  mag_completeness: -0.5

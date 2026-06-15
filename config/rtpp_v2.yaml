@@ -16,7 +16,7 @@ loss_weights:
   mag_weight: 1.0
   b_weight: 0.0
   b_smooth_weight: 0.0
-  bg_norm_weight: 0.4
+  bg_norm_weight: 0.2
 scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
@@ -27,23 +27,14 @@ step_lr_gamma: 0.8
 
 
 
-bg_model: mamba_moe
+bg_model: mamba
 bg_model_cfg:
-  d_feature: 1
-  d_state: 64
-  d_model: 16
-  model_type: mamba  # mamba | mamba2
-  scale_init: 300.0
-  gate_activation: sigmoid
-  normalize_expert_gates: true
-  kernel_types: [gamma, powerlaw]
-  kernel_size: 64
-  dt: 1.0
-  normalize_kernel: true
-  use_mlp: false
-  hidden: 32
-  gamma_init_k: 3.0
-  gamma_init_beta: 0.3
+ d_feature: 1 
+ d_state: 64
+ d_model: 16
+ model_type: mamba  # mamba | mamba2
+ scale_init: 1000.0
+ smooth_kernel_size: 3
 
 
 
@@ -97,7 +88,7 @@ save_dir: null
 cuda_id: "0"
 
 # Data and control parameters
-dataset: CCL
+dataset: PNR_1z
 seed: 0
 minibatch_training: false
 split_by_time: true
@@ -106,5 +97,4 @@ time_order:  [train, val, test]
 
 catalog_cfg:
   freq: "1D"
-  normalize_time_series: true
-  resample_freq_min: 10
+  mag_completeness: -1.5

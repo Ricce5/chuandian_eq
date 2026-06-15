@@ -1,0 +1,62 @@
+model: etas
+base_config: config/etas.yaml
+
+# 多数据集复现实验：
+# - 数据集与 catalog_cfg 对齐 config/experiments/rtpp_v2_multi_dataset.yaml。
+# - 每个 grid point 对应一个数据集；种子在每个数据集下展开。
+seeds: [0, 1,2]
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 1
+jobs_per_gpu: 1
+stop_on_error: false
+
+exp_root: experiments
+exp_name: etas_multi_dataset
+
+run_test: true
+ckpt_select: both
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: etas
+  common:
+    overrides:
+      minibatch_training: false
+      split_by_time: true
+      time_order: [train, val, test]
+  points:
+
+    # experiment_record.md 4.6: PNR_1z
+    - name: PNR_1z
+      overrides:
+        dataset: PNR_1z
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -1.5
+
+    # experiment_record.md 4.6: CB_HAB1a(-0.4)
+    - name: CB_HAB1a
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+
+    # experiment_record.md 4.6: CB_HAB4
+    - name: CB_HAB4
+      overrides:
+        dataset: CB_HAB4
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: 0.9
+
+    # experiment_record.md 4.6 / config/data_tpp.yaml: St1-2018(-0.5)
+    - name: St1_2018
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
