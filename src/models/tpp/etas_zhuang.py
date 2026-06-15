@@ -8,22 +8,36 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from joblib import Parallel, delayed
 from scipy.stats import poisson
 from torch.utils.checkpoint import checkpoint
 from tqdm.auto import trange
 
-from src.data.batch import Batch, get_mask, pad_sequence
+from src.data.batch import Batch, get_mask
 from src.data.sequence import Sequence
+from src.utils.mask_utils import masked_select_per_row
 
+from .common.etas_utils import (
+    gen_magnitude,
+    iter_chunks,
+    omori_history_contribution,
+    omori_integral_np,
+    resolve_chunk_size,
+    sample_omori_truncated_np,
+    sample_omori_truncated_torch,
+    soft_lower_bound,
+    soft_upper_bound,
+    to_tensor_like,
+    torch_gen_magnitude,
+    torch_omori_integral,
+)
 from .tpp_model import TPPModel
 
 logger = logging.getLogger(__name__)
 
 
 def _to_tensor(x, ref: torch.Tensor):
-    return torch.as_tensor(x, device=ref.device, dtype=ref.dtype)
+    return to_tensor_like(x, ref)
 
 
 def _compute_branching_ratio_ogata(
@@ -72,48 +86,17 @@ def _compute_branching_ratio_ogata(
 
 def gen_mag(shape=1, b=1, M_min=0, M_max=10):
     """Draw samples from the truncated Gutenberg-Richter distribution."""
-    u = np.random.random(shape)
-    mag = (
-        -1.0
-        / b
-        * np.log10(-u * (10 ** (-b * M_min) - 10 ** (-b * M_max)) + 10 ** (-b * M_min))
-    )
-    return mag
+    return gen_magnitude(shape=shape, b=b, m_min=M_min, m_max=M_max)
 
 
 def _omori_int_np(T1, T2, c, p):
     """Integral of (t + c)^(-p) from T1 to T2 (NumPy)."""
-    if np.isclose(p, 1.0):
-        return np.log(T2 + c) - np.log(T1 + c)
-    one_minus_p = 1.0 - p
-    return ((T2 + c) ** one_minus_p - (T1 + c) ** one_minus_p) / one_minus_p
+    return omori_integral_np(T1, T2, c, p)
 
 
 def _omori_inv_np(T1, T2, c, p, size=1, t_max=1e10):
     """Draw samples from Omori law on [T1, T2] using inverse transform."""
-    if t_max <= 0:
-        raise ValueError("t_max must be positive.")
-    if c <= 0:
-        raise ValueError("c must be positive.")
-
-    T1 = np.clip(np.asarray(T1, dtype=np.float64), 0.0, t_max)
-    T2 = np.clip(np.asarray(T2, dtype=np.float64), 0.0, t_max)
-    if np.any(T2 < T1):
-        raise ValueError("T2 must be >= T1 after clipping to [0, t_max].")
-
-    u = np.random.random(size=size)
-    total_mass = _omori_int_np(0.0, t_max, c, p)
-    cdf_T1 = _omori_int_np(0.0, T1, c, p) / total_mass
-    cdf_T2 = _omori_int_np(0.0, T2, c, p) / total_mass
-    u_prime = u * (cdf_T2 - cdf_T1) + cdf_T1
-
-    if np.isclose(p, 1.0):
-        return c * np.exp(u_prime * (np.log(t_max + c) - np.log(c))) - c
-
-    one_minus_p = 1.0 - p
-    base = u_prime * total_mass * one_minus_p + c ** one_minus_p
-    base = np.maximum(base, np.finfo(np.float64).tiny)
-    return base ** (1.0 / one_minus_p) - c
+    return sample_omori_truncated_np(T1, T2, c, p, size=size, t_max=t_max)
 
 
 class ETASZhuang(TPPModel):
@@ -323,13 +306,13 @@ class ETASZhuang(TPPModel):
     def _soft_upper_bound(
         x: torch.Tensor, upper: torch.Tensor, softness: torch.Tensor
     ) -> torch.Tensor:
-        return upper - softness * F.softplus((upper - x) / softness)
+        return soft_upper_bound(x, upper, softness)
 
     @staticmethod
     def _soft_lower_bound(
         x: torch.Tensor, lower: torch.Tensor, softness: torch.Tensor
     ) -> torch.Tensor:
-        return lower + softness * F.softplus((x - lower) / softness)
+        return soft_lower_bound(x, lower, softness)
 
     def _branching_ratio_prefactor(self, alpha_e_t: torch.Tensor) -> torch.Tensor:
         b = self.b.to(device=alpha_e_t.device, dtype=alpha_e_t.dtype)
@@ -391,66 +374,23 @@ class ETASZhuang(TPPModel):
 
     @staticmethod
     def _torch_omori_int(T1, T2, c, p):
-        c_t = torch.as_tensor(c, device=T1.device)
-        p_t = torch.as_tensor(p, device=T1.device)
-        dtype = torch.promote_types(torch.promote_types(T1.dtype, c_t.dtype), p_t.dtype)
-
-        T1_t = T1.to(dtype=dtype)
-        T2_t = T2.to(dtype=dtype)
-        c_t = c_t.to(dtype=dtype)
-        p_t = p_t.to(dtype=dtype)
-
-        one = torch.ones((), device=T1.device, dtype=dtype)
-        if torch.isclose(p_t, one):
-            return torch.log(T2_t + c_t) - torch.log(T1_t + c_t)
-        one_minus_p = one - p_t
-        return ((T2_t + c_t).pow(one_minus_p) - (T1_t + c_t).pow(one_minus_p)) / one_minus_p
+        return torch_omori_integral(T1, T2, c, p)
 
     @staticmethod
     def _torch_gen_mag(shape, b, M_min, M_max, device, dtype):
-        u = torch.rand(shape, device=device, dtype=dtype)
-        return (-1.0 / b) * torch.log10(
-            -u * (10 ** (-b * M_min) - 10 ** (-b * M_max)) + 10 ** (-b * M_min)
-        )
+        return torch_gen_magnitude(shape, b, M_min, M_max, device, dtype)
 
     @staticmethod
     def _torch_omori_inv(T1, T2, c, p, size, t_max, device, dtype):
-        c_t = torch.as_tensor(c, device=device, dtype=dtype)
-        p_t = torch.as_tensor(p, device=device, dtype=dtype)
-        u = torch.rand(size, device=device, dtype=dtype)
-
-        zero = torch.zeros((), device=device, dtype=dtype)
-        tmax_t = torch.tensor(t_max, device=device, dtype=dtype)
-        T1 = torch.clamp(T1, min=0.0, max=float(t_max))
-        T2 = torch.clamp(T2, min=0.0, max=float(t_max))
-        if torch.any(T2 < T1):
-            raise ValueError("T2 must be >= T1 after clipping to [0, t_max].")
-        F0 = ETASZhuang._torch_omori_int(zero, tmax_t, c_t, p_t)
-
-        F1 = ETASZhuang._torch_omori_int(zero, T1, c_t, p_t) / F0
-        F2 = ETASZhuang._torch_omori_int(zero, T2, c_t, p_t) / F0
-        u_prime = u * (F2 - F1) + F1
-
-        one = torch.tensor(1.0, device=device, dtype=dtype)
-        if torch.isclose(p_t, one):
-            log_term = torch.log(tmax_t + c_t) - torch.log(c_t)
-            return c_t * torch.exp(u_prime * log_term) - c_t
-
-        one_minus_p = one - p_t
-        base = u_prime * F0 * one_minus_p + c_t.pow(one_minus_p)
-        return base.pow(1.0 / one_minus_p) - c_t
+        return sample_omori_truncated_torch(T1, T2, c, p, size, t_max, device, dtype)
 
     @staticmethod
     def _resolve_chunk_size(total: int, configured: int) -> int:
-        if configured and configured > 0:
-            return max(1, min(int(configured), int(total)))
-        return max(1, int(total))
+        return resolve_chunk_size(total, configured)
 
     @staticmethod
     def _iter_chunks(total: int, chunk_size: int):
-        for start in range(0, int(total), int(chunk_size)):
-            end = min(start + int(chunk_size), int(total))
-            yield start, end
+        yield from iter_chunks(total, chunk_size)
 
     def _zhuang_history_contrib(
         self,
@@ -459,10 +399,14 @@ class ETASZhuang(TPPModel):
         productivity_hist_chunk: torch.Tensor,
         survival_hist_chunk: torch.Tensor,
     ) -> torch.Tensor:
-        delta_t = t_query_chunk.unsqueeze(-1) - t_hist_chunk.unsqueeze(-2)
-        prev_mask = (delta_t > 0) & survival_hist_chunk.unsqueeze(-2)
-        omori = (delta_t.clamp_min(0.0) + self.c).pow(-self.p)
-        return (omori * productivity_hist_chunk.unsqueeze(-2) * prev_mask).sum(-1)
+        return omori_history_contribution(
+            t_query_chunk=t_query_chunk,
+            t_hist_chunk=t_hist_chunk,
+            productivity_hist_chunk=productivity_hist_chunk,
+            survival_hist_chunk=survival_hist_chunk,
+            c=self.c,
+            p=self.p,
+        )
 
     def _maybe_checkpoint_history_contrib(
         self,
@@ -1251,15 +1195,3 @@ class ETASZhuang(TPPModel):
                     raise ValueError("richter b must be strictly positive.")
                 b_t = _to_tensor(b, self.b)
                 self.b.copy_(b_t)
-
-
-def masked_select_per_row(matrix, mask):
-    """Perform masked select on each row and return a padded tensor."""
-    assert matrix.shape == mask.shape and matrix.ndim == 2
-    selected_rows = []
-    for matrix_row, mask_row in zip(matrix, mask.bool()):
-        selected_rows.append(matrix_row.masked_select(mask_row))
-
-    new_matrix = pad_sequence(selected_rows)
-    new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])
-    return new_matrix, new_mask.float()

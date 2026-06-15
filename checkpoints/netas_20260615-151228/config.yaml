@@ -59,7 +59,7 @@ netas_max_inference_len: 10000
 # Fixed trigger basis
 # λ_tr(t) = Σ_i η_i Σ_l ω_il q_l(t-t_i)
 netas_basis_family: exponential
-netas_num_basis: 40
+netas_num_basis: 20
 netas_basis_rate_min: 1e-3
 netas_basis_rate_max: 1e1
 netas_basis_scale_min: 1e-3
@@ -87,10 +87,6 @@ netas_inter_time_max: 1e10
 etas_query_chunk_size: 0
 etas_history_chunk_size: 0
 
-# Optional NETAS parent-history truncation. 0/null disables truncation.
-netas_max_history_events: 4096
-netas_history_time_window: null
-
 # Other parameters
 dim: 1
 epochs: 1000
@@ -98,7 +94,13 @@ save_dir: null
 cuda_id: "0"
 
 # Data and control parameters
-dataset: St1-2018
+dataset: PNR_1z
+seed: 0
+minibatch_training: false
+split_by_time: true
+time_order:  [train, val, test]
+
+
 catalog_cfg:
   freq: "1D"
-  mag_completeness: -0.5
+  mag_completeness: -1.5

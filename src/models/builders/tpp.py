@@ -446,6 +446,8 @@ class NETASBuilder(ModelBuilder):
             loss_reduction=str(getattr(args, "loss_reduction", "per_time")),
             query_chunk_size=int(getattr(args, "etas_query_chunk_size", 0)),
             history_chunk_size=int(getattr(args, "etas_history_chunk_size", 0)),
+            max_history_events=int(getattr(args, "netas_max_history_events", 0)),
+            history_time_window=getattr(args, "netas_history_time_window", None),
             loss_weights=_resolve_loss_weights(args),
         )
         if getattr(args, "use_double_precision", False):

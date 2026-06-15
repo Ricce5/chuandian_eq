@@ -163,34 +163,47 @@ def get_attn_mask_with_cache(
 
     
 
-def masked_select_per_row(matrixs, mask):
-    """
-    Extended version: Supports multiple matrixs sharing the same row-level mask.
+def masked_select_per_row(matrix, mask):
+    """Select masked values per row and pad selected rows to equal length.
 
     Args:
-        matrixs: A 3D tensor or a list of 2D tensors, shaped [B, M, N] or of length B, each [M, N].
-        mask: A boolean matrix [M, N], indicating which elements are selected.
+        matrix: A 2D tensor with shape ``[M, N]``. For backward compatibility,
+            a 3D tensor ``[B, M, N]`` or a list of 2D tensors is also accepted.
+        mask: A boolean-like 2D tensor with shape ``[M, N]``.
 
     Returns:
-        selected_matrices: A list of 2D tensors, shaped [B, max_len] (padded by rows).
-        masks: A list of 2D float tensors corresponding to selected_matrices, indicating actual values vs padding.
+        For a 2D input, returns ``(selected, selected_mask)``. For a 3D/list
+        input, returns ``(selected_list, selected_mask_list)``.
     """
-    if isinstance(matrixs, torch.Tensor):
-        matrixs = [matrixs[i] for i in range(matrixs.shape[0])]
-    
-    assert all(matrix.shape == mask.shape for matrix in matrixs), "每个 matrix 必须与 mask 同形状"
+    if isinstance(matrix, torch.Tensor) and matrix.ndim == 2:
+        if matrix.shape != mask.shape:
+            raise ValueError(
+                "masked_select_per_row expects matrix/mask with identical 2D shapes."
+            )
+        selected_rows = [
+            matrix_row.masked_select(mask_row.bool())
+            for matrix_row, mask_row in zip(matrix, mask)
+        ]
+        selected = pad_sequence(selected_rows)
+        selected_mask = pad_sequence(
+            [torch.ones_like(row) for row in selected_rows]
+        ).float()
+        return selected, selected_mask
+
+    matrices = matrix
+    if isinstance(matrices, torch.Tensor):
+        if matrices.ndim != 3:
+            raise ValueError("matrix must be a 2D tensor, 3D tensor, or list of 2D tensors.")
+        matrices = [matrices[i] for i in range(matrices.shape[0])]
+
+    if not all(item.shape == mask.shape and item.ndim == 2 for item in matrices):
+        raise ValueError("Each matrix must be 2D and have the same shape as mask.")
 
     selected_matrices = []
-    new_masks = []
+    selected_masks = []
+    for item in matrices:
+        selected, selected_mask = masked_select_per_row(item, mask)
+        selected_matrices.append(selected)
+        selected_masks.append(selected_mask)
 
-    for matrix in matrixs:
-        selected_rows = [
-            row.masked_select(mask_row.bool()) for row, mask_row in zip(matrix, mask)
-        ]
-        padded = pad_sequence(selected_rows)
-        mask_tensor = pad_sequence([torch.ones_like(r) for r in selected_rows]).float()
-
-        selected_matrices.append(padded)
-        new_masks.append(mask_tensor)
-
-    return selected_matrices, new_masks
+    return selected_matrices, selected_masks

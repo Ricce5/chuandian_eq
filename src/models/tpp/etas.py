@@ -8,22 +8,36 @@ from typing import List, Optional, Union
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 from joblib import Parallel, delayed
 from scipy.stats import poisson
 from tqdm.auto import trange
 
 import src
-from src.data.batch import get_mask, pad_sequence,Batch
+from src.data.batch import Batch, get_mask
 from src.data.sequence import Sequence
+from src.utils.mask_utils import masked_select_per_row
 
+from .common.etas_utils import (
+    gen_magnitude,
+    iter_chunks,
+    omori_history_contribution,
+    omori_integral_np,
+    resolve_chunk_size,
+    sample_omori_truncated_np,
+    sample_omori_truncated_torch,
+    soft_lower_bound,
+    soft_upper_bound,
+    to_tensor_like,
+    torch_gen_magnitude,
+    torch_omori_integral,
+)
 from .tpp_model import TPPModel
 
 logger = logging.getLogger(__name__)
 
 def _to_tensor(x, ref: torch.Tensor):
-    return torch.as_tensor(x, device=ref.device, dtype=ref.dtype)
+    return to_tensor_like(x, ref)
 
 def _compute_branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
     """Compute branching ratio of the ETAS model (Sornette & Werner)."""
@@ -50,13 +64,7 @@ def _compute_branching_ratio(k=0.001, b=1, alpha=1, M_min=0, M_max=10):
 
 def gen_mag(shape=1, b=1, M_min=0, M_max=10):
     """Draw sample from the Gutenberg-Richter distribution."""
-    u = np.random.random(shape)
-    mag = (
-        -1
-        / b
-        * np.log10(-u * (10 ** (-b * M_min) - 10 ** (-b * M_max)) + 10 ** (-b * M_min))
-    )
-    return mag
+    return gen_magnitude(shape=shape, b=b, m_min=M_min, m_max=M_max)
 
 
 def productivity(m, k, alpha=1, Mc=3):
@@ -69,10 +77,7 @@ def omori_int(T1, T2, c, p):
 
     Used for the finite catalog correction in the productivity estimate (Brodsky 2011).
     """
-    if np.isclose(p, 1.0):
-        return np.log(T2 + c) - np.log(T1 + c)
-    else:
-        return ((T2 + c) ** (1 - p) - (T1 + c) ** (1 - p)) / (1 - p)
+    return omori_integral_np(T1, T2, c, p)
 
 
 def omori_inv(T1, T2, c, p, size=1, t_max=1e10):
@@ -81,29 +86,7 @@ def omori_inv(T1, T2, c, p, size=1, t_max=1e10):
     Sampling is conditional on the interval [T1, T2], implemented via a global CDF
     transform with truncation on [0, t_max].
     """
-    if t_max <= 0:
-        raise ValueError("t_max must be positive.")
-    if c <= 0:
-        raise ValueError("c must be positive.")
-
-    T1 = np.clip(np.asarray(T1, dtype=np.float64), 0.0, t_max)
-    T2 = np.clip(np.asarray(T2, dtype=np.float64), 0.0, t_max)
-    if np.any(T2 < T1):
-        raise ValueError("T2 must be >= T1 after clipping to [0, t_max].")
-
-    u = np.random.random(size=size)
-    total_mass = omori_int(0.0, t_max, c, p)
-    cdf_T1 = omori_int(0.0, T1, c, p) / total_mass
-    cdf_T2 = omori_int(0.0, T2, c, p) / total_mass
-    u_prime = u * (cdf_T2 - cdf_T1) + cdf_T1
-
-    if np.isclose(p, 1.0):
-        return c * np.exp(u_prime * (np.log(t_max + c) - np.log(c))) - c
-
-    one_minus_p = 1.0 - p
-    base = u_prime * total_mass * one_minus_p + c ** one_minus_p
-    base = np.maximum(base, np.finfo(np.float64).tiny)
-    return base ** (1.0 / one_minus_p) - c
+    return sample_omori_truncated_np(T1, T2, c, p, size=size, t_max=t_max)
 
 
 class ETAS(TPPModel):
@@ -327,7 +310,7 @@ class ETAS(TPPModel):
               (i.e., a boundary offset of about ``softness * log(2)``).
             - Smaller ``softness`` makes this closer to a hard clamp.
         """
-        return upper - softness * F.softplus((upper - x) / softness)
+        return soft_upper_bound(x, upper, softness)
 
     @staticmethod
     def _soft_lower_bound(x: torch.Tensor, lower: torch.Tensor, softness: torch.Tensor) -> torch.Tensor:
@@ -339,7 +322,7 @@ class ETAS(TPPModel):
               (i.e., a boundary offset of about ``softness * log(2)``).
             - Smaller ``softness`` makes this closer to a hard clamp.
         """
-        return lower + softness * F.softplus((x - lower) / softness)
+        return soft_lower_bound(x, lower, softness)
 
     def _branching_ratio_prefactor(self, alpha_t: torch.Tensor) -> torch.Tensor:
         b = self.b.to(device=alpha_t.device, dtype=alpha_t.dtype)
@@ -403,15 +386,11 @@ class ETAS(TPPModel):
 
     @staticmethod
     def _resolve_chunk_size(total: int, configured: int) -> int:
-        if configured and configured > 0:
-            return max(1, min(int(configured), int(total)))
-        return max(1, int(total))
+        return resolve_chunk_size(total, configured)
 
     @staticmethod
     def _iter_chunks(total: int, chunk_size: int):
-        for start in range(0, int(total), int(chunk_size)):
-            end = min(start + int(chunk_size), int(total))
-            yield start, end
+        yield from iter_chunks(total, chunk_size)
 
     def _etas_history_contrib(
         self,
@@ -420,10 +399,14 @@ class ETAS(TPPModel):
         prod_hist_chunk: torch.Tensor,
         surv_hist_chunk: torch.Tensor,
     ) -> torch.Tensor:
-        delta_t = t_query_chunk.unsqueeze(-1) - t_hist_chunk.unsqueeze(-2)  # (B, q, h)
-        prev_mask = (delta_t > 0) & surv_hist_chunk.unsqueeze(-2)  # (B, q, h)
-        omori = (delta_t.clamp_min(0.0) + self.c).pow(-self.p)  # (B, q, h)
-        return (omori * prod_hist_chunk.unsqueeze(-2) * prev_mask).sum(-1)
+        return omori_history_contribution(
+            t_query_chunk=t_query_chunk,
+            t_hist_chunk=t_hist_chunk,
+            productivity_hist_chunk=prod_hist_chunk,
+            survival_hist_chunk=surv_hist_chunk,
+            c=self.c,
+            p=self.p,
+        )
 
     def _maybe_checkpoint_history_contrib(
         self,
@@ -1066,20 +1049,13 @@ class ETAS(TPPModel):
     @staticmethod
     def _torch_gen_mag(shape, b, M_min, M_max, device, dtype):
         # Gutenberg-Richter inverse sampling (torch)
-        u = torch.rand(shape, device=device, dtype=dtype)
-        return (-1.0 / b) * torch.log10(
-            -u * (10 ** (-b * M_min) - 10 ** (-b * M_max)) + 10 ** (-b * M_min)
-        )
+        return torch_gen_magnitude(shape, b, M_min, M_max, device, dtype)
 
     @staticmethod
     def _torch_omori_int(T1, T2, c, p):
         # Integral of Omori kernel from T1 to T2
         # Handles p == 1
-        one = torch.tensor(1.0, device=T1.device, dtype=T1.dtype)
-        if torch.isclose(p, one):
-            return torch.log(T2 + c) - torch.log(T1 + c)
-        one_minus_p = one - p
-        return ((T2 + c).pow(one_minus_p) - (T1 + c).pow(one_minus_p)) / one_minus_p
+        return torch_omori_integral(T1, T2, c, p)
 
     @staticmethod
     def _torch_omori_inv(T1, T2, c, p, size, t_max, device, dtype):
@@ -1087,33 +1063,7 @@ class ETAS(TPPModel):
         Draw samples tau ~ Omori(tau+c)^(-p) restricted to [T1, T2]
         using inverse transform with global normalization integral(0,t_max).
         """
-        u = torch.rand(size, device=device, dtype=dtype)
-
-        zero = torch.zeros((), device=device, dtype=dtype)
-        tmax_t = torch.tensor(t_max, device=device, dtype=dtype)
-        T1 = torch.clamp(T1, min=0.0, max=float(t_max))
-        T2 = torch.clamp(T2, min=0.0, max=float(t_max))
-        if torch.any(T2 < T1):
-            raise ValueError("T2 must be >= T1 after clipping to [0, t_max].")
-
-        F0 = ETAS._torch_omori_int(zero, tmax_t, c, p)  # ∫_0^{t_max} g(t)
-
-        # CDF in [0, t_max]
-        F1 = ETAS._torch_omori_int(zero, T1, c, p) / F0
-        F2 = ETAS._torch_omori_int(zero, T2, c, p) / F0
-        u_prime = u * (F2 - F1) + F1
-
-        one = torch.tensor(1.0, device=device, dtype=dtype)
-        if torch.isclose(p, one):
-            # tau = c * exp(u_prime * log((t_max+c)/c)) - c
-            log_term = torch.log(tmax_t + c) - torch.log(c)
-            return c * torch.exp(u_prime * log_term) - c
-
-        one_minus_p = one - p
-        # Inverse CDF:
-        # u = ( (tau+c)^(1-p) - c^(1-p) ) / ( (tmax+c)^(1-p) - c^(1-p) )
-        base = u_prime * F0 * one_minus_p + c.pow(one_minus_p)
-        return base.pow(1.0 / one_minus_p) - c
+        return sample_omori_truncated_torch(T1, T2, c, p, size, t_max, device, dtype)
 
     def sample_gpu_parallel(
         self,
@@ -1561,44 +1511,3 @@ class ETAS(TPPModel):
             if alpha is not None:
                 a_t = _to_tensor(alpha, self.log_alpha)
                 self.log_alpha.copy_(torch.log(a_t))
-
-
-
-def masked_select_per_row(matrix, mask):
-    """Perform masked select on each row, and return the result as a padded tensor.
-
-    Args:
-        matrix: 2-d tensor from which values must be selected, shape [M, N]
-        mask: Boolean matrix indicating what entries must be selected, shape [M, N]
-
-    Returns:
-        new_matrix: 2-d tensor, where each row contains the selected entries from the
-            respective row of matrix + padding.
-        new_mask: Float mask indicating what entries correspond to actual values
-            (new_mask[i, j] = 1 => new_matrix[i, j] is not padding).
-
-    Example:
-        >>> matrix = torch.tensor([
-                [0, 1, 2, 3, 4],
-                [5, 6, 7, 8, 9],
-            ])
-        >>> mask = torch.tensor([
-                [0, 1, 1, 1, 0],
-                [0, 0, 0, 1, 1],
-            ])
-        >>> selected, new_mask = masked_select_per_row(matrix, mask)
-        >>> print(selected)
-        tensor([[1, 2, 3],
-                [8, 9, 0]])
-        >>> print(new_mask)
-        tensor([[1., 1., 1.],
-                [1., 1., 0.]])
-    """
-    assert matrix.shape == mask.shape and matrix.ndim == 2
-    selected_rows = []
-    for matrix_row, mask_row in zip(matrix, mask.bool()):
-        selected_rows.append(matrix_row.masked_select(mask_row)) 
-
-    new_matrix = pad_sequence(selected_rows)
-    new_mask = pad_sequence([torch.ones_like(s) for s in selected_rows])
-    return new_matrix, new_mask.float()

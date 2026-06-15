@@ -117,7 +117,12 @@ class _CachingBGSampler:
         return [torch.empty((0,), dtype=t0.dtype, device=t0.device) for _ in range(int(B))]
 
 
-def _manual_model(*, query_chunk_size: int = 0) -> NETAS:
+def _manual_model(
+    *,
+    query_chunk_size: int = 0,
+    max_history_events: int = 0,
+    history_time_window: float | None = None,
+) -> NETAS:
     model = NETAS(
         event_encoder=_ZeroEncoder(context_size=4),
         context_size=4,
@@ -135,6 +140,8 @@ def _manual_model(*, query_chunk_size: int = 0) -> NETAS:
         loss_reduction="none",
         query_chunk_size=query_chunk_size,
         history_chunk_size=3,
+        max_history_events=max_history_events,
+        history_time_window=history_time_window,
     )
     with torch.no_grad():
         model.productivity_head.weight.zero_()
@@ -276,6 +283,64 @@ def test_netas_chunked_nll_matches_full_nll():
     torch.testing.assert_close(full_nll, chunked_nll, rtol=1e-5, atol=1e-7)
 
 
+def test_netas_max_history_events_limits_trigger_intensity():
+    seq = Sequence(
+        inter_times=torch.tensor([1.0, 1.0, 1.0, 1.0], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([3.0, 3.0, 3.0], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq])
+    model = _manual_model(max_history_events=1)
+
+    got = model.trigger_intensity(batch, t_query=torch.tensor([[3.0]], dtype=torch.float32))
+
+    eta = torch.tensor(0.4)
+    beta = torch.tensor(2.0)
+    expected = eta * beta * torch.exp(-beta * torch.tensor(1.0))
+    torch.testing.assert_close(got, expected.reshape(1, 1), rtol=1e-5, atol=1e-7)
+
+
+def test_netas_history_time_window_limits_trigger_intensity():
+    seq = Sequence(
+        inter_times=torch.tensor([1.0, 1.0, 2.0], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([3.0, 3.0], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq])
+    model = _manual_model(history_time_window=1.5)
+
+    got = model.trigger_intensity(batch, t_query=torch.tensor([[3.0]], dtype=torch.float32))
+
+    eta = torch.tensor(0.4)
+    beta = torch.tensor(2.0)
+    expected = eta * beta * torch.exp(-beta * torch.tensor(1.0))
+    torch.testing.assert_close(got, expected.reshape(1, 1), rtol=1e-5, atol=1e-7)
+
+
+def test_netas_max_history_events_limits_trigger_integral():
+    seq = Sequence(
+        inter_times=torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([3.0, 3.0], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq])
+    model = _manual_model(max_history_events=1)
+
+    got = model.trigger_integral_between(
+        batch,
+        t_start=torch.tensor([0.0], dtype=torch.float32),
+        t_end=torch.tensor([3.0], dtype=torch.float32),
+    )
+
+    eta = torch.tensor(0.4)
+    beta = torch.tensor(2.0)
+    expected = 2.0 * eta * (1.0 - torch.exp(-beta * torch.tensor(1.0)))
+    torch.testing.assert_close(got, expected.reshape(1, 1), rtol=1e-5, atol=1e-7)
+
+
 def test_netas_learnable_lomax_basis_receives_gradients():
     seq = Sequence(
         inter_times=torch.tensor([0.4, 0.6, 0.8, 0.9], dtype=torch.float32),
@@ -387,6 +452,8 @@ def test_netas_builder_constructs_rnn_model():
         netas_head_init_std=0.02,
         netas_branching_penalty_weight=0.3,
         netas_branching_penalty_target=0.85,
+        netas_max_history_events=128,
+        netas_history_time_window=12.5,
     )
     model = ModelBuilder.by_name("netas")()(args, torch.device("cpu"))
 
@@ -399,6 +466,8 @@ def test_netas_builder_constructs_rnn_model():
     assert model.basis.learnable_mode == "per_basis"
     assert model.basis.max_log_deviation == pytest.approx(0.75)
     assert model.basis.rate_log_delta.shape == torch.Size([3])
+    assert model.max_history_events == 128
+    assert model.history_time_window == pytest.approx(12.5)
     assert get_model_family("netas") == "tpp"
     assert get_train_step_module("netas") == "tpp_train_step"
 
