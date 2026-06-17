@@ -8,7 +8,7 @@ from src.data.batch import Batch
 from src.data.sequence import Sequence
 from src.models.builders import ModelBuilder
 from src.models.tpp.common.recurrent_blocks import RNNTPPBackbone
-from src.models.tpp.netas import MambaNETASEncoder, NETAS
+from src.models.tpp.netas import FastNETAS, MambaNETASEncoder, NETAS
 from src.train.model_routing import get_model_family, get_train_step_module
 
 
@@ -149,6 +149,29 @@ def _manual_model(
     return model
 
 
+def _manual_fast_model() -> FastNETAS:
+    model = FastNETAS(
+        event_encoder=_ZeroEncoder(context_size=4),
+        context_size=4,
+        basis_family="exponential",
+        num_basis=1,
+        basis_rates=torch.tensor([2.0], dtype=torch.float32),
+        base_rate_init=0.5,
+        productivity_alpha_init=0.0,
+        productivity_bias_init=0.0,
+        eta_max=0.8,
+        richter_b=1.0,
+        mag_completeness=3.0,
+        mag_max=8.0,
+        device=torch.device("cpu"),
+        loss_reduction="none",
+    )
+    with torch.no_grad():
+        model.productivity_head.weight.zero_()
+        model.mixture_head.weight.zero_()
+    return model
+
+
 def test_netas_bounded_productivity_requires_subcritical_cap():
     with pytest.raises(ValueError, match="productivity_mode='bounded'"):
         NETAS(
@@ -281,6 +304,109 @@ def test_netas_chunked_nll_matches_full_nll():
     full_nll = full_model.nll_loss(batch, reduction="none")
     chunked_nll = chunked_model.nll_loss(batch, reduction="none")
     torch.testing.assert_close(full_nll, chunked_nll, rtol=1e-5, atol=1e-7)
+
+
+def test_fast_netas_matches_exponential_netas_on_small_batch():
+    seq1 = Sequence(
+        inter_times=torch.tensor([0.2, 0.5, 0.4, 0.9], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.3,
+        mag=torch.tensor([3.0, 3.2, 2.8], dtype=torch.float32),
+    )
+    seq2 = Sequence(
+        inter_times=torch.tensor([0.3, 0.7, 0.6], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([3.1, 3.0], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq1, seq2])
+    slow_model = _manual_model(query_chunk_size=2)
+    fast_model = _manual_fast_model()
+    fast_model.load_state_dict(slow_model.state_dict())
+
+    parent_params = slow_model.parent_parameters(batch)
+    fast_parent_params = fast_model.parent_parameters(batch)
+    t_query = torch.tensor(
+        [[0.2, 0.6, 1.2, 2.0], [0.3, 0.9, 1.7, 1.7]],
+        dtype=torch.float32,
+    )
+
+    torch.testing.assert_close(
+        fast_model.trigger_intensity(
+            batch,
+            t_query=t_query,
+            parent_params=fast_parent_params,
+        ),
+        slow_model.trigger_intensity(
+            batch,
+            t_query=t_query,
+            parent_params=parent_params,
+        ),
+        rtol=1e-5,
+        atol=1e-7,
+    )
+    torch.testing.assert_close(
+        fast_model.trigger_integral_between(
+            batch,
+            t_start=torch.tensor([0.1, 0.4], dtype=torch.float32),
+            t_end=torch.tensor([1.8, 1.9], dtype=torch.float32),
+            parent_params=fast_parent_params,
+        ),
+        slow_model.trigger_integral_between(
+            batch,
+            t_start=torch.tensor([0.1, 0.4], dtype=torch.float32),
+            t_end=torch.tensor([1.8, 1.9], dtype=torch.float32),
+            parent_params=parent_params,
+        ),
+        rtol=1e-5,
+        atol=1e-7,
+    )
+    torch.testing.assert_close(
+        fast_model.nll_loss(batch, reduction="none"),
+        slow_model.nll_loss(batch, reduction="none"),
+        rtol=1e-5,
+        atol=1e-7,
+    )
+
+
+def test_fast_netas_backward_with_padding_has_finite_gradients():
+    seq1 = Sequence(
+        inter_times=torch.tensor([0.2, 0.5, 0.4, 0.9], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([3.0, 3.2, 2.8], dtype=torch.float32),
+    )
+    seq2 = Sequence(
+        inter_times=torch.tensor([0.3, 0.7, 0.6], dtype=torch.float32),
+        t_start=0.0,
+        t_nll_start=0.0,
+        mag=torch.tensor([3.1, 3.0], dtype=torch.float32),
+    )
+    batch = Batch.from_list([seq1, seq2])
+    model = _manual_fast_model()
+
+    loss = model.nll_loss(batch, reduction="mean")
+    assert torch.isfinite(loss)
+    loss.backward()
+
+    for param in model.parameters():
+        if param.grad is not None:
+            assert torch.isfinite(param.grad).all()
+
+
+def test_fast_netas_rejects_lomax_basis():
+    with pytest.raises(ValueError, match="netas_basis_family='exponential'"):
+        FastNETAS(
+            event_encoder=_ZeroEncoder(context_size=4),
+            context_size=4,
+            basis_family="lomax",
+            num_basis=2,
+            base_rate_init=0.2,
+            richter_b=1.0,
+            mag_completeness=2.0,
+            mag_max=8.0,
+            device=torch.device("cpu"),
+        )
 
 
 def test_netas_max_history_events_limits_trigger_intensity():
@@ -470,6 +596,48 @@ def test_netas_builder_constructs_rnn_model():
     assert model.history_time_window == pytest.approx(12.5)
     assert get_model_family("netas") == "tpp"
     assert get_train_step_module("netas") == "tpp_train_step"
+
+
+def test_fast_netas_builder_constructs_rnn_model():
+    args = Namespace(
+        model="fast_netas",
+        d_model=8,
+        tau_mean=1.0,
+        mag_mean=3.0,
+        richter_b_mle=1.0,
+        mag_completeness=2.0,
+        mag_max=8.0,
+        num_components=3,
+        bg_model=None,
+        base_rate_init=0.2,
+        rnn_type="GRU",
+        num_rnn_layers=1,
+        rnn_dropout=0.0,
+        input_magnitude=True,
+        time_max=20.0,
+        loss_reduction="none",
+        netas_basis_family="exponential",
+        netas_num_basis=3,
+        netas_eta_max=0.9,
+        netas_productivity_alpha_init=0.8,
+        netas_productivity_mode="bounded",
+        netas_basis_learnable="per_basis",
+        netas_basis_max_log_deviation=0.75,
+        netas_head_init_std=0.02,
+        netas_branching_penalty_weight=0.3,
+        netas_branching_penalty_target=0.85,
+        netas_max_history_events=0,
+        netas_history_time_window=None,
+    )
+    model = ModelBuilder.by_name("fast_netas")()(args, torch.device("cpu"))
+
+    assert isinstance(model, FastNETAS)
+    assert model.num_basis == 3
+    assert model.basis.family == "exponential"
+    assert model.basis.rate_log_delta.shape == torch.Size([3])
+    assert get_model_family("fast_netas") == "tpp"
+    assert get_model_family("netas_fast") == "tpp"
+    assert get_train_step_module("fast_netas") == "tpp_train_step"
 
 
 def test_netas_builder_constructs_mamba_model():

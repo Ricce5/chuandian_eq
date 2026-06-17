@@ -1,0 +1,91 @@
+# Model settings
+model: netas
+num_event_types: 1
+pad_token_id: 1
+task_type: tpp
+
+# Training parameters
+batch_size: 1
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-3
+weight_decay: 1e-3
+loss_reduction: per_event
+loss_weights:
+  bg_kl_weight: 0.0
+  bg_norm_weight: 0.2
+  branching_penalty_weight: 1.0
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type: step_warmup
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.8
+
+
+fix_mu: false
+fixed_mu_value: 0.0
+base_rate_init: 0.26
+
+# Event encoder
+# - rnn: `RNNTPPBackbone`
+# - mamba: `MambaNETASEncoder`
+netas_encoder_type: rnn
+rnn_type: GRU
+num_rnn_layers: 1
+rnn_dropout: 0.0
+d_model: 64
+input_magnitude: true
+
+# If `netas_encoder_type: mamba`, these are used.
+netas_mamba_d_state: 64
+netas_mamba_d_conv: 3
+netas_mamba_expand: 2
+netas_mamba_dt_rank: auto
+netas_mamba_use_conv: true
+netas_max_inference_len: 10000
+
+# Fixed trigger basis
+# λ_tr(t) = Σ_i η_i Σ_l ω_il q_l(t-t_i)
+netas_basis_family: lomax
+netas_num_basis: 20
+netas_basis_rate_min: 1e-3
+netas_basis_rate_max: 1e1
+netas_basis_scale_min: 1e-3
+netas_basis_scale_max: 1e2
+netas_basis_lomax_shape: 0.56
+# Optional explicit basis parameters:
+# netas_basis_rates: [0.001, 0.01, 0.1, 1.0, 10.0]
+# netas_basis_scales: [...]
+# netas_basis_shapes: [...]
+
+# Productivity head
+netas_productivity_mode: softplus
+netas_eta_max: 0.95  # Only used when netas_productivity_mode is bounded.
+netas_productivity_alpha_init: 0.37
+netas_productivity_bias_init: -0.6
+netas_branching_penalty_target: 0.95
+
+# Time preprocessing for encoder inputs
+netas_time_preprocess: oracle
+netas_log_tau_std: 2.0
+netas_inter_time_min: 1e-10
+netas_inter_time_max: 1e10
+
+# Shared ETAS-style chunking controls for intensity accumulation
+etas_query_chunk_size: 0
+etas_history_chunk_size: 0
+
+# Other parameters
+dim: 1
+epochs: 1000
+save_dir: null
+cuda_id: "0"
+
+# Data and control parameters
+dataset: ChuanDian
+seed: 0
+minibatch_training: false
+split_by_time: true
+time_order:  [train, val, test]

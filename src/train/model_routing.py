@@ -35,7 +35,9 @@ TPP_MODELS = {
     "btpp",
     "etas",
     "etas_zhuang",
+    "fast_netas",
     "netas",
+    "netas_fast",
     "nhpp",
     "njdtpp",
 }
