@@ -126,5 +126,4 @@ python scripts/summarize/summarize_clf_seed_across_experiments.py --seed 1 --out
 
   python scripts/summarize/summarize_etas_grid.py  --exp_dir experiments/etas_multi_dataset
 
-
-   python  scripts/run/run_etas_grid.py  --exp_config config/experiments/etas_multi_dataset.yaml
+python  scripts/run/run_etas_grid.py  --exp_config config/experiments/etas_multi_dataset.yaml

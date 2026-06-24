@@ -12,7 +12,8 @@ def _causal_depthwise_conv1d(x_btf: torch.Tensor, h_k: torch.Tensor) -> torch.Te
 
     Args:
         x_btf: (B, T, F)
-        h_k:   (K,) kernel, assumed causal, nonnegative preferred
+        h_k:   (K,) causal kernel where h_k[0] is the current-time response
+               and h_k[i] multiplies x[t - i]
 
     Returns:
         y_btf: (B, T, F)
@@ -22,9 +23,52 @@ def _causal_depthwise_conv1d(x_btf: torch.Tensor, h_k: torch.Tensor) -> torch.Te
 
     x = x_btf.transpose(1, 2)                     # (B, F, T)
     x = F.pad(x, (K - 1, 0))                      # causal left pad
-    w = h_k.view(1, 1, K).repeat(Fdim, 1, 1)      # (F, 1, K)
+    w = h_k.flip(0).view(1, 1, K).repeat(Fdim, 1, 1)  # (F, 1, K)
     y = F.conv1d(x, w, groups=Fdim)               # (B, F, T)
     return y.transpose(1, 2)                      # (B, T, F)
+
+
+def _fft_dtype(dtype: torch.dtype) -> torch.dtype:
+    if dtype in (torch.float16, torch.bfloat16):
+        return torch.float32
+    return dtype
+
+
+def _causal_depthwise_fft_conv1d(x_btf: torch.Tensor, h_k: torch.Tensor) -> torch.Tensor:
+    """
+    FFT implementation of ``_causal_depthwise_conv1d``.
+
+    This preserves the ``_causal_depthwise_conv1d`` helper semantics:
+    ``h_k[0]`` is the zero-lag/current-time coefficient.
+
+    Args:
+        x_btf: (B, T, F)
+        h_k:   (K,) causal kernel where h_k[0] multiplies x[t]
+
+    Returns:
+        y_btf: (B, T, F)
+    """
+    if x_btf.dim() != 3:
+        raise ValueError(f"Expected x_btf to be 3D, got shape {tuple(x_btf.shape)}")
+    if h_k.dim() != 1:
+        raise ValueError(f"Expected h_k to be 1D, got shape {tuple(h_k.shape)}")
+
+    B, T, Fdim = x_btf.shape
+    K = h_k.numel()
+    if K <= 0:
+        raise ValueError("h_k must contain at least one coefficient")
+    if T <= 0:
+        return x_btf.new_empty(B, T, Fdim)
+
+    fft_size = 1 << (T + K - 2).bit_length()
+    conv_dtype = _fft_dtype(torch.promote_types(x_btf.dtype, h_k.dtype))
+
+    x = x_btf.transpose(1, 2).to(dtype=conv_dtype)       # (B, F, T)
+    h = h_k.to(dtype=conv_dtype)                         # zero-lag first
+    x_fft = torch.fft.rfft(x, n=fft_size)
+    h_fft = torch.fft.rfft(h, n=fft_size)
+    y = torch.fft.irfft(x_fft * h_fft.view(1, 1, -1), n=fft_size)[..., :T]
+    return y.transpose(1, 2).to(dtype=x_btf.dtype)       # (B, T, F)
 
 
 class _BaseKernel(nn.Module):
@@ -170,7 +214,7 @@ class DeltaKernel(_BaseKernel):
         device = device or torch.device("cpu")
         dtype = dtype or torch.float32
         h = torch.zeros(self.kernel_size, device=device, dtype=dtype)
-        h[-1] = 1.0
+        h[0] = 1.0
         return self._normalize(h)
 
 
@@ -246,11 +290,13 @@ class KernelBGModel(BGModel):
         powerlaw_init_alpha: float = 1.5,
         powerlaw_init_tau: float = 10.0,
         mix_normalize_weights: bool = True,
+        use_fft: bool = False,
     ):
         super().__init__(device=device, scale_init=scale_init)
         self.d_feature = int(d_feature)
         self.kernel_size = int(kernel_size)
         self.dt = float(dt)
+        self.use_fft = bool(use_fft)
 
         kt = kernel_type.lower()
         if kt == "exp":
@@ -304,8 +350,18 @@ class KernelBGModel(BGModel):
         """
         h = self.kernel(device=time_series.device, dtype=time_series.dtype)  # (K,)
 
-        z = _causal_depthwise_conv1d(time_series, h)                         # (B,T,F)
+        conv_fn = _causal_depthwise_fft_conv1d if self.use_fft else _causal_depthwise_conv1d
+        z = conv_fn(time_series, h)                                          # (B,T,F)
 
         out = self.head(z)                                                   # (B,T,1)
      
         return out                                                        # (B,T,1)
+
+
+@BGModel.register("kernel_fft")
+class KernelFFTBGModel(KernelBGModel):
+    """FFT-backed variant of :class:`KernelBGModel` with the same public args."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs["use_fft"] = True
+        super().__init__(*args, **kwargs)

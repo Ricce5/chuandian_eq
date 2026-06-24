@@ -4,11 +4,13 @@ import pytest
 
 from src.models.bg.kernel import (
     _causal_depthwise_conv1d,
+    _causal_depthwise_fft_conv1d,
     DeltaKernel,
     ExpKernel,
     GammaKernel,
     LogNormalKernel,
     MixtureKernel,
+    KernelFFTBGModel,
     KernelBGModel,
 )
 from src.data.dot_dict import DotDict
@@ -34,6 +36,41 @@ def test_causal_depthwise_conv1d_shape_and_device():
 
     assert y.shape == (B, T, F)
     assert y.device.type == device.type
+
+
+def test_causal_depthwise_conv1d_zero_lag_kernel_order():
+    device = get_device()
+    x = torch.arange(1, 6, device=device, dtype=torch.float32).view(1, 5, 1)
+    h = torch.tensor([10.0, 1.0], device=device)
+
+    y = _causal_depthwise_conv1d(x, h)
+    expected = torch.tensor([10.0, 21.0, 32.0, 43.0, 54.0], device=device).view(1, 5, 1)
+
+    assert torch.allclose(y, expected)
+
+
+@pytest.mark.parametrize("T,K", [(1, 1), (8, 3), (16, 5), (7, 12)])
+def test_causal_depthwise_fft_conv1d_matches_conv1d(T, K):
+    device = get_device()
+    B, Fdim = 2, 3
+    x = torch.randn(B, T, Fdim, device=device)
+    h = torch.randn(K, device=device)
+
+    y_conv = _causal_depthwise_conv1d(x, h)
+    y_fft = _causal_depthwise_fft_conv1d(x, h)
+
+    assert y_fft.shape == (B, T, Fdim)
+    assert torch.allclose(y_fft, y_conv, atol=1e-5, rtol=1e-5)
+
+
+def test_delta_kernel_is_identity_under_causal_conv():
+    device = get_device()
+    x = torch.randn(2, 11, 3, device=device)
+    h = DeltaKernel(kernel_size=5, normalize=True)(device=device, dtype=x.dtype)
+
+    y = _causal_depthwise_conv1d(x, h)
+
+    assert torch.allclose(y, x)
 
 
 # -----------------------------------------------------------------------------
@@ -110,6 +147,38 @@ def test_kernel_bg_model_scaled_intensity_shape_and_grad(kernel_type):
 
     assert x.grad is not None
     assert torch.any(x.grad != 0)
+
+
+def test_kernel_fft_bg_model_matches_conv_model():
+    device = get_device()
+    B, T, Fdim = 2, 17, 4
+
+    conv_model = KernelBGModel(
+        d_feature=Fdim,
+        kernel_type="gamma",
+        kernel_size=9,
+        dt=1.0,
+        normalize_kernel=True,
+        use_mlp=False,
+        device=device,
+    )
+    fft_model = KernelFFTBGModel(
+        d_feature=Fdim,
+        kernel_type="gamma",
+        kernel_size=9,
+        dt=1.0,
+        normalize_kernel=True,
+        use_mlp=False,
+        device=device,
+    )
+    fft_model.load_state_dict(conv_model.state_dict())
+
+    x = torch.randn(B, T, Fdim, device=device)
+
+    y_conv = conv_model.scaled_intensity(x)
+    y_fft = fft_model.scaled_intensity(x)
+
+    assert torch.allclose(y_fft, y_conv, atol=1e-5, rtol=1e-5)
 
 
 @pytest.mark.parametrize("kernel_type", ["exp", "gamma"])
