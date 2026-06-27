@@ -1,0 +1,343 @@
+model: etas
+base_config: config/etas.yaml
+
+# 多数据集复现实验：
+# - 数据集与 catalog_cfg 对齐 config/experiments/rtpp_v2_multi_dataset.yaml。
+# - 每个 grid point 对应一个数据集；种子在每个数据集下展开。
+seeds: [0, 1,2]
+
+# 并发与资源
+gpu_ids: [0]
+max_parallel: 1
+jobs_per_gpu: 1
+stop_on_error: false
+
+exp_root: experiments
+exp_name: etas_multi_ds_bg_norm_0.2
+
+run_test: true
+ckpt_select: both
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: etas_
+  common:
+    overrides:
+      minibatch_training: false
+      split_by_time: true
+      time_order: [train, val, test]
+  points:
+
+    # experiment_record.md 4.6: PNR_1z
+    - name: PNR_1z_no_bg
+      overrides:
+        dataset: PNR_1z
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -1.5
+        bg_model: null
+
+    - name: PNR_1z_proportional
+      overrides:
+        dataset: PNR_1z
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -1.5
+        bg_model: proportional
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 500.0
+
+    - name: PNR_1z_mamba
+      overrides:
+        dataset: PNR_1z
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -1.5
+        bg_model: mamba
+        bg_model_cfg:
+          d_feature: 1
+          d_state: 64
+          d_model: 16
+          model_type: mamba  # mamba | mamba2
+          scale_init: 1000.0
+          smooth_kernel_size: 3
+
+    - name: PNR_1z_kernel
+      overrides:
+        dataset: PNR_1z
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -1.5
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 2560
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    - name: PNR_1z_kernel_256
+      overrides:
+        dataset: PNR_1z
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -1.5
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 256
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    # experiment_record.md 4.6: CB_HAB1a(-0.4)
+    - name: CB_HAB1a_no_bg
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: null
+
+    - name: CB_HAB1a_proportional
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: proportional
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 500.0
+
+    - name: CB_HAB1a_mamba
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: mamba
+        bg_model_cfg:
+          d_feature: 1
+          d_state: 64
+          d_model: 16
+          model_type: mamba  # mamba | mamba2
+          scale_init: 1000.0
+          smooth_kernel_size: 3
+
+    - name: CB_HAB1a_kernel
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 2560
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    - name: CB_HAB1a_kernel_256
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 256
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    # experiment_record.md 4.6: CB_HAB4
+    - name: CB_HAB4_no_bg
+      overrides:
+        dataset: CB_HAB4
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: 0.9
+        bg_model: null
+
+    - name: CB_HAB4_proportional
+      overrides:
+        dataset: CB_HAB4
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: 0.9
+        bg_model: proportional
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 500.0
+
+    - name: CB_HAB4_mamba
+      overrides:
+        dataset: CB_HAB4
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: 0.9
+        bg_model: mamba
+        bg_model_cfg:
+          d_feature: 1
+          d_state: 64
+          d_model: 16
+          model_type: mamba  # mamba | mamba2
+          scale_init: 1000.0
+          smooth_kernel_size: 3
+
+    - name: CB_HAB4_kernel
+      overrides:
+        dataset: CB_HAB4
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: 0.9
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 2560
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    - name: CB_HAB4_kernel_256
+      overrides:
+        dataset: CB_HAB4
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: 0.9
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 256
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    # experiment_record.md 4.6 / config/data_tpp.yaml: St1-2018(-0.5)
+    - name: St1_2018_no_bg
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
+        bg_model: null
+
+    - name: St1_2018_proportional
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
+        bg_model: proportional
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 500.0
+
+    - name: St1_2018_mamba
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
+        bg_model: mamba
+        bg_model_cfg:
+          d_feature: 1
+          d_state: 64
+          d_model: 16
+          model_type: mamba  # mamba | mamba2
+          scale_init: 1000.0
+          smooth_kernel_size: 3
+
+
+      
+    - name: St1_2018_mamba_norm_0
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
+        bg_model: mamba
+        bg_model_cfg:
+          d_feature: 1
+          d_state: 64
+          d_model: 16
+          model_type: mamba  # mamba | mamba2
+          scale_init: 1000.0
+          smooth_kernel_size: 3
+        loss_weights:
+          bg_kl_weight: 0
+          bg_norm_weight: 0
+
+
+    - name: St1_2018_kernel
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 2560
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+
+    - name: St1_2018_kernel_256
+      overrides:
+        dataset: St1-2018
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.5
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 256
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0

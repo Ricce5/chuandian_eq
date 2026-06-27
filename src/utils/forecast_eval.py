@@ -35,6 +35,8 @@ class SlidingWindowForecastConfig:
     return_sim_count_matrix: bool = False
     compute_mag_max: bool = False
     return_sim_mag_max_matrix: bool = False
+    precomputed_counts: np.ndarray | None = None
+    precomputed_mag_max: np.ndarray | None = None
 
 
 @dataclass(slots=True)
@@ -452,10 +454,27 @@ def run_sliding_window_forecast(
         return_sim_count_matrix = bool(config.return_sim_count_matrix)
         compute_mag_max = bool(config.compute_mag_max)
         return_sim_mag_max_matrix = bool(config.return_sim_mag_max_matrix)
+        precomputed_counts = config.precomputed_counts
+        precomputed_mag_max = config.precomputed_mag_max
+    else:
+        precomputed_counts = None
+        precomputed_mag_max = None
 
     start = float(seq.arrival_times[0].item())
     end = float(seq.arrival_times[-1].item())
     t_forecast_list = np.arange(start + duration, end - duration, slide_step)
+    precomputed_counts_arr = (
+        np.asarray(precomputed_counts, dtype=np.int64).reshape(-1)
+        if precomputed_counts is not None else None
+    )
+    precomputed_mag_max_arr = (
+        np.asarray(precomputed_mag_max, dtype=np.float64).reshape(-1)
+        if precomputed_mag_max is not None else None
+    )
+    if precomputed_counts_arr is not None and precomputed_counts_arr.shape[0] != t_forecast_list.shape[0]:
+        raise ValueError("precomputed_counts length must match the number of sliding windows.")
+    if precomputed_mag_max_arr is not None and precomputed_mag_max_arr.shape[0] != t_forecast_list.shape[0]:
+        raise ValueError("precomputed_mag_max length must match the number of sliding windows.")
 
     counts_list: list[int] = []
     q_list: list[np.ndarray] = []
@@ -483,12 +502,14 @@ def run_sliding_window_forecast(
         supports_predict_b = False
         supports_bg_cache_seq = False
 
-    for t_forecast in t_forecast_list:
+    for window_index, t_forecast in enumerate(t_forecast_list):
         t_end = min(t_forecast + duration, end)
 
         # Extract past and observed subsequences
         past_seq = seq.get_subsequence(0, t_forecast, reset_t_nll_to_end=True).to(device)
-        observed_seq = seq.get_subsequence(t_forecast, t_end, reset_t_nll_to_end=True).to(device)
+        observed_seq = None
+        if precomputed_counts_arr is None or (compute_mag_max and precomputed_mag_max_arr is None):
+            observed_seq = seq.get_subsequence(t_forecast, t_end, reset_t_nll_to_end=True)
 
         # Generate forecast samples
         sample_kwargs = {
@@ -501,21 +522,30 @@ def run_sliding_window_forecast(
             sample_kwargs["predict_b"] = bool(predict_b)
         if bg_cache_seq is not None and supports_bg_cache_seq:
             sample_kwargs["bg_cache_seq"] = bg_cache_seq
-        forecasts = model.sample(**sample_kwargs)
+        with torch.inference_mode():
+            forecasts = model.sample(**sample_kwargs)
 
         fc_counts = np.fromiter((len(fc) for fc in forecasts), dtype=np.int32)
-        counts_list.append(len(observed_seq))
+        observed_count = (
+            int(precomputed_counts_arr[window_index])
+            if precomputed_counts_arr is not None
+            else len(observed_seq)
+        )
+        counts_list.append(observed_count)
         q_list.append(np.percentile(fc_counts, quantiles))
         mean_list.append(float(fc_counts.mean()))
         if return_sim_count_matrix:
             sim_count_rows.append(fc_counts)
 
         if compute_mag_max:
-            obs_mag = getattr(observed_seq, "mag", None)
-            if obs_mag is None:
-                raise AttributeError("observed_seq is missing 'mag'; cannot compute observed max magnitude.")
-            obs_mag_t = torch.as_tensor(obs_mag)
-            obs_mag_max = float(obs_mag_t.max().item()) if obs_mag_t.numel() > 0 else np.nan
+            if precomputed_mag_max_arr is not None:
+                obs_mag_max = float(precomputed_mag_max_arr[window_index])
+            else:
+                obs_mag = getattr(observed_seq, "mag", None)
+                if obs_mag is None:
+                    raise AttributeError("observed_seq is missing 'mag'; cannot compute observed max magnitude.")
+                obs_mag_t = torch.as_tensor(obs_mag)
+                obs_mag_max = float(obs_mag_t.max().item()) if obs_mag_t.numel() > 0 else np.nan
 
             fc_mag_max = np.fromiter(
                 (fc.mag.max().item() if len(fc) > 0 else np.nan for fc in forecasts),
@@ -916,6 +946,31 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
     return t_forecast_list, counts_list, q_list, mean_list, sim_count_matrix
 
 
+def _precompute_observed_window_stats(seq, t_forecast_list, duration: float):
+    event_times = torch.as_tensor(seq.arrival_times).detach().cpu().numpy()
+    event_times = np.asarray(event_times, dtype=np.float64)
+    starts = np.asarray(t_forecast_list, dtype=np.float64)
+    ends = np.minimum(starts + float(duration), float(event_times[-1]))
+
+    left_idx = np.searchsorted(event_times, starts, side="left")
+    right_idx = np.searchsorted(event_times, ends, side="right")
+    counts = (right_idx - left_idx).astype(np.int64, copy=False)
+
+    mag_values = getattr(seq, "mag", None)
+    if mag_values is None:
+        return counts, None
+
+    mag_arr = torch.as_tensor(mag_values).detach().cpu().numpy()
+    if mag_arr.ndim != 1 or mag_arr.shape[0] != event_times.shape[0]:
+        return counts, None
+
+    mag_max = np.full(starts.shape[0], np.nan, dtype=np.float64)
+    for index, (left, right) in enumerate(zip(left_idx, right_idx, strict=True)):
+        if right > left:
+            mag_max[index] = float(np.nanmax(mag_arr[left:right]))
+    return counts, mag_max
+
+
 def evaluate_sliding_window_forecast_plots(
     *,
     model,
@@ -934,6 +989,7 @@ def evaluate_sliding_window_forecast_plots(
     force_recompute_sliding: bool = False,
     sliding_cache_filename: str = DEFAULT_SLIDING_CACHE_FILENAME,
     plot_colors: Mapping[str, str] | None = None,
+    save_plots: bool = True,
 ) -> dict[str, Any]:
     colors = dict(DEFAULT_PLOT_COLORS)
     if plot_colors is not None:
@@ -962,6 +1018,14 @@ def evaluate_sliding_window_forecast_plots(
         sliding_result = _coerce_sliding_window_forecast_result(cached_payload)
         loaded_from_cache = True
     else:
+        start = float(seq.arrival_times[0].item())
+        end = float(seq.arrival_times[-1].item())
+        t_forecast_preview = np.arange(start + sliding_duration, end - sliding_duration, sliding_step)
+        observed_counts, observed_mag_max = _precompute_observed_window_stats(
+            seq,
+            t_forecast_preview,
+            sliding_duration,
+        )
         sliding_result = run_sliding_window_forecast(
             model=model,
             seq=seq,
@@ -976,6 +1040,8 @@ def evaluate_sliding_window_forecast_plots(
                 return_sim_count_matrix=True,
                 compute_mag_max=True,
                 return_sim_mag_max_matrix=True,
+                precomputed_counts=observed_counts,
+                precomputed_mag_max=observed_mag_max,
             ),
         )
         if load_sliding_cache:
@@ -1024,6 +1090,26 @@ def evaluate_sliding_window_forecast_plots(
     w95 = float(np.mean(q_high - q_low))
     lp_nb, _ = compute_mean_nb_log_prob(counts_list, sim_count_matrix)
     crps, _ = compute_mean_crps(counts_list, sim_count_matrix)
+
+    result_payload = {
+        "status": "ok",
+        "t_forecast_list": t_forecast_list,
+        "counts_list": counts_list,
+        "q_list": q_list,
+        "mean_list": mean_list,
+        "coverage": coverage,
+        "mae": mae,
+        "rmse": rmse,
+        "crps": crps,
+        "w95": w95,
+        "lp_nb": lp_nb,
+        "mag_max_mae": mag_max_mae,
+        "sliding_cache_path": str(sliding_cache_path),
+        "sliding_loaded_from_cache": loaded_from_cache,
+    }
+
+    if not save_plots:
+        return result_payload
 
     base_start_ts, freq_td_local = resolve_catalog_time_reference(catalog_ds)
     base_start_ts = pd.Timestamp(base_start_ts)
@@ -1400,19 +1486,4 @@ def evaluate_sliding_window_forecast_plots(
                 save_pub_figure(fig, checkpoint_dir / "obs_vs_forecast_mag_max_scatter.png")
                 plt.show()
 
-    return {
-        "status": "ok",
-        "t_forecast_list": t_forecast_list,
-        "counts_list": counts_list,
-        "q_list": q_list,
-        "mean_list": mean_list,
-        "coverage": coverage,
-        "mae": mae,
-        "rmse": rmse,
-        "crps": crps,
-        "w95": w95,
-        "lp_nb": lp_nb,
-        "mag_max_mae": mag_max_mae,
-        "sliding_cache_path": str(sliding_cache_path),
-        "sliding_loaded_from_cache": loaded_from_cache,
-    }
+    return result_payload
