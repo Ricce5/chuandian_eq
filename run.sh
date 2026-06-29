@@ -28,46 +28,46 @@ python main.py --model lstm --mode test --checkpoint ./checkpoints/lstm_20250906
 
 
 
-  python main.py \
-    --model lstm \
-    --mode test \
-    --checkpoint_dir tmp/lstm_optuna_profiles/run_20x2/runs/global/optuna_trials/trial_0011_global \
-    --ckpt_select last
+python main.py \
+  --model lstm \
+  --mode test \
+  --checkpoint_dir tmp/lstm_optuna_profiles/run_20x2/runs/global/optuna_trials/trial_0011_global \
+  --ckpt_select last
 
 
 
 
 
-  python scripts/run/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
+python scripts/run/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_mf_tf_grid.yaml     --exp_name clf_grid_parallel_0
 
-    python scripts/run/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_single_window_pretrain.yaml
-
-
-  python scripts/summarize/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_pre_v2/clf_pre_scratch_v2 --best_metric auc
+python scripts/run/run_clf_mf_tf_grid.py --exp_config config/experiments/clf_single_window_pretrain.yaml
 
 
-  python scripts/summarize/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_scratch_2  --best_metric auc
-   python scripts/summarize/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_grid_max_grad_norm  --ckpt_select last
+python scripts/summarize/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_pre_v2/clf_pre_scratch_v2 --best_metric auc
+
+
+python scripts/summarize/summarize_clf_mf_tf_grid.py --exp_dir experiments/clf_grid_r_2_scratch_2  --best_metric auc
+python scripts/summarize/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_layer_1_grid_max_grad_norm  --ckpt_select last
 
 
 
-  python scripts/run/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
+python scripts/run/run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
 run_reg_mixer_attnpl_grid.py --exp_config config/experiments/reg_mixer_attnpl_grid.yaml  python scripts/
-  
+
 python scripts/summarize/summarize_reg_mixer_attnpl_grid.py --exp_dir experiments/reg_mixer_ablation_5_seeds --best_metric rmse --best_mode min --ckpt_select last
 
-  python scripts/run/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 20 --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name
-  run_$(date +%Y%m%d-%H%M%S)
+python scripts/run/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 20 --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name
+run_$(date +%Y%m%d-%H%M%S)
 
 
 
 
 python scripts/run/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 3  --optuna_n_jobs 4  --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles \
-    --run_name optuna_20_$(date +%Y%m%d-%H%M%S)
+--run_name optuna_20_$(date +%Y%m%d-%H%M%S)
 
 
- python main.py --model reg_mixer_attnpl_t --mode optuna --config config/reg_mixer_attnpl_t.yaml --checkpoint_dir experiments/reg_mixer_attnpl_t_optuna_profiles/run_$(date +
-        %Y%m%d-%H%M%S)/base --optuna_profile base --optuna_trials 3 --optuna_trial_test_ckpt_selects best,last
+python main.py --model reg_mixer_attnpl_t --mode optuna --config config/reg_mixer_attnpl_t.yaml --checkpoint_dir experiments/reg_mixer_attnpl_t_optuna_profiles/run_$(date +
+%Y%m%d-%H%M%S)/base --optuna_profile base --optuna_trials 3 --optuna_trial_test_ckpt_selects best,last
 
 
 python scripts/run/run_reg_mixer_attnpl_t_optuna_profiles.py --profiles auto --optuna_trials 30  --optuna_trial_test_ckpt_selects best,last --out_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles --run_name run_$(date +%Y%m%d-%H%M%S)
@@ -78,25 +78,25 @@ python scripts/maintenance/backfill_optuna_trial_tests.py --run_root /root/autod
 best,last --config config/reg_mixer_attnpl_t.yaml --model reg_mixer_attnpl_t
 
 
-  find experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/low_lr/optuna_trials/trial_0001_low_lr -maxdepth 1 \( -name 'run.log' -o -name 'checkpoint_interrupted*.pth' -o
-  -name 'tensorboard' \) -exec rm -rf {} +
+find experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/low_lr/optuna_trials/trial_0001_low_lr -maxdepth 1 \( -name 'run.log' -o -name 'checkpoint_interrupted*.pth' -o
+-name 'tensorboard' \) -exec rm -rf {} +
 
 
-  python scripts/analyze/analyze_optuna_last_val_loss_groups.py --trials-dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/base/optuna_trials
+python scripts/analyze/analyze_optuna_last_val_loss_groups.py --trials-dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_attnpl_t_optuna_profiles/run_20260511-000926/runs/base/optuna_trials
 
-  python scripts/run/run_lstm_mf_tf_grid.py --exp_config config/experiments/lstm_mf_tf_grid.yaml
+python scripts/run/run_lstm_mf_tf_grid.py --exp_config config/experiments/lstm_mf_tf_grid.yaml
 
-  python scripts/summarize/summarize_lstm_mf_tf_grid.py --exp_dir experiments/lstm_5_seeds_v6 --best_metric MAE --best_mode min
+python scripts/summarize/summarize_lstm_mf_tf_grid.py --exp_dir experiments/lstm_5_seeds_v6 --best_metric MAE --best_mode min
 
-    python scripts/run/run_reg_mixer_attnpl_grid.py \
-    --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
-    
-     python scripts/summarize/summarize_reg_mixer_attnpl_grid.py \
-    --exp_dir experiments/reg_mixer_attnpl_ab \
-    --ckpt_select best
+python scripts/run/run_reg_mixer_attnpl_grid.py \
+--exp_config config/experiments/reg_mixer_attnpl_grid.yaml
+
+python scripts/summarize/summarize_reg_mixer_attnpl_grid.py \
+--exp_dir experiments/reg_mixer_attnpl_ab \
+--ckpt_select best
 
 
- python scripts/run/run_mixer_tpp_grid.py --exp_config config/experiments/mixer_tpp_grid.yaml --exp_name mixer_tpp_ablation_chuandian --skip_train
+python scripts/run/run_mixer_tpp_grid.py --exp_config config/experiments/mixer_tpp_grid.yaml --exp_name mixer_tpp_ablation_chuandian --skip_train
 
 python scripts/summarize/summarize_mixer_tpp_grid.py --exp_dir experiments/mixer_tpp_ablation_chuandian --ckpt_select last
 
@@ -105,26 +105,26 @@ python scripts/summarize/summarize_clf_seed_across_experiments.py --seed 1 --out
 
 
 
-  python scripts/maintenance/backfill_reg_grid_tests.py \
-    --exp_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128 \
-    --ckpt_select last \
+python scripts/maintenance/backfill_reg_grid_tests.py \
+--exp_dir /root/autodl-tmp/em_eqf/experiments/reg_mixer_layer_1_grid_bs_128 \
+--ckpt_select last \
 
 
 
 
- python scripts/run/run_clf_grid_five_experiments.py --exp_name_suffix v2 --exp_root experiments/clf_pre_v2 --seeds 0,2,3,4,7
+python scripts/run/run_clf_grid_five_experiments.py --exp_name_suffix v2 --exp_root experiments/clf_pre_v2 --seeds 0,2,3,4,7
 
 
- python scripts/run/run_clf_grid_five_experiments.py --dry_run
+python scripts/run/run_clf_grid_five_experiments.py --dry_run
 
-  python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs experiments/clf_pre_v1
+python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs experiments/clf_pre_v1
 
-    git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
-    python scripts/summarize_rtpp_v2_grid.py  --exp_dir experiments/rtpp_v2_multi_bg_norm_0.2 --ckpt_select best
+git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
+python scripts/summarize_rtpp_v2_grid.py  --exp_dir experiments/rtpp_v2_multi_bg_norm_0.2 --ckpt_select best
 
-    python scripts/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
+python scripts/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
 
-  python scripts/summarize/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
+python scripts/summarize/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
 
 python  scripts/run/run_etas_grid.py  --exp_config config/experiments/etas_multi_ds_bg.yaml
 python  scripts/run/run_rtpp_v2_grid.py  --exp_config config/experiments/rtpp_v2_multi_ds_bg.yaml
@@ -133,12 +133,12 @@ python scripts/run_sliding_window_forecast_for_seeds.py --seeds 0
 
 
 
-  python scripts/summarize_sliding_window_eval.py --exp_dir experiments/etas_multi_ds_bg_norm_0.2
+python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/rtpp_v2_multi_bg_norm_0.2  experiments/etas_multi_ds_bg_norm_0.2 
 
 
-    python scripts/run_sliding_window_forecast_for_seeds.py \
-    --seeds 1 2 \
-    --jobs 3 \
-    --devices cuda:0\
-    --skip-existing-ok\
-    --runs-dir experiments/rtpp_v2_multi_bg_norm_0.2/runs
+python scripts/run_sliding_window_forecast_for_seeds.py \
+  --seeds 0 1 2 \
+  --jobs 3 \
+  --devices cuda:0\
+  --skip-existing-ok\
+  --runs-dir experiments/rtpp_v2_multi_bg_norm_0.2/runs  experiments/etas_multi_ds_bg_norm_0.2/runs  

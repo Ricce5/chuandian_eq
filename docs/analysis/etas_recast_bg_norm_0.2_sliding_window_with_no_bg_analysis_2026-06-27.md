@@ -1,4 +1,4 @@
-# ETAS / RECAST 滑动窗预测分析（包含 no_bg，bg_norm_weight=0.2）
+# ETAS / RECAST 滑动窗预测分析（补充 `CB_HAB4` 的 RECAST `norm_0`，bg_norm_weight=0.2）
 
 ## 分析口径
 
@@ -6,7 +6,13 @@
   - `experiments/etas_multi_ds_bg_norm_0.2`
   - `experiments/rtpp_v2_multi_bg_norm_0.2`
 - 本文将 `rtpp_v2` 记为 **RECAST**。
-- 本次分析包含 ETAS 的 `no_bg`。
+- 本次 ETAS 分析包含：
+  - 常规背景：`proportional`、`kernel`、`kernel_256`、`mamba`
+  - 无背景：`no_bg`
+  - `norm_0` 背景：`proportional_norm0`、`kernel_norm0`、`mamba_norm0`
+- `norm_0` 目前只在 `PNR_1z`、`St1_2018`、`CB_HAB4` 上有对应 ETAS run；`CB_HAB1a` 没有 `norm_0` 组。
+- RECAST 实验目录也包含 `no_bg` 与 `norm_0` 组；本文只补充 `CB_HAB4` 的 RECAST `norm_0/no_bg` 滑窗结果，其他数据集段落保持原口径。
+- 当前滑动窗汇总为 3-seed 均值：ETAS `29/29` 个 variant 成功，RECAST `29/29` 个 variant 成功；本文只将 `CB_HAB4` 的 RECAST `norm_0/no_bg` 纳入跨模型更新。
 - 主排序指标为 `RMSE`，越小越好。
 - 辅助指标：
   - `MAE`：越小越好。
@@ -14,14 +20,6 @@
   - `LP_NB`：越大越好。
   - `coverage`：95% 预测区间覆盖率，理想接近 `0.95`。
   - `W95`：95% 预测区间平均宽度，越小越尖锐，但必须结合 `coverage` 判断。
-- 当前滑动窗汇总均为单 run 结果：每个 variant 的 `n_runs=1`，不是多 seed 平均。
-
-## 数据完整性
-
-当前两个滑动窗汇总文件均完整：
-
-- ETAS：`20/20` 个 variant 成功，包含 `no_bg`。
-- RECAST：`16/16` 个 variant 成功，不包含 `no_bg`。
 
 使用的汇总文件：
 
@@ -30,231 +28,242 @@
 
 ## 主要结论
 
-按 `RMSE` 排序：
+加入 ETAS `norm_0` 后，按滑动窗 `RMSE` 的跨模型最优结果变为：
 
 | 数据集 | 最优模型 | 最优背景 | RMSE | MAE | CRPS | Coverage |
 |---|---|---|---:|---:|---:|---:|
-| PNR_1z | ETAS | mamba | 108.889 | 58.533 | 43.556 | 0.689 |
-| CB_HAB1a | RECAST | mamba | 68.913 | 41.572 | 30.109 | 0.818 |
-| St1_2018 | RECAST | proportional | 101.049 | 75.251 | 53.319 | 0.878 |
-| CB_HAB4 | ETAS | mamba | 94.738 | 66.518 | 52.423 | 0.789 |
+| `PNR_1z` | ETAS | `mamba_norm0` | 102.218 | 55.726 | 38.448 | 0.656 |
+| `CB_HAB1a` | RECAST | `mamba` | 67.009 | 42.383 | 30.586 | 0.795 |
+| `St1_2018` | ETAS | `mamba_norm0` | 95.335 | 65.183 | 47.763 | 0.982 |
+| `CB_HAB4` | RECAST | `mamba_norm_0` | 92.719 | 67.229 | 49.914 | 0.877 |
 
-整体上，按滑动窗 `RMSE`：
+核心变化：
 
-- ETAS 赢 `PNR_1z` 和 `CB_HAB4`。
-- RECAST 赢 `CB_HAB1a` 和 `St1_2018`。
-- 两类模型在滑动窗预测中都明显偏好 `mamba` 背景。
-- ETAS `no_bg` 在所有数据集上都不是最优，且多数情况下明显劣化。
+- 原先未考虑 `norm_0` 时，RECAST 在 `St1_2018` 上按 RMSE 更优；加入 `norm_0` 后，ETAS `mamba_norm0` 成为 `St1_2018` 最优。
+- 加入 RECAST `CB_HAB4` 的 `norm_0` 后，RECAST `mamba_norm_0` 以极小差距超过 ETAS `mamba_norm0`，成为 `CB_HAB4` 按 RMSE 的第一；其他数据集结论保持不变。
+- ETAS `mamba_norm0` 仍是 ETAS 内部最强的 `norm_0` 形态；但在 `CB_HAB4` 上，RECAST `mamba_norm_0` 的 RMSE/MAE/CRPS 略优。
+- `norm_0` 的收益通常伴随 W95 变宽：它改善了多数组的 RMSE/CRPS/LP_NB，但预测区间更保守。
+- ETAS `no_bg` 仍不适合作为滑动窗 count forecast 默认选择：虽然某些 NLL 指标可能好，但在滑窗 RMSE/MAE 上普遍明显变差，且 W95 经常极大。
 
-## ETAS：包含 no_bg 的背景模型排名
+## ETAS：包含 `no_bg` 与 `norm_0` 的背景模型排名
 
-### PNR_1z
-
-| 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
-|---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | mamba | 108.889 | 58.533 | 43.556 | 0.689 | 136.2 | -5.451 |
-| 2 | proportional | 114.663 | 58.989 | 41.183 | 0.672 | 169.1 | -5.299 |
-| 3 | kernel_256 | 120.660 | 67.043 | 46.891 | 0.508 | 195.6 | -5.202 |
-| 4 | kernel | 120.676 | 67.053 | 46.895 | 0.508 | 195.7 | -5.202 |
-| 5 | no_bg | 156.252 | 108.650 | 70.741 | 0.344 | 378.5 | -5.434 |
-
-`mamba` 的 RMSE 最低。`proportional` 的 CRPS 和 LP_NB 也较好，但 RMSE 略差。`no_bg` 明显偏差较大，coverage 也很低。
-
-### CB_HAB1a
+### `PNR_1z`
 
 | 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
 |---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | mamba | 77.526 | 40.501 | 31.664 | 0.773 | 119.7 | -4.228 |
-| 2 | proportional | 99.563 | 62.402 | 44.831 | 0.682 | 176.0 | -5.011 |
-| 3 | kernel | 105.251 | 64.541 | 39.992 | 0.773 | 286.3 | -4.197 |
-| 4 | kernel_256 | 105.620 | 64.785 | 40.198 | 0.773 | 285.6 | -4.221 |
-| 5 | no_bg | 269.231 | 139.103 | 72.704 | 0.955 | 1064.6 | -4.616 |
+| 1 | `mamba_norm0` | 102.218 | 55.726 | 38.448 | 0.656 | 177.0 | -5.008 |
+| 2 | `proportional_norm0` | 112.587 | 61.412 | 42.017 | 0.639 | 181.1 | -5.192 |
+| 3 | `mamba` | 112.803 | 60.823 | 44.885 | 0.694 | 144.0 | -5.437 |
+| 4 | `proportional` | 114.664 | 59.000 | 41.182 | 0.672 | 169.1 | -5.299 |
+| 5 | `kernel_256` | 121.863 | 67.935 | 47.543 | 0.503 | 197.9 | -5.235 |
+| 6 | `kernel` | 121.871 | 67.935 | 47.543 | 0.503 | 197.9 | -5.235 |
+| 7 | `kernel_norm0` | 134.095 | 81.715 | 54.256 | 0.497 | 280.0 | -5.126 |
+| 8 | `no_bg` | 156.341 | 106.830 | 69.556 | 0.361 | 374.8 | -5.388 |
 
-`mamba` 在误差指标上明显最好。`no_bg` 的 coverage 接近 `0.95`，但 W95 极大，说明它主要是靠极宽预测区间提高覆盖率，点预测质量很差。
+`mamba_norm0` 明显降低 RMSE、MAE、CRPS，并提升 LP_NB；但 coverage 比原始 `mamba` 低，W95 也更宽。`kernel_norm0` 在该数据集上不适合，RMSE 明显变差。
 
-### St1_2018
-
-| 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
-|---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | kernel | 120.605 | 82.626 | 58.850 | 0.932 | 319.8 | -5.641 |
-| 2 | kernel_256 | 120.606 | 82.612 | 58.853 | 0.932 | 320.0 | -5.641 |
-| 3 | mamba | 121.315 | 89.276 | 69.592 | 0.649 | 205.3 | -6.321 |
-| 4 | proportional | 123.724 | 87.042 | 62.277 | 0.892 | 288.8 | -5.735 |
-| 5 | no_bg | 221.016 | 144.860 | 102.476 | 0.919 | 699.0 | -6.114 |
-
-`kernel` 和 `kernel_256` 基本并列，说明该数据集上平滑背景更稳。`mamba` 的 RMSE 接近，但 coverage 明显偏低。`no_bg` 误差大幅变差。
-
-### CB_HAB4
+### `CB_HAB1a`
 
 | 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
 |---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | mamba | 94.738 | 66.518 | 52.423 | 0.789 | 186.7 | -5.942 |
-| 2 | kernel_256 | 106.937 | 83.827 | 64.589 | 0.684 | 220.5 | -6.668 |
-| 3 | kernel | 106.951 | 83.845 | 64.599 | 0.684 | 220.6 | -6.669 |
-| 4 | proportional | 131.341 | 111.497 | 91.572 | 0.421 | 163.1 | -12.156 |
-| 5 | no_bg | 310.334 | 247.136 | 115.172 | 0.842 | 2389.4 | -6.385 |
+| 1 | `mamba` | 77.232 | 42.091 | 32.004 | 0.773 | 123.3 | -4.311 |
+| 2 | `proportional` | 99.563 | 62.402 | 44.831 | 0.682 | 176.0 | -5.011 |
+| 3 | `kernel` | 107.227 | 65.053 | 40.223 | 0.788 | 290.7 | -4.172 |
+| 4 | `kernel_256` | 107.810 | 65.287 | 40.383 | 0.788 | 291.4 | -4.175 |
+| 5 | `no_bg` | 267.679 | 137.202 | 72.506 | 0.955 | 1052.0 | -4.645 |
 
-`mamba` 在所有主要误差和概率指标上都最好。`no_bg` 的 W95 极大且 RMSE 极差，不适合滑动窗计数预测。
+`CB_HAB1a` 没有 `norm_0` 对应组。ETAS 内部仍是 `mamba` 最好；`no_bg` 虽然 coverage 接近 0.95，但 W95 极大，点预测质量很差。
+
+### `St1_2018`
+
+| 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | `mamba_norm0` | 95.335 | 65.183 | 47.763 | 0.982 | 398.4 | -5.511 |
+| 2 | `proportional_norm0` | 114.534 | 79.498 | 55.513 | 0.973 | 404.9 | -5.603 |
+| 3 | `kernel_256` | 119.652 | 82.289 | 58.229 | 0.932 | 330.8 | -5.624 |
+| 4 | `kernel` | 119.657 | 82.294 | 58.227 | 0.932 | 330.7 | -5.624 |
+| 5 | `mamba` | 120.831 | 88.176 | 69.735 | 0.626 | 185.4 | -6.672 |
+| 6 | `proportional` | 123.724 | 87.042 | 62.277 | 0.892 | 288.8 | -5.735 |
+| 7 | `kernel_norm0` | 137.879 | 87.306 | 63.612 | 0.959 | 515.6 | -5.718 |
+| 8 | `no_bg` | 220.650 | 144.178 | 102.237 | 0.910 | 695.9 | -6.112 |
+
+`mamba_norm0` 是 `St1_2018` 的关键变化：它显著优于原始 `mamba`，也超过原先最稳的 `kernel/kernel_256`。但它的 coverage 已超过 0.95，W95 也明显增大，说明预测更保守。
+
+### `CB_HAB4`
+
+| 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | `mamba_norm0` | 92.742 | 69.708 | 50.716 | 0.895 | 302.1 | -5.699 |
+| 2 | `mamba` | 95.203 | 67.022 | 53.067 | 0.754 | 186.0 | -6.048 |
+| 3 | `kernel_norm0` | 100.845 | 79.922 | 58.171 | 0.789 | 354.6 | -5.948 |
+| 4 | `kernel_256` | 104.925 | 81.935 | 62.823 | 0.684 | 216.3 | -6.558 |
+| 5 | `kernel` | 104.970 | 82.004 | 62.830 | 0.684 | 215.8 | -6.572 |
+| 6 | `proportional_norm0` | 116.148 | 93.788 | 76.553 | 0.474 | 187.4 | -9.163 |
+| 7 | `proportional` | 131.352 | 111.532 | 91.588 | 0.421 | 163.1 | -12.156 |
+| 8 | `no_bg` | 312.556 | 250.648 | 115.799 | 0.877 | 2412.9 | -6.378 |
+
+`CB_HAB4` 中 `norm_0` 对三个 ETAS 背景都有帮助，尤其 `mamba_norm0` 成为 ETAS 内部最优。补充 RECAST `mamba_norm_0` 后，跨模型第一略微转向 RECAST；`no_bg` 的 W95 极端偏大，不适合滑动窗计数预测。
 
 ## RECAST：背景模型排名
 
-### PNR_1z
+### `PNR_1z`
 
 | 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
 |---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | mamba | 111.592 | 46.181 | 35.673 | 0.885 | 130.1 | -4.297 |
-| 2 | kernel_256 | 118.637 | 52.705 | 38.554 | 0.918 | 263.9 | -4.468 |
-| 3 | proportional | 121.790 | 47.739 | 37.569 | 0.885 | 131.1 | -5.064 |
-| 4 | kernel | 125.388 | 52.204 | 40.699 | 0.918 | 203.6 | -4.433 |
+| 1 | `mamba` | 110.836 | 45.329 | 35.385 | 0.858 | 128.0 | -4.409 |
+| 2 | `proportional` | 121.022 | 46.767 | 37.485 | 0.880 | 118.3 | -5.167 |
+| 3 | `kernel_256` | 123.941 | 52.282 | 39.527 | 0.913 | 209.7 | -4.484 |
+| 4 | `kernel` | 124.342 | 51.798 | 39.836 | 0.907 | 193.5 | -4.495 |
 
-`mamba` 的 RMSE、MAE、CRPS、LP_NB 综合最好；`kernel/kernel_256` 的 coverage 更接近 `0.95`，但区间更宽。
+RECAST `mamba` 的 MAE、CRPS、coverage 都很好，但按 RMSE 被 ETAS `mamba_norm0` 超过。
 
-### CB_HAB1a
-
-| 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
-|---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | mamba | 68.913 | 41.572 | 30.109 | 0.818 | 124.9 | -4.258 |
-| 2 | kernel_256 | 81.050 | 57.511 | 35.453 | 0.886 | 252.4 | -4.295 |
-| 3 | kernel | 94.124 | 70.388 | 40.286 | 0.886 | 330.7 | -4.258 |
-| 4 | proportional | 98.961 | 71.816 | 52.256 | 0.614 | 159.7 | -6.334 |
-
-`mamba` 在 RMSE 和 CRPS 上明显最好。`kernel/kernel_256` 的 coverage 更高，但 W95 显著更宽。
-
-### St1_2018
+### `CB_HAB1a`
 
 | 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
 |---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | proportional | 101.049 | 75.251 | 53.319 | 0.878 | 295.7 | -5.728 |
-| 2 | mamba | 102.119 | 75.139 | 58.094 | 0.608 | 164.5 | -7.383 |
-| 3 | kernel_256 | 102.354 | 68.199 | 49.629 | 0.932 | 408.2 | -5.489 |
-| 4 | kernel | 103.657 | 68.959 | 50.458 | 0.932 | 406.4 | -5.499 |
+| 1 | `mamba` | 67.009 | 42.383 | 30.586 | 0.795 | 116.2 | -4.328 |
+| 2 | `kernel_256` | 85.009 | 57.679 | 36.240 | 0.871 | 245.2 | -4.313 |
+| 3 | `kernel` | 87.368 | 61.221 | 37.176 | 0.879 | 279.7 | -4.279 |
+| 4 | `proportional` | 100.916 | 73.489 | 53.284 | 0.614 | 162.6 | -6.454 |
 
-如果只看 RMSE，`proportional` 最好；但如果看 MAE、CRPS、LP_NB 和 coverage，`kernel_256` 更稳。`mamba` 虽然 RMSE 接近，但 coverage 只有 `0.608`，校准明显不足。
+RECAST `mamba` 是 `CB_HAB1a` 的全局最优。
 
-### CB_HAB4
+### `St1_2018`
 
 | 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
 |---:|---|---:|---:|---:|---:|---:|---:|
-| 1 | mamba | 102.493 | 71.565 | 58.669 | 0.684 | 158.3 | -9.577 |
-| 2 | proportional | 108.371 | 87.953 | 73.909 | 0.316 | 121.4 | -18.986 |
-| 3 | kernel | 108.839 | 79.749 | 64.745 | 0.684 | 182.7 | -10.138 |
-| 4 | kernel_256 | 114.254 | 82.703 | 68.621 | 0.632 | 163.9 | -11.114 |
+| 1 | `proportional` | 101.170 | 73.191 | 52.521 | 0.869 | 289.5 | -5.860 |
+| 2 | `mamba` | 101.405 | 74.646 | 58.308 | 0.626 | 154.3 | -6.938 |
+| 3 | `kernel_256` | 107.214 | 74.096 | 53.066 | 0.928 | 351.9 | -5.534 |
+| 4 | `kernel` | 107.725 | 74.285 | 53.358 | 0.923 | 350.4 | -5.529 |
 
-`mamba` 是 RECAST 在 `CB_HAB4` 上的最佳背景，但整体仍不如 ETAS `mamba`。
+RECAST 在 `St1_2018` 上仍较强，但已被 ETAS `mamba_norm0` 在 RMSE、MAE、CRPS 上超过。
 
-## ETAS no_bg 的影响
+### `CB_HAB4`
 
-包含 `no_bg` 后，ETAS 的结论更加明确：`no_bg` 不适合滑动窗 count forecast。
+| 排名 | 背景模型 | RMSE | MAE | CRPS | Coverage | W95 | LP_NB |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | `mamba_norm_0` | 92.719 | 67.229 | 49.914 | 0.877 | 253.4 | -5.537 |
+| 2 | `mamba` | 105.149 | 74.078 | 61.269 | 0.579 | 151.7 | -9.710 |
+| 3 | `proportional_norm_0` | 106.088 | 84.054 | 65.875 | 0.667 | 195.8 | -13.253 |
+| 4 | `kernel` | 107.252 | 78.919 | 63.670 | 0.667 | 176.9 | -9.304 |
+| 5 | `kernel_norm_0` | 107.474 | 83.859 | 60.134 | 0.789 | 293.1 | -5.877 |
+| 6 | `proportional` | 107.858 | 87.225 | 72.084 | 0.386 | 138.2 | -37.788 |
+| 7 | `kernel_256` | 110.058 | 79.594 | 65.452 | 0.667 | 171.1 | -10.011 |
+| 8 | `no_bg` | 158.450 | 131.728 | 89.317 | 0.860 | 468.0 | -7.110 |
 
-| 数据集 | no_bg RMSE | ETAS 最佳 RMSE | 差距 |
-|---|---:|---:|---:|
-| PNR_1z | 156.252 | 108.889 | +47.363 |
-| CB_HAB1a | 269.231 | 77.526 | +191.705 |
-| St1_2018 | 221.016 | 120.605 | +100.411 |
-| CB_HAB4 | 310.334 | 94.738 | +215.596 |
+补充 `norm_0/no_bg` 后，RECAST `mamba_norm_0` 成为 `CB_HAB4` 的 RECAST 内部第一，并以极小差距超过 ETAS `mamba_norm0`；但 RECAST `kernel_norm_0` 和 `no_bg` 的 RMSE 并不理想。
 
-`no_bg` 的主要问题是缺少背景率调节，导致窗口计数均值预测系统性偏差。虽然在 `CB_HAB1a` 和 `CB_HAB4` 中 coverage 看起来较高，但对应 W95 极大，说明它不是更准确，而是不确定性区间过宽。
+## `norm_0` 对 ETAS 滑动窗指标的影响
+
+下表为 `norm_0 - 非 norm_0`，负数表示误差下降。
+
+| 数据集 | 背景 | ΔRMSE | ΔMAE | ΔCRPS | ΔCoverage | ΔW95 | ΔLP_NB |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `PNR_1z` | `proportional` | -2.076 | +2.412 | +0.835 | -0.033 | +12.0 | +0.107 |
+| `PNR_1z` | `kernel` | +12.224 | +13.781 | +6.713 | -0.005 | +82.1 | +0.108 |
+| `PNR_1z` | `mamba` | -10.585 | -5.097 | -6.437 | -0.038 | +33.0 | +0.429 |
+| `CB_HAB4` | `proportional` | -15.204 | -17.744 | -15.036 | +0.053 | +24.3 | +2.993 |
+| `CB_HAB4` | `kernel` | -4.125 | -2.082 | -4.659 | +0.105 | +138.8 | +0.624 |
+| `CB_HAB4` | `mamba` | -2.462 | +2.686 | -2.351 | +0.140 | +116.1 | +0.350 |
+| `St1_2018` | `proportional` | -9.189 | -7.544 | -6.764 | +0.081 | +116.1 | +0.132 |
+| `St1_2018` | `kernel` | +18.222 | +5.012 | +5.385 | +0.027 | +184.8 | -0.094 |
+| `St1_2018` | `mamba` | -25.496 | -22.993 | -21.972 | +0.356 | +213.1 | +1.161 |
+
+整体判断：
+
+- `mamba_norm0` 是最稳定受益的配置：三个数据集 RMSE、CRPS、LP_NB 均改善。
+- `proportional_norm0` 也通常改善 RMSE，但在 `PNR_1z` 上 MAE/CRPS 略变差。
+- `kernel_norm0` 分化明显：`CB_HAB4` 改善，但 `PNR_1z` 和 `St1_2018` 的 RMSE 明显变差。
+- W95 在所有 `norm_0` 组中都增大，说明它倾向于生成更宽、更保守的预测区间。
 
 ## ETAS 与 RECAST 对比
 
-### PNR_1z
+### `PNR_1z`
 
-| 模型 | 最佳背景 | RMSE | MAE | CRPS | Coverage | LP_NB |
-|---|---|---:|---:|---:|---:|---:|
-| ETAS | mamba | 108.889 | 58.533 | 43.556 | 0.689 | -5.451 |
-| RECAST | mamba | 111.592 | 46.181 | 35.673 | 0.885 | -4.297 |
+| 排名 | 模型 | 背景 | RMSE | MAE | CRPS | Coverage |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | ETAS | `mamba_norm0` | 102.218 | 55.726 | 38.448 | 0.656 |
+| 2 | RECAST | `mamba` | 110.836 | 45.329 | 35.385 | 0.858 |
+| 3 | ETAS | `proportional_norm0` | 112.587 | 61.412 | 42.017 | 0.639 |
 
-按 RMSE，ETAS 略好；但 RECAST 在 MAE、CRPS、LP_NB 和 coverage 上明显更好。说明 ETAS 可能少数大误差更小，但 RECAST 的整体分布预测质量更好。
+按 RMSE，ETAS `mamba_norm0` 最好；按 MAE/CRPS/coverage，RECAST `mamba` 仍更均衡。
 
-### CB_HAB1a
+### `CB_HAB1a`
 
-| 模型 | 最佳背景 | RMSE | MAE | CRPS | Coverage | LP_NB |
-|---|---|---:|---:|---:|---:|---:|
-| ETAS | mamba | 77.526 | 40.501 | 31.664 | 0.773 | -4.228 |
-| RECAST | mamba | 68.913 | 41.572 | 30.109 | 0.818 | -4.258 |
+| 排名 | 模型 | 背景 | RMSE | MAE | CRPS | Coverage |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | RECAST | `mamba` | 67.009 | 42.383 | 30.586 | 0.795 |
+| 2 | ETAS | `mamba` | 77.232 | 42.091 | 32.004 | 0.773 |
+| 3 | RECAST | `kernel_256` | 85.009 | 57.679 | 36.240 | 0.871 |
 
-RECAST `mamba` 在 RMSE、CRPS 和 coverage 上更好；ETAS `mamba` 的 MAE 和 LP_NB 略好。综合看 RECAST 更优。
+该数据集没有 ETAS `norm_0`，RECAST `mamba` 仍是最优。
 
-### St1_2018
+### `St1_2018`
 
-| 模型 | 最佳背景 | RMSE | MAE | CRPS | Coverage | LP_NB |
-|---|---|---:|---:|---:|---:|---:|
-| ETAS | kernel | 120.605 | 82.626 | 58.850 | 0.932 | -5.641 |
-| RECAST | proportional | 101.049 | 75.251 | 53.319 | 0.878 | -5.728 |
-| RECAST | kernel_256 | 102.354 | 68.199 | 49.629 | 0.932 | -5.489 |
+| 排名 | 模型 | 背景 | RMSE | MAE | CRPS | Coverage |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | ETAS | `mamba_norm0` | 95.335 | 65.183 | 47.763 | 0.982 |
+| 2 | RECAST | `proportional` | 101.170 | 73.191 | 52.521 | 0.869 |
+| 3 | RECAST | `mamba` | 101.405 | 74.646 | 58.308 | 0.626 |
 
-按 RMSE，RECAST `proportional` 最好；按 MAE、CRPS、LP_NB 和 coverage，RECAST `kernel_256` 更稳。无论采用哪种辅助指标，RECAST 都优于 ETAS。
+`norm_0` 使 ETAS 在 `St1_2018` 上反超 RECAST，但其 coverage 偏高、W95 较大，需要关注区间是否过宽。
 
-### CB_HAB4
+### `CB_HAB4`
 
-| 模型 | 最佳背景 | RMSE | MAE | CRPS | Coverage | LP_NB |
-|---|---|---:|---:|---:|---:|---:|
-| ETAS | mamba | 94.738 | 66.518 | 52.423 | 0.789 | -5.942 |
-| RECAST | mamba | 102.493 | 71.565 | 58.669 | 0.684 | -9.577 |
+| 排名 | 模型 | 背景 | RMSE | MAE | CRPS | Coverage |
+|---:|---|---|---:|---:|---:|---:|
+| 1 | RECAST | `mamba_norm_0` | 92.719 | 67.229 | 49.914 | 0.877 |
+| 2 | ETAS | `mamba_norm0` | 92.742 | 69.708 | 50.716 | 0.895 |
+| 3 | ETAS | `mamba` | 95.203 | 67.022 | 53.067 | 0.754 |
+| 4 | ETAS | `kernel_norm0` | 100.845 | 79.922 | 58.171 | 0.789 |
 
-ETAS `mamba` 全面优于 RECAST `mamba`。这与此前 `nll_test_time` 中 `CB_HAB4` 上 ETAS 更稳的结论一致。
+补充 RECAST `norm_0` 后，`CB_HAB4` 的跨模型第一从 ETAS `mamba_norm0` 变为 RECAST `mamba_norm_0`，但二者 RMSE 只差 0.022，基本可视为同一梯队。
 
 ## 背景模型趋势
 
-### mamba
+### `mamba`
 
-滑动窗预测中，`mamba` 是最强背景模型。
+`mamba` 是滑动窗 count forecast 中最强的背景形态。ETAS 加入 `norm_0` 后，`mamba_norm0` 在 `PNR_1z`、`St1_2018`、`CB_HAB4` 都成为 ETAS 内部第一；补充 RECAST `CB_HAB4` 的 `norm_0` 后，该数据集的跨模型 RMSE 第一变为 RECAST `mamba_norm_0`。
 
-- ETAS：`mamba` 在 3/4 个数据集上 RMSE 最优。
-- RECAST：`mamba` 在 3/4 个数据集上 RMSE 最优。
+RECAST 中 `mamba` 也很强：它是 `PNR_1z`、`CB_HAB1a` 的 RECAST 内部第一；在 `CB_HAB4` 上则由 `mamba_norm_0` 取代原始 `mamba`。
 
-原因是滑动窗 count forecast 直接依赖窗口内事件数的动态变化，灵活背景模型更容易追踪短期非平稳背景率。
+### `kernel / kernel_256`
 
-### kernel / kernel_256
+`kernel` 和 `kernel_256` 仍然稳定，但在滑动窗 RMSE 上不如 `mamba_norm0`。ETAS `kernel_norm0` 只在 `CB_HAB4` 上有明显收益，在 `PNR_1z` 与 `St1_2018` 上会放大误差；RECAST `kernel_norm_0` 在 `CB_HAB4` 上主要改善 CRPS/LP_NB/coverage，但 RMSE 略差于原始 `kernel`。
 
-`kernel` 和 `kernel_256` 更平滑、更稳定，尤其在概率校准上经常有优势。
+### `proportional`
 
-- ETAS `St1_2018` 中 `kernel/kernel_256` 最好。
-- RECAST `St1_2018` 中 `kernel_256` 虽然 RMSE 略差于 `proportional`，但 MAE、CRPS、LP_NB 和 coverage 更好。
+`proportional_norm0` 通常比原始 `proportional` 好，但整体仍不如 `mamba_norm0`。它可以作为低复杂度备选，不建议作为默认首选。
 
-如果目标是稳定概率预测，而不是单纯 RMSE，`kernel_256` 仍然值得保留。
+### `no_bg`
 
-### proportional
+ETAS `no_bg` 对滑动窗 count forecast 依然不友好：多数数据集 RMSE/MAE 极差，W95 也经常异常大。它在某些 likelihood 指标上可能看起来好，但不能直接代表滚动预测质量。
 
-`proportional` 在大多数场景下不是最优，但在 RECAST `St1_2018` 上 RMSE 最低。
+## 与 `nll_test_time` 分析的差异
 
-这可能说明 `St1_2018` 的窗口计数变化中有较强的比例型背景成分，简单背景反而减少了过拟合。但从 CRPS 和 LP_NB 看，`kernel_256` 的分布预测更稳。
+滑动窗 count forecast 与 `nll_test_time` 的排序不完全一致：
 
-### no_bg
-
-`no_bg` 在滑动窗预测中明显不推荐。
-
-它在所有 ETAS 数据集上 RMSE 都是最差或接近最差。个别数据集 coverage 较高，是通过极宽 W95 实现的，并不代表预测更好。
-
-## 与 nll_test_time 分析的差异
-
-此前按 `nll_test_time` 分析时，RECAST 更偏好 `kernel`，ETAS 在部分数据集也偏好 `kernel/kernel_256`。
-
-滑动窗预测则明显更偏好 `mamba`。原因是：
-
-- `nll_test_time` 更关注逐事件时间似然。
-- 滑动窗 `RMSE/MAE/CRPS` 更关注窗口计数预测。
-- 窗口计数预测对背景率的动态变化更敏感。
-- `mamba` 背景能更灵活地捕捉短期非平稳变化，因此在滑动窗指标上更强。
+- `nll_test_time` 只评估事件时间似然，滑动窗指标还评估未来窗口计数分布的均值、区间和概率校准。
+- ETAS `no_bg` 在部分数据集的 `nll_test_time` 很强，但滑动窗 count forecast 明显变差。
+- `norm_0` 在 `nll_test_time` 上整体也偏正面，但在滑动窗中更明显地体现为更宽的 W95 和更保守的区间。
+- 因此，如果目标是实际滚动 count forecast，建议以滑动窗 RMSE/CRPS/coverage/W95 的联合表现为主，而不是单独看 NLL。
 
 ## 建议
 
 ### 如果目标是滑动窗 count forecast
 
-| 场景 | 推荐 |
-|---|---|
-| ETAS 默认背景 | mamba |
-| RECAST 默认背景 | mamba |
-| PNR_1z | ETAS mamba 或 RECAST mamba；若重视 CRPS/coverage，选 RECAST mamba |
-| CB_HAB1a | RECAST mamba |
-| St1_2018 | RECAST proportional 看 RMSE；RECAST kernel_256 看综合概率质量 |
-| CB_HAB4 | ETAS mamba |
+| 数据集 | 推荐模型 | 推荐背景 | 备注 |
+|---|---|---|---|
+| `PNR_1z` | ETAS | `mamba_norm0` | RMSE 最低；若更重视 MAE/CRPS/coverage，可比较 RECAST `mamba`。 |
+| `CB_HAB1a` | RECAST | `mamba` | 当前无 ETAS `norm_0`，RECAST `mamba` 最稳。 |
+| `St1_2018` | ETAS | `mamba_norm0` | 误差最优，但 coverage 偏高、W95 较宽。 |
+| `CB_HAB4` | RECAST / ETAS | `mamba_norm_0` / `mamba_norm0` | 二者 RMSE 几乎持平；RECAST `mamba_norm_0` 的 MAE/CRPS 略优，ETAS `mamba_norm0` coverage 略高。 |
 
 ### 后续实验建议
 
-1. 对滑动窗评估补齐多 seed，而不是只看 seed 0。
-2. 对 `St1_2018` 的 RECAST 比较 `proportional` 与 `kernel_256`，不要只按 RMSE 决策。
-3. 对 `CB_HAB4` 继续重点排查 RECAST 的分布漂移问题，因为它在 NLL 和滑动窗指标上都弱于 ETAS。
-4. 对 `mamba` 背景做容量/正则消融，确认其滑动窗优势是否稳定。
-5. 不建议继续把 ETAS `no_bg` 作为滑动窗预测候选，除非只用于 ablation baseline。
-
+1. 对 `CB_HAB1a` 补跑 ETAS `proportional_norm0`、`kernel_norm0`、`mamba_norm0`，确认 `norm_0` 是否也能带来类似收益。
+2. 对 `mamba_norm0` 做 W95/coverage 校准检查，尤其是 `St1_2018`，判断是否存在过度保守。
+3. 对 `kernel_norm0` 做数据集分层诊断：ETAS `kernel_norm0` 在 `CB_HAB4` 有效，但在 `PNR_1z` 和 `St1_2018` 明显变差；RECAST `kernel_norm_0` 在 `CB_HAB4` 上也不是 RMSE 最优。
+4. 对 RECAST 的 `norm_0/no_bg` 对照做完整数据集复核，判断 `CB_HAB4` 的收益是否能推广到其他数据集。
+5. 对 `PNR_1z` 同时报告 RMSE 与 MAE/CRPS，因为 ETAS `mamba_norm0` 和 RECAST `mamba` 的最优指标不一致。

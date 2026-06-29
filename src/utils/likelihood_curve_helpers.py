@@ -28,6 +28,14 @@ def _get_inter_time_dist_silent(model, context):
         return model.get_inter_time_dist(context)
 
 
+def _get_recurrent_time_context(model, context, batch):
+    """Return the context used by recurrent time likelihood heads."""
+    get_time_context = getattr(model, "_get_time_context", None)
+    if get_time_context is None:
+        return context
+    return get_time_context(context, batch=batch)
+
+
 def _prefix_cumsum_at_queries(event_times, cum_values, query_times):
     """Gather cumulative values at right-closed prefix indices."""
     prefix = torch.zeros_like(query_times)
@@ -49,7 +57,12 @@ def _build_time_curve_output(times, cum_log_likelihood):
     return out
 
 
-def _build_full_curve_output(times, cum_log_likelihood_time, cum_log_likelihood_total):
+def _build_full_curve_output(
+    times,
+    cum_log_likelihood_time,
+    cum_log_likelihood_total,
+    cum_log_likelihood_trigger=None,
+):
     """Build standard output dict for time and total cumulative curves."""
     ll_time = _to_numpy_float(cum_log_likelihood_time)
     ll_total = _to_numpy_float(cum_log_likelihood_total)
@@ -62,6 +75,10 @@ def _build_full_curve_output(times, cum_log_likelihood_time, cum_log_likelihood_
     out["cum_nll"] = -out["cum_log_likelihood"]
     out["cum_nll_time"] = -out["cum_log_likelihood_time"]
     out["cum_nll_total"] = -out["cum_log_likelihood_total"]
+    if cum_log_likelihood_trigger is not None:
+        ll_trigger = _to_numpy_float(cum_log_likelihood_trigger)
+        out["cum_log_likelihood_trigger"] = ll_trigger
+        out["cum_nll_trigger"] = -ll_trigger
     return out
 
 
@@ -216,6 +233,7 @@ def _cumulative_curve_recurrent_fast(model, sequence, device=None, eps=1e-10):
 
     with torch.inference_mode():
         context = model.get_context(batch)
+        context = _get_recurrent_time_context(model, context, batch)
 
         inter_time_dist = _get_inter_time_dist_silent(model, context)
 
@@ -275,7 +293,7 @@ def _cumulative_curve_recurrent_fast(model, sequence, device=None, eps=1e-10):
 
 
 def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-10):
-    """Fast cumulative total log-likelihood for recurrent models with BG."""
+    """Fast cumulative time/total log-likelihood for recurrent models with BG."""
     device = _resolve_device(model, device)
     if getattr(model, "bg_model", None) is None:
         raise ValueError("Recurrent total fast path requires model.bg_model.")
@@ -286,6 +304,7 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
 
     with torch.inference_mode():
         context = model.get_context(batch)
+        context = _get_recurrent_time_context(model, context, batch)
         inter_time_dist = _get_inter_time_dist_silent(model, context)
 
         log_pdf = inter_time_dist.log_prob(batch.inter_times.clamp_min(eps))[0]
@@ -325,7 +344,7 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
             prev_log_surv = prev_surv_val.reshape(-1)[0]
             offset_log_like = -prev_log_surv
 
-        cum_ll_time = offset_log_like + event_prefix + log_surv_prefix
+        cum_ll_trigger = offset_log_like + event_prefix + log_surv_prefix
 
         # BG change term: sum log(1 + f/h) over events - integral f.
         log_h = inter_time_dist.log_hazard(batch.inter_times.clamp_min(eps))[0]
@@ -340,9 +359,15 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
             bg_event_prefix = torch.zeros_like(end_eval)
 
         bg_int_prefix = _bg_integral_prefix(model.bg_model, batch, end_eval_values)
-        cum_ll_total = cum_ll_time + bg_event_prefix - bg_int_prefix
+        cum_ll_time = cum_ll_trigger + bg_event_prefix - bg_int_prefix
+        cum_ll_total = cum_ll_time.clone()
 
-    out = _build_full_curve_output(eval_times, cum_ll_time, cum_ll_total)
+    out = _build_full_curve_output(
+        eval_times,
+        cum_ll_time,
+        cum_ll_total,
+        cum_log_likelihood_trigger=cum_ll_trigger,
+    )
     meta = _build_curve_meta(
         curve_method="recurrent_total_fast",
         num_events_in_nll=nll_event_times.numel(),
@@ -613,6 +638,13 @@ def cumulative_log_likelihood_curve(
 
     if _is_etas_like(model):
         return _cumulative_curve_etas_total_fast(
+            model,
+            sequence,
+            device=device,
+            eps=eps,
+        )
+    if _is_recurrent_curve_model(model) and getattr(model, "bg_model", None) is not None:
+        return _cumulative_curve_recurrent_total_fast(
             model,
             sequence,
             device=device,

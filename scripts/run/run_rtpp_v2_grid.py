@@ -12,6 +12,7 @@ if str(SCRIPTS_ROOT) not in sys.path:
 from omegaconf import OmegaConf
 
 from automation import (
+    ExperimentWorkspace,
     apply_exp_config_overrides,
     adjust_parallel_limits,
     create_experiment_workspace,
@@ -23,6 +24,7 @@ from automation import (
     parse_optional_csv,
     parse_set_overrides,
     resolve_point_seeds,
+    resolve_repo_path,
     set_key,
     try_load_summary,
 )
@@ -153,6 +155,14 @@ def _build_parser():
         action="store_true",
         help="Skip runs that already have successful train/test results in summary.json.",
     )
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help=(
+            "Resolve the grid and report which runs would be skipped or run "
+            "without creating/updating experiment files or launching jobs."
+        ),
+    )
     return parser
 
 
@@ -170,6 +180,7 @@ def _override_args_from_exp_config(args, exp_cfg: dict):
         "stop_on_error": "stop_on_error",
         "resume_exp": "resume_exp",
         "skip_done": "skip_done",
+        "dry_run": "dry_run",
     }
     csv_like_keys = {
         "seeds": "seeds",
@@ -177,6 +188,50 @@ def _override_args_from_exp_config(args, exp_cfg: dict):
     }
     mapping_like_keys = {}
     return apply_exp_config_overrides(args, exp_cfg, direct_key_map, csv_like_keys, mapping_like_keys)
+
+
+def _summary_returncodes_ok(prev: dict) -> bool:
+    if not isinstance(prev, dict):
+        return False
+    train_ok = prev.get("train_returncode") in (None, 0)
+    test_ok = prev.get("test_returncode") in (None, 0)
+    return train_ok and test_ok
+
+
+def _done_status(prev: dict | None):
+    if _summary_returncodes_ok(prev):
+        return True, "summary_done"
+    return False, None
+
+
+def _build_dry_run_workspace(args, exp_cfg_path: Path | None):
+    repo_root = resolve_repo_path(__file__, ".")
+    base_config_path = (repo_root / args.base_config).resolve()
+    if not base_config_path.exists():
+        raise FileNotFoundError(f"Base config not found: {base_config_path}")
+
+    exp_root = (repo_root / args.exp_root).resolve()
+    exp_name = args.exp_name or "rtpp_v2_grid_DRY_RUN"
+    exp_dir = exp_root / exp_name
+    configs_dir = exp_dir / "configs"
+
+    exp_config_snapshot_path = None
+    if exp_cfg_path is not None:
+        exp_cfg_name = exp_cfg_path.name
+        if exp_cfg_name == base_config_path.name:
+            exp_cfg_name = f"exp_config_{exp_cfg_name}"
+        exp_config_snapshot_path = configs_dir / exp_cfg_name
+
+    return ExperimentWorkspace(
+        repo_root=repo_root,
+        exp_root=exp_root,
+        exp_dir=exp_dir,
+        runs_dir=exp_dir / "runs",
+        configs_dir=configs_dir,
+        base_config_path=base_config_path,
+        base_config_snapshot_path=configs_dir / f"base_{base_config_path.name}",
+        exp_config_snapshot_path=exp_config_snapshot_path,
+    )
 
 
 def main():
@@ -198,16 +253,20 @@ def main():
 
     extra_overrides = parse_set_overrides(args.set)
 
-    workspace = create_experiment_workspace(
-        current_file=__file__,
-        base_config=args.base_config,
-        exp_root=args.exp_root,
-        exp_name=args.exp_name,
-        default_name_prefix="rtpp_v2_grid",
-        exp_cfg_path=exp_cfg_path,
-        resume_exp=bool(args.resume_exp),
-        base_snapshot_prefix="base_",
-    )
+    if args.dry_run:
+        workspace = _build_dry_run_workspace(args, exp_cfg_path)
+        print(f"[INFO] Dry run: no files will be created or modified under {workspace.exp_dir}")
+    else:
+        workspace = create_experiment_workspace(
+            current_file=__file__,
+            base_config=args.base_config,
+            exp_root=args.exp_root,
+            exp_name=args.exp_name,
+            default_name_prefix="rtpp_v2_grid",
+            exp_cfg_path=exp_cfg_path,
+            resume_exp=bool(args.resume_exp),
+            base_snapshot_prefix="base_",
+        )
     existing_summary, existing_by_run = try_load_summary(workspace.exp_dir / "summary.json")
 
     gpu_ids = parse_optional_csv(args.gpu_ids, int)
@@ -250,14 +309,15 @@ def main():
         "skip_done": bool(args.skip_done),
         "extra_overrides": extra_overrides,
     }
-    dump_json(workspace.exp_dir / "plan.json", plan)
+    if not args.dry_run:
+        dump_json(workspace.exp_dir / "plan.json", plan)
 
     tasks = []
+    skipped_runs = []
     if grid_points is None:
         for seed in seeds:
             variant_name = normalize_run_name(f"seed_{int(seed)}", fallback=f"seed_{int(seed)}")
             run_dir = workspace.runs_dir / variant_name
-            run_dir.mkdir(parents=True, exist_ok=True)
 
             cfg = OmegaConf.load(str(workspace.base_config_path))
             cfg.seed = int(seed)
@@ -266,16 +326,13 @@ def main():
                 set_key(cfg, key, value)
 
             cfg_path = run_dir / "config_input.yaml"
-            OmegaConf.save(cfg, str(cfg_path))
 
             skip_reason = None
             if args.skip_done:
                 prev = existing_by_run.get(variant_name)
-                if isinstance(prev, dict):
-                    train_ok = prev.get("train_returncode") in (None, 0)
-                    test_ok = prev.get("test_returncode") in (None, 0)
-                    if train_ok and test_ok:
-                        skip_reason = "summary_done"
+                done, reason = _done_status(prev)
+                if done:
+                    skip_reason = reason
 
             task = {
                 "run": variant_name,
@@ -284,7 +341,12 @@ def main():
                 "cfg_path": str(cfg_path),
             }
             if skip_reason is None:
+                if not args.dry_run:
+                    run_dir.mkdir(parents=True, exist_ok=True)
+                    OmegaConf.save(cfg, str(cfg_path))
                 tasks.append(task)
+            else:
+                skipped_runs.append({"run": variant_name, "reason": skip_reason})
     else:
         for point in grid_points:
             point_name = str(point.get("name") or "grid")
@@ -304,7 +366,6 @@ def main():
                     fallback=f"grid_seed_{int(seed)}",
                 )
                 run_dir = workspace.runs_dir / variant_name
-                run_dir.mkdir(parents=True, exist_ok=True)
 
                 cfg = OmegaConf.load(str(workspace.base_config_path))
                 cfg.seed = int(seed)
@@ -315,16 +376,13 @@ def main():
                     set_key(cfg, str(key), value)
 
                 cfg_path = run_dir / "config_input.yaml"
-                OmegaConf.save(cfg, str(cfg_path))
 
                 skip_reason = None
                 if args.skip_done:
                     prev = existing_by_run.get(variant_name)
-                    if isinstance(prev, dict):
-                        train_ok = prev.get("train_returncode") in (None, 0)
-                        test_ok = prev.get("test_returncode") in (None, 0)
-                        if train_ok and test_ok:
-                            skip_reason = "summary_done"
+                    done, reason = _done_status(prev)
+                    if done:
+                        skip_reason = reason
 
                 task = {
                     "run": variant_name,
@@ -333,7 +391,12 @@ def main():
                     "cfg_path": str(cfg_path),
                 }
                 if skip_reason is None:
+                    if not args.dry_run:
+                        run_dir.mkdir(parents=True, exist_ok=True)
+                        OmegaConf.save(cfg, str(cfg_path))
                     tasks.append(task)
+                else:
+                    skipped_runs.append({"run": variant_name, "reason": skip_reason})
 
     skipped_count = 0
     if args.skip_done:
@@ -348,6 +411,18 @@ def main():
                 total_planned += len(point_seeds)
         skipped_count = max(0, total_planned - len(tasks))
         print(f"[INFO] skip_done enabled: {skipped_count} skipped, {len(tasks)} to run.")
+
+    if args.dry_run:
+        if skipped_runs:
+            print("[DRY-RUN] Skipped runs:")
+            for item in skipped_runs:
+                print(f"  SKIP {item['run']} ({item['reason']})")
+        if tasks:
+            print("[DRY-RUN] Pending runs:")
+            for task in tasks:
+                print(f"  RUN  {task['run']}")
+        print("[DRY-RUN] No commands executed.")
+        return
 
     if not tasks:
         print("[INFO] No pending tasks to run.")
