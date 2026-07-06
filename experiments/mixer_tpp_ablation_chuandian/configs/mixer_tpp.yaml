@@ -1,8 +1,4 @@
-# resume_path: ./checkpoints/mixer_tpp_20250821-223034/best_model_1.pth
-# load_specific_parts: ['encoder']
-# freeze_parts: ['encoder']
-# exclude_freeze_parts: ['input_linear']
-# 模型设置
+
 model: mixer_tpp
 num_event_types: 1
 pad_token_id: 1
@@ -18,7 +14,7 @@ scheduler_factor: null
 scheduler_patience: null
 scheduler_threshold: null
 scheduler_min_lr: 1e-6
-scheduler_type:  step_warmup
+scheduler_type:  hf_cosine
 step_lr_step_size_ratio: 0.2
 step_lr_gamma: 0.8
 
@@ -100,7 +96,7 @@ loss_weights:
   time_weight: 1
   mag_weight: 1
   b_weight: 0.01
-  b_smooth_weight: 0.001
+  b_smooth_weight: 0.00001
 
 
 loss_reduction: 'per_time'

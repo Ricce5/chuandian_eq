@@ -90,3 +90,16 @@ grid:
         mixer_model_config.ssm_cfg:
           layer: Mamba2
         mixer_model_config.attn_cfg.layer: MHA
+
+    # 7) tpp+log+b-txpos
+    - name: tpp_log_b_minus_txpos
+      overrides:
+        predict_b: true
+        use_b_updater: true
+        loss_weights.b_weight: 0.01
+        loss_weights.b_smooth_weight: 0.001
+        mixer_model_config.input_dim: 2
+        features_input_keys: [mag, log_inter_times]
+        mixer_model_config.ssm_cfg:
+          layer: Mamba2
+        mixer_model_config.attn_cfg.layer: MHA
