@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import Mapping, Optional, Union
 import numpy as np
 import pandas as pd
 import torch
@@ -32,6 +32,13 @@ MAG_COMPLETENESS = {
 }
 
 
+def _normalize_event_feature_builder_name(value: Optional[str]) -> Optional[str]:
+    builder_name = str(value).strip().lower() if value is not None else None
+    if builder_name in {"", "none", "null", "false"}:
+        return None
+    return builder_name
+
+
 @Catalog.register(name="PNR-Base")
 class PNRBase(Catalog):
     def __init__(
@@ -45,7 +52,11 @@ class PNRBase(Catalog):
         val_start_ts: pd.Timestamp = None,    
         test_start_ts: pd.Timestamp = None,
         freq: str = "1h",
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
+        self.event_feature_builder = _normalize_event_feature_builder_name(event_feature_builder)
+        self.event_feature_cfg = dict(event_feature_cfg or {})
         catalog_cfg = {
             "region": region,
             "normalize": normalize,
@@ -55,6 +66,9 @@ class PNRBase(Catalog):
             "val_start_ts": to_serializable_ts(val_start_ts),
             "test_start_ts": to_serializable_ts(test_start_ts),
         }
+        if self.event_feature_builder is not None:
+            catalog_cfg["event_feature_builder"] = self.event_feature_builder
+            catalog_cfg["event_feature_cfg"] = self.event_feature_cfg
         self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=True)
         if region not in VALID_REGIONS:
             raise ValueError(f"Unsupported PNR region '{region}'. Supported: {sorted(VALID_REGIONS)}")
@@ -83,6 +97,9 @@ class PNRBase(Catalog):
             "start_ts": START_TS[region],
             "end_ts": END_TS[region],
         }
+        if self.event_feature_builder is not None:
+            self.metadata["event_feature_builder"] = self.event_feature_builder
+            self.metadata["event_feature_cfg"] = self.event_feature_cfg
         if train_start_ts is not None and val_start_ts is not None and test_start_ts is not None:
             self.metadata["train_start_ts"] = pd.Timestamp(train_start_ts)
             self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
@@ -99,16 +116,37 @@ class PNRBase(Catalog):
     def required_files(self):
         return ["full_sequence.pt", "metadata.pt"]
 
+    def _build_event_fields(self, *, arrival_times: np.ndarray, df_ts: pd.DataFrame) -> dict:
+        if self.event_feature_builder is None:
+            return {}
+
+        from src.catalogs.event_features import EventFeatureBuilderFactory
+
+        time_unit_minutes = float(pd.Timedelta(self.metadata["freq"]) / pd.Timedelta(minutes=1))
+        builder = EventFeatureBuilderFactory.create(
+            self.event_feature_builder,
+            time_unit_minutes=time_unit_minutes,
+            builder_cfg=self.event_feature_cfg,
+        )
+        if builder is None:
+            return {}
+
+        df_eq = pd.DataFrame({"t": arrival_times})
+        df_inj = df_ts[["t", "IR_h"]].rename(columns={"IR_h": "rate"})
+        return builder.build(df_eq=df_eq, df_inj=df_inj)
+
     def generate_catalog(self):
         df = pd.read_csv(self.catalog_file, parse_dates=['ts'])
-        df["time"] = pd.to_datetime(df["ts"])
+        df["time"] = pd.to_datetime(df["ts"]).astype("datetime64[ns]")
         df = df[['time', 'Magnitude', 'Latitude', 'Longitude', 'Depth']]
         df = df[df["Magnitude"] > self.mag_completeness].copy()
         df.sort_values("time", inplace=True)
         duplicated_mask = df["time"].duplicated(keep=False)
         if duplicated_mask.any():
-            df.loc[duplicated_mask, "time"] += pd.to_timedelta(
-                np.random.uniform(1e-8, 1e-6, duplicated_mask.sum()), unit="D"  # 1e-6D = 86.4ms 
+            duplicate_offsets_us = df.groupby("time").cumcount()
+            df.loc[duplicated_mask, "time"] = (
+                df.loc[duplicated_mask, "time"]
+                + pd.to_timedelta(duplicate_offsets_us[duplicated_mask], unit="us")
             )
             df.sort_values("time", inplace=True)
         #
@@ -140,9 +178,11 @@ class PNRBase(Catalog):
 
         df_ts = pd.read_csv(self.time_series_file, parse_dates=['ts'])
         df_ts.set_index('ts', inplace=True)
+        df_ts.sort_index(inplace=True)
         df_ts['t'] = (df_ts.index - start_ts) / pd.Timedelta(self.metadata["freq"])
         time_series = torch.tensor(df_ts[['IR_h']].values, dtype=torch.float32)
         assert torch.isnan(time_series).sum().item() == 0, "Found NaN in time series data."
+        event_fields = self._build_event_fields(arrival_times=arrival_times, df_ts=df_ts)
         seq = Sequence(
             inter_times=torch.tensor(inter_times, dtype=torch.float32),
             t_start=t_start,
@@ -151,7 +191,7 @@ class PNRBase(Catalog):
             depth=fields["depth"],
             time_series=time_series,
             time_series_times=torch.tensor(df_ts['t'].values, dtype=torch.float32),
-
+            **event_fields,
         )
 
         TppDataset([seq]).save_to_disk(self.root_dir / "full_sequence.pt")
@@ -169,6 +209,8 @@ class PNR1zStandard(PNRBase):
         val_start_ts: pd.Timestamp = pd.Timestamp("2018-11-22"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2018-12-14"),
         freq: str = "1h",
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             root_dir=root_dir,
@@ -179,8 +221,11 @@ class PNR1zStandard(PNRBase):
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
             freq=freq,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
         self._split_datasets()
+
     def _split_datasets(self):
         seq_train, seq_val, seq_test = train_val_test_split_sequence(
             seq=self.full_sequence,
@@ -206,7 +251,8 @@ class PNR2Standard(PNRBase):
         val_start_ts: pd.Timestamp = pd.Timestamp("2019-8-24"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2019-9-25"),
         freq: str = "1h",
-
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             root_dir=root_dir,
@@ -217,8 +263,11 @@ class PNR2Standard(PNRBase):
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
             freq=freq,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
         self._split_datasets()
+
     def _split_datasets(self):
         seq_train, seq_val, seq_test = train_val_test_split_sequence(
             seq=self.full_sequence,
@@ -245,7 +294,11 @@ class PNRStandard(Catalog):
         train_start_ts: pd.Timestamp = pd.Timestamp("2018-10-22"),
         val_start_ts: pd.Timestamp = pd.Timestamp("2019-8-20"),
         test_start_ts: pd.Timestamp = pd.Timestamp("2019-8-24"),
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
+        self.event_feature_builder = _normalize_event_feature_builder_name(event_feature_builder)
+        self.event_feature_cfg = dict(event_feature_cfg or {})
         catalog_cfg = {
             "region_split": region_split,
             "mag_completeness": mag_completeness,
@@ -254,6 +307,9 @@ class PNRStandard(Catalog):
             "val_start_ts": to_serializable_ts(val_start_ts),
             "test_start_ts": to_serializable_ts(test_start_ts),
         }
+        if self.event_feature_builder is not None:
+            catalog_cfg["event_feature_builder"] = self.event_feature_builder
+            catalog_cfg["event_feature_cfg"] = self.event_feature_cfg
         self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
 
         dataset_dir = resolve_dataset_data_dir(root_dir=root_dir, data_dir=data_dir)
@@ -271,12 +327,22 @@ class PNRStandard(Catalog):
         data_dir_2 = pnr_2_dir / "catalogs"
 
 
-        self.catalog_1z = PNR1zStandard(root_dir=data_dir_1z, 
-                                        data_dir=pnr_1z_dir,
-                                        mag_completeness=mag_completeness,freq=freq)
-        self.catalog_2 = PNR2Standard(root_dir=data_dir_2, 
-                                      data_dir=pnr_2_dir,
-                                      mag_completeness=mag_completeness,freq=freq)   
+        self.catalog_1z = PNR1zStandard(
+            root_dir=data_dir_1z,
+            data_dir=pnr_1z_dir,
+            mag_completeness=mag_completeness,
+            freq=freq,
+            event_feature_builder=self.event_feature_builder,
+            event_feature_cfg=self.event_feature_cfg,
+        )
+        self.catalog_2 = PNR2Standard(
+            root_dir=data_dir_2,
+            data_dir=pnr_2_dir,
+            mag_completeness=mag_completeness,
+            freq=freq,
+            event_feature_builder=self.event_feature_builder,
+            event_feature_cfg=self.event_feature_cfg,
+        )
 
         self.sequences  = [self.catalog_1z.full_sequence, self.catalog_2.full_sequence]
         self.full_sequence = self.catalog_2.full_sequence
@@ -290,6 +356,9 @@ class PNRStandard(Catalog):
         self.metadata['train_start_ts'] = pd.Timestamp(train_start_ts)
         self.metadata["val_start_ts"] = pd.Timestamp(val_start_ts)
         self.metadata["test_start_ts"] = pd.Timestamp(test_start_ts)
+        if self.event_feature_builder is not None:
+            self.metadata["event_feature_builder"] = self.event_feature_builder
+            self.metadata["event_feature_cfg"] = self.event_feature_cfg
         super().__init__(root_dir=self.root_dir, metadata=self.metadata)
         self._split_datasets()
 

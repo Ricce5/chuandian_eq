@@ -42,6 +42,8 @@ class CooperBasinStandard(InducedTripletGroupedCatalog):
         normalize: bool = True,
         resample_freq_min: Optional[int] = None,
         freq: str = "1h",
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             family_name="CooperBasin",
@@ -56,6 +58,8 @@ class CooperBasinStandard(InducedTripletGroupedCatalog):
             normalize=normalize,
             resample_freq_min=resample_freq_min,
             freq=freq,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -73,6 +77,8 @@ class CooperBasinBase(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         if dataset_name not in COOPER_BASIN_DATASETS:
             raise ValueError(
@@ -94,6 +100,8 @@ class CooperBasinBase(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -111,6 +119,8 @@ class CBHAB1aStandard(CooperBasinBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="CB_HAB1a",
@@ -124,6 +134,8 @@ class CBHAB1aStandard(CooperBasinBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -141,6 +153,8 @@ class CBHAB1bStandard(CooperBasinBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="CB_HAB1b",
@@ -154,6 +168,8 @@ class CBHAB1bStandard(CooperBasinBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -171,6 +187,8 @@ class CBHAB4Standard(CooperBasinBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = '2012-11-28 12:00:00',
         test_start_ts: Optional[Union[pd.Timestamp, str]] = '2012-11-30 00:00:00',
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="CB_HAB4",
@@ -184,4 +202,6 @@ class CBHAB4Standard(CooperBasinBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )

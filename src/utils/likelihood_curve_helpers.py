@@ -378,6 +378,117 @@ def _cumulative_curve_recurrent_total_fast(model, sequence, device=None, eps=1e-
     return out, meta
 
 
+def _is_oracle_like(model):
+    """Return whether model exposes Oracle fast-curve interface."""
+    model = getattr(model, "_orig_mod", model)
+    return (
+        model.__class__.__name__.lower() == "oracle"
+        and hasattr(model, "get_marks")
+        and hasattr(model, "get_pre_params")
+        and hasattr(model, "get_inter_time_dist")
+        and hasattr(model, "_causal_shift_pre_params")
+    )
+
+
+def _cumulative_curve_oracle_fast(model, sequence, device=None, eps=1e-10):
+    """Fast cumulative time/total log-likelihood curve for Oracle.
+
+    Oracle's NLL is causal after shifting decoded parameters by one step, so a
+    single full-sequence forward pass provides all event log-density and
+    endpoint survival terms needed for the cumulative curve.
+    """
+    model = getattr(model, "_orig_mod", model)
+    device = _resolve_device(model, device)
+    if not _is_oracle_like(model):
+        raise ValueError("Oracle fast path requires an Oracle-like model.")
+
+    eval_times, end_eval_values, nll_event_times = _build_eval_and_end_values(sequence)
+    batch = Batch.from_list([sequence]).to(device)
+    end_eval = torch.as_tensor(end_eval_values, device=device, dtype=batch.arrival_times.dtype)
+
+    inter_time_min = float(getattr(model, "_INTER_TIME_MIN", eps))
+    inter_time_max = float(getattr(model, "_INTER_TIME_MAX", 1e10))
+
+    with torch.inference_mode():
+        marks = model.get_marks(batch)
+        pre_params_raw = model.get_pre_params(marks)
+        pre_params = model._causal_shift_pre_params(pre_params_raw)
+
+        d_t_obs = batch.inter_times.clamp(inter_time_min, inter_time_max)
+        inter_time_dist = _get_inter_time_dist_silent(model, pre_params)
+
+        log_pdf = inter_time_dist.log_prob(d_t_obs)[0]
+        nll_mask = batch.nll_event_mask[0].bool()
+        event_times = batch.arrival_times[0][nll_mask]
+        event_log_like = log_pdf[nll_mask]
+        cum_event_log_like = (
+            torch.cumsum(event_log_like, dim=0) if event_log_like.numel() > 0 else event_log_like
+        )
+
+        event_prefix, _, _ = _prefix_cumsum_at_queries(
+            event_times=event_times,
+            cum_values=cum_event_log_like,
+            query_times=end_eval,
+        )
+
+        end_idx = int(batch.end_idx[0].item())
+        real_event_times = batch.arrival_times[0, :end_idx]
+        prefix_end_idx = torch.searchsorted(real_event_times, end_eval, right=True)
+        prefix_end_idx[-1] = batch.end_idx[0]
+        if cum_event_log_like.numel() > 0:
+            event_prefix[-1] = cum_event_log_like[-1]
+        prev_time = torch.full_like(end_eval, float(batch.t_start[0].item()))
+        has_prev = prefix_end_idx > 0
+        prev_time[has_prev] = real_event_times[prefix_end_idx[has_prev] - 1]
+        surv_dt = (end_eval - prev_time).clamp(inter_time_min, inter_time_max)
+
+        if nll_event_times.numel() > 0:
+            nll_event_times_device = nll_event_times.to(device=device, dtype=end_eval.dtype)
+            event_slice = slice(1, 1 + int(nll_event_times_device.numel()))
+            event_end_eval = end_eval[event_slice]
+            is_unadjusted_event_endpoint = torch.isclose(
+                event_end_eval,
+                nll_event_times_device,
+                rtol=0.0,
+                atol=1e-8,
+            )
+            event_surv_dt = surv_dt[event_slice]
+            event_surv_dt[is_unadjusted_event_endpoint] = inter_time_min
+            surv_dt[event_slice] = event_surv_dt
+        surv_dt[-1] = d_t_obs[0, batch.end_idx[0]]
+
+        surv_context = pre_params[0, prefix_end_idx, :]
+        surv_dist = _get_inter_time_dist_silent(model, surv_context)
+        log_surv_prefix = surv_dist.log_survival(surv_dt).reshape(-1)
+
+        offset_log_like = torch.tensor(0.0, device=device, dtype=event_prefix.dtype)
+        if torch.any(batch.t_nll_start != batch.t_start):
+            arange = torch.arange(batch.batch_size, device=device)
+            prev_surv_context = pre_params[arange, batch.start_idx, :]
+            prev_surv_dist = _get_inter_time_dist_silent(model, prev_surv_context)
+            prev_surv_time = d_t_obs[arange, batch.start_idx] - (
+                batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
+            )
+            prev_surv_time = prev_surv_time.clamp(inter_time_min, inter_time_max)
+            prev_surv_val = prev_surv_dist.log_survival(prev_surv_time)
+            offset_log_like = -prev_surv_val.reshape(-1)[0]
+
+        cum_ll_time = offset_log_like + event_prefix + log_surv_prefix
+        cum_ll_total = cum_ll_time.clone()
+
+    out = _build_full_curve_output(eval_times, cum_ll_time, cum_ll_total)
+    meta = _build_curve_meta(
+        curve_method="oracle_fast",
+        num_events_in_nll=nll_mask.sum().item(),
+        final_log_likelihood=out["cum_log_likelihood_time"][-1],
+        final_log_likelihood_total=out["cum_log_likelihood_total"][-1],
+        num_prefix_evals=len(eval_times),
+        offset_log_likelihood=offset_log_like.detach().cpu().item(),
+        terminal_log_survival=log_surv_prefix[-1].detach().cpu().item(),
+    )
+    return out, meta
+
+
 def _is_etas_like(model):
     """Return whether model exposes ETAS fast-curve interface."""
     return hasattr(model, "h_intensity") and hasattr(model, "prefix_h_integral")
@@ -607,6 +718,9 @@ def cumulative_log_likelihood_curve(
         # Exact fast paths:
         # - ETAS family: O(N^2) block-wise vectorization instead of prefix recomputation.
         # - Recurrent+BG family: single forward + cumulative decomposition.
+        # - Oracle: single causal forward + cumulative time decomposition.
+        if _is_oracle_like(model):
+            return _cumulative_curve_oracle_fast(model, sequence, device=device, eps=eps)
         if _is_etas_like(model):
             return _cumulative_curve_etas_total_fast(
                 model,
@@ -636,6 +750,8 @@ def cumulative_log_likelihood_curve(
             progress_desc=progress_desc,
         )
 
+    if _is_oracle_like(model):
+        return _cumulative_curve_oracle_fast(model, sequence, device=device, eps=eps)
     if _is_etas_like(model):
         return _cumulative_curve_etas_total_fast(
             model,

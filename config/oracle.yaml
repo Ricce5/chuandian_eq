@@ -31,9 +31,11 @@ num_rnn_layers: 1
 rnn_dropout: 0.2
 oracle_decoder_hidden_layers: 1
 oracle_lookback_size: 10
-oracle_base_mark_order: [time,mag,vm]
-oracle_future_feature_names: []
+oracle_base_mark_order: [time, aRs, mag, Mc, vm, dVc, sv, dTS]
+oracle_future_feature_names: [vm, sv, dTS]
 supplementary_mark_list: []
+sampling_mag_b: null  # null => use training-set richter_b_mle, like rtpp_v2 fixed-b sampling
+mag_max: 10.0
 
 # Other parameters
 dim: 1

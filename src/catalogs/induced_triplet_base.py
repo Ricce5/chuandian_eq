@@ -180,6 +180,8 @@ def _prepare_numeric_field(values: pd.Series) -> tuple[Optional[np.ndarray], boo
 class InducedTripletBase(Catalog):
     """Base catalog class for processed induced-seismicity triplet datasets."""
 
+    SEQUENCE_SCHEMA_VERSION = 2
+
     def __init__(
         self,
         dataset_name: str,
@@ -194,12 +196,22 @@ class InducedTripletBase(Catalog):
         train_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         val_start_ts: Optional[Union[str, pd.Timestamp]] = None,
         test_start_ts: Optional[Union[str, pd.Timestamp]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         self.dataset_name = dataset_name
         self.normalize = normalize
         if normalize_time_series is None:
             normalize_time_series = normalize
         self.normalize_time_series = bool(normalize_time_series)
+        self.event_feature_builder = (
+            str(event_feature_builder).strip().lower()
+            if event_feature_builder is not None
+            else None
+        )
+        if self.event_feature_builder in {"", "none", "null", "false"}:
+            self.event_feature_builder = None
+        self.event_feature_cfg = dict(event_feature_cfg or {})
         self.freq = str(freq)
         self.unit_td = pd.Timedelta(self.freq)
         if self.unit_td <= pd.Timedelta(0):
@@ -256,6 +268,7 @@ class InducedTripletBase(Catalog):
             "mag_roundoff_error": 0.01,
             "mag_completeness": self.mag_completeness,
             "normalize_time_series": self.normalize_time_series,
+            "sequence_schema_version": self.SEQUENCE_SCHEMA_VERSION,
             "start_ts": self.start_time,
             "end_ts": self.end_time,
             "train_start_ts": train_start_time,
@@ -269,6 +282,9 @@ class InducedTripletBase(Catalog):
             "inj_fill_policy": self.summary["inj_fill_policy"],
             "is_upsample": bool(self.summary["is_upsample"]),
         }
+        if self.event_feature_builder is not None:
+            metadata["event_feature_builder"] = self.event_feature_builder
+            metadata["event_feature_cfg"] = self.event_feature_cfg
         super().__init__(root_dir=self.root_dir, metadata=metadata)
         self.full_sequence = TppDataset.load_from_disk(self.root_dir / "full_sequence.pt")[0]
         self._split_datasets()
@@ -486,11 +502,15 @@ class InducedTripletBase(Catalog):
             "freq_min": self.freq_min,
             "source_freq_min": self.source_freq_min,
             "inj_source_freq_min": self.inj_source_freq_min,
+            "sequence_schema_version": self.SEQUENCE_SCHEMA_VERSION,
             "end_ts": to_serializable_ts(self.end_time),
             "train_start_ts": to_serializable_ts(train_start_time),
             "val_start_ts": to_serializable_ts(val_start_time),
             "test_start_ts": to_serializable_ts(test_start_time),
         }
+        if self.event_feature_builder is not None:
+            catalog_cfg["event_feature_builder"] = self.event_feature_builder
+            catalog_cfg["event_feature_cfg"] = self.event_feature_cfg
         return build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
 
     def _validate_source_files(self) -> None:
@@ -619,8 +639,23 @@ class InducedTripletBase(Catalog):
             )
         return out
 
-    def _build_event_fields(self, df: pd.DataFrame) -> dict:
+    def _build_event_fields(self, df: pd.DataFrame, df_ts: Optional[pd.DataFrame] = None) -> dict:
         out: dict = {}
+        if self.event_feature_builder is not None:
+            if df_ts is None:
+                raise ValueError("Oracle event feature builder requires injection time-series data.")
+            from src.catalogs.event_features import EventFeatureBuilderFactory
+
+            rate_col = "raw_rate" if "raw_rate" in df_ts.columns else "rate"
+            df_inj = df_ts[["t", rate_col]].rename(columns={rate_col: "rate"})
+            time_unit_minutes = float(self.unit_td / pd.Timedelta(minutes=1))
+            builder = EventFeatureBuilderFactory.create(
+                self.event_feature_builder,
+                time_unit_minutes=time_unit_minutes,
+                builder_cfg=self.event_feature_cfg,
+            )
+            out.update(builder.build(df_eq=df, df_inj=df_inj))
+
         lat_col = self._resolve_column(df, "eq_latitude", required=False)
         lon_col = self._resolve_column(df, "eq_longitude", required=False)
         dep_col = self._resolve_column(df, "eq_depth", required=False)
@@ -713,6 +748,7 @@ class InducedTripletBase(Catalog):
                 "Injection time series must contain at least 2 timestamps after filtering. "
                 f"Got {len(df_ts)}."
             )
+        df_ts["raw_rate"] = df_ts["rate"].to_numpy(dtype=np.float64)
         if self.normalize_time_series:
             normalized_rate = self.normalize_fields(
                 {"inj_rate": df_ts["rate"].to_numpy(dtype=np.float64)}
@@ -730,9 +766,9 @@ class InducedTripletBase(Catalog):
             "t_start": self.t_start,
             "mag": torch.tensor(df_eq["magnitude"].to_numpy(dtype=np.float64), dtype=torch.float32),
         }
-        seq_kwargs.update(self._build_event_fields(df_eq))
 
         df_ts = self._prepare_inj_dataframe()
+        seq_kwargs.update(self._build_event_fields(df_eq, df_ts=df_ts))
         seq_kwargs["time_series"] = torch.tensor(
             df_ts[["rate"]].to_numpy(dtype=np.float64),
             dtype=torch.float32,
@@ -741,6 +777,15 @@ class InducedTripletBase(Catalog):
             df_ts["t"].to_numpy(dtype=np.float64),
             dtype=torch.float32,
         )
+        if "raw_rate" in df_ts.columns:
+            seq_kwargs["raw_time_series"] = torch.tensor(
+                df_ts[["raw_rate"]].to_numpy(dtype=np.float64),
+                dtype=torch.float32,
+            )
+            seq_kwargs["raw_time_series_times"] = torch.tensor(
+                df_ts["t"].to_numpy(dtype=np.float64),
+                dtype=torch.float32,
+            )
 
         seq = TppSequence(**seq_kwargs)
         TppDataset([seq]).save_to_disk(self.root_dir / "full_sequence.pt")

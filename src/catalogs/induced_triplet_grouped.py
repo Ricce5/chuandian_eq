@@ -94,12 +94,17 @@ def _has_time_series(seq: TppSequence) -> bool:
     return "time_series" in seq and "time_series_times" in seq
 
 
+def _has_raw_time_series(seq: TppSequence) -> bool:
+    return "raw_time_series" in seq and "raw_time_series_times" in seq
+
+
 def _merge_sequences(sequences: Sequence[TppSequence]) -> TppSequence:
     if not sequences:
         raise ValueError("Cannot merge an empty sequence list.")
 
     attr_keys = sorted(_event_attr_keys(sequences[0]))
     has_time_series = _has_time_series(sequences[0])
+    has_raw_time_series = _has_raw_time_series(sequences[0])
     for seq in sequences[1:]:
         if _event_attr_keys(seq) != set(attr_keys):
             raise ValueError("All grouped datasets must share the same event attributes.")
@@ -107,13 +112,20 @@ def _merge_sequences(sequences: Sequence[TppSequence]) -> TppSequence:
             raise ValueError(
                 "All grouped datasets must either all contain or all omit time-series data."
             )
+        if _has_raw_time_series(seq) != has_raw_time_series:
+            raise ValueError(
+                "All grouped datasets must either all contain or all omit raw time-series data."
+            )
 
     offset = 0.0
     merged_inter_times: Optional[np.ndarray] = None
     attr_chunks: dict[str, list[torch.Tensor]] = {key: [] for key in attr_keys}
     ts_chunks: list[torch.Tensor] = []
     ts_time_chunks: list[torch.Tensor] = []
+    raw_ts_chunks: list[torch.Tensor] = []
+    raw_ts_time_chunks: list[torch.Tensor] = []
     prev_ts_end: Optional[float] = None
+    prev_raw_ts_end: Optional[float] = None
 
     for seq in sequences:
         duration = float(seq.t_end - seq.t_start)
@@ -145,6 +157,27 @@ def _merge_sequences(sequences: Sequence[TppSequence]) -> TppSequence:
             ts_chunks.append(seq.time_series)
             ts_time_chunks.append(torch.tensor(shifted_ts_times, dtype=torch.float64))
 
+        if has_raw_time_series:
+            shifted_raw_ts_times = (
+                seq.raw_time_series_times.detach().cpu().numpy().astype(np.float64)
+                - float(seq.t_start)
+                + offset
+            )
+            if (
+                shifted_raw_ts_times.size > 0
+                and prev_raw_ts_end is not None
+                and shifted_raw_ts_times[0] <= prev_raw_ts_end
+            ):
+                local_dt = np.diff(shifted_raw_ts_times)
+                positive_dt = local_dt[local_dt > 0]
+                step = float(positive_dt.min()) if positive_dt.size else 1e-6
+                shifted_raw_ts_times += (prev_raw_ts_end - shifted_raw_ts_times[0]) + step
+
+            if shifted_raw_ts_times.size > 0:
+                prev_raw_ts_end = float(shifted_raw_ts_times[-1])
+            raw_ts_chunks.append(seq.raw_time_series)
+            raw_ts_time_chunks.append(torch.tensor(shifted_raw_ts_times, dtype=torch.float64))
+
         offset += duration
 
     if merged_inter_times is None:
@@ -161,6 +194,9 @@ def _merge_sequences(sequences: Sequence[TppSequence]) -> TppSequence:
     if has_time_series:
         seq_kwargs["time_series"] = torch.cat(ts_chunks, dim=0)
         seq_kwargs["time_series_times"] = torch.cat(ts_time_chunks, dim=0)
+    if has_raw_time_series:
+        seq_kwargs["raw_time_series"] = torch.cat(raw_ts_chunks, dim=0)
+        seq_kwargs["raw_time_series_times"] = torch.cat(raw_ts_time_chunks, dim=0)
 
     return TppSequence(**seq_kwargs)
 
@@ -182,6 +218,8 @@ class InducedTripletGroupedCatalog(Catalog):
         normalize: bool = True,
         resample_freq_min: Optional[int] = None,
         freq: str = "1h",
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         self.family_name = family_name
         self.valid_datasets = tuple(valid_datasets)
@@ -189,6 +227,14 @@ class InducedTripletGroupedCatalog(Catalog):
         self.global_mag_completeness = mag_completeness
         self.resample_freq_min = resample_freq_min
         self.freq = str(freq)
+        self.event_feature_builder = (
+            str(event_feature_builder).strip().lower()
+            if event_feature_builder is not None
+            else None
+        )
+        if self.event_feature_builder in {"", "none", "null", "false"}:
+            self.event_feature_builder = None
+        self.event_feature_cfg = dict(event_feature_cfg or {})
 
         freq_td = pd.Timedelta(self.freq)
         if freq_td <= pd.Timedelta(0):
@@ -213,7 +259,11 @@ class InducedTripletGroupedCatalog(Catalog):
             "mag_completeness": mag_completeness,
             "resample_freq_min": self.resample_freq_min,
             "freq": self.freq,
+            "component_sequence_schema_version": InducedTripletBase.SEQUENCE_SCHEMA_VERSION,
         }
+        if self.event_feature_builder is not None:
+            catalog_cfg["event_feature_builder"] = self.event_feature_builder
+            catalog_cfg["event_feature_cfg"] = self.event_feature_cfg
         self.root_dir = build_hashed_catalog_root(root_dir, catalog_cfg, migrate_legacy=False)
 
         selected = self._selected_dataset_order
@@ -289,6 +339,8 @@ class InducedTripletGroupedCatalog(Catalog):
                 normalize=self.normalize,
                 resample_freq_min=self.resample_freq_min,
                 freq=self.freq,
+                event_feature_builder=self.event_feature_builder,
+                event_feature_cfg=self.event_feature_cfg,
             )
         return components
 
@@ -316,7 +368,7 @@ class InducedTripletGroupedCatalog(Catalog):
         )
         freq_min = next(iter(component_freqs.values()))
         selected_sorted = sorted(set(selected))
-        return {
+        metadata = {
             "name": self.family_name,
             "freq": self.freq,
             "freq_min": freq_min,
@@ -326,6 +378,7 @@ class InducedTripletGroupedCatalog(Catalog):
             "end_ts": float(self.full_sequence.t_end),
             "split_groups": self.split_groups,
             "component_datasets": selected_sorted,
+            "component_sequence_schema_version": InducedTripletBase.SEQUENCE_SCHEMA_VERSION,
             "component_mag_completeness": component_mc_map,
             "component_inj_fill_policy": {
                 name: self._components[name].metadata["inj_fill_policy"]
@@ -336,6 +389,10 @@ class InducedTripletGroupedCatalog(Catalog):
                 for name in selected_sorted
             },
         }
+        if self.event_feature_builder is not None:
+            metadata["event_feature_builder"] = self.event_feature_builder
+            metadata["event_feature_cfg"] = self.event_feature_cfg
+        return metadata
 
     @property
     def required_files(self):

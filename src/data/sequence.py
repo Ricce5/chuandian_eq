@@ -93,6 +93,8 @@ class Sequence(DotDict):
         "t_nll_start",
         "time_series",
         "time_series_times",
+        "raw_time_series",
+        "raw_time_series_times",
     }
 
     def __init__(
@@ -102,6 +104,8 @@ class Sequence(DotDict):
         t_nll_start: Optional[float] = None,
         time_series: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
         time_series_times: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
+        raw_time_series: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
+        raw_time_series_times: Optional[Union[torch.Tensor, np.ndarray, list]] = None,
         **kwargs,
     ):
         super().__init__()
@@ -133,6 +137,18 @@ class Sequence(DotDict):
             # visible to routines that expect extra attributes.
             self.time_series = ts
             self.time_series_times = ts_times
+        if raw_time_series is not None:
+            if raw_time_series_times is None:
+                raw_time_series_times = time_series_times
+            assert raw_time_series_times is not None, (
+                "raw_time_series_times must be provided if raw_time_series is provided."
+            )
+            raw_ts = torch.as_tensor(raw_time_series)
+            raw_ts_times = torch.as_tensor(raw_time_series_times)
+            if raw_ts_times.shape[0] != raw_ts.shape[0]:
+                raise ValueError("raw_time_series and raw_time_series_times must have the same length")
+            self.raw_time_series = raw_ts
+            self.raw_time_series_times = raw_ts_times
 
         self._validate_args()
         # Move all tensors to the same device as inter_times
@@ -206,6 +222,12 @@ class Sequence(DotDict):
             new_ts_times = ts_times[ts_mask].contiguous()
             other_attr['time_series'] = new_ts
             other_attr['time_series_times'] = new_ts_times
+        if hasattr(self, 'raw_time_series') and hasattr(self, 'raw_time_series_times'):
+            raw_ts = self.raw_time_series
+            raw_ts_times = self.raw_time_series_times
+            raw_ts_mask = (raw_ts_times >= start) & (raw_ts_times <= end)
+            other_attr['raw_time_series'] = raw_ts[raw_ts_mask].contiguous()
+            other_attr['raw_time_series_times'] = raw_ts_times[raw_ts_mask].contiguous()
 
         # When the window is very short (end - start < 0.1), end-1e-1 can fall before start;
         # clamp to start to keep 0 <= t_start <= t_nll_start <= t_end.
@@ -252,6 +274,9 @@ class Sequence(DotDict):
         if hasattr(self, "time_series") and hasattr(self, "time_series_times"):
             other_attr["time_series"] = self.time_series.clone()
             other_attr["time_series_times"] = self.time_series_times.clone()
+        if hasattr(self, "raw_time_series") and hasattr(self, "raw_time_series_times"):
+            other_attr["raw_time_series"] = self.raw_time_series.clone()
+            other_attr["raw_time_series_times"] = self.raw_time_series_times.clone()
 
         return Sequence(
             inter_times=new_inter_times,
@@ -385,6 +410,3 @@ class Sequence(DotDict):
             time_series_times=ts_times,
             **other_attr
         )
-
-
-

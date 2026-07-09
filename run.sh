@@ -25,8 +25,7 @@ python main.py --model thp_deltat --mode train
 python main.py --model clf_tm_cv_attnpl_t --mode train
 python main.py --model reg_mixer_attnpl_t --mode test --checkpoint experiments/reg_mixer_ablation_5_seeds/runs/reg_ab_minus_pretrain_seed_4
 python main.py --model lstm --mode test --checkpoint ./checkpoints/lstm_20250906-152053
-
-
+python main.py --model oracle --mode test
 
 python main.py \
   --model lstm \
@@ -142,3 +141,6 @@ python scripts/run_sliding_window_forecast_for_seeds.py \
   --devices cuda:0\
   --skip-existing-ok\
   --runs-dir experiments/rtpp_v2_multi_bg_norm_0.2/runs  experiments/etas_multi_ds_bg_norm_0.2/runs  
+
+
+

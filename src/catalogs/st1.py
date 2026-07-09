@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Mapping, Optional, Union
 import pandas as pd
 
 from src.data import Catalog, default_catalogs_dir
@@ -24,6 +24,8 @@ class St12018Standard(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = "2018-7-14T00:00:00",
         test_start_ts: Optional[Union[pd.Timestamp, str]] = "2018-7-20T00:00:00",
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="St1-2018",
@@ -37,6 +39,8 @@ class St12018Standard(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -54,6 +58,8 @@ class St12020Standard(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="St1-2020",
@@ -67,4 +73,6 @@ class St12020Standard(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )

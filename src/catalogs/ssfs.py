@@ -43,6 +43,8 @@ class SSFSStandard(InducedTripletGroupedCatalog):
         normalize: bool = True,
         resample_freq_min: Optional[int] = None,
         freq: str = "1h",
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             family_name="SSFS",
@@ -57,6 +59,8 @@ class SSFSStandard(InducedTripletGroupedCatalog):
             normalize=normalize,
             resample_freq_min=resample_freq_min,
             freq=freq,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -74,6 +78,8 @@ class SSFSBase(InducedTripletBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         if dataset_name not in SSFS_DATASETS:
             raise ValueError(
@@ -94,6 +100,8 @@ class SSFSBase(InducedTripletBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -111,6 +119,8 @@ class SSFS1993Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="SSFS1993",
@@ -124,6 +134,8 @@ class SSFS1993Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -141,6 +153,8 @@ class SSFS2000Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="SSFS2000",
@@ -154,6 +168,8 @@ class SSFS2000Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -171,6 +187,8 @@ class SSFS2003Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="SSFS2003",
@@ -184,6 +202,8 @@ class SSFS2003Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -201,6 +221,8 @@ class SSFS2004Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="SSFS2004",
@@ -214,6 +236,8 @@ class SSFS2004Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
 
 
@@ -231,6 +255,8 @@ class SSFS2005Standard(SSFSBase):
         train_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         val_start_ts: Optional[Union[pd.Timestamp, str]] = None,
         test_start_ts: Optional[Union[pd.Timestamp, str]] = None,
+        event_feature_builder: Optional[str] = None,
+        event_feature_cfg: Optional[Mapping[str, object]] = None,
     ):
         super().__init__(
             dataset_name="SSFS2005",
@@ -244,4 +270,6 @@ class SSFS2005Standard(SSFSBase):
             train_start_ts=train_start_ts,
             val_start_ts=val_start_ts,
             test_start_ts=test_start_ts,
+            event_feature_builder=event_feature_builder,
+            event_feature_cfg=event_feature_cfg,
         )
