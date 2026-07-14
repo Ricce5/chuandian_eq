@@ -30,8 +30,11 @@ grid:
       time_order: [train, val, test]
       input_magnitude: true
       input_injection: true
+      oracle_loss_mode: causal
+      train_to_forecast: false
+      oracle_sampling_mode: autoregressive
       oracle_base_mark_order: [time, aRs, mag, Mc, vm, dVc, sv, dTS]
-      oracle_future_feature_names: [vm, sv, dTS]
+      oracle_future_feature_names: [vm, sv, dTS, Mc]
       supplementary_mark_list: []
       catalog_cfg:
         event_feature_builder: oracle

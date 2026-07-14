@@ -1,0 +1,59 @@
+# Model settings
+model: oracle
+num_event_types: 1
+pad_token_id: 1
+task_type: tpp
+
+# Training parameters
+batch_size: 1
+accumulation_steps: 1
+warmup_ratio: 0.1
+learning_rate: 1e-3
+weight_decay: 1e-2
+loss_reduction: per_event
+scheduler_factor: null
+scheduler_patience: null
+scheduler_threshold: null
+scheduler_min_lr: 1e-6
+scheduler_type: hf_cosine
+step_lr_step_size_ratio: 0.2
+step_lr_gamma: 0.8
+
+# Oracle parameters
+num_components: 32
+input_magnitude: true
+input_injection: true
+train_to_forecast: false
+oracle_encoder_type: GRU
+oracle_decoder_type: FCN
+oracle_log_tau_std: 2.0
+num_rnn_layers: 1
+rnn_dropout: 0.2
+oracle_decoder_hidden_layers: 1
+oracle_lookback_size: 10
+oracle_base_mark_order: [time, aRs, mag, Mc, vm, dVc, sv, dTS]
+oracle_future_feature_names: [vm, sv, dTS]
+supplementary_mark_list: []
+
+# Other parameters
+dim: 1
+epochs: 1000
+save_dir: null
+cuda_id: "0"
+
+# Data and control parameters
+dataset: St1-2018
+# Single-seed fair comparison
+seed: 0
+minibatch_training: false
+split_by_time: true
+time_order: [train, val, test]
+
+catalog_cfg:
+  freq: "1D"
+  mag_completeness: -0.5
+  event_feature_builder: oracle
+  event_feature_cfg:
+    smoothing_window: 10
+    activity_epsilon: 0.0
+    log_floor: -10.0

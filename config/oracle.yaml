@@ -23,7 +23,12 @@ step_lr_gamma: 0.8
 num_components: 32
 input_magnitude: true
 input_injection: true
+# Main paper comparison mode: standard causal TPP NLL.
+# legacy_fit / legacy_forecast are only for original-ORACLE replication or ablation.
+oracle_loss_mode: causal
 train_to_forecast: false
+oracle_forecast_count: 5
+oracle_sampling_mode: autoregressive
 oracle_encoder_type: GRU
 oracle_decoder_type: FCN
 oracle_log_tau_std: 2.0
@@ -32,7 +37,7 @@ rnn_dropout: 0.2
 oracle_decoder_hidden_layers: 1
 oracle_lookback_size: 10
 oracle_base_mark_order: [time, aRs, mag, Mc, vm, dVc, sv, dTS]
-oracle_future_feature_names: [vm, sv, dTS]
+oracle_future_feature_names: [vm, sv, dTS, Mc]
 supplementary_mark_list: []
 sampling_mag_b: null  # null => use training-set richter_b_mle, like rtpp_v2 fixed-b sampling
 mag_max: 10.0

@@ -91,7 +91,7 @@ python scripts/run/run_reg_mixer_attnpl_grid.py \
 --exp_config config/experiments/reg_mixer_attnpl_grid.yaml
 
 python scripts/summarize/summarize_reg_mixer_attnpl_grid.py \
---exp_dir experiments/reg_mixer_attnpl_ab \
+--exp_dir experiments/reg_mixer_pretrain_sources_6_seeds \
 --ckpt_select best
 
 
@@ -133,6 +133,8 @@ python scripts/run_sliding_window_forecast_for_seeds.py --seeds 0
 
 
 python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/rtpp_v2_multi_bg_norm_0.2  experiments/etas_multi_ds_bg_norm_0.2 
+ 
+python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/oracle_multi_dataset
 
 
 python scripts/run_sliding_window_forecast_for_seeds.py \
@@ -141,6 +143,7 @@ python scripts/run_sliding_window_forecast_for_seeds.py \
   --devices cuda:0\
   --skip-existing-ok\
   --runs-dir experiments/rtpp_v2_multi_bg_norm_0.2/runs  experiments/etas_multi_ds_bg_norm_0.2/runs  
+
 
 
 

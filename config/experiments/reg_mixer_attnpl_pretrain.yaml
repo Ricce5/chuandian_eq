@@ -1,0 +1,46 @@
+model: reg_mixer_attnpl_t
+base_config: config/reg_mixer_attnpl_t.yaml
+
+# 预训练来源对比：继承 config/reg_mixer_attnpl_t.yaml 的回归模型、窗口与加载部位，
+# 仅切换 resume_path；scratch 仅关闭预训练加载。
+seeds: [0,1, 2, 3, 4,5,6, 7, 8]
+
+gpu_ids: [0]
+max_parallel: 3
+jobs_per_gpu: 3
+stop_on_error: false
+
+exp_root: experiments
+exp_name: reg_mixer_pretrain_sources_6_seeds
+
+run_test: true
+ckpt_select: both
+resume_exp: true
+skip_done: true
+
+grid:
+  name_prefix: reg_pre
+  points:
+    # 0) 不迁移（scratch）
+    - name: scratch
+      load_strategy: none
+
+    # 1) 迁移自 AZDX（基础配置默认来源）
+    - name: pre_azdx
+      overrides:
+        resume_path: ./checkpoints/mixer_tpp_20260508-182744/last_model_1.pth
+
+    # 2) 迁移自 AZDX_minus_b
+    - name: pre_azdx_minus_b
+      overrides:
+        resume_path: ./checkpoints/mixer_tpp_20260510-211348/last_model_1.pth
+
+    # 3) 迁移自 SCEDC
+    - name: pre_scedc
+      overrides:
+        resume_path: ./checkpoints/mixer_tpp_20260514-211059/last_model_1.pth
+
+    # 4) 迁移自 SCEDC_minus_b
+    - name: pre_scedc_minus_b
+      overrides:
+        resume_path: ./checkpoints/mixer_tpp_20260514-211318/last_model_1.pth

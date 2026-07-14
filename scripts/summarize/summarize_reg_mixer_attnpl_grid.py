@@ -50,6 +50,60 @@ DEFAULT_METRIC_KEYS = (
     "DTW",
     "DTW_normalized",
 )
+
+
+def _parse_csv_text(raw: str) -> List[str]:
+    return [token.strip() for token in str(raw).split(",") if token.strip()]
+
+
+def _to_seed_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_target_seeds(seed_value, seeds_csv: str | None) -> List[int] | None:
+    raw_tokens: List[str] = []
+    if seeds_csv:
+        raw_tokens.extend(_parse_csv_text(seeds_csv))
+    if seed_value is not None:
+        raw_tokens.append(str(seed_value))
+    if not raw_tokens:
+        return None
+
+    out: List[int] = []
+    seen = set()
+    for token in raw_tokens:
+        seed_int = _to_seed_int(token)
+        if seed_int is None:
+            raise ValueError(f"Invalid seed value: {token!r}")
+        if seed_int in seen:
+            continue
+        seen.add(seed_int)
+        out.append(seed_int)
+    return sorted(out)
+
+
+def _filter_rows_by_seeds(rows: Sequence[Dict], seeds: Sequence[int] | None) -> List[Dict]:
+    if seeds is None:
+        return list(rows)
+    seed_set = {int(seed) for seed in seeds}
+    return [
+        row
+        for row in rows
+        if _to_seed_int(row.get("seed")) in seed_set
+    ]
+
+
+def _seed_report_dir_name(seeds: Sequence[int] | None) -> str | None:
+    if seeds is None:
+        return None
+    if len(seeds) == 1:
+        return f"seed_{int(seeds[0])}"
+    return "seeds_" + "_".join(str(int(seed)) for seed in seeds)
+
+
 def _resolve_group_key(row: Dict):
     return build_variant_or_matrix_group_key(row)
 
@@ -160,6 +214,18 @@ def group_best_rows(rows: Sequence[Dict], metric: str, maximize: bool) -> List[D
 def parse_args():
     parser = argparse.ArgumentParser(description="Summarize metrics for reg_mixer_attnpl_grid experiments.")
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Single seed to summarize, e.g. 0. If omitted with --seeds, all seeds are included.",
+    )
+    parser.add_argument(
+        "--seeds",
+        type=str,
+        default=None,
+        help="Comma-separated seeds to summarize, e.g. 0,1,2. Can be combined with --seed.",
+    )
+    parser.add_argument(
         "--exp_dir",
         type=str,
         required=True,
@@ -169,7 +235,10 @@ def parse_args():
         "--out_dir",
         type=str,
         default=None,
-        help="Output directory. Default: <exp_dir>/reports",
+        help=(
+            "Output directory. Default: <exp_dir>/reports, or "
+            "<exp_dir>/reports/seed_<n> / seeds_<...> when --seed/--seeds is provided."
+        ),
     )
     parser.add_argument(
         "--metrics",
@@ -207,6 +276,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    target_seeds = _resolve_target_seeds(args.seed, args.seeds)
 
     exp_dir = Path(args.exp_dir)
     if not exp_dir.is_absolute():
@@ -214,12 +284,18 @@ def main():
     if not exp_dir.exists():
         raise FileNotFoundError(f"Experiment dir not found: {exp_dir}")
 
-    out_dir = Path(args.out_dir).resolve() if args.out_dir else exp_dir / "reports"
+    if args.out_dir:
+        out_dir = Path(args.out_dir).resolve()
+    else:
+        seed_dir_name = _seed_report_dir_name(target_seeds)
+        out_dir = exp_dir / "reports" / seed_dir_name if seed_dir_name else exp_dir / "reports"
+
     metric_keys = [x.strip() for x in str(args.metrics).split(",") if x.strip()]
     if not metric_keys:
         raise ValueError("--metrics must contain at least one key")
 
     per_run_rows = collect_per_run_rows(exp_dir, metric_keys, ckpt_select=args.ckpt_select)
+    per_run_rows = _filter_rows_by_seeds(per_run_rows, target_seeds)
     group_stats = group_rows(per_run_rows, metric_keys)
     best_rows = group_best_rows(
         per_run_rows,
@@ -240,6 +316,8 @@ def main():
     payload = {
         "exp_dir": str(exp_dir),
         "out_dir": str(out_dir),
+        "seed": int(target_seeds[0]) if target_seeds is not None and len(target_seeds) == 1 else None,
+        "seeds": target_seeds,
         "n_runs": len(per_run_rows),
         "metric_keys": metric_keys,
         "best_metric": args.best_metric,
@@ -253,6 +331,8 @@ def main():
     }
     write_json(summary_json, payload)
 
+    if target_seeds is not None:
+        print(f"[OK] seeds: {target_seeds}")
     print(f"[OK] per-run rows: {len(per_run_rows)}")
     print(f"[OK] group rows: {len(group_stats)}")
     print(f"[OK] best rows: {len(best_rows)}")

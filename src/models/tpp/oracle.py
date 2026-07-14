@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Iterable
 
 import numpy as np
@@ -19,6 +20,8 @@ class Oracle(TPPModel):
     REQUIRED_EVENT_MARKS = ("aRs", "vm", "dVc", "sv", "dTS")
     BASE_MARK_ORDER = ("time", "aRs", "mag", "Mc", "vm", "dVc", "sv", "dTS")
     DEFAULT_FUTURE_FEATURE_NAMES = ("vm", "sv", "dTS", "Mc")
+    VALID_LOSS_MODES = ("causal", "legacy_fit", "legacy_forecast")
+    VALID_SAMPLING_MODES = ("autoregressive",)
     _INTER_TIME_MIN = 1e-10
     _INTER_TIME_MAX = 1e10
     _MARK_MIN = -10.0
@@ -32,6 +35,11 @@ class Oracle(TPPModel):
         self.input_magnitude = bool(getattr(args, "input_magnitude", True))
         self.input_injection = bool(getattr(args, "input_injection", True))
         self.train_to_forecast = bool(getattr(args, "train_to_forecast", False))
+        self.oracle_loss_mode = self._resolve_loss_mode(args)
+        self.oracle_forecast_count = int(getattr(args, "oracle_forecast_count", 5))
+        if self.oracle_forecast_count < 0:
+            raise ValueError("oracle_forecast_count must be >= 0.")
+        self.oracle_sampling_mode = self._resolve_sampling_mode(args)
         self.sampling_mag_b = float(
             self._first_not_none_from_args(
                 args,
@@ -116,6 +124,78 @@ class Oracle(TPPModel):
         self.oracle_sampling_log_floor = float(event_feature_cfg.get("log_floor", -10.0))
         self.oracle_sampling_time_unit_minutes = self._time_unit_minutes_from_args(args)
         self.to(self.device)
+
+    @staticmethod
+    def _has_arg(args, name: str) -> bool:
+        try:
+            return hasattr(args, name)
+        except Exception:
+            return False
+
+    @classmethod
+    def _normalize_loss_mode(cls, value) -> str:
+        mode = str(value).strip().lower()
+        aliases = {
+            "fit": "legacy_fit",
+            "legacy": "legacy_fit",
+            "forecast": "legacy_forecast",
+            "train_to_forecast": "legacy_forecast",
+        }
+        mode = aliases.get(mode, mode)
+        if mode not in cls.VALID_LOSS_MODES:
+            raise ValueError(
+                f"oracle_loss_mode must be one of {cls.VALID_LOSS_MODES}, got {value!r}."
+            )
+        return mode
+
+    def _resolve_loss_mode(self, args) -> str:
+        explicit_mode = self._has_arg(args, "oracle_loss_mode") and getattr(
+            args,
+            "oracle_loss_mode",
+        ) is not None
+        if explicit_mode:
+            mode = self._normalize_loss_mode(getattr(args, "oracle_loss_mode"))
+            if self.train_to_forecast and mode != "legacy_forecast":
+                warnings.warn(
+                    "train_to_forecast is deprecated and ignored when oracle_loss_mode "
+                    f"is explicitly set to {mode!r}. Use oracle_loss_mode='legacy_forecast' "
+                    "only for original-ORACLE replication/ablation.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+            return mode
+
+        if self.train_to_forecast:
+            warnings.warn(
+                "train_to_forecast=True is deprecated. Mapping it to "
+                "oracle_loss_mode='legacy_forecast' for compatibility; use "
+                "oracle_loss_mode='causal' for the main likelihood/count-forecast comparison.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return "legacy_forecast"
+        return "causal"
+
+    @classmethod
+    def _normalize_sampling_mode(cls, value) -> str:
+        mode = str(value).strip().lower()
+        aliases = {
+            "ar": "autoregressive",
+            "auto": "autoregressive",
+        }
+        mode = aliases.get(mode, mode)
+        if mode not in cls.VALID_SAMPLING_MODES:
+            raise ValueError(
+                "Oracle only supports oracle_sampling_mode='autoregressive' for fair "
+                "forward count forecasts. Original open-loop/update_history=False sampling "
+                f"is intentionally not exposed (got {value!r})."
+            )
+        return mode
+
+    def _resolve_sampling_mode(self, args) -> str:
+        return self._normalize_sampling_mode(
+            getattr(args, "oracle_sampling_mode", "autoregressive")
+        )
 
     @staticmethod
     def _parse_mark_list(value) -> list[str]:
@@ -1167,15 +1247,7 @@ class Oracle(TPPModel):
         first = torch.zeros_like(pre_params[:, :1, :])
         return torch.cat([first, pre_params[:, :-1, :]], dim=1)
 
-    def nll_loss(
-        self,
-        batch: src.data.Batch,
-        *,
-        reduction: str | None = None,
-        return_dict: bool = False,
-        eps: float = 1e-10,
-    ) -> torch.Tensor | dict[str, torch.Tensor]:
-        batch = batch.to(self.device)
+    def _causal_nll_dict(self, batch: src.data.Batch) -> dict[str, torch.Tensor]:
         marks = self.get_marks(batch)
         pre_params_raw = self.get_pre_params(marks)
         pre_params = self._causal_shift_pre_params(pre_params_raw)
@@ -1189,9 +1261,170 @@ class Oracle(TPPModel):
             pdf_inter_times=d_t_obs,
             survival_inter_times=d_t_obs,
         )
+        nll_time = -log_like
+        return {"time": nll_time, "total": nll_time}
+
+    def _legacy_prev_log_survival(
+        self,
+        *,
+        batch: src.data.Batch,
+        pre_params: torch.Tensor,
+        d_t_obs: torch.Tensor,
+    ) -> torch.Tensor:
+        arange = torch.arange(batch.batch_size, device=pre_params.device)
+        prev_surv_dist = self.get_inter_time_dist(pre_params[arange, batch.start_idx, :])
+        prev_surv_time = d_t_obs[arange, batch.start_idx] - (
+            batch.arrival_times[arange, batch.start_idx] - batch.t_nll_start
+        )
+        return prev_surv_dist.log_survival(prev_surv_time).reshape(-1)
+
+    def _legacy_base_log_like(
+        self,
+        *,
+        batch: src.data.Batch,
+        pre_params: torch.Tensor,
+        include_prev_survival: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        mask = batch.nll_event_mask[:, 1:-1]
+        d_t_obs = batch.inter_times.clamp(self._INTER_TIME_MIN, self._INTER_TIME_MAX)
+        inter_time_dist = self.get_inter_time_dist(pre_params[:, 0:-2, :])
+        log_pdf = inter_time_dist.log_prob(d_t_obs[:, 1:-1])
+        log_like = (log_pdf * mask).sum(-1)
+
+        arange = torch.arange(batch.batch_size, device=pre_params.device)
+        last_surv_dist = self.get_inter_time_dist(pre_params[arange, batch.end_idx, :])
+        last_log_surv = last_surv_dist.log_survival(d_t_obs[arange, batch.end_idx])
+        log_like = log_like + last_log_surv.reshape(-1)
+
+        if include_prev_survival and torch.any(batch.t_nll_start != batch.t_start):
+            log_like = log_like - self._legacy_prev_log_survival(
+                batch=batch,
+                pre_params=pre_params,
+                d_t_obs=d_t_obs,
+            )
+
+        return log_like, log_pdf, d_t_obs
+
+    def _legacy_fit_nll_dict(self, batch: src.data.Batch) -> dict[str, torch.Tensor]:
+        marks = self.get_marks(batch)
+        pre_params = self.get_pre_params(marks)
+        log_like, _, _ = self._legacy_base_log_like(
+            batch=batch,
+            pre_params=pre_params,
+            include_prev_survival=True,
+        )
+        nll_time = -log_like
+        return {"time": nll_time, "total": nll_time}
+
+    def _legacy_forecast_indices(
+        self,
+        *,
+        seq_len: int,
+        forecast_count: int,
+        device: torch.device,
+    ) -> list[int]:
+        if seq_len <= 2:
+            return []
+        candidates = torch.arange(1, seq_len - 1, device=device)
+        if candidates.numel() == 0:
+            return []
+        if forecast_count == 0 or forecast_count >= int(candidates.numel()):
+            selected = candidates
+        else:
+            order = torch.randperm(candidates.numel(), device=device)
+            selected = candidates[order[:forecast_count]]
+        return [int(value.item()) for value in selected]
+
+    def _legacy_forecast_nll_dict(
+        self,
+        batch: src.data.Batch,
+        *,
+        forecast_count: int | None = None,
+    ) -> dict[str, torch.Tensor]:
+        marks = self.get_marks(batch)
+        pre_params = self.get_pre_params(marks)
+        log_like, log_pdf, d_t_obs = self._legacy_base_log_like(
+            batch=batch,
+            pre_params=pre_params,
+            include_prev_survival=False,
+        )
+        mask = batch.nll_event_mask[:, 1:-1]
+        forecast_count = (
+            self.oracle_forecast_count
+            if forecast_count is None
+            else int(forecast_count)
+        )
+        if forecast_count < 0:
+            raise ValueError("forecast_count must be >= 0.")
+
+        idx_list = self._legacy_forecast_indices(
+            seq_len=batch.seq_len,
+            forecast_count=forecast_count,
+            device=marks.device,
+        )
+        arange = torch.arange(batch.batch_size, device=pre_params.device)
+        for idx_split in idx_list:
+            pre_params_f = self.get_pre_params(
+                marks,
+                forecasting=True,
+                idx_split=idx_split,
+            )
+            forecast_dist = self.get_inter_time_dist(pre_params_f[:, 0:-2, :])
+            forecast_log_pdf = forecast_dist.log_prob(d_t_obs[:, idx_split:-2])
+            combined_log_pdf = torch.cat(
+                [log_pdf[:, 0:idx_split], forecast_log_pdf],
+                dim=-1,
+            )
+            log_like_f = (combined_log_pdf * mask).sum(-1)
+
+            pre_params_f_full = torch.cat(
+                [pre_params[:, 0:idx_split, :], pre_params_f],
+                dim=1,
+            )
+            last_surv_dist_f = self.get_inter_time_dist(
+                pre_params_f_full[arange, batch.end_idx, :]
+            )
+            last_log_surv_f = last_surv_dist_f.log_survival(
+                d_t_obs[arange, batch.end_idx]
+            )
+            log_like = log_like + log_like_f + last_log_surv_f.reshape(-1)
+
+        log_like = log_like / float(len(idx_list) + 1)
+        if torch.any(batch.t_nll_start != batch.t_start):
+            log_like = log_like - self._legacy_prev_log_survival(
+                batch=batch,
+                pre_params=pre_params,
+                d_t_obs=d_t_obs,
+            )
 
         nll_time = -log_like
-        out = {"time": nll_time, "total": nll_time}
+        return {"time": nll_time, "total": nll_time}
+
+    def nll_loss(
+        self,
+        batch: src.data.Batch,
+        *,
+        reduction: str | None = None,
+        return_dict: bool = False,
+        eps: float = 1e-10,
+        loss_mode: str | None = None,
+        forecast_count: int | None = None,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        batch = batch.to(self.device)
+        mode = (
+            self.oracle_loss_mode
+            if loss_mode is None
+            else self._normalize_loss_mode(loss_mode)
+        )
+        if mode == "causal":
+            out = self._causal_nll_dict(batch)
+        elif mode == "legacy_fit":
+            out = self._legacy_fit_nll_dict(batch)
+        elif mode == "legacy_forecast":
+            out = self._legacy_forecast_nll_dict(batch, forecast_count=forecast_count)
+        else:
+            raise ValueError(f"Unsupported oracle_loss_mode={mode!r}.")
+
         reduction = self.reduction if reduction is None else reduction
         out = self.reduce_nll_dict(out, batch, reduction=reduction, eps=eps)
         if return_dict:
