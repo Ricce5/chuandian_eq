@@ -105,10 +105,29 @@ def resolve_path(path_value: str | Path) -> Path:
     return (ROOT / path).resolve()
 
 
+def path_exists(path: Path) -> bool:
+    """Return whether *path* exists without failing on an inaccessible parent."""
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
+def path_is_dir(path: Path) -> bool:
+    """Return whether *path* is a directory without propagating access errors."""
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
 def read_json_mapping(path: Path | None) -> Dict[str, Any]:
-    if path is None or not path.exists():
+    if path is None or not path_exists(path):
         return {}
-    payload = read_json(path)
+    try:
+        payload = read_json(path)
+    except OSError:
+        return {}
     return payload if isinstance(payload, dict) else {}
 
 
@@ -133,7 +152,7 @@ def variant_and_seed_from_run_name(run_name: str):
 
 def load_summary_rows_if_available(exp_dir: Path) -> List[Dict[str, Any]]:
     summary_path = exp_dir / "summary.json"
-    if not summary_path.exists():
+    if not path_exists(summary_path):
         return []
     payload = read_json(summary_path)
     if not isinstance(payload, list):
@@ -142,33 +161,59 @@ def load_summary_rows_if_available(exp_dir: Path) -> List[Dict[str, Any]]:
 
 
 def discover_run_dirs(exp_dir: Path, metrics_filename: str) -> List[tuple[str, Path, Dict[str, Any]]]:
+    runs_dir = exp_dir / "runs"
+    local_run_dirs = (
+        {
+            candidate.name: candidate.resolve()
+            for candidate in runs_dir.iterdir()
+            if path_is_dir(candidate)
+        }
+        if path_is_dir(runs_dir)
+        else {}
+    )
+
     summary_rows = load_summary_rows_if_available(exp_dir)
     if summary_rows:
         discovered: List[tuple[str, Path, Dict[str, Any]]] = []
+        discovered_names = set()
         for item in summary_rows:
             run_name = item.get("run")
             if not run_name:
                 continue
             run_name = str(run_name)
+            if run_name in discovered_names:
+                continue
+
+            local_run_dir = local_run_dirs.get(run_name)
             raw_run_dir = item.get("run_dir")
-            if raw_run_dir:
+            # A local run directory is authoritative. The matching entry in
+            # summary.json may be an accessible-but-unreadable directory from
+            # the machine that created the experiment.
+            if local_run_dir is not None:
+                run_dir = local_run_dir
+            elif raw_run_dir:
                 run_dir = Path(str(raw_run_dir)).expanduser()
                 if not run_dir.is_absolute():
                     run_dir = exp_dir / run_dir
             else:
-                run_dir = exp_dir / "runs" / run_name
+                run_dir = runs_dir / run_name
             discovered.append((run_name, run_dir.resolve(), item))
+
+            discovered_names.add(run_name)
+
+        # summary.json may predate recently completed runs. Include every
+        # local run directory so the report reflects the experiment on disk.
+        discovered.extend(
+            (run_name, run_dir, {})
+            for run_name, run_dir in sorted(local_run_dirs.items())
+            if run_name not in discovered_names
+        )
         return discovered
 
-    runs_dir = exp_dir / "runs"
-    if runs_dir.is_dir():
-        return [
-            (candidate.name, candidate.resolve(), {})
-            for candidate in sorted(runs_dir.iterdir(), key=lambda path: path.name)
-            if candidate.is_dir()
-        ]
+    if local_run_dirs:
+        return [(run_name, run_dir, {}) for run_name, run_dir in sorted(local_run_dirs.items())]
 
-    if (exp_dir / metrics_filename).exists():
+    if path_exists(exp_dir / metrics_filename):
         return [(exp_dir.name, exp_dir.resolve(), {})]
 
     return []
@@ -196,7 +241,7 @@ def collect_rows(
             "variant_name": variant_name,
             "seed": row_seed,
             "run_dir": str(run_dir),
-            "metrics_path": str(metrics_path) if metrics_path.exists() else "",
+            "metrics_path": str(metrics_path) if path_exists(metrics_path) else "",
             "status": metrics.get("status") if metrics else None,
             "status_ok": status_ok_from_metrics(metrics),
             "metrics_found": int(bool(metrics)),

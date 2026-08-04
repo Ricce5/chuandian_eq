@@ -1,14 +1,34 @@
-dataset: SCEDC
-t_forecast = 13000 # 4000 13000
-duration = 30  # 7 30
+# Set `dataset` to one of the keys below. `catalog_cfg` is selected automatically.
+# Each catalog uses a chronological 70% / 15% / 15% split by retained event count:
+# the first 70% events are training, the next 15% validation, and the last 15% testing.
+dataset_catalog_cfg:
+  PNR_1z:
+    freq: "1D"
+    mag_completeness: -1.5
+    train_start_ts: "2018-10-15T08:00:00"
+    val_start_ts: "2018-12-10T10:05:54"
+    test_start_ts: "2018-12-13T11:39:51"
 
-dataset: St1-2018
-seed: 0
-minibatch_training: false
-split_by_time: true
-time_order:  [train, val, test]
+  St1-2018:
+    freq: "1D"
+    mag_completeness: -0.5
+    end_ts: "2018-08-21T23:59:59"
+    train_start_ts: "2018-06-04T05:27:26.351"
+    val_start_ts: "2018-07-10T08:49:47.985"
+    test_start_ts: "2018-07-18T10:35:40.860"
 
+  CB_HAB1a:
+    freq: "1D"
+    mag_completeness: -0.4
+    train_start_ts: "2003-11-06T00:01:09.999"
+    val_start_ts: "2003-12-07T04:32:56"
+    test_start_ts: "2003-12-08T22:39:28"
 
-catalog_cfg:
-  freq: "1D"
-  mag_completeness: -0.5
+  CB_HAB4:
+    freq: "1D"
+    mag_completeness: 0.9
+    train_start_ts: "2012-11-10T12:21:28"
+    val_start_ts: "2012-11-28T18:32:38.999"
+    test_start_ts: "2012-11-30T05:46:09"
+
+catalog_cfg: ${dataset_catalog_cfg.${dataset}}

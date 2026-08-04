@@ -28,11 +28,28 @@ class RecurrentTPPSamplingMixin:
         inter_time_dist: dist.MixtureSameFamily,
         t_last_event: Optional[torch.Tensor] = None,
         lower_bound: Optional[torch.Tensor] = None,
+        max_inter_time: Optional[torch.Tensor] = None,
     ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         if lower_bound is None:
             inter_time_h = inter_time_dist.sample()
         else:
             inter_time_h = inter_time_dist.sample_conditional(lower_bound=lower_bound) - lower_bound
+
+        if max_inter_time is not None:
+            max_inter_time = torch.as_tensor(
+                max_inter_time,
+                device=inter_time_h.device,
+                dtype=inter_time_h.dtype,
+            )
+            if (max_inter_time < 0.0).any():
+                raise ValueError("max_inter_time must be non-negative.")
+            if max_inter_time.ndim == 0:
+                max_inter_time = max_inter_time.expand(inter_time_h.shape[0])
+            if max_inter_time.ndim != 1 or max_inter_time.shape[0] != inter_time_h.shape[0]:
+                raise ValueError(
+                    "max_inter_time must be scalar or shape [B] matching the sampled batch."
+                )
+            inter_time_h = torch.minimum(inter_time_h, max_inter_time.unsqueeze(-1))
 
         if getattr(self, "bg_model", None) is None:
             return inter_time_h
@@ -325,7 +342,18 @@ class RecurrentTPPSamplingMixin:
                 )
             current_state = context[:, [-1], :].expand(batch_size, -1, -1).contiguous()
             current_hidden = hidden.expand(-1, batch_size, -1).contiguous()
-            time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
+            if past_seq.num_events > 0:
+                historical_last_event_time = past_seq.arrival_times[-1].to(
+                    device=current_state.device,
+                    dtype=current_state.dtype,
+                ).repeat(batch_size)
+                time_remaining = past_seq.t_end - past_seq.arrival_times[-1]
+            else:
+                historical_last_event_time = current_state.new_full(
+                    (batch_size,),
+                    float(past_seq.t_start),
+                )
+                time_remaining = current_state.new_tensor(past_seq.t_end - past_seq.t_start)
         else:
             target_dtype = self._infer_sampling_dtype()
             current_state = torch.zeros(
@@ -347,6 +375,7 @@ class RecurrentTPPSamplingMixin:
                 dtype=target_dtype,
             )
             time_remaining = None
+            historical_last_event_time = None
 
         t_end = t_start + duration
         inter_time_list: list[torch.Tensor] = []
@@ -373,7 +402,7 @@ class RecurrentTPPSamplingMixin:
             if time_remaining is None:
                 t_last_event = t_start + total_time
             else:
-                t_last_event = past_seq.arrival_times[-1].repeat(batch_size)
+                t_last_event = historical_last_event_time
             time_context = current_state
             time_context_hook = getattr(self, "_get_sampling_time_context", None)
             if callable(time_context_hook):
@@ -384,25 +413,34 @@ class RecurrentTPPSamplingMixin:
                 )
             inter_time_dist = self.get_inter_time_dist(time_context)
 
+            remaining_time = (duration_t - total_time).clamp_min(0.0)
+
             next_inter_times = self.sample_next_inter_time(
                 inter_time_dist,
                 t_last_event=t_last_event,
                 lower_bound=time_remaining,
+                max_inter_time=remaining_time,
             )
             if isinstance(next_inter_times, tuple):
                 next_inter_times = next_inter_times[0]
             time_remaining = None
-            next_inter_times.clamp_max_(t_end - t_start)
             next_inter_times[~active_mask, 0] = 0.0
             inter_time_list.append(next_inter_times)
 
             rnn_input_list = [self.encode_time(next_inter_times)]
             if use_magnitude:
                 if b_sampling == "model":
+                    mag_context = current_state
+                    mag_context_hook = getattr(self, "_get_sampling_b_context", None)
+                    if callable(mag_context_hook):
+                        mag_context = mag_context_hook(
+                            current_state=current_state,
+                            t_last_event=t_last_event,
+                        )
                     if supports_predict_b_arg:
-                        mag_dist = self.get_magnitude_dist(current_state, predict_b=predict_b)
+                        mag_dist = self.get_magnitude_dist(mag_context, predict_b=predict_b)
                     else:
-                        mag_dist = self.get_magnitude_dist(current_state)
+                        mag_dist = self.get_magnitude_dist(mag_context)
                     next_mag = mag_dist.sample()
                 else:
                     b_step = self._sample_b_from_updater(
@@ -453,7 +491,10 @@ class RecurrentTPPSamplingMixin:
             current_state = torch.where(state_mask, next_state, current_state)
             current_hidden = torch.where(hidden_mask, next_hidden, current_hidden)
 
-            total_time = total_time + next_inter_times.squeeze(-1)
+            total_time = torch.minimum(
+                total_time + next_inter_times.squeeze(-1),
+                duration_t,
+            )
 
         inter_times = torch.cat(inter_time_list, dim=1)
         magnitudes = torch.cat(mag_list, dim=1) if use_magnitude else None

@@ -135,7 +135,9 @@ class RecurrentTPPV2(RecurrentTPPSamplingMixin, TPPModel):
         self,
         batch: src.data.Batch,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.backbone.get_context_and_hidden(batch)
+        context = self.backbone.get_context(batch)
+        hidden = self.backbone.get_hidden_after_events(batch)
+        return context, hidden
 
     def get_inter_time_dist(self, context: torch.Tensor) -> dist.MixtureSameFamily:
         return self.inter_time_decoder.from_context(context, self.hypernet_time)
@@ -278,14 +280,13 @@ class RecurrentTPPV2(RecurrentTPPSamplingMixin, TPPModel):
         if not self.time_use_bg_context or self.time_context_fuse is None:
             return current_state
 
+        # The time decoder is trained with the background context at the start
+        # of an inter-event interval.  For the first forecast event after a
+        # censored historical interval, ``lower_bound`` is used only to
+        # condition the waiting-time distribution; it must not move the
+        # decoder context from the last event to the forecast boundary.
+        del lower_bound
         query_times = t_last_event
-        if lower_bound is not None:
-            lower_bound_t = torch.as_tensor(
-                lower_bound,
-                device=t_last_event.device,
-                dtype=t_last_event.dtype,
-            )
-            query_times = query_times + lower_bound_t
         if query_times.ndim == 1:
             query_times = query_times.unsqueeze(-1)
 
@@ -295,6 +296,30 @@ class RecurrentTPPV2(RecurrentTPPSamplingMixin, TPPModel):
             expected_len=current_state.shape[1],
         )
         return self.time_context_fuse(current_state, bg_ctx)
+
+    def _get_sampling_b_context(
+        self,
+        *,
+        current_state: torch.Tensor,
+        t_last_event: torch.Tensor,
+    ) -> torch.Tensor:
+        """Fuse the b-value decoder with background context during sampling.
+
+        This mirrors ``_get_b_context`` during training: both query the
+        background trajectory at the latest event, i.e. at the beginning of
+        the mark/inter-event conditional distribution.
+        """
+        if not self.b_use_bg_context or self.b_context_fuse is None:
+            return current_state
+        query_times = t_last_event
+        if query_times.ndim == 1:
+            query_times = query_times.unsqueeze(-1)
+        bg_ctx = self._get_bg_context_from_query_times(
+            query_times,
+            dtype=current_state.dtype,
+            expected_len=current_state.shape[1],
+        )
+        return self.b_context_fuse(current_state, bg_ctx)
 
     def _get_b_pred(
         self,

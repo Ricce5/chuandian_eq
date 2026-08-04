@@ -563,6 +563,52 @@ def cache_path_from_metrics(metrics: Mapping[str, Any], metrics_path: Path) -> P
     return None
 
 
+def rows_from_cache(metrics: Mapping[str, Any], metrics_path: Path) -> List[Dict[str, Any]]:
+    """Recover window-level fields from a compatible sliding-window cache."""
+    cache_path = cache_path_from_metrics(metrics, metrics_path)
+    if cache_path is None:
+        return []
+
+    required_keys = {"t_forecast_list", "counts_list", "q_list", "mean_list"}
+    try:
+        with np.load(cache_path, allow_pickle=False) as payload:
+            if not required_keys.issubset(payload.files):
+                return []
+            t_forecast = np.asarray(payload["t_forecast_list"], dtype=np.float64)
+            counts = np.asarray(payload["counts_list"], dtype=np.float64)
+            quantiles = np.asarray(payload["q_list"], dtype=np.float64)
+            mean = np.asarray(payload["mean_list"], dtype=np.float64)
+    except Exception:
+        return []
+
+    n_windows = t_forecast.shape[0] if t_forecast.ndim == 1 else 0
+    if (
+        n_windows == 0
+        or counts.ndim != 1
+        or mean.ndim != 1
+        or quantiles.ndim != 2
+        or quantiles.shape != (n_windows, 2)
+        or counts.shape[0] != n_windows
+        or mean.shape[0] != n_windows
+    ):
+        return []
+
+    values = np.column_stack((t_forecast, counts, mean, quantiles))
+    if not np.all(np.isfinite(values)):
+        return []
+
+    return [
+        {
+            "t_forecast": float(t_forecast[index]),
+            "count": float(counts[index]),
+            "forecast_mean": float(mean[index]),
+            "q_low": float(quantiles[index, 0]),
+            "q_high": float(quantiles[index, 1]),
+        }
+        for index in range(n_windows)
+    ]
+
+
 def load_cache_subset(metrics: Mapping[str, Any], metrics_path: Path, mask: np.ndarray):
     cache_path = cache_path_from_metrics(metrics, metrics_path)
     if cache_path is None:
@@ -592,10 +638,12 @@ def compute_subset_metrics(
         }
     rows = rows_from_windows(metrics)
     if not rows:
-        return {
-            "status": "missing_windows",
-            "num_windows": 0,
-        }
+        rows = rows_from_cache(metrics, metrics_path)
+        if not rows:
+            return {
+                "status": "missing_windows",
+                "num_windows": 0,
+            }
 
     t_forecast = np.asarray([row["t_forecast"] for row in rows], dtype=np.float64)
     counts = np.asarray([row["count"] for row in rows], dtype=np.float64)

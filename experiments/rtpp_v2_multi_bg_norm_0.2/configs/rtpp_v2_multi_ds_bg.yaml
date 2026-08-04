@@ -181,6 +181,20 @@ grid:
           d_feature: 1
           scale_init: 500.0
 
+    - name: CB_HAB1a_proportional_norm_0
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: proportional
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 500.0
+        loss_weights:
+          bg_kl_weight: 0
+          bg_norm_weight: 0
+
     - name: CB_HAB1a_mamba
       overrides:
         dataset: CB_HAB1a
@@ -195,6 +209,24 @@ grid:
           model_type: mamba  # mamba | mamba2
           scale_init: 1000.0
           smooth_kernel_size: 3
+
+    - name: CB_HAB1a_mamba_norm_0
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: mamba
+        bg_model_cfg:
+          d_feature: 1
+          d_state: 64
+          d_model: 16
+          model_type: mamba  # mamba | mamba2
+          scale_init: 1000.0
+          smooth_kernel_size: 3
+        loss_weights:
+          bg_kl_weight: 0
+          bg_norm_weight: 0
 
     - name: CB_HAB1a_kernel
       overrides:
@@ -214,6 +246,28 @@ grid:
           gamma_init_k: 4.0
           gamma_init_beta: 0.08
           exp_init_tau: 40.0
+
+    - name: CB_HAB1a_kernel_norm_0
+      overrides:
+        dataset: CB_HAB1a
+        catalog_cfg:
+          freq: "1D"
+          mag_completeness: -0.4
+        bg_model: kernel
+        bg_model_cfg:
+          d_feature: 1
+          scale_init: 300.0
+          kernel_type: gamma
+          kernel_size: 2560
+          normalize_kernel: true
+          use_mlp: true
+          hidden: 32
+          gamma_init_k: 4.0
+          gamma_init_beta: 0.08
+          exp_init_tau: 40.0
+        loss_weights:
+          bg_kl_weight: 0
+          bg_norm_weight: 0
 
     - name: CB_HAB1a_kernel_256
       overrides:

@@ -132,18 +132,28 @@ python scripts/run_sliding_window_forecast_for_seeds.py --seeds 0
 
 
 
-python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/rtpp_v2_multi_bg_norm_0.2  experiments/etas_multi_ds_bg_norm_0.2 
+python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/rtpp_v2_multi_bg_norm_0.2  
  
-python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/oracle_multi_dataset
+python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/etas_multi_ds_bg_norm_0.2 
 
 
 python scripts/run_sliding_window_forecast_for_seeds.py \
   --seeds 0 1 2 \
   --jobs 3 \
-  --devices cuda:0\
+  --devices cuda:1\
   --skip-existing-ok\
-  --runs-dir experiments/rtpp_v2_multi_bg_norm_0.2/runs  experiments/etas_multi_ds_bg_norm_0.2/runs  
+  --runs-dir    experiments/rtpp_v2_multi_bg_norm_0.2/runs experiments/etas_multi_ds_bg_norm_0.2/runs 
 
 
 
 
+  python scripts/summarize/summarize_sliding_window_eval_by_split_start.py \
+    experiments/etas_multi_ds_bg_norm_0.2
+
+  python scripts/summarize_sliding_window_eval.py \
+--exp_dir experiments/rtpp_v2_multi_bg_norm_0.2
+
+  conda activate fa_mamba_clean
+
+  python scripts/summarize/summarize_sliding_window_eval_by_split_start.py \
+    experiments/rtpp_v2_multi_bg_norm_0.2

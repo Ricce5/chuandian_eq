@@ -77,7 +77,7 @@ def build_sample_batch(
 
     return src.data.Batch(
         inter_times=inter_times,
-        arrival_times=inter_times.cumsum(-1),
+        arrival_times=inter_times.cumsum(-1) + float(t_start),
         t_start=torch.full([batch_size], t_start, device=device, dtype=time_dtype),
         t_end=torch.full([batch_size], t_end, device=device, dtype=time_dtype),
         t_nll_start=torch.full([batch_size], t_start, device=device, dtype=time_dtype),
@@ -94,9 +94,19 @@ def evaluate_compensator_from_model(
     sequence: src.data.Sequence,
     num_grid_points: int = 50,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Evaluate compensator grid using model's context and inter-time decoder."""
+    """Evaluate the total compensator on an inter-event grid.
+
+    For a recurrent TPP with an optional exogenous background, this returns
+    the compensator of the same total intensity used by training,
+    ``h(t | history) + f(t)``.  The triggering contribution is obtained from
+    the inter-time survival function and the background contribution is
+    integrated over absolute time.
+    """
     batch = src.data.Batch.from_list([sequence]).to(model.device)
     context = model.get_context(batch).squeeze(0)
+    time_context_fn = getattr(model, "_get_time_context", None)
+    if callable(time_context_fn):
+        context = time_context_fn(context.unsqueeze(0), batch=batch).squeeze(0)
     inter_time_dist = model.get_inter_time_dist(context)
 
     x = batch.inter_times * torch.linspace(
@@ -117,11 +127,40 @@ def evaluate_compensator_from_model(
 
     offsets = torch.cat(
         [
-            torch.tensor([0.0], device=x.device, dtype=x.dtype),
-            batch.arrival_times.squeeze(0).to(dtype=x.dtype),
+            batch.t_start.to(device=x.device, dtype=x.dtype),
+            batch.arrival_times.squeeze(0)[:-1].to(dtype=x.dtype),
         ]
     )
-    grid = (x + offsets).T.reshape(-1)
+    grid_2d = x + offsets
+
+    bg_model = getattr(model, "bg_model", None)
+    if bg_model is not None:
+        bg_batch = batch
+        if not hasattr(bg_batch, "time_series"):
+            bg_batch = getattr(bg_model, "ts_batch_cache", None)
+        if bg_batch is None:
+            raise ValueError(
+                "Background compensator requires sequence time-series fields "
+                "or bg_model.ts_batch_cache."
+            )
+        integrate_between = getattr(bg_model, "intensity_integral_between", None)
+        if not callable(integrate_between):
+            raise ValueError(
+                "Background model must implement intensity_integral_between() "
+                "to evaluate the total compensator."
+            )
+
+        grid_flat = grid_2d.T.reshape(1, -1)
+        bg_start = batch.t_start.to(device=grid_flat.device, dtype=grid_flat.dtype)
+        bg_start = bg_start.expand_as(grid_flat)
+        bg_compensator = integrate_between(
+            bg_batch,
+            t_start=bg_start,
+            t_end=grid_flat,
+        ).reshape(-1)
+        compensator = compensator + bg_compensator
+
+    grid = grid_2d.T.reshape(-1)
     return grid, compensator
 
 

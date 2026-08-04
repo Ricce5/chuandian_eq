@@ -243,6 +243,42 @@ class RNNTPPBackbone(nn.Module):
         context = F.pad(rnn_output, (0, 0, 1, 0))
         return self.dropout(context), hidden
 
+    def get_hidden_after_events(self, batch: src.data.Batch) -> torch.Tensor:
+        """Return RNN hidden states immediately after the last real event.
+
+        ``Batch`` stores a final survival interval after the last event.  That
+        position is masked to a zero input, but running a GRU/RNN through a
+        zero input still changes its hidden state because the recurrent cells
+        have biases.  Sampling from a historical sequence must therefore use
+        the hidden state before this terminal slot, not the final hidden state
+        returned by :meth:`get_context_and_hidden`.
+        """
+        features = self.build_features(batch)
+        end_idx = batch.end_idx.to(device=features.device)
+        if end_idx.ndim != 1 or end_idx.shape[0] != features.shape[0]:
+            raise ValueError(
+                "batch.end_idx must have shape [B] when restoring sampling hidden state."
+            )
+
+        hidden_per_sequence: list[torch.Tensor] = []
+        for row, length_t in enumerate(end_idx):
+            length = int(length_t.item())
+            if length < 0 or length > features.shape[1]:
+                raise ValueError(
+                    f"Invalid end_idx={length} for sequence length {features.shape[1]}."
+                )
+            if length == 0:
+                hidden = features.new_zeros(
+                    self.num_rnn_layers,
+                    1,
+                    self.context_size,
+                )
+            else:
+                _, hidden = self.rnn(features[row : row + 1, :length, :].contiguous())
+            hidden_per_sequence.append(hidden)
+
+        return torch.cat(hidden_per_sequence, dim=1)
+
     def forward(self, batch: src.data.Batch):
         features = self.build_features(batch)
         rnn_output, hidden = self.rnn(features.contiguous())

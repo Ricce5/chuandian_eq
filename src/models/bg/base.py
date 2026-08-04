@@ -527,19 +527,26 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         # --- main flow ---
         t0_b = self._to_batched_tensor(t0, "t0", B, dtype=t_dtype)
         dt_b = self._to_batched_tensor(dt, "dt", B, dtype=t_dtype)
+        if (dt_b < 0.0).any():
+            raise ValueError("dt must be non-negative in sample_nhpp_inverse().")
         t1_b = t0_b + dt_b
 
         # cached uniform time grid (assumes batch dim was 1)
         ts_times_full = cached.time_series_times.squeeze(0).to(device).to(t_dtype)  # (T,)
 
         t0_min = t0_b.min()
-        t1_max = t1_b.max().clamp_max(ts_times_full[-1])
+        t1_max = t1_b.max()
+
+        ts0 = ts_times_full[0]
+        tsN = ts_times_full[-1]
+        if t0_min < ts0 or t1_max > tsN:
+            raise ValueError(
+                "[sample_nhpp_inverse] Query interval "
+                f"[{t0_min.item():.4f}, {t1_max.item():.4f}] out of cached range "
+                f"[{ts0.item():.4f}, {tsN.item():.4f}]."
+            )
 
         dt_grid, ts0, tsN, ts_times, i0, i1 = build_window_grid(ts_times_full, t0_min, t1_max)
-        assert t0_min >= ts0 and t1_max <= tsN, (
-            f"[sample_nhpp_inverse] Query interval [{t0_min.item():.4f}, {t1_max.item():.4f}] "
-            f"out of cached range [{ts0.item():.4f}, {tsN.item():.4f}]."
-        )
 
         # intensity on full grid and restrict to window
         lam_full = self.lambda_cache if self.lambda_cache is not None else self.intensity(cached, t_query=ts_times_full.unsqueeze(0)).squeeze(0)  # (T,)
