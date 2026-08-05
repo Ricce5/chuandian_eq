@@ -23,6 +23,7 @@ __all__ = [
     "forecast_eval_helpers",
     "interp",
     "interpretability",
+    "induced_virtual_experiment",
     "likelihood_curve_helpers",
     "logging_utils",
     "mask_utils",

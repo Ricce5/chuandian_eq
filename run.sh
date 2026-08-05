@@ -119,7 +119,7 @@ python scripts/run/run_clf_grid_five_experiments.py --dry_run
 python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs experiments/clf_pre_v1
 
 git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
-python scripts/summarize_rtpp_v2_grid.py  --exp_dir experiments/rtpp_v2_multi_bg_norm_0.2 --ckpt_select best
+python scripts/summarize_rtpp_v2_grid.py  --exp_dir experiments/rtpp_v2_multi_bg_split_0.7 --ckpt_select best
 
 python scripts/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
 
@@ -134,26 +134,29 @@ python scripts/run_sliding_window_forecast_for_seeds.py --seeds 0
 
 python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/rtpp_v2_multi_bg_norm_0.2  
  
-python scripts/summarize_sliding_window_eval.py --exp_dir  experiments/etas_multi_ds_bg_norm_0.2 
+python scripts/summarize_sliding_window_eval.py --  experiments/etas_multi_ds_bg_norm_0.2 
 
 
 python scripts/run_sliding_window_forecast_for_seeds.py \
-  --seeds 0 1 2 \
+  --seeds 0 1 2  \
   --jobs 3 \
-  --devices cuda:1\
+  --devices cuda:0\
   --skip-existing-ok\
-  --runs-dir    experiments/rtpp_v2_multi_bg_norm_0.2/runs experiments/etas_multi_ds_bg_norm_0.2/runs 
+  --runs-dir  experiments/rtpp_v2_multi_bg_split_0.7/runs
+  # experiments/etas_multi_ds_bg_split_0.7/runs  experiments/rtpp_v2_multi_bg_split_0.7
+  
+  # experiments/rtpp_v2_multi_bg_norm_0.2/runs experiments/etas_multi_ds_bg_norm_0.2/runs 
 
 
 
 
   python scripts/summarize/summarize_sliding_window_eval_by_split_start.py \
-    experiments/etas_multi_ds_bg_norm_0.2
+    experiments/etas_multi_ds_bg_split_0.7 experiments/etas_multi_ds_bg_norm_0.2
 
   python scripts/summarize_sliding_window_eval.py \
---exp_dir experiments/rtpp_v2_multi_bg_norm_0.2
+--exp_dir experiments/rtpp_v2_multi_bg_split_0.7
 
   conda activate fa_mamba_clean
 
   python scripts/summarize/summarize_sliding_window_eval_by_split_start.py \
-    experiments/rtpp_v2_multi_bg_norm_0.2
+    experiments/rtpp_v2_multi_bg_split_0.7

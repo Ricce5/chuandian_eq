@@ -20,6 +20,8 @@ modeling, training, and evaluation code.
 - `forecast_eval_helpers.py`: backward-compatible alias to `forecast_sliding.py`.
 - `interp.py`: interpolation and integration on uniform time grids.
 - `interpretability.py`: model interpretability and attribution utilities.
+- `induced_virtual_experiment.py`: virtual injection generation, labelled ETAS induced-catalog simulation, train/validation/test artifact saving, and background/trigger component comparison for model-recovery experiments.
+  Saved artifacts can be fitted through the normal TPP CLI with `dataset: VirtualInducedETAS` and `catalog_cfg.artifact_dir`; supply the generating model's `mag_completeness` in artifact metadata.
 - `likelihood_curve_helpers.py`: cumulative likelihood/NLL helper functions for analysis notebooks.
 - `logging_utils.py`: logging setup and logger utilities.
 - `mask_utils.py`: attention and padding mask builders.

@@ -20,6 +20,7 @@ from . import (
     ssfs,
     st1,
     synthetic_etas,
+    virtual_induced,
     white,
 )
 
@@ -39,5 +40,6 @@ __all__ = [
     "ssfs",
     "st1",
     "synthetic_etas",
+    "virtual_induced",
     "white",
 ]

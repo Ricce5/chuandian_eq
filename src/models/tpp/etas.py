@@ -36,6 +36,15 @@ from .tpp_model import TPPModel
 
 logger = logging.getLogger(__name__)
 
+
+# Simulation-truth provenance labels emitted by ``ETAS.sample`` when
+# ``return_event_metadata=True``. They identify the generating mechanism and
+# are not a declustering assignment for observed catalogs.
+ETAS_EVENT_SOURCE_BACKGROUND = 0
+ETAS_EVENT_SOURCE_TRIGGERED = 1
+ETAS_PARENT_INDEX_BACKGROUND = -1
+ETAS_PARENT_INDEX_OUTSIDE_WINDOW = -2
+
 def _to_tensor(x, ref: torch.Tensor):
     return to_tensor_like(x, ref)
 
@@ -824,6 +833,7 @@ class ETAS(TPPModel):
         t_max: float = 1e10,  # maximum duration of the aftershock sequence. Important for p close to 1.
         n_jobs: int = -1,     # Number of jobs that run sampling in parallel. -1 uses all cores.
         return_sequences: bool = False,
+        return_event_metadata: bool = False,
     ) -> Union[Batch, List[Sequence]]:
         """Generate a sample from the model (conditional or unconditional).
 
@@ -838,7 +848,11 @@ class ETAS(TPPModel):
             t_max: Maximum time since parent at which an aftershock can be produced.
             n_jobs: Number of jobs that run sampling in parallel. -1 uses all cores.
             return_sequences: If True, returns samples as List[Sequence].
-                If False, returns samples as Batch.
+            return_event_metadata: If True, attach synthetic-truth attributes
+                ``etas_source`` (0=background, 1=triggered),
+                ``etas_parent_index`` (the sorted local parent index, -1 for
+                background events, -2 for a parent outside the forecast
+                window), and ``etas_generation`` to each sequence.
 
         Returns:
             batch: Sequences generated from the model.
@@ -868,16 +882,32 @@ class ETAS(TPPModel):
 
         def sample_single_seq(seed, bg_times: Optional[np.ndarray] = None):   
             np.random.seed(seed)
+            next_event_id = 0
             if past_seq is not None:
                 # Recompute the arrival times in float64 precision
                 past_tau = past_seq.inter_times.cpu().numpy().copy()
                 arrival_times = np.cumsum(past_tau[:-1]) + past_seq.t_start
                 magnitudes = past_seq.mag.cpu().numpy().copy()
                 parent_catalog = np.column_stack((arrival_times, magnitudes))
+                if return_event_metadata:
+                    history_ids = -np.arange(1, len(arrival_times) + 1, dtype=np.int64)
+                    parent_catalog = np.column_stack(
+                        (
+                            parent_catalog,
+                            history_ids,
+                            np.full(len(arrival_times), -1, dtype=np.int64),
+                            np.full(len(arrival_times), -1, dtype=np.int64),
+                            np.full(len(arrival_times), -1, dtype=np.int64),
+                        )
+                    )
             else:
                 arrival_times = np.array([], dtype=np.float64)
                 magnitudes = np.array([], dtype=np.float64)
-                parent_catalog = []
+                parent_catalog = (
+                    np.empty((0, 6), dtype=np.float64)
+                    if return_event_metadata
+                    else np.empty((0, 2), dtype=np.float64)
+                )
 
             t_end = t_start + duration
          
@@ -913,6 +943,30 @@ class ETAS(TPPModel):
                 else:
                     background_catalog = np.empty((0, 2), dtype=np.float64)
             #########
+            if return_event_metadata:
+                background_ids = np.arange(
+                    next_event_id,
+                    next_event_id + int(Nback),
+                    dtype=np.int64,
+                )
+                next_event_id += int(Nback)
+                background_catalog = np.column_stack(
+                    (
+                        background_catalog,
+                        background_ids,
+                        np.full(
+                            int(Nback),
+                            ETAS_EVENT_SOURCE_BACKGROUND,
+                            dtype=np.int64,
+                        ),
+                        np.full(
+                            int(Nback),
+                            ETAS_PARENT_INDEX_BACKGROUND,
+                            dtype=np.int64,
+                        ),
+                        np.zeros(int(Nback), dtype=np.int64),
+                    )
+                )
             parent_catalog = (
                 np.vstack((parent_catalog, background_catalog))
                 if len(parent_catalog) > 0
@@ -928,7 +982,7 @@ class ETAS(TPPModel):
 
                 # Determine the number of offspring each parent will have:
                 k_prime = k * omori_int(0, t_max, c, p)  # k'
-                prod = productivity(parent_catalog[:, -1], k_prime, alpha, M_c) 
+                prod = productivity(parent_catalog[:, 1], k_prime, alpha, M_c)
 
                 # Determine how many of these events will be within the forecast interval:
 
@@ -972,6 +1026,27 @@ class ETAS(TPPModel):
                     aftershock_catalog.append(m_aftershock)
 
                     aftershock_catalog = np.column_stack(aftershock_catalog)
+                    if return_event_metadata:
+                        child_ids = np.arange(
+                            next_event_id,
+                            next_event_id + int(iNaft),
+                            dtype=np.int64,
+                        )
+                        next_event_id += int(iNaft)
+                        child_generation = max(int(ieq[5]), 0) + 1
+                        aftershock_catalog = np.column_stack(
+                            (
+                                aftershock_catalog,
+                                child_ids,
+                                np.full(
+                                    int(iNaft),
+                                    ETAS_EVENT_SOURCE_TRIGGERED,
+                                    dtype=np.int64,
+                                ),
+                                np.full(int(iNaft), int(ieq[2]), dtype=np.int64),
+                                np.full(int(iNaft), child_generation, dtype=np.int64),
+                            )
+                        )
 
                     # Tack on the aftershock sequence to the catalog of offsprings
                     offspring_catalog.append(aftershock_catalog)
@@ -994,18 +1069,45 @@ class ETAS(TPPModel):
             whole_catalog = whole_catalog[whole_catalog[:, 0].argsort()] 
 
             arrival_times = whole_catalog[:, 0]
-            magnitudes = whole_catalog[:, -1]
+            magnitudes = whole_catalog[:, 1]
 
             valid_idx = (arrival_times > t_start) & (arrival_times <= t_end)
             fc_arrival_times = arrival_times[valid_idx]
             fc_magnitudes = magnitudes[valid_idx]
 
             inter_times = np.diff(fc_arrival_times, prepend=t_start, append=t_end)
-            return Sequence(
-                inter_times=inter_times,
-                t_start=t_start,
-                mag=fc_magnitudes,
-            )
+            sequence_kwargs = {
+                "inter_times": inter_times,
+                "t_start": t_start,
+                "mag": fc_magnitudes,
+            }
+            if return_event_metadata:
+                forecast_catalog = whole_catalog[valid_idx]
+                local_index = {
+                    int(event_id): index
+                    for index, event_id in enumerate(forecast_catalog[:, 2])
+                }
+                sources = forecast_catalog[:, 3].astype(np.int64, copy=False)
+                parent_ids = forecast_catalog[:, 4].astype(np.int64, copy=False)
+                parent_index = np.full(
+                    len(forecast_catalog),
+                    ETAS_PARENT_INDEX_BACKGROUND,
+                    dtype=np.int64,
+                )
+                for index in np.flatnonzero(sources == ETAS_EVENT_SOURCE_TRIGGERED):
+                    parent_index[index] = local_index.get(
+                        int(parent_ids[index]),
+                        ETAS_PARENT_INDEX_OUTSIDE_WINDOW,
+                    )
+                sequence_kwargs.update(
+                    etas_source=sources,
+                    etas_parent_index=parent_index,
+                    etas_generation=forecast_catalog[:, 5].astype(
+                        np.int64,
+                        copy=False,
+                    ),
+                )
+            return Sequence(**sequence_kwargs)
 
         sequences = []
         # Keep generating sequences in groups of size (batch_size - len(sequences)) until batch_size is reached
