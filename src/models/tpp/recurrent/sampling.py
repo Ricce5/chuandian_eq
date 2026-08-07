@@ -430,6 +430,27 @@ class RecurrentTPPSamplingMixin:
                 next_inter_times = next_inter_times[0]
             time_remaining = None
             next_inter_times[~active_mask, 0] = 0.0
+
+            # A background inverse sampler can round a tiny tail interval to
+            # zero in float32. Treat a non-advancing sample as having no more
+            # events in the remaining horizon; otherwise the loop can never
+            # make progress on a truncated final window.
+            next_inter_time_values = next_inter_times.squeeze(-1)
+            proposed_total_time = torch.minimum(
+                total_time + next_inter_time_values,
+                duration_t,
+            )
+            no_progress_mask = active_mask & (
+                proposed_total_time <= total_time
+            )
+            if bool(no_progress_mask.any().item()):
+                next_inter_time_values = torch.where(
+                    no_progress_mask,
+                    remaining_time,
+                    next_inter_time_values,
+                )
+                next_inter_times = next_inter_time_values.unsqueeze(-1)
+
             inter_time_list.append(next_inter_times)
 
             rnn_input_list = [self.encode_time(next_inter_times)]

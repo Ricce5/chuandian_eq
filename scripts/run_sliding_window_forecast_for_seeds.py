@@ -284,6 +284,10 @@ def build_command(
     if device is not None and not has_forwarded_option(forwarded_args, "--device"):
         command.extend(["--device", device])
 
+    run_seed = extract_seed(run_dir.name)
+    if run_seed is not None and not has_forwarded_option(forwarded_args, "--seed"):
+        command.extend(["--seed", str(run_seed)])
+
     command.extend(forwarded_args)
     return command
 
