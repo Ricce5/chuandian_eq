@@ -1,5 +1,10 @@
 from __future__ import annotations
+
+import hashlib
 import inspect
+import json
+import re
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -25,6 +30,16 @@ DEFAULT_PLOT_COLORS: dict[str, str] = {
 
 
 @dataclass(frozen=True, slots=True)
+class SlidingWindowEvaluationRange:
+    """Relative-time bounds for the target portion of a sliding evaluation."""
+
+    name: str = "full"
+    start: float | None = None
+    end: float | None = None
+    grid_anchor: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SlidingWindowForecastConfig:
     duration: float = 12
     slide_step: float = 12
@@ -37,6 +52,8 @@ class SlidingWindowForecastConfig:
     return_sim_mag_max_matrix: bool = False
     precomputed_counts: np.ndarray | None = None
     precomputed_mag_max: np.ndarray | None = None
+    include_truncated_final_window: bool = False
+    evaluation_range: SlidingWindowEvaluationRange | None = None
 
 
 @dataclass(slots=True)
@@ -50,6 +67,7 @@ class SlidingWindowForecastResult:
     mag_max_quantiles: np.ndarray | None = None
     mag_max_mean: np.ndarray | None = None
     sim_mag_max_matrix: np.ndarray | None = None
+    t_window_end: np.ndarray | None = None
 
     def __iter__(self):
         yield from self.as_legacy_tuple()
@@ -91,6 +109,196 @@ def _stack_or_empty(rows, *, cols: int, dtype):
     return np.empty((0, cols), dtype=dtype)
 
 
+def _sequence_observation_bounds(seq) -> tuple[float, float]:
+    """Return the complete observed sequence bounds in relative time."""
+    start = float(getattr(seq, "t_start", 0.0))
+    fallback_end = float(seq.arrival_times[-1].item())
+    end = float(getattr(seq, "t_end", fallback_end))
+    return start, end
+
+
+def resolve_sliding_window_evaluation_range(
+    seq,
+    evaluation_range: SlidingWindowEvaluationRange | None = None,
+) -> SlidingWindowEvaluationRange:
+    """Resolve and validate a target range against a sequence.
+
+    The default preserves the previous evaluator coverage: it starts at the
+    first event and ends at the final event. An explicit range may extend to
+    ``seq.t_end`` so that a final zero-event interval can be evaluated.
+    """
+    first_event = float(seq.arrival_times[0].item())
+    last_event = float(seq.arrival_times[-1].item())
+    sequence_start, sequence_end = _sequence_observation_bounds(seq)
+
+    if evaluation_range is None:
+        name = "full"
+        start = first_event
+        end = last_event
+        grid_anchor = start
+        grid_anchor_follows_start = True
+    else:
+        name = str(evaluation_range.name).strip() or "custom"
+        start = (
+            first_event
+            if evaluation_range.start is None
+            else float(evaluation_range.start)
+        )
+        end = (
+            last_event
+            if evaluation_range.end is None
+            else float(evaluation_range.end)
+        )
+        grid_anchor = (
+            start
+            if evaluation_range.grid_anchor is None
+            else float(evaluation_range.grid_anchor)
+        )
+        grid_anchor_follows_start = evaluation_range.grid_anchor is None
+
+    if not (
+        np.isfinite(start)
+        and np.isfinite(end)
+        and np.isfinite(grid_anchor)
+    ):
+        raise ValueError(
+            "Sliding evaluation range bounds and grid_anchor must be finite."
+        )
+
+    bound_tolerance = 1e-9 * max(
+        1.0,
+        abs(sequence_start),
+        abs(sequence_end),
+        abs(start),
+        abs(end),
+    )
+    if start < sequence_start:
+        if np.isclose(
+            start,
+            sequence_start,
+            rtol=0.0,
+            atol=bound_tolerance,
+        ):
+            start = sequence_start
+        else:
+            raise ValueError(
+                "evaluation_range.start="
+                f"{start} must be >= seq.t_start={sequence_start}."
+            )
+    if end > sequence_end:
+        if np.isclose(
+            end,
+            sequence_end,
+            rtol=0.0,
+            atol=bound_tolerance,
+        ):
+            end = sequence_end
+        else:
+            raise ValueError(
+                f"evaluation_range.end={end} must be <= seq.t_end={sequence_end}."
+            )
+    if grid_anchor_follows_start:
+        grid_anchor = start
+    if not start < end:
+        raise ValueError(
+            f"evaluation_range must satisfy start < end, got start={start}, end={end}."
+        )
+
+    return SlidingWindowEvaluationRange(
+        name=name,
+        start=start,
+        end=end,
+        grid_anchor=grid_anchor,
+    )
+
+
+def _first_grid_start_at_or_after(
+    lower_bound: float,
+    grid_anchor: float,
+    slide_step: float,
+) -> float:
+    """Return the first grid point at or after lower_bound."""
+    if lower_bound <= grid_anchor:
+        return grid_anchor
+
+    offset = (lower_bound - grid_anchor) / slide_step
+    steps = int(np.ceil(offset - 1e-12))
+    candidate = grid_anchor + steps * slide_step
+    if candidate < lower_bound and not np.isclose(candidate, lower_bound):
+        candidate += slide_step
+    return candidate
+
+
+def _build_sliding_window_bounds(
+    seq,
+    *,
+    duration: float,
+    slide_step: float,
+    evaluation_range: SlidingWindowEvaluationRange | None = None,
+    include_truncated_final_window: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Build forecast starts and target ends for one sliding evaluation range."""
+    duration = float(duration)
+    slide_step = float(slide_step)
+    if duration <= 0:
+        raise ValueError(f"duration must be positive, got {duration}.")
+    if slide_step <= 0:
+        raise ValueError(f"slide_step must be positive, got {slide_step}.")
+
+    resolved_range = resolve_sliding_window_evaluation_range(seq, evaluation_range)
+    first_event = float(seq.arrival_times[0].item())
+    lower_bound = max(float(resolved_range.start), first_event + duration)
+    first_start = _first_grid_start_at_or_after(
+        lower_bound,
+        float(resolved_range.grid_anchor),
+        slide_step,
+    )
+    candidate_starts = np.arange(first_start, float(resolved_range.end), slide_step)
+    candidate_ends = np.minimum(
+        candidate_starts + duration,
+        float(resolved_range.end),
+    )
+
+    if include_truncated_final_window:
+        return candidate_starts, candidate_ends
+
+    full_window_mask = candidate_starts + duration <= float(resolved_range.end)
+    return candidate_starts[full_window_mask], candidate_ends[full_window_mask]
+
+
+def _build_sliding_window_starts(
+    start: float,
+    end: float,
+    duration: float,
+    slide_step: float,
+    *,
+    include_truncated_final_window: bool = False,
+) -> np.ndarray:
+    """Backward-compatible standalone wrapper for sliding start construction."""
+    class _SequenceBounds:
+        def __init__(self, sequence_start: float, sequence_end: float):
+            self.t_start = float(sequence_start)
+            self.t_end = float(sequence_end)
+            self.arrival_times = torch.tensor(
+                [sequence_start, sequence_end],
+                dtype=torch.float64,
+            )
+
+    seq = _SequenceBounds(start, end)
+    starts, _ = _build_sliding_window_bounds(
+        seq,
+        duration=duration,
+        slide_step=slide_step,
+        evaluation_range=SlidingWindowEvaluationRange(
+            start=start,
+            end=end,
+            grid_anchor=start,
+        ),
+        include_truncated_final_window=include_truncated_final_window,
+    )
+    return starts
+
+
 def _cache_background_sequence(model: Any, bg_cache_seq: Any | None) -> None:
     if bg_cache_seq is None:
         return
@@ -101,9 +309,147 @@ def _cache_background_sequence(model: Any, bg_cache_seq: Any | None) -> None:
     time_series_times = getattr(bg_cache_seq, "time_series_times", None)
     if time_series is None or time_series_times is None:
         return
+    cached = getattr(bg_model, "ts_batch_cache", None)
+    cached_times = getattr(cached, "time_series_times", None)
+    cached_series = getattr(cached, "time_series", None)
+    source_times = torch.as_tensor(time_series_times).reshape(-1)
+    source_series = torch.as_tensor(time_series)
+    if cached_times is not None:
+        cached_times = torch.as_tensor(cached_times).reshape(-1)
+        if (
+            cached_times.shape == source_times.shape
+            and cached_series is not None
+            and torch.as_tensor(cached_series).shape == source_series.shape
+            and torch.allclose(
+                cached_times.detach().cpu(),
+                source_times.detach().cpu(),
+                rtol=0.0,
+                atol=0.0,
+            )
+            and torch.allclose(
+                torch.as_tensor(cached_series).detach().cpu(),
+                source_series.detach().cpu(),
+                rtol=0.0,
+                atol=0.0,
+            )
+        ):
+            return
     bg_model.cache_batch(
         time_series=time_series.unsqueeze(0),
         time_series_times=time_series_times.unsqueeze(0),
+    )
+
+
+def _background_cache_time_bounds(model: Any) -> tuple[float, float, float] | None:
+    """Return cached background time bounds and a small endpoint tolerance."""
+    bg_model = getattr(model, "bg_model", None)
+    if bg_model is None:
+        return None
+    cached = getattr(bg_model, "ts_batch_cache", None)
+    if cached is None:
+        return None
+    time_series_times = getattr(cached, "time_series_times", None)
+    if time_series_times is None:
+        return None
+
+    cache_time_tensor = torch.as_tensor(time_series_times).detach().cpu()
+    ts_times = cache_time_tensor.numpy()
+    ts_times = np.asarray(ts_times, dtype=np.float64).reshape(-1)
+    if ts_times.size == 0 or not np.all(np.isfinite(ts_times)):
+        return None
+
+    positive_steps = np.diff(ts_times)
+    positive_steps = positive_steps[positive_steps > 0.0]
+    median_step = (
+        float(np.median(positive_steps))
+        if positive_steps.size > 0
+        else 0.0
+    )
+    cache_start = float(ts_times[0])
+    cache_end = float(ts_times[-1])
+    scale = max(1.0, abs(cache_start), abs(cache_end))
+    dtype_tolerance = 0.0
+    if cache_time_tensor.is_floating_point():
+        dtype_tolerance = 4.0 * float(
+            torch.finfo(cache_time_tensor.dtype).eps
+        ) * scale
+    grid_endpoint_tolerance = median_step if median_step > 0.0 else 0.0
+    endpoint_tolerance = max(
+        1e-9,
+        1e-9 * scale,
+        dtype_tolerance,
+        grid_endpoint_tolerance,
+    )
+    return cache_start, cache_end, endpoint_tolerance
+
+
+def _limit_range_to_background_cache(
+    model: Any,
+    evaluation_range: SlidingWindowEvaluationRange,
+) -> SlidingWindowEvaluationRange:
+    """Numerically guard sliding target bounds against background cache edges."""
+    cache_bounds = _background_cache_time_bounds(model)
+    if cache_bounds is None:
+        return evaluation_range
+
+    cache_start, cache_end, endpoint_tolerance = cache_bounds
+    start = float(evaluation_range.start)
+    end = float(evaluation_range.end)
+    grid_anchor = float(evaluation_range.grid_anchor)
+    adjusted = False
+
+    if start < cache_start:
+        if cache_start - start <= endpoint_tolerance:
+            start = cache_start
+            if np.isclose(
+                grid_anchor,
+                evaluation_range.start,
+                rtol=0.0,
+                atol=endpoint_tolerance,
+            ):
+                grid_anchor = start
+            adjusted = True
+        else:
+            raise ValueError(
+                "Sliding evaluation range starts before cached background "
+                f"range: start={start:.10g}, bg_cache_start={cache_start:.10g}. "
+                "Pass a background cache sequence covering the forecast interval "
+                "or restrict --eval-start."
+            )
+
+    if end > cache_end:
+        if end - cache_end <= endpoint_tolerance:
+            end = cache_end
+            adjusted = True
+        else:
+            raise ValueError(
+                "Sliding evaluation range ends after cached background range: "
+                f"end={end:.10g}, bg_cache_end={cache_end:.10g}. "
+                "Pass a background cache sequence covering the forecast interval "
+                "or restrict --eval-end."
+            )
+
+    if not start < end:
+        raise ValueError(
+            "Sliding evaluation range has no positive duration after applying "
+            f"background cache bounds: start={start}, end={end}."
+        )
+
+    if adjusted:
+        warnings.warn(
+            "Clamped sliding evaluation range to cached background time bounds "
+            f"[{cache_start:.10g}, {cache_end:.10g}] within endpoint tolerance "
+            f"{endpoint_tolerance:.3g}; no background feature values were "
+            "extrapolated.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    return SlidingWindowEvaluationRange(
+        name=evaluation_range.name,
+        start=start,
+        end=end,
+        grid_anchor=grid_anchor,
     )
 
 
@@ -134,6 +480,7 @@ def _as_2d_array(name: str, value):
 _SLIDING_RESULT_REQUIRED_KEYS = {"t_forecast", "counts", "quantiles", "mean"}
 _SLIDING_RESULT_ALLOWED_KEYS = {
     "t_forecast",
+    "t_window_end",
     "counts",
     "quantiles",
     "mean",
@@ -147,7 +494,7 @@ _SLIDING_RESULT_ALLOWED_KEYS = {
 
 def _sliding_result_to_mapping(result: SlidingWindowForecastResult) -> dict[str, Any]:
     """Normalize a SlidingWindowForecastResult into a dict payload."""
-    return {
+    result_mapping = {
         "t_forecast": result.t_forecast,
         "counts": result.counts,
         "quantiles": result.quantiles,
@@ -158,6 +505,9 @@ def _sliding_result_to_mapping(result: SlidingWindowForecastResult) -> dict[str,
         "mag_max_mean": result.mag_max_mean,
         "sim_mag_max_matrix": result.sim_mag_max_matrix,
     }
+    if result.t_window_end is not None:
+        result_mapping["t_window_end"] = result.t_window_end
+    return result_mapping
 
 
 def _tuple_sliding_result_to_mapping(result: tuple) -> dict[str, Any] | None:
@@ -210,6 +560,7 @@ def _tuple_sliding_result_to_mapping(result: tuple) -> dict[str, Any] | None:
 def _build_sliding_result(
     *,
     t_forecast,
+    t_window_end=None,
     counts,
     quantiles,
     mean,
@@ -237,6 +588,14 @@ def _build_sliding_result(
         raise ValueError("quantiles and t_forecast must have the same number of rows.")
     if quantiles_arr.shape[1] < 2:
         raise ValueError("quantiles must have at least 2 columns.")
+
+    t_window_end_arr = None
+    if t_window_end is not None:
+        t_window_end_arr = _as_1d_array("t_window_end", t_window_end)
+        if t_window_end_arr.shape[0] != n_bins:
+            raise ValueError(
+                "t_window_end and t_forecast must have the same length."
+            )
 
     sim_count_arr = None
     if sim_count_matrix is not None:
@@ -281,6 +640,7 @@ def _build_sliding_result(
         mag_max_quantiles=mag_max_quantiles_arr,
         mag_max_mean=mag_max_mean_arr,
         sim_mag_max_matrix=sim_mag_max_arr,
+        t_window_end=t_window_end_arr,
     )
 
 
@@ -301,6 +661,7 @@ def _coerce_sliding_window_forecast_mapping(result: Mapping[str, Any]):
 
     return _build_sliding_result(
         t_forecast=result["t_forecast"],
+        t_window_end=result.get("t_window_end"),
         counts=result["counts"],
         quantiles=result["quantiles"],
         mean=result["mean"],
@@ -416,6 +777,8 @@ def run_sliding_window_forecast(
     config: SlidingWindowForecastConfig | None = None,
     duration: float = 12,
     slide_step: float = 12,
+    include_truncated_final_window: bool = False,
+    evaluation_range: SlidingWindowEvaluationRange | None = None,
     quantiles: tuple[float, float] = (2.5, 97.5),
     samples_per_batch: int = 1000,
     predict_b: bool | None = None,
@@ -433,6 +796,10 @@ def run_sliding_window_forecast(
         device: Torch device to run the model on.
         duration: Forecast window length.
         slide_step: Step size to slide the forecast window.
+        include_truncated_final_window: If True, include grid-aligned forecast
+            windows that extend beyond the evaluation range end and clip them.
+        evaluation_range: Relative-time target interval that limits forecast
+            starts and ends without restricting the historical past context.
         quantiles: Lower and upper percentiles for prediction intervals.
         samples_per_batch: Number of simulated samples per forecast window.
         predict_b: Optional explicit b-prediction mode passed to model.sample.
@@ -447,6 +814,8 @@ def run_sliding_window_forecast(
     if config is not None:
         duration = float(config.duration)
         slide_step = float(config.slide_step)
+        include_truncated_final_window = bool(config.include_truncated_final_window)
+        evaluation_range = config.evaluation_range
         quantiles = tuple(config.quantiles)
         samples_per_batch = int(config.samples_per_batch)
         predict_b = config.predict_b
@@ -460,9 +829,20 @@ def run_sliding_window_forecast(
         precomputed_counts = None
         precomputed_mag_max = None
 
-    start = float(seq.arrival_times[0].item())
-    end = float(seq.arrival_times[-1].item())
-    t_forecast_list = np.arange(start + duration, end - duration, slide_step)
+    model.eval()
+    _cache_background_sequence(model, bg_cache_seq)
+    evaluation_range = _limit_range_to_background_cache(
+        model,
+        resolve_sliding_window_evaluation_range(seq, evaluation_range),
+    )
+
+    t_forecast_list, t_window_end_list = _build_sliding_window_bounds(
+        seq,
+        duration=duration,
+        slide_step=slide_step,
+        evaluation_range=evaluation_range,
+        include_truncated_final_window=include_truncated_final_window,
+    )
     precomputed_counts_arr = (
         np.asarray(precomputed_counts, dtype=np.int64).reshape(-1)
         if precomputed_counts is not None else None
@@ -487,9 +867,6 @@ def run_sliding_window_forecast(
     sim_count_rows: list[np.ndarray] = []
     sim_mag_max_rows: list[np.ndarray] = []
 
-    model.eval()
-    _cache_background_sequence(model, bg_cache_seq)
-
     try:
         sample_params = inspect.signature(model.sample).parameters
         accepts_var_kwargs = any(
@@ -502,11 +879,22 @@ def run_sliding_window_forecast(
         supports_predict_b = False
         supports_bg_cache_seq = False
 
-    for window_index, t_forecast in enumerate(t_forecast_list):
-        t_end = min(t_forecast + duration, end)
+    past_start, _ = _sequence_observation_bounds(seq)
+    for window_index, (t_forecast, t_end) in enumerate(
+        zip(t_forecast_list, t_window_end_list, strict=True)
+    ):
 
         # Extract past and observed subsequences
-        past_seq = seq.get_subsequence(0, t_forecast, reset_t_nll_to_end=True).to(device)
+        past_seq = seq.get_subsequence(
+            past_start,
+            t_forecast,
+            reset_t_nll_to_end=True,
+        ).to(device)
+        # ``Sequence`` stores float32 inter-times, so reconstructing a
+        # subsequence can drift from the requested grid boundary. Keep the
+        # model's forecast origin aligned with the evaluator's exact start.
+        if hasattr(past_seq, "t_end"):
+            past_seq.t_end = float(t_forecast)
         observed_seq = None
         if precomputed_counts_arr is None or (compute_mag_max and precomputed_mag_max_arr is None):
             observed_seq = seq.get_subsequence(t_forecast, t_end, reset_t_nll_to_end=True)
@@ -562,7 +950,8 @@ def run_sliding_window_forecast(
             if return_sim_mag_max_matrix:
                 sim_mag_max_rows.append(fc_mag_max)
 
-    t_forecast_arr = np.array(t_forecast_list)
+    t_forecast_arr = np.asarray(t_forecast_list, dtype=np.float64)
+    t_window_end_arr = np.asarray(t_window_end_list, dtype=np.float64)
     counts_arr = np.array(counts_list)
     q_arr = np.vstack(q_list) if q_list else np.empty((0, 2), dtype=np.float64)
     mean_arr = np.array(mean_list)
@@ -592,6 +981,7 @@ def run_sliding_window_forecast(
             mag_max_quantiles=q_mag_max_arr,
             mag_max_mean=mean_mag_max_arr,
             sim_mag_max_matrix=sim_mag_max_matrix,
+            t_window_end=t_window_end_arr,
         )
 
     sim_count_matrix = (
@@ -605,6 +995,7 @@ def run_sliding_window_forecast(
         quantiles=q_arr,
         mean=mean_arr,
         sim_count_matrix=sim_count_matrix,
+        t_window_end=t_window_end_arr,
     )
 
 def compute_mean_nb_log_prob(obs_counts, sim_count_matrix, *, eps: float = 1e-10):
@@ -820,7 +1211,7 @@ def resolve_view_mode(config_value, *, auto_use_zoom: bool):
     return mode
 
 
-SLIDING_CACHE_VERSION = 2
+SLIDING_CACHE_VERSION = 4
 DEFAULT_SLIDING_CACHE_FILENAME = "sliding_window_cache.npz"
 
 
@@ -830,6 +1221,49 @@ def _cache_predict_b_mode(predict_b: bool | None) -> int:
     return int(bool(predict_b))
 
 
+def build_default_sliding_cache_filename(
+    metadata: Mapping[str, Any],
+    *,
+    prefix: str = "sliding_window_cache",
+) -> str:
+    """Build a range-specific cache filename from validated metadata."""
+    range_name = re.sub(
+        r"[^A-Za-z0-9_.-]+",
+        "-",
+        str(metadata.get("evaluation_name", "full")).strip() or "custom",
+    ).strip("-") or "custom"
+    identity_keys = (
+        "duration",
+        "slide_step",
+        "include_truncated_final_window",
+        "evaluation_name",
+        "evaluation_start",
+        "evaluation_end",
+        "evaluation_grid_anchor",
+        "quantile_low",
+        "quantile_high",
+        "samples_per_batch",
+        "predict_b_mode",
+        "sampling_seed",
+        "seq_start",
+        "seq_end",
+        "seq_t_start",
+        "seq_t_end",
+    )
+    identity = {
+        key: metadata[key]
+        for key in identity_keys
+        if key in metadata
+    }
+    encoded_identity = json.dumps(
+        identity,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    digest = hashlib.sha256(encoded_identity).hexdigest()[:12]
+    return f"{prefix}_{range_name}_{digest}.npz"
+
+
 def build_sliding_cache_metadata(
     seq,
     *,
@@ -837,18 +1271,31 @@ def build_sliding_cache_metadata(
     slide_step: float,
     quantiles: tuple[float, float],
     samples_per_batch: int,
+    include_truncated_final_window: bool = False,
+    evaluation_range: SlidingWindowEvaluationRange | None = None,
     predict_b: bool | None = None,
+    sampling_seed: int | None = None,
 ):
+    resolved_range = resolve_sliding_window_evaluation_range(seq, evaluation_range)
+    sequence_t_start, sequence_t_end = _sequence_observation_bounds(seq)
     return {
         "cache_version": int(SLIDING_CACHE_VERSION),
         "duration": float(duration),
         "slide_step": float(slide_step),
+        "include_truncated_final_window": int(bool(include_truncated_final_window)),
+        "evaluation_name": str(resolved_range.name),
+        "evaluation_start": float(resolved_range.start),
+        "evaluation_end": float(resolved_range.end),
+        "evaluation_grid_anchor": float(resolved_range.grid_anchor),
         "quantile_low": float(quantiles[0]),
         "quantile_high": float(quantiles[1]),
         "samples_per_batch": int(samples_per_batch),
         "predict_b_mode": int(_cache_predict_b_mode(predict_b)),
+        "sampling_seed": -1 if sampling_seed is None else int(sampling_seed),
         "seq_start": float(seq.arrival_times[0].item()),
         "seq_end": float(seq.arrival_times[-1].item()),
+        "seq_t_start": sequence_t_start,
+        "seq_t_end": sequence_t_end,
     }
 
 
@@ -870,12 +1317,22 @@ def save_sliding_window_cache(
         cache_version=np.int64(metadata["cache_version"]),
         duration=np.float64(metadata["duration"]),
         slide_step=np.float64(metadata["slide_step"]),
+        include_truncated_final_window=np.int8(
+            metadata.get("include_truncated_final_window", 0)
+        ),
+        evaluation_name=np.asarray(metadata.get("evaluation_name", "full")),
+        evaluation_start=np.float64(metadata["evaluation_start"]),
+        evaluation_end=np.float64(metadata["evaluation_end"]),
+        evaluation_grid_anchor=np.float64(metadata["evaluation_grid_anchor"]),
         quantile_low=np.float64(metadata["quantile_low"]),
         quantile_high=np.float64(metadata["quantile_high"]),
         samples_per_batch=np.int64(metadata["samples_per_batch"]),
         predict_b_mode=np.int64(metadata["predict_b_mode"]),
+        sampling_seed=np.int64(metadata.get("sampling_seed", -1)),
         seq_start=np.float64(metadata["seq_start"]),
         seq_end=np.float64(metadata["seq_end"]),
+        seq_t_start=np.float64(metadata["seq_t_start"]),
+        seq_t_end=np.float64(metadata["seq_t_end"]),
         t_forecast_list=np.asarray(t_forecast_list, dtype=np.float64),
         counts_list=np.asarray(counts_list, dtype=np.int64),
         q_list=np.asarray(q_list, dtype=np.float64),
@@ -894,12 +1351,20 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
         "cache_version",
         "duration",
         "slide_step",
+        "include_truncated_final_window",
+        "evaluation_name",
+        "evaluation_start",
+        "evaluation_end",
+        "evaluation_grid_anchor",
         "quantile_low",
         "quantile_high",
         "samples_per_batch",
         "predict_b_mode",
+        "sampling_seed",
         "seq_start",
         "seq_end",
+        "seq_t_start",
+        "seq_t_end",
         "t_forecast_list",
         "counts_list",
         "q_list",
@@ -918,8 +1383,32 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
                 return None
             if int(np.asarray(data["predict_b_mode"]).item()) != int(metadata["predict_b_mode"]):
                 return None
+            if int(np.asarray(data["sampling_seed"]).item()) != int(
+                metadata.get("sampling_seed", -1)
+            ):
+                return None
+            if int(np.asarray(data["include_truncated_final_window"]).item()) != int(
+                metadata.get("include_truncated_final_window", 0)
+            ):
+                return None
+            if str(np.asarray(data["evaluation_name"]).item()) != str(
+                metadata.get("evaluation_name", "full")
+            ):
+                return None
 
-            float_keys = ("duration", "slide_step", "quantile_low", "quantile_high", "seq_start", "seq_end")
+            float_keys = (
+                "duration",
+                "slide_step",
+                "evaluation_start",
+                "evaluation_end",
+                "evaluation_grid_anchor",
+                "quantile_low",
+                "quantile_high",
+                "seq_start",
+                "seq_end",
+                "seq_t_start",
+                "seq_t_end",
+            )
             for k in float_keys:
                 cache_val = float(np.asarray(data[k]).item())
                 if not np.isclose(cache_val, float(metadata[k]), atol=atol, rtol=0.0):
@@ -946,11 +1435,13 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
     return t_forecast_list, counts_list, q_list, mean_list, sim_count_matrix
 
 
-def _precompute_observed_window_stats(seq, t_forecast_list, duration: float):
+def _precompute_observed_window_stats(seq, t_forecast_list, t_window_end_list):
     event_times = torch.as_tensor(seq.arrival_times).detach().cpu().numpy()
     event_times = np.asarray(event_times, dtype=np.float64)
     starts = np.asarray(t_forecast_list, dtype=np.float64)
-    ends = np.minimum(starts + float(duration), float(event_times[-1]))
+    ends = np.asarray(t_window_end_list, dtype=np.float64)
+    if starts.shape != ends.shape:
+        raise ValueError("t_forecast_list and t_window_end_list must have the same shape.")
 
     left_idx = np.searchsorted(event_times, starts, side="left")
     right_idx = np.searchsorted(event_times, ends, side="right")
@@ -982,12 +1473,15 @@ def evaluate_sliding_window_forecast_plots(
     sliding_step: float,
     sliding_quantiles: tuple[float, float],
     samples_per_batch: int,
+    include_truncated_final_window: bool = False,
+    evaluation_range: SlidingWindowEvaluationRange | None = None,
     predict_b: bool | None = None,
     bg_cache_seq: Any | None = None,
     sliding_view_mode: str = "auto",
     load_sliding_cache: bool = True,
     force_recompute_sliding: bool = False,
-    sliding_cache_filename: str = DEFAULT_SLIDING_CACHE_FILENAME,
+    sliding_cache_filename: str | None = None,
+    sampling_seed: int | None = None,
     plot_colors: Mapping[str, str] | None = None,
     save_plots: bool = True,
 ) -> dict[str, Any]:
@@ -995,16 +1489,27 @@ def evaluate_sliding_window_forecast_plots(
     if plot_colors is not None:
         colors.update(plot_colors)
 
-    checkpoint_dir = Path(checkpoint_dir)
-    sliding_cache_path = checkpoint_dir / str(sliding_cache_filename)
+    _cache_background_sequence(model, bg_cache_seq)
+    resolved_range = resolve_sliding_window_evaluation_range(
+        seq,
+        evaluation_range,
+    )
+    resolved_range = _limit_range_to_background_cache(model, resolved_range)
     cache_meta = build_sliding_cache_metadata(
         seq,
         duration=sliding_duration,
         slide_step=sliding_step,
+        include_truncated_final_window=include_truncated_final_window,
+        evaluation_range=resolved_range,
         quantiles=sliding_quantiles,
         samples_per_batch=samples_per_batch,
         predict_b=predict_b,
+        sampling_seed=sampling_seed,
     )
+    if sliding_cache_filename is None:
+        sliding_cache_filename = build_default_sliding_cache_filename(cache_meta)
+    checkpoint_dir = Path(checkpoint_dir)
+    sliding_cache_path = checkpoint_dir / str(sliding_cache_filename)
 
     loaded_from_cache = False
     cached_payload = None
@@ -1018,13 +1523,17 @@ def evaluate_sliding_window_forecast_plots(
         sliding_result = _coerce_sliding_window_forecast_result(cached_payload)
         loaded_from_cache = True
     else:
-        start = float(seq.arrival_times[0].item())
-        end = float(seq.arrival_times[-1].item())
-        t_forecast_preview = np.arange(start + sliding_duration, end - sliding_duration, sliding_step)
+        t_forecast_preview, t_window_end_preview = _build_sliding_window_bounds(
+            seq,
+            duration=sliding_duration,
+            slide_step=sliding_step,
+            evaluation_range=resolved_range,
+            include_truncated_final_window=include_truncated_final_window,
+        )
         observed_counts, observed_mag_max = _precompute_observed_window_stats(
             seq,
             t_forecast_preview,
-            sliding_duration,
+            t_window_end_preview,
         )
         sliding_result = run_sliding_window_forecast(
             model=model,
@@ -1033,6 +1542,8 @@ def evaluate_sliding_window_forecast_plots(
             config=SlidingWindowForecastConfig(
                 duration=sliding_duration,
                 slide_step=sliding_step,
+                include_truncated_final_window=include_truncated_final_window,
+                evaluation_range=resolved_range,
                 quantiles=sliding_quantiles,
                 samples_per_batch=samples_per_batch,
                 predict_b=predict_b,
@@ -1056,6 +1567,18 @@ def evaluate_sliding_window_forecast_plots(
             )
 
     t_forecast_list = sliding_result.t_forecast
+    result_window_ends = getattr(sliding_result, "t_window_end", None)
+    if result_window_ends is None:
+        t_window_end_list = np.minimum(
+            np.asarray(t_forecast_list, dtype=np.float64) + float(sliding_duration),
+            float(resolved_range.end),
+        )
+    else:
+        t_window_end_list = np.asarray(result_window_ends, dtype=np.float64)
+        if t_window_end_list.shape != np.asarray(t_forecast_list).shape:
+            raise ValueError(
+                "Sliding result t_window_end must match t_forecast shape."
+            )
     counts_list = sliding_result.counts
     q_list = sliding_result.quantiles
     mean_list = sliding_result.mean
@@ -1078,6 +1601,14 @@ def evaluate_sliding_window_forecast_plots(
         return {
             "status": "empty",
             "message": "No sliding windows available with current duration/step settings.",
+            "evaluation_range": {
+                "name": resolved_range.name,
+                "start": resolved_range.start,
+                "end": resolved_range.end,
+                "grid_anchor": resolved_range.grid_anchor,
+            },
+            "t_forecast_list": t_forecast_list,
+            "t_window_end_list": t_window_end_list,
             "sliding_cache_path": str(sliding_cache_path),
             "sliding_loaded_from_cache": loaded_from_cache,
         }
@@ -1093,7 +1624,14 @@ def evaluate_sliding_window_forecast_plots(
 
     result_payload = {
         "status": "ok",
+        "evaluation_range": {
+            "name": resolved_range.name,
+            "start": resolved_range.start,
+            "end": resolved_range.end,
+            "grid_anchor": resolved_range.grid_anchor,
+        },
         "t_forecast_list": t_forecast_list,
+        "t_window_end_list": t_window_end_list,
         "counts_list": counts_list,
         "q_list": q_list,
         "mean_list": mean_list,

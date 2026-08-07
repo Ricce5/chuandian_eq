@@ -394,8 +394,13 @@ class RecurrentTPPSamplingMixin:
         mag_sig = inspect.signature(self.get_magnitude_dist)
         supports_predict_b_arg = "predict_b" in mag_sig.parameters
         duration_t = current_state.new_tensor(float(t_end - t_start))
+        sampling_time_tolerance = current_state.new_tensor(
+            8.0
+            * torch.finfo(current_state.dtype).eps
+            * max(1.0, abs(float(duration_t.item())))
+        )
         while True:
-            active_mask = total_time < duration_t
+            active_mask = (duration_t - total_time) > sampling_time_tolerance
             if not bool(active_mask.any().item()):
                 break
 

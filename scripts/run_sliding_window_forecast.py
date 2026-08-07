@@ -13,12 +13,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import matplotlib
 import numpy as np
+import pandas as pd
 import torch
 
 
@@ -66,8 +68,13 @@ if str(PROJECT_ROOT) not in sys.path:
 import src.catalogs as _catalogs  # noqa: E402,F401
 from src.train.config_setup import load_and_prepare_model  # noqa: E402
 from src.utils.forecast_eval import (  # noqa: E402
+    SlidingWindowEvaluationRange,
     apply_publication_style,
+    build_default_sliding_cache_filename,
+    build_sliding_cache_metadata,
     evaluate_sliding_window_forecast_plots,
+    resolve_catalog_time_reference,
+    resolve_sliding_window_evaluation_range,
 )
 from src.utils.runtime_utils import unwrap_compiled_model  # noqa: E402
 from src.utils.tpp_experiments import load_tpp_catalog  # noqa: E402
@@ -147,6 +154,37 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Sliding step size. Notebook default: 1.",
     )
     parser.add_argument(
+        "--include-truncated-final-window",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Include grid-aligned windows that extend beyond the evaluation range "
+            "and truncate them at the end. Defaults to off."
+        ),
+    )
+    parser.add_argument(
+        "--eval-range",
+        choices=("full", "val", "test", "custom"),
+        default="full",
+        help=(
+            "Target interval for sliding forecasts. 'val' covers "
+            "[val_start_ts, test_start_ts), 'test' covers "
+            "[test_start_ts, seq.t_end), and 'custom' uses --eval-start/end."
+        ),
+    )
+    parser.add_argument(
+        "--eval-start",
+        type=float,
+        default=None,
+        help="Custom evaluation range start in the sequence's relative time units.",
+    )
+    parser.add_argument(
+        "--eval-end",
+        type=float,
+        default=None,
+        help="Custom evaluation range end in the sequence's relative time units.",
+    )
+    parser.add_argument(
         "--quantiles",
         type=float,
         nargs=2,
@@ -170,8 +208,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--cache-filename",
         default=None,
         help=(
-            "Sliding-window cache filename. Defaults to the notebook-style "
-            "name derived from --forecast-b-sampling and --updater-name."
+            "Sliding-window cache filename. Defaults to a range- and "
+            "configuration-specific name."
         ),
     )
     parser.add_argument(
@@ -320,7 +358,7 @@ def load_catalog(args: argparse.Namespace, model_args: Any):
         base_dir=data_root / str(dataset_name),
         catalog_cfg=catalog_cfg,
     )
-    return catalog_ds, registry_name, str(dataset_name)
+    return catalog_ds, registry_name, str(dataset_name), catalog_cfg
 
 
 def select_sequence(catalog_ds: Any, sequence_idx: int):
@@ -333,9 +371,112 @@ def select_sequence(catalog_ds: Any, sequence_idx: int):
     return sequences[sequence_idx]
 
 
+def _metadata_or_config_value(
+    catalog_ds: Any,
+    catalog_cfg: Mapping[str, Any] | Any,
+    key: str,
+):
+    metadata = getattr(catalog_ds, "metadata", {})
+    if isinstance(metadata, Mapping):
+        value = metadata.get(key)
+    else:
+        value = getattr(metadata, key, None)
+    if value is not None:
+        return value
+
+    if isinstance(catalog_cfg, Mapping):
+        return catalog_cfg.get(key)
+    return getattr(catalog_cfg, key, None)
+
+
+def _split_value_to_relative_time(value: Any, catalog_ds: Any) -> float:
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        return float(value)
+
+    base_start_ts, freq_td = resolve_catalog_time_reference(catalog_ds)
+    return float(
+        (pd.Timestamp(value) - pd.Timestamp(base_start_ts))
+        / pd.Timedelta(freq_td)
+    )
+
+
+def resolve_evaluation_range(
+    args: argparse.Namespace,
+    *,
+    catalog_ds: Any,
+    seq: Any,
+    catalog_cfg: Mapping[str, Any] | Any,
+) -> SlidingWindowEvaluationRange:
+    selection = str(args.eval_range)
+    custom_start = args.eval_start
+    custom_end = args.eval_end
+
+    if selection == "custom":
+        if custom_start is None or custom_end is None:
+            raise ValueError(
+                "--eval-range custom requires both --eval-start and --eval-end."
+            )
+        return SlidingWindowEvaluationRange(
+            name="custom",
+            start=float(custom_start),
+            end=float(custom_end),
+        )
+
+    if custom_start is not None or custom_end is not None:
+        raise ValueError(
+            "--eval-start/--eval-end can only be used with --eval-range custom."
+        )
+
+    if selection == "full":
+        return SlidingWindowEvaluationRange(name="full")
+
+    test_start_value = _metadata_or_config_value(
+        catalog_ds,
+        catalog_cfg,
+        "test_start_ts",
+    )
+    if test_start_value is None:
+        raise KeyError(
+            f"Cannot resolve --eval-range {selection}: missing test_start_ts."
+        )
+    test_start = _split_value_to_relative_time(test_start_value, catalog_ds)
+
+    if selection == "test":
+        sequence_end = float(
+            getattr(seq, "t_end", seq.arrival_times[-1].item())
+        )
+        return SlidingWindowEvaluationRange(
+            name="test",
+            start=test_start,
+            end=sequence_end,
+        )
+
+    val_start_value = _metadata_or_config_value(
+        catalog_ds,
+        catalog_cfg,
+        "val_start_ts",
+    )
+    if val_start_value is None:
+        raise KeyError(
+            "Cannot resolve --eval-range val: missing val_start_ts."
+        )
+    return SlidingWindowEvaluationRange(
+        name="val",
+        start=_split_value_to_relative_time(val_start_value, catalog_ds),
+        end=test_start,
+    )
+
+
 def print_metrics(sliding_result: dict[str, Any]) -> None:
     print(f"Sliding cache path: {sliding_result.get('sliding_cache_path', 'N/A')}")
     print(f"Loaded from cache: {bool(sliding_result.get('sliding_loaded_from_cache', False))}")
+    evaluation_range = sliding_result.get("evaluation_range")
+    if isinstance(evaluation_range, Mapping):
+        print(
+            "Evaluation range: "
+            f"{evaluation_range.get('name')} "
+            f"[{evaluation_range.get('start')}, {evaluation_range.get('end')}]"
+        )
 
     if sliding_result.get("status") == "empty":
         print(sliding_result["message"])
@@ -401,6 +542,12 @@ def build_metrics_payload(
         "settings": {
             "duration": float(args.duration),
             "step": float(args.step),
+            "include_truncated_final_window": bool(
+                getattr(args, "include_truncated_final_window", False)
+            ),
+            "eval_range": getattr(args, "eval_range", "full"),
+            "eval_start": getattr(args, "eval_start", None),
+            "eval_end": getattr(args, "eval_end", None),
             "quantiles": [float(item) for item in args.quantiles],
             "samples_per_batch": int(args.samples_per_batch),
             "predict_b": predict_b,
@@ -421,6 +568,7 @@ def build_metrics_payload(
             "seed": int(args.seed),
         },
         "sliding_cache_path": sliding_result.get("sliding_cache_path"),
+        "evaluation_range": sliding_result.get("evaluation_range"),
         "sliding_loaded_from_cache": bool(
             sliding_result.get("sliding_loaded_from_cache", False)
         ),
@@ -446,6 +594,7 @@ def build_metrics_payload(
             payload[key] = value
 
     t_forecast_list = np.asarray(sliding_result.get("t_forecast_list", []))
+    t_window_end_list = np.asarray(sliding_result.get("t_window_end_list", []))
     counts_list = np.asarray(sliding_result.get("counts_list", []))
     q_list = np.asarray(sliding_result.get("q_list", []))
     mean_list = np.asarray(sliding_result.get("mean_list", []))
@@ -463,6 +612,16 @@ def build_metrics_payload(
         payload["windows"] = [
             {
                 "t_forecast": float(t_forecast_list[index]),
+                "t_window_end": (
+                    float(t_window_end_list[index])
+                    if t_window_end_list.shape[0] == len(t_forecast_list)
+                    else None
+                ),
+                "window_duration": (
+                    float(t_window_end_list[index] - t_forecast_list[index])
+                    if t_window_end_list.shape[0] == len(t_forecast_list)
+                    else None
+                ),
                 "count": int(counts_list[index]),
                 "forecast_mean": float(mean_list[index]),
                 "q_low": float(q_list[index, 0]),
@@ -487,11 +646,25 @@ def save_metrics_payload(payload: dict[str, Any], metrics_path: Path) -> None:
     print(f"Saved sliding-window metrics: {metrics_path}")
 
 
-def build_default_cache_filename(args: argparse.Namespace) -> str:
+def build_default_cache_filename(
+    args: argparse.Namespace,
+    cache_metadata: Mapping[str, Any],
+) -> str:
     updater_cache_tag = (
         args.updater_name if args.forecast_b_sampling == "updater" else "model"
     )
-    return f"sliding_window_cache_{args.forecast_b_sampling}_{updater_cache_tag}.npz"
+    updater_cache_tag = re.sub(
+        r"[^A-Za-z0-9_.-]+",
+        "-",
+        str(updater_cache_tag).strip() or "model",
+    ).strip("-") or "model"
+    return build_default_sliding_cache_filename(
+        cache_metadata,
+        prefix=(
+            f"sliding_window_cache_{args.forecast_b_sampling}_"
+            f"{updater_cache_tag}"
+        ),
+    )
 
 
 def print_available_figures(output_dir: Path) -> None:
@@ -533,8 +706,21 @@ def main() -> int:
     print(f"Checkpoint path: {checkpoint_path}")
     print(f"Output directory: {output_dir}")
 
-    catalog_ds, registry_name, dataset_name = load_catalog(args, model_args)
+    catalog_ds, registry_name, dataset_name, catalog_cfg = load_catalog(
+        args,
+        model_args,
+    )
     seq = select_sequence(catalog_ds, args.sequence_idx)
+    evaluation_range = resolve_evaluation_range(
+        args,
+        catalog_ds=catalog_ds,
+        seq=seq,
+        catalog_cfg=catalog_cfg,
+    )
+    evaluation_range = resolve_sliding_window_evaluation_range(
+        seq,
+        evaluation_range,
+    )
 
     print(f"Using catalog registry name: {registry_name}")
     print(f"Dataset: {dataset_name}")
@@ -542,6 +728,9 @@ def main() -> int:
     print(
         "Sliding settings: "
         f"duration={args.duration}, step={args.step}, "
+        f"include_truncated_final_window={args.include_truncated_final_window}, "
+        f"eval_range={evaluation_range.name}"
+        f"=[{evaluation_range.start}, {evaluation_range.end}], "
         f"quantiles={tuple(args.quantiles)}, samples_per_batch={args.samples_per_batch}, "
         f"view_mode={args.view_mode}"
     )
@@ -551,7 +740,21 @@ def main() -> int:
         model.predict_b = bool(predict_b)
     print(f"Sampling uses checkpoint predict_b: {predict_b}")
 
-    cache_filename = args.cache_filename or build_default_cache_filename(args)
+    cache_metadata = build_sliding_cache_metadata(
+        seq,
+        duration=args.duration,
+        slide_step=args.step,
+        include_truncated_final_window=args.include_truncated_final_window,
+        evaluation_range=evaluation_range,
+        quantiles=tuple(args.quantiles),
+        samples_per_batch=args.samples_per_batch,
+        predict_b=predict_b,
+        sampling_seed=args.seed,
+    )
+    cache_filename = args.cache_filename or build_default_cache_filename(
+        args,
+        cache_metadata,
+    )
 
     model.eval()
     sliding_result = evaluate_sliding_window_forecast_plots(
@@ -562,6 +765,8 @@ def main() -> int:
         checkpoint_dir=output_dir,
         sliding_duration=args.duration,
         sliding_step=args.step,
+        include_truncated_final_window=args.include_truncated_final_window,
+        evaluation_range=evaluation_range,
         sliding_quantiles=tuple(args.quantiles),
         samples_per_batch=args.samples_per_batch,
         predict_b=predict_b,
@@ -570,6 +775,7 @@ def main() -> int:
         load_sliding_cache=args.load_cache,
         force_recompute_sliding=args.force_recompute,
         sliding_cache_filename=cache_filename,
+        sampling_seed=args.seed,
         plot_colors=PLOT_COLORS,
         save_plots=args.save_plots,
     )

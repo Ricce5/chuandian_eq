@@ -9,12 +9,12 @@ seeds: [0, 1, 2]
 
 # 并发与资源
 gpu_ids: [0]
-max_parallel: 1
-jobs_per_gpu: 1
+max_parallel: 3
+jobs_per_gpu: 3
 stop_on_error: false
 
 exp_root: experiments
-exp_name: oracle_multi_dataset
+exp_name: oracle_multi_dataset_0.7
 
 run_test: true
 ckpt_select: both
@@ -50,6 +50,9 @@ grid:
         dataset: PNR_1z
         catalog_cfg.freq: "1D"
         catalog_cfg.mag_completeness: -1.5
+        catalog_cfg.train_start_ts: "2018-10-15T08:00:00"
+        catalog_cfg.val_start_ts: "2018-12-10T10:05:54"
+        catalog_cfg.test_start_ts: "2018-12-13T11:39:51"
 
     # experiment_record.md 4.6: CB_HAB1a(-0.4)
     - name: CB_HAB1a
@@ -57,6 +60,9 @@ grid:
         dataset: CB_HAB1a
         catalog_cfg.freq: "1D"
         catalog_cfg.mag_completeness: -0.4
+        catalog_cfg.train_start_ts: "2003-11-06T00:01:09.999"
+        catalog_cfg.val_start_ts: "2003-12-07T04:32:56"
+        catalog_cfg.test_start_ts: "2003-12-08T22:39:28"
 
     # experiment_record.md 4.6: CB_HAB4
     - name: CB_HAB4
@@ -64,6 +70,9 @@ grid:
         dataset: CB_HAB4
         catalog_cfg.freq: "1D"
         catalog_cfg.mag_completeness: 0.9
+        catalog_cfg.train_start_ts: "2012-11-10T12:21:28"
+        catalog_cfg.val_start_ts: "2012-11-28T18:32:38.999"
+        catalog_cfg.test_start_ts: "2012-11-30T05:46:09"
 
     # experiment_record.md 4.6 / config/data_tpp.yaml: St1-2018(-0.5)
     - name: St1_2018
@@ -71,3 +80,6 @@ grid:
         dataset: St1-2018
         catalog_cfg.freq: "1D"
         catalog_cfg.mag_completeness: -0.5
+        catalog_cfg.train_start_ts: "2018-06-04T05:27:26.351"
+        catalog_cfg.val_start_ts: "2018-07-10T08:49:47.985"
+        catalog_cfg.test_start_ts: "2018-07-18T10:35:40.860"

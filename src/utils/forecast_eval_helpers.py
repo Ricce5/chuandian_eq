@@ -3,6 +3,12 @@ import pandas as pd
 import matplotlib.dates as mdates
 from matplotlib import ticker as mticker
 
+from .forecast_eval import (
+    SlidingWindowEvaluationRange,
+    SlidingWindowForecastConfig,
+    run_sliding_window_forecast as _run_sliding_window_forecast,
+)
+
 
 def run_sliding_window_forecast(
     model,
@@ -12,41 +18,25 @@ def run_sliding_window_forecast(
     slide_step=12,
     quantiles=(2.5, 97.5),
     samples_per_batch=1000,
+    include_truncated_final_window=False,
+    evaluation_range: SlidingWindowEvaluationRange | None = None,
 ):
-    start = float(seq.arrival_times[0].item())
-    end = float(seq.arrival_times[-1].item())
-
-    t_forecast_list = np.arange(start + duration, end - duration, slide_step)
-    print(f"t_forecast_list: {t_forecast_list}")
-
-    counts_list = []
-    q_list = []
-    mean_list = []
-
-    model.eval()
-
-    for t_forecast in t_forecast_list:
-        t_end = min(t_forecast + duration, end)
-
-        past_seq = seq.get_subsequence(0, t_forecast, reset_t_nll_to_end=True).to(device)
-        observed_seq = seq.get_subsequence(t_forecast, t_end, reset_t_nll_to_end=True).to(device)
-
-        forecasts = model.sample(
-            batch_size=samples_per_batch,
-            duration=(t_end - t_forecast),
-            past_seq=past_seq,
-            return_sequences=True,
-        )
-        fc_counts = np.fromiter((len(fc) for fc in forecasts), dtype=np.int32)
-
-        q = np.percentile(fc_counts, quantiles)
-        mean = float(fc_counts.mean())
-
-        q_list.append(q)
-        mean_list.append(mean)
-        counts_list.append(len(observed_seq))
-
-    return np.array(t_forecast_list), np.array(counts_list), np.array(q_list), np.array(mean_list)
+    """Legacy tuple API backed by the shared sliding-window implementation."""
+    result = _run_sliding_window_forecast(
+        model,
+        seq,
+        device,
+        config=SlidingWindowForecastConfig(
+            duration=duration,
+            slide_step=slide_step,
+            quantiles=quantiles,
+            samples_per_batch=samples_per_batch,
+            include_truncated_final_window=include_truncated_final_window,
+            evaluation_range=evaluation_range,
+        ),
+    )
+    print(f"t_forecast_list: {result.t_forecast}")
+    return result.as_legacy_tuple()
 
 
 def to_absolute_time_axis(rel_times, base_ts, freq_td):

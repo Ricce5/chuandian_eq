@@ -535,16 +535,93 @@ class BGModel(torch.nn.Module, abc.ABC, Registrable):
         ts_times_full = cached.time_series_times.squeeze(0).to(device).to(t_dtype)  # (T,)
 
         t0_min = t0_b.min()
+        t0_max = t0_b.max()
+        t1_min = t1_b.min()
         t1_max = t1_b.max()
 
         ts0 = ts_times_full[0]
         tsN = ts_times_full[-1]
-        if t0_min < ts0 or t1_max > tsN:
-            raise ValueError(
-                "[sample_nhpp_inverse] Query interval "
-                f"[{t0_min.item():.4f}, {t1_max.item():.4f}] out of cached range "
-                f"[{ts0.item():.4f}, {tsN.item():.4f}]."
+        query_outside_cache = (
+            t0_min < ts0
+            or t0_max > tsN
+            or t1_min < ts0
+            or t1_max > tsN
+        )
+        if query_outside_cache:
+            # RTPP sampling computes ``t_last_event + remaining_time`` in
+            # floating point.  Near the cache endpoint this can exceed the
+            # last cached time by a few ULPs even though the requested
+            # interval is mathematically inside the cached range.  Clamp
+            # only that numerical residue; a material overrun must still
+            # fail because no background values may be extrapolated.
+            cache_time_dtype = getattr(
+                getattr(cached, "time_series_times", None),
+                "dtype",
+                t_dtype,
             )
+            if not torch.is_floating_point(torch.empty((), dtype=cache_time_dtype)):
+                cache_time_dtype = t_dtype
+            endpoint_scale = max(
+                1.0,
+                abs(float(ts0.item())),
+                abs(float(tsN.item())),
+            )
+            time_dtype_eps = max(
+                float(torch.finfo(cache_time_dtype).eps),
+                float(torch.finfo(t_dtype).eps),
+            )
+            endpoint_tolerance = max(
+                1e-9,
+                8.0 * time_dtype_eps * endpoint_scale,
+            )
+            endpoint_tolerance_t = torch.as_tensor(
+                endpoint_tolerance,
+                device=device,
+                dtype=t_dtype,
+            )
+
+            t0_below = t0_b < ts0
+            t0_above = t0_b > tsN
+            t1_below = t1_b < ts0
+            t1_above = t1_b > tsN
+            t0_b = torch.where(
+                t0_below & ((ts0 - t0_b) <= endpoint_tolerance_t),
+                ts0,
+                t0_b,
+            )
+            t0_b = torch.where(
+                t0_above & ((t0_b - tsN) <= endpoint_tolerance_t),
+                tsN,
+                t0_b,
+            )
+            t1_b = torch.where(
+                t1_below & ((ts0 - t1_b) <= endpoint_tolerance_t),
+                ts0,
+                t1_b,
+            )
+            t1_b = torch.where(
+                t1_above & ((t1_b - tsN) <= endpoint_tolerance_t),
+                tsN,
+                t1_b,
+            )
+            if bool((t0_below | t0_above | t1_below | t1_above).any().item()):
+                dt_b = (t1_b - t0_b).clamp_min(0.0)
+                t0_min = t0_b.min()
+                t0_max = t0_b.max()
+                t1_min = t1_b.min()
+                t1_max = t1_b.max()
+
+            if (
+                t0_min < ts0
+                or t0_max > tsN
+                or t1_min < ts0
+                or t1_max > tsN
+            ):
+                raise ValueError(
+                    "[sample_nhpp_inverse] Query interval "
+                    f"[{t0_min.item():.4f}, {t1_max.item():.4f}] out of cached range "
+                    f"[{ts0.item():.4f}, {tsN.item():.4f}]."
+                )
 
         dt_grid, ts0, tsN, ts_times, i0, i1 = build_window_grid(ts_times_full, t0_min, t1_max)
 

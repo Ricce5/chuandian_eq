@@ -1,5 +1,6 @@
 """Backward-compatible shim for sliding forecast helpers."""
 
+from .forecast_eval import SlidingWindowEvaluationRange
 from .forecast_eval_helpers import (
     build_post_step,
     compute_display_upper_cap,
@@ -14,6 +15,7 @@ from .forecast_eval_helpers import (
 )
 
 __all__ = [
+    "SlidingWindowEvaluationRange",
     "run_sliding_window_forecast",
     "to_absolute_time_axis",
     "format_time_axis",

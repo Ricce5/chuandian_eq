@@ -121,12 +121,13 @@ python scripts/summarize/summarize_clf_seed_across_experiments.py --exp_dirs exp
 git commit -m "chore: keep selected experiments tracked" -- .gitignore experiments
 python scripts/summarize_rtpp_v2_grid.py  --exp_dir experiments/rtpp_v2_multi_bg_split_0.7 --ckpt_select best
 
-python scripts/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
+python scripts/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_split_0.7 --ckpt_select best
 
 python scripts/summarize/summarize_etas_grid.py  --exp_dir experiments/etas_multi_ds_bg_norm_0.2 --ckpt_select best
 
 python  scripts/run/run_etas_grid.py  --exp_config config/experiments/etas_multi_ds_bg.yaml
 python  scripts/run/run_rtpp_v2_grid.py  --exp_config config/experiments/rtpp_v2_multi_ds_bg.yaml
+python  scripts/run_oracle_grid.py --exp_config config/experiments/oracle_multi_dataset.yaml
 
 python scripts/run_sliding_window_forecast_for_seeds.py --seeds 0
 
@@ -142,7 +143,7 @@ python scripts/run_sliding_window_forecast_for_seeds.py \
   --jobs 3 \
   --devices cuda:0\
   --skip-existing-ok\
-  --runs-dir  experiments/rtpp_v2_multi_bg_split_0.7/runs
+  --runs-dir    experiments/rtpp_v2_multi_bg_split_0.7/runs experiments/etas_multi_ds_bg_split_0.7/runs
   # experiments/etas_multi_ds_bg_split_0.7/runs  experiments/rtpp_v2_multi_bg_split_0.7
   
   # experiments/rtpp_v2_multi_bg_norm_0.2/runs experiments/etas_multi_ds_bg_norm_0.2/runs 
@@ -160,3 +161,37 @@ python scripts/run_sliding_window_forecast_for_seeds.py \
 
   python scripts/summarize/summarize_sliding_window_eval_by_split_start.py \
     experiments/rtpp_v2_multi_bg_split_0.7
+
+
+python scripts/run_sliding_window_forecast_for_seeds.py \
+  --jobs 6 \
+    --runs-dir experiments/etas_multi_ds_bg_split_0.7/runs \
+    --seeds 0 1 2 \
+    --metrics-only \
+    --metrics-filename sliding_window_eval_metrics_test_trunc.json \
+    --skip-existing-ok \
+    -- \
+    --eval-range test \
+    --include-truncated-final-window
+
+python scripts/run_sliding_window_forecast_for_seeds.py \
+      --runs-dir experiments/rtpp_v2_multi_bg_split_0.7/runs \
+      --jobs 2 \
+      --seeds 0 1 2 \
+      --metrics-only \
+      --metrics-filename sliding_window_eval_metrics_test_trunc.json \
+      --skip-existing-ok \
+      --continue-on-error \
+      -- \
+      --eval-range test \
+      --include-truncated-final-window 
+
+     
+  python scripts/summarize_sliding_window_eval.py \
+      --exp_dir experiments/oracle_multi_dataset_0.7 \
+      --metrics_filename sliding_window_eval_metrics_test_trunc.json
+
+    python scripts/summarize_sliding_window_eval.py \
+    --exp_dir experiments/etas_multi_ds_bg_split_0.7 \
+    --metrics_filename sliding_window_eval_metrics_test_trunc.json \
+    --exclude-truncated-final-window
