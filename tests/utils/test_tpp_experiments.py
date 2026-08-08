@@ -7,6 +7,7 @@ from src.utils.tpp_experiments import (
     resolve_registered_catalog_class,
     sample_tpp_forecasts,
 )
+from src.models.updaters import UpdaterSamplingWrapper
 
 
 class _CatalogStub:
@@ -72,6 +73,39 @@ class _FlexibleSampleModel:
             }
         )
         return [f"flex-{len(self.calls)}-{i}" for i in range(batch_size)]
+
+
+class _UpdaterWrappedInnerModel:
+    def __init__(self):
+        self.eval_called = False
+        self.calls: list[dict] = []
+
+    def eval(self):
+        self.eval_called = True
+
+    def sample(
+        self,
+        batch_size,
+        duration,
+        past_seq=None,
+        return_sequences=False,
+        *,
+        predict_b=None,
+        b_sampling="model",
+        updater=None,
+    ):
+        self.calls.append(
+            {
+                "batch_size": batch_size,
+                "duration": duration,
+                "past_seq": past_seq,
+                "return_sequences": return_sequences,
+                "predict_b": predict_b,
+                "b_sampling": b_sampling,
+                "updater": updater,
+            }
+        )
+        return [f"wrapped-{len(self.calls)}-{i}" for i in range(batch_size)]
 
 
 def test_resolve_registered_catalog_class_tries_standard_first(monkeypatch):
@@ -159,6 +193,39 @@ def test_sample_tpp_forecasts_only_passes_supported_optional_kwargs():
             "predict_b": False,
             "verbose": False,
             "random_state": 17,
+        }
+    ]
+
+
+def test_updater_sampling_wrapper_filters_kwargs_for_inner_sample():
+    inner = _UpdaterWrappedInnerModel()
+    wrapped = UpdaterSamplingWrapper(
+        inner,
+        sampling_mode="updater",
+        updater_factory=lambda: "updater-state",
+    )
+
+    forecasts = sample_tpp_forecasts(
+        wrapped,
+        "past",
+        duration=2.0,
+        num_samples=2,
+        samples_per_batch=2,
+        bg_cache_seq=object(),
+        predict_b=False,
+    )
+
+    assert inner.eval_called is True
+    assert forecasts == ["wrapped-1-0", "wrapped-1-1"]
+    assert inner.calls == [
+        {
+            "batch_size": 2,
+            "duration": 2.0,
+            "past_seq": "past",
+            "return_sequences": True,
+            "predict_b": False,
+            "b_sampling": "updater",
+            "updater": "updater-state",
         }
     ]
 

@@ -5,6 +5,7 @@ import inspect
 import json
 import re
 import warnings
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -1211,7 +1212,15 @@ def resolve_view_mode(config_value, *, auto_use_zoom: bool):
     return mode
 
 
-SLIDING_CACHE_VERSION = 4
+LEGACY_FULL_RANGE_SLIDING_CACHE_VERSION = 2
+RANGE_AWARE_SLIDING_CACHE_VERSION = 4
+SLIDING_CACHE_VERSION = RANGE_AWARE_SLIDING_CACHE_VERSION
+SUPPORTED_SLIDING_CACHE_VERSIONS = frozenset(
+    {
+        LEGACY_FULL_RANGE_SLIDING_CACHE_VERSION,
+        RANGE_AWARE_SLIDING_CACHE_VERSION,
+    }
+)
 DEFAULT_SLIDING_CACHE_FILENAME = "sliding_window_cache.npz"
 
 
@@ -1304,42 +1313,217 @@ def save_sliding_window_cache(
     *,
     metadata,
     t_forecast_list,
+    t_window_end_list=None,
     counts_list,
     q_list,
     mean_list,
     sim_count_matrix,
+    mag_max=None,
+    mag_max_quantiles=None,
+    mag_max_mean=None,
+    sim_mag_max_matrix=None,
 ):
     cache_path = Path(cache_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-    np.savez_compressed(
-        cache_path,
-        cache_version=np.int64(metadata["cache_version"]),
-        duration=np.float64(metadata["duration"]),
-        slide_step=np.float64(metadata["slide_step"]),
-        include_truncated_final_window=np.int8(
+    payload = {
+        "cache_version": np.int64(metadata["cache_version"]),
+        "duration": np.float64(metadata["duration"]),
+        "slide_step": np.float64(metadata["slide_step"]),
+        "include_truncated_final_window": np.int8(
             metadata.get("include_truncated_final_window", 0)
         ),
-        evaluation_name=np.asarray(metadata.get("evaluation_name", "full")),
-        evaluation_start=np.float64(metadata["evaluation_start"]),
-        evaluation_end=np.float64(metadata["evaluation_end"]),
-        evaluation_grid_anchor=np.float64(metadata["evaluation_grid_anchor"]),
-        quantile_low=np.float64(metadata["quantile_low"]),
-        quantile_high=np.float64(metadata["quantile_high"]),
-        samples_per_batch=np.int64(metadata["samples_per_batch"]),
-        predict_b_mode=np.int64(metadata["predict_b_mode"]),
-        sampling_seed=np.int64(metadata.get("sampling_seed", -1)),
-        seq_start=np.float64(metadata["seq_start"]),
-        seq_end=np.float64(metadata["seq_end"]),
-        seq_t_start=np.float64(metadata["seq_t_start"]),
-        seq_t_end=np.float64(metadata["seq_t_end"]),
-        t_forecast_list=np.asarray(t_forecast_list, dtype=np.float64),
-        counts_list=np.asarray(counts_list, dtype=np.int64),
-        q_list=np.asarray(q_list, dtype=np.float64),
-        mean_list=np.asarray(mean_list, dtype=np.float64),
-        sim_count_matrix=np.asarray(sim_count_matrix, dtype=np.int32),
-    )
+        "evaluation_name": np.asarray(metadata.get("evaluation_name", "full")),
+        "evaluation_start": np.float64(metadata["evaluation_start"]),
+        "evaluation_end": np.float64(metadata["evaluation_end"]),
+        "evaluation_grid_anchor": np.float64(metadata["evaluation_grid_anchor"]),
+        "quantile_low": np.float64(metadata["quantile_low"]),
+        "quantile_high": np.float64(metadata["quantile_high"]),
+        "samples_per_batch": np.int64(metadata["samples_per_batch"]),
+        "predict_b_mode": np.int64(metadata["predict_b_mode"]),
+        "sampling_seed": np.int64(metadata.get("sampling_seed", -1)),
+        "seq_start": np.float64(metadata["seq_start"]),
+        "seq_end": np.float64(metadata["seq_end"]),
+        "seq_t_start": np.float64(metadata["seq_t_start"]),
+        "seq_t_end": np.float64(metadata["seq_t_end"]),
+        "t_forecast_list": np.asarray(t_forecast_list, dtype=np.float64),
+        "counts_list": np.asarray(counts_list, dtype=np.int64),
+        "q_list": np.asarray(q_list, dtype=np.float64),
+        "mean_list": np.asarray(mean_list, dtype=np.float64),
+        "sim_count_matrix": np.asarray(sim_count_matrix, dtype=np.int32),
+    }
+
+    if t_window_end_list is not None:
+        payload["t_window_end_list"] = np.asarray(t_window_end_list, dtype=np.float64)
+
+    mag_payload = (mag_max, mag_max_quantiles, mag_max_mean, sim_mag_max_matrix)
+    if any(item is not None for item in mag_payload):
+        if mag_max is None or mag_max_quantiles is None or mag_max_mean is None:
+            raise ValueError(
+                "mag_max, mag_max_quantiles, and mag_max_mean must be saved together."
+            )
+        payload["mag_max"] = np.asarray(mag_max, dtype=np.float64)
+        payload["mag_max_quantiles"] = np.asarray(mag_max_quantiles, dtype=np.float64)
+        payload["mag_max_mean"] = np.asarray(mag_max_mean, dtype=np.float64)
+        if sim_mag_max_matrix is not None:
+            payload["sim_mag_max_matrix"] = np.asarray(
+                sim_mag_max_matrix,
+                dtype=np.float32,
+            )
+
+    np.savez_compressed(cache_path, **payload)
     return cache_path
+
+
+_SLIDING_CACHE_PAYLOAD_KEYS = {
+    "t_forecast_list",
+    "counts_list",
+    "q_list",
+    "mean_list",
+    "sim_count_matrix",
+}
+_SLIDING_CACHE_V2_REQUIRED_KEYS = _SLIDING_CACHE_PAYLOAD_KEYS | {
+    "cache_version",
+    "duration",
+    "slide_step",
+    "quantile_low",
+    "quantile_high",
+    "samples_per_batch",
+    "predict_b_mode",
+    "seq_start",
+    "seq_end",
+}
+_SLIDING_CACHE_V4_REQUIRED_KEYS = _SLIDING_CACHE_V2_REQUIRED_KEYS | {
+    "include_truncated_final_window",
+    "evaluation_name",
+    "evaluation_start",
+    "evaluation_end",
+    "evaluation_grid_anchor",
+    "sampling_seed",
+    "seq_t_start",
+    "seq_t_end",
+}
+_SLIDING_CACHE_V2_FLOAT_KEYS = (
+    "duration",
+    "slide_step",
+    "quantile_low",
+    "quantile_high",
+    "seq_start",
+    "seq_end",
+)
+_SLIDING_CACHE_V4_FLOAT_KEYS = _SLIDING_CACHE_V2_FLOAT_KEYS + (
+    "evaluation_start",
+    "evaluation_end",
+    "evaluation_grid_anchor",
+    "seq_t_start",
+    "seq_t_end",
+)
+_SLIDING_CACHE_MAG_KEYS = {
+    "mag_max",
+    "mag_max_quantiles",
+    "mag_max_mean",
+}
+_SLIDING_CACHE_OPTIONAL_MAG_KEYS = _SLIDING_CACHE_MAG_KEYS | {
+    "sim_mag_max_matrix",
+}
+
+
+def _cache_scalar(data, key: str):
+    return np.asarray(data[key]).item()
+
+
+def _cache_metadata_matches(
+    data,
+    metadata: Mapping[str, Any],
+    *,
+    required_keys: set[str],
+    int_keys: tuple[str, ...] = (),
+    float_keys: tuple[str, ...] = (),
+    str_keys: tuple[str, ...] = (),
+    legacy_full_range_only: bool = False,
+    atol: float = 1e-9,
+) -> bool:
+    if not required_keys.issubset(data.files):
+        return False
+
+    if legacy_full_range_only:
+        # v2 has no range/truncation/seed fields; only reuse it for full windows.
+        if str(metadata.get("evaluation_name", "full")) != "full":
+            return False
+        if int(metadata.get("include_truncated_final_window", 0)) != 0:
+            return False
+
+    for key in int_keys:
+        if int(_cache_scalar(data, key)) != int(metadata[key]):
+            return False
+    for key in str_keys:
+        if str(_cache_scalar(data, key)) != str(metadata[key]):
+            return False
+    for key in float_keys:
+        cache_val = float(_cache_scalar(data, key))
+        if not np.isclose(cache_val, float(metadata[key]), atol=atol, rtol=0.0):
+            return False
+    return True
+
+
+def _cache_matches_supported_schema(
+    data,
+    metadata: Mapping[str, Any],
+    *,
+    atol: float,
+) -> bool:
+    version = int(_cache_scalar(data, "cache_version"))
+    if version == LEGACY_FULL_RANGE_SLIDING_CACHE_VERSION:
+        return _cache_metadata_matches(
+            data,
+            metadata,
+            required_keys=_SLIDING_CACHE_V2_REQUIRED_KEYS,
+            int_keys=("samples_per_batch", "predict_b_mode"),
+            float_keys=_SLIDING_CACHE_V2_FLOAT_KEYS,
+            legacy_full_range_only=True,
+            atol=atol,
+        )
+    if version == RANGE_AWARE_SLIDING_CACHE_VERSION:
+        return _cache_metadata_matches(
+            data,
+            metadata,
+            required_keys=_SLIDING_CACHE_V4_REQUIRED_KEYS,
+            int_keys=(
+                "samples_per_batch",
+                "predict_b_mode",
+                "sampling_seed",
+                "include_truncated_final_window",
+            ),
+            str_keys=("evaluation_name",),
+            float_keys=_SLIDING_CACHE_V4_FLOAT_KEYS,
+            atol=atol,
+        )
+    return False
+
+
+def _load_sliding_cache_payload(data) -> dict[str, Any] | None:
+    payload: dict[str, Any] = {
+        "t_forecast": np.asarray(data["t_forecast_list"]),
+        "counts": np.asarray(data["counts_list"]),
+        "quantiles": np.asarray(data["q_list"]),
+        "mean": np.asarray(data["mean_list"]),
+        "sim_count_matrix": np.asarray(data["sim_count_matrix"]),
+    }
+
+    if "t_window_end_list" in data.files:
+        payload["t_window_end"] = np.asarray(data["t_window_end_list"])
+
+    mag_keys_in_cache = _SLIDING_CACHE_OPTIONAL_MAG_KEYS.intersection(data.files)
+    if mag_keys_in_cache:
+        if not _SLIDING_CACHE_MAG_KEYS.issubset(data.files):
+            return None
+        payload["mag_max"] = np.asarray(data["mag_max"])
+        payload["mag_max_quantiles"] = np.asarray(data["mag_max_quantiles"])
+        payload["mag_max_mean"] = np.asarray(data["mag_max_mean"])
+        if "sim_mag_max_matrix" in data.files:
+            payload["sim_mag_max_matrix"] = np.asarray(data["sim_mag_max_matrix"])
+
+    return payload
 
 
 def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float = 1e-9):
@@ -1347,92 +1531,24 @@ def load_sliding_window_cache_if_compatible(cache_path, *, metadata, atol: float
     if not cache_path.exists():
         return None
 
-    required_keys = {
-        "cache_version",
-        "duration",
-        "slide_step",
-        "include_truncated_final_window",
-        "evaluation_name",
-        "evaluation_start",
-        "evaluation_end",
-        "evaluation_grid_anchor",
-        "quantile_low",
-        "quantile_high",
-        "samples_per_batch",
-        "predict_b_mode",
-        "sampling_seed",
-        "seq_start",
-        "seq_end",
-        "seq_t_start",
-        "seq_t_end",
-        "t_forecast_list",
-        "counts_list",
-        "q_list",
-        "mean_list",
-        "sim_count_matrix",
-    }
-
     try:
         with np.load(cache_path, allow_pickle=False) as data:
-            if not required_keys.issubset(set(data.files)):
+            if "cache_version" not in data.files:
                 return None
 
-            if int(np.asarray(data["cache_version"]).item()) != int(metadata["cache_version"]):
-                return None
-            if int(np.asarray(data["samples_per_batch"]).item()) != int(metadata["samples_per_batch"]):
-                return None
-            if int(np.asarray(data["predict_b_mode"]).item()) != int(metadata["predict_b_mode"]):
-                return None
-            if int(np.asarray(data["sampling_seed"]).item()) != int(
-                metadata.get("sampling_seed", -1)
-            ):
-                return None
-            if int(np.asarray(data["include_truncated_final_window"]).item()) != int(
-                metadata.get("include_truncated_final_window", 0)
-            ):
-                return None
-            if str(np.asarray(data["evaluation_name"]).item()) != str(
-                metadata.get("evaluation_name", "full")
-            ):
+            if not _cache_matches_supported_schema(data, metadata, atol=atol):
                 return None
 
-            float_keys = (
-                "duration",
-                "slide_step",
-                "evaluation_start",
-                "evaluation_end",
-                "evaluation_grid_anchor",
-                "quantile_low",
-                "quantile_high",
-                "seq_start",
-                "seq_end",
-                "seq_t_start",
-                "seq_t_end",
-            )
-            for k in float_keys:
-                cache_val = float(np.asarray(data[k]).item())
-                if not np.isclose(cache_val, float(metadata[k]), atol=atol, rtol=0.0):
-                    return None
-
-            t_forecast_list = np.asarray(data["t_forecast_list"])
-            counts_list = np.asarray(data["counts_list"])
-            q_list = np.asarray(data["q_list"])
-            mean_list = np.asarray(data["mean_list"])
-            sim_count_matrix = np.asarray(data["sim_count_matrix"])
-    except Exception:
+            payload = _load_sliding_cache_payload(data)
+            if payload is None:
+                return None
+    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile):
         return None
 
-    n_bins = int(counts_list.shape[0])
-    if t_forecast_list.shape[0] != n_bins:
+    try:
+        return _coerce_sliding_window_forecast_mapping(payload)
+    except (TypeError, ValueError):
         return None
-    if mean_list.shape[0] != n_bins:
-        return None
-    if q_list.ndim != 2 or q_list.shape[0] != n_bins or q_list.shape[1] < 2:
-        return None
-    if sim_count_matrix.ndim != 2 or sim_count_matrix.shape[0] != n_bins:
-        return None
-
-    return t_forecast_list, counts_list, q_list, mean_list, sim_count_matrix
 
 
 def _precompute_observed_window_stats(seq, t_forecast_list, t_window_end_list):
@@ -1484,6 +1600,7 @@ def evaluate_sliding_window_forecast_plots(
     sampling_seed: int | None = None,
     plot_colors: Mapping[str, str] | None = None,
     save_plots: bool = True,
+    plot_output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     colors = dict(DEFAULT_PLOT_COLORS)
     if plot_colors is not None:
@@ -1560,10 +1677,15 @@ def evaluate_sliding_window_forecast_plots(
                 sliding_cache_path,
                 metadata=cache_meta,
                 t_forecast_list=sliding_result.t_forecast,
+                t_window_end_list=sliding_result.t_window_end,
                 counts_list=sliding_result.counts,
                 q_list=sliding_result.quantiles,
                 mean_list=sliding_result.mean,
                 sim_count_matrix=sliding_result.sim_count_matrix,
+                mag_max=sliding_result.mag_max,
+                mag_max_quantiles=sliding_result.mag_max_quantiles,
+                mag_max_mean=sliding_result.mag_max_mean,
+                sim_mag_max_matrix=sliding_result.sim_mag_max_matrix,
             )
 
     t_forecast_list = sliding_result.t_forecast
@@ -1648,6 +1770,9 @@ def evaluate_sliding_window_forecast_plots(
 
     if not save_plots:
         return result_payload
+
+    plot_output_dir = Path(plot_output_dir) if plot_output_dir is not None else checkpoint_dir
+    plot_output_dir.mkdir(parents=True, exist_ok=True)
 
     base_start_ts, freq_td_local = resolve_catalog_time_reference(catalog_ds)
     base_start_ts = pd.Timestamp(base_start_ts)
@@ -1746,7 +1871,7 @@ def evaluate_sliding_window_forecast_plots(
     )
     ax.legend(frameon=False, ncol=2, loc="upper left")
     fig.tight_layout()
-    save_pub_figure(fig, checkpoint_dir / "forecast_counts_over_time.png")
+    save_pub_figure(fig, plot_output_dir / "forecast_counts_over_time.png")
     plt.show()
 
     # 2) Error over time
@@ -1822,7 +1947,7 @@ def evaluate_sliding_window_forecast_plots(
     )
     ax.legend(frameon=False, loc="upper left")
     fig.tight_layout()
-    save_pub_figure(fig, checkpoint_dir / "forecast_error_over_time.png")
+    save_pub_figure(fig, plot_output_dir / "forecast_error_over_time.png")
     plt.show()
 
     # 3) Coverage over time
@@ -1855,7 +1980,7 @@ def evaluate_sliding_window_forecast_plots(
     format_days_since_axis(ax, reference_ts=base_start_ts)
     ax.legend(frameon=False, loc="lower left")
     fig.tight_layout()
-    save_pub_figure(fig, checkpoint_dir / "forecast_pi_coverage_over_time.png")
+    save_pub_figure(fig, plot_output_dir / "forecast_pi_coverage_over_time.png")
     plt.show()
 
     # 4) Observed vs forecast scatter
@@ -1921,7 +2046,7 @@ def evaluate_sliding_window_forecast_plots(
     ax.set_aspect("equal", adjustable="box")
     ax.legend(frameon=False, loc="upper left")
     fig.tight_layout()
-    save_pub_figure(fig, checkpoint_dir / "obs_vs_forecast_scatter.png")
+    save_pub_figure(fig, plot_output_dir / "obs_vs_forecast_scatter.png")
     plt.show()
 
     # 5) Max magnitude: true vs forecast (if available)
@@ -1998,7 +2123,7 @@ def evaluate_sliding_window_forecast_plots(
             if handles:
                 ax.legend(frameon=False, loc="upper left")
             fig.tight_layout()
-            save_pub_figure(fig, checkpoint_dir / "forecast_mag_max_over_time.png")
+            save_pub_figure(fig, plot_output_dir / "forecast_mag_max_over_time.png")
             plt.show()
 
             # Scatter plot observed vs forecast max magnitude
@@ -2021,7 +2146,7 @@ def evaluate_sliding_window_forecast_plots(
                 ax.set_aspect("equal", adjustable="box")
                 ax.legend(frameon=False, loc="upper left")
                 fig.tight_layout()
-                save_pub_figure(fig, checkpoint_dir / "obs_vs_forecast_mag_max_scatter.png")
+                save_pub_figure(fig, plot_output_dir / "obs_vs_forecast_mag_max_scatter.png")
                 plt.show()
 
     return result_payload

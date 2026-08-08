@@ -164,34 +164,42 @@ python scripts/run_sliding_window_forecast_for_seeds.py \
 
 
 python scripts/run_sliding_window_forecast_for_seeds.py \
-  --jobs 6 \
-    --runs-dir experiments/etas_multi_ds_bg_split_0.7/runs \
+  --jobs 3 \
+    --runs-dir experiments/rtpp_v2_multi_bg_split_0.7/runs \
     --seeds 0 1 2 \
     --metrics-only \
     --metrics-filename sliding_window_eval_metrics_test_trunc.json \
-    --skip-existing-ok \
     -- \
-    --eval-range test \
-    --include-truncated-final-window
+    --eval-range test 
 
-python scripts/run_sliding_window_forecast_for_seeds.py \
-      --runs-dir experiments/rtpp_v2_multi_bg_split_0.7/runs \
-      --jobs 2 \
-      --seeds 0 1 2 \
-      --metrics-only \
-      --metrics-filename sliding_window_eval_metrics_test_trunc.json \
-      --skip-existing-ok \
-      --continue-on-error \
-      -- \
-      --eval-range test \
-      --include-truncated-final-window 
+  python scripts/run_sliding_window_forecast_for_seeds.py \
+    --runs-dir experiments/rtpp_v2_multi_bg_split_0.7/runs \
+    --jobs 3 \
+    --seeds 0 1 2 \
+    --metrics-only \
+    --metrics-filename sliding_window_eval_metrics_test_trunc.json \
+    --continue-on-error \
+    -- \
+    --eval-range test 
 
      
   python scripts/summarize_sliding_window_eval.py \
-      --exp_dir experiments/oracle_multi_dataset_0.7 \
-      --metrics_filename sliding_window_eval_metrics_test_trunc.json
+      --exp_dir experiments/rtpp_v2_multi_bg_split_0.7 \
+      --metrics_filename sliding_window_eval_metrics_test_trunc.json\
+      --exclude-truncated-final-window
 
-    python scripts/summarize_sliding_window_eval.py \
-    --exp_dir experiments/etas_multi_ds_bg_split_0.7 \
+  python scripts/summarize_sliding_window_eval.py \
+    --exp_dir experiments/etas_multi_ds_bg_split_0.7  \
     --metrics_filename sliding_window_eval_metrics_test_trunc.json \
     --exclude-truncated-final-window
+
+  python scripts/run_sliding_window_forecast_for_seeds.py \
+    --jobs 3 \
+    --runs-dir experiments/rtpp_v2_multi_bg_split_0.7/runs \
+    --seeds 0 1 2 \
+    --metrics-only \
+    --metrics-filename sliding_window_eval_metrics_test_trunc.json \
+    -- \
+    --eval-range test \
+    --force-recompute \
+    --no-load-cache

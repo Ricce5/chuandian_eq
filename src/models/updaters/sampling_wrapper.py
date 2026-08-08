@@ -215,6 +215,7 @@ class UpdaterSamplingWrapper:
                     if self.updater_cfg:
                         kwargs.setdefault("updater_cfg", dict(self.updater_cfg))
 
+        kwargs = _select_supported_kwargs(self.model.sample, kwargs)
         return self.model.sample(
             batch_size=batch_size,
             duration=duration,

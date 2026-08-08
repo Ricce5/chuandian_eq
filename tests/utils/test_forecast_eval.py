@@ -10,8 +10,11 @@ import pytest
 import torch
 
 from src.utils.forecast_eval import (
+    LEGACY_FULL_RANGE_SLIDING_CACHE_VERSION,
+    RANGE_AWARE_SLIDING_CACHE_VERSION,
     SlidingWindowEvaluationRange,
     SlidingWindowForecastConfig,
+    SUPPORTED_SLIDING_CACHE_VERSIONS,
     _build_sliding_window_bounds,
     _build_sliding_window_starts,
     _limit_range_to_background_cache,
@@ -116,6 +119,31 @@ def _sequence_with_last_arrival_at_95() -> _SequenceStub:
     return _SequenceStub(
         np.r_[np.arange(1.0, 92.0, 10.0), 95.0],
         t_end=100.0,
+    )
+
+
+def _save_legacy_v2_sliding_cache(
+    cache_path: Path,
+    metadata,
+    *,
+    cache_version: int = LEGACY_FULL_RANGE_SLIDING_CACHE_VERSION,
+) -> None:
+    np.savez_compressed(
+        cache_path,
+        cache_version=np.int64(cache_version),
+        duration=np.float64(metadata["duration"]),
+        slide_step=np.float64(metadata["slide_step"]),
+        quantile_low=np.float64(metadata["quantile_low"]),
+        quantile_high=np.float64(metadata["quantile_high"]),
+        samples_per_batch=np.int64(metadata["samples_per_batch"]),
+        predict_b_mode=np.int64(metadata["predict_b_mode"]),
+        seq_start=np.float64(metadata["seq_start"]),
+        seq_end=np.float64(metadata["seq_end"]),
+        t_forecast_list=np.array([11.0, 21.0], dtype=np.float64),
+        counts_list=np.array([1, 2], dtype=np.int64),
+        q_list=np.array([[0.0, 2.0], [0.0, 3.0]], dtype=np.float64),
+        mean_list=np.array([1.0, 2.0], dtype=np.float64),
+        sim_count_matrix=np.array([[1, 1], [2, 2]], dtype=np.int32),
     )
 
 
@@ -235,6 +263,134 @@ def test_sliding_cache_separates_truncated_window_policy(tmp_path):
         cache_path,
         metadata=metadata_without_tail,
     ) is None
+
+
+def test_sliding_cache_supports_only_v2_and_v4():
+    assert SUPPORTED_SLIDING_CACHE_VERSIONS == frozenset(
+        {
+            LEGACY_FULL_RANGE_SLIDING_CACHE_VERSION,
+            RANGE_AWARE_SLIDING_CACHE_VERSION,
+        }
+    )
+    assert len(SUPPORTED_SLIDING_CACHE_VERSIONS) == 2
+
+
+def test_legacy_v2_cache_loads_for_unseeded_full_range(tmp_path):
+    seq = _sequence_with_last_arrival_at_95()
+    metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+    )
+    cache_path = tmp_path / "legacy_v2.npz"
+    _save_legacy_v2_sliding_cache(cache_path, metadata)
+
+    loaded = load_sliding_window_cache_if_compatible(
+        cache_path,
+        metadata=metadata,
+    )
+
+    assert loaded is not None
+    np.testing.assert_allclose(loaded.t_forecast, [11.0, 21.0])
+    np.testing.assert_array_equal(loaded.counts, [1, 2])
+    assert loaded.t_window_end is None
+
+
+def test_legacy_v2_cache_does_not_load_for_ranged_or_truncated_requests(
+    tmp_path,
+):
+    seq = _sequence_with_last_arrival_at_95()
+    base_metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+    )
+    cache_path = tmp_path / "legacy_v2.npz"
+    _save_legacy_v2_sliding_cache(cache_path, base_metadata)
+
+    ranged_metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+        evaluation_range=SlidingWindowEvaluationRange(
+            name="test",
+            start=50.0,
+            end=70.0,
+        ),
+    )
+    truncated_metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+        include_truncated_final_window=True,
+    )
+    assert load_sliding_window_cache_if_compatible(
+        cache_path,
+        metadata=ranged_metadata,
+    ) is None
+    assert load_sliding_window_cache_if_compatible(
+        cache_path,
+        metadata=truncated_metadata,
+    ) is None
+
+
+def test_legacy_v2_cache_ignores_seed_because_schema_has_no_seed(tmp_path):
+    seq = _sequence_with_last_arrival_at_95()
+    base_metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+    )
+    cache_path = tmp_path / "legacy_v2.npz"
+    _save_legacy_v2_sliding_cache(cache_path, base_metadata)
+
+    seeded_metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+        sampling_seed=7,
+    )
+
+    assert load_sliding_window_cache_if_compatible(
+        cache_path,
+        metadata=seeded_metadata,
+    ) is not None
+
+
+def test_sliding_cache_rejects_v1_and_v3(tmp_path):
+    seq = _sequence_with_last_arrival_at_95()
+    metadata = build_sliding_cache_metadata(
+        seq,
+        duration=10.0,
+        slide_step=10.0,
+        quantiles=(2.5, 97.5),
+        samples_per_batch=2,
+    )
+
+    for cache_version in (1, 3):
+        cache_path = tmp_path / f"legacy_v{cache_version}.npz"
+        _save_legacy_v2_sliding_cache(
+            cache_path,
+            metadata,
+            cache_version=cache_version,
+        )
+
+        assert load_sliding_window_cache_if_compatible(
+            cache_path,
+            metadata=metadata,
+        ) is None
 
 
 def test_evaluation_range_limits_targets_but_retains_full_history():
@@ -523,6 +679,14 @@ def test_evaluator_cache_preserves_truncated_window_endpoints(tmp_path):
     np.testing.assert_allclose(computed["t_forecast_list"], [50.0, 60.0])
     np.testing.assert_allclose(computed["t_window_end_list"], [60.0, 67.0])
     np.testing.assert_allclose(loaded["t_window_end_list"], [60.0, 67.0])
+    assert computed["mag_max_mae"] is not None
+    assert loaded["mag_max_mae"] == computed["mag_max_mae"]
+    with np.load(computed["sliding_cache_path"], allow_pickle=False) as data:
+        assert "t_window_end_list" in data.files
+        assert "mag_max" in data.files
+        assert "mag_max_quantiles" in data.files
+        assert "mag_max_mean" in data.files
+        assert "sim_mag_max_matrix" in data.files
     assert model.sample_durations == [10.0, 7.0]
 
 
