@@ -431,26 +431,47 @@ class RecurrentTPPSamplingMixin:
             time_remaining = None
             next_inter_times[~active_mask, 0] = 0.0
 
-            # A background inverse sampler can round a tiny tail interval to
-            # zero in float32. Treat a non-advancing sample as having no more
-            # events in the remaining horizon; otherwise the loop can never
-            # make progress on a truncated final window.
+            # Exact zero means the sampler cannot advance this path. Positive
+            # sub-ULP waits are different: they represent extremely close
+            # events and should be nudged to the smallest representable step
+            # instead of ending the forecast early.
             next_inter_time_values = next_inter_times.squeeze(-1)
             proposed_total_time = torch.minimum(
                 total_time + next_inter_time_values,
                 duration_t,
             )
-            no_progress_mask = active_mask & (
-                proposed_total_time <= total_time
-            )
-            if bool(no_progress_mask.any().item()):
+            no_progress_mask = active_mask & (proposed_total_time <= total_time)
+            positive_no_progress_mask = no_progress_mask & (next_inter_time_values > 0.0)
+            if bool(positive_no_progress_mask.any().item()):
+                next_total_time = torch.nextafter(
+                    total_time,
+                    torch.full_like(total_time, float("inf")),
+                )
+                min_progress = (next_total_time - total_time).clamp_min(
+                    torch.finfo(total_time.dtype).tiny
+                )
+                progressed_values = torch.minimum(
+                    torch.maximum(next_inter_time_values, min_progress),
+                    remaining_time,
+                )
                 next_inter_time_values = torch.where(
-                    no_progress_mask,
+                    positive_no_progress_mask,
+                    progressed_values,
+                    next_inter_time_values,
+                )
+
+            zero_no_progress_mask = no_progress_mask & (next_inter_time_values <= 0.0)
+            if bool(zero_no_progress_mask.any().item()):
+                next_inter_time_values = torch.where(
+                    zero_no_progress_mask,
                     remaining_time,
                     next_inter_time_values,
                 )
+
+            if bool(no_progress_mask.any().item()):
                 next_inter_times = next_inter_time_values.unsqueeze(-1)
 
+            event_mask = active_mask & ~zero_no_progress_mask
             inter_time_list.append(next_inter_times)
 
             rnn_input_list = [self.encode_time(next_inter_times)]
@@ -491,13 +512,13 @@ class RecurrentTPPSamplingMixin:
                         mag_max=mag_max,
                     )
                     next_mag = mag_dist.sample()
-                    next_mag[~active_mask, 0] = float(self.mag_completeness)
+                    next_mag[~event_mask, 0] = float(self.mag_completeness)
                     t_event = t_start + total_time + next_inter_times.squeeze(-1)
                     self._update_updater_state(
                         updater_state,
                         mags=next_mag if next_mag.ndim == 2 else next_mag.unsqueeze(-1),
                         times=t_event,
-                        active_mask=active_mask,
+                        active_mask=event_mask,
                     )
 
                 if next_mag.ndim == 1:
@@ -512,8 +533,8 @@ class RecurrentTPPSamplingMixin:
             )
             next_state = next_state.detach()
             next_hidden = next_hidden.detach()
-            state_mask = active_mask.view(batch_size, 1, 1)
-            hidden_mask = active_mask.view(1, batch_size, 1)
+            state_mask = event_mask.view(batch_size, 1, 1)
+            hidden_mask = event_mask.view(1, batch_size, 1)
             current_state = torch.where(state_mask, next_state, current_state)
             current_hidden = torch.where(hidden_mask, next_hidden, current_hidden)
 

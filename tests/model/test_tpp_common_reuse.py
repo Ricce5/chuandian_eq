@@ -187,3 +187,21 @@ def test_build_sample_batch_adds_survival_slot_when_event_slots_are_full():
     seq = batch.to_list()[0]
     torch.testing.assert_close(seq.inter_times, torch.tensor([1.0, 1.0, 3.0]))
     torch.testing.assert_close(seq.mag, torch.tensor([2.5, 3.0]))
+
+
+def test_build_sample_batch_treats_zero_waits_as_padding():
+    batch = build_sample_batch(
+        inter_times=torch.tensor([[1.0, 0.0, 2.0]], dtype=torch.float32),
+        t_start=0.0,
+        t_end=5.0,
+        device=torch.device("cpu"),
+        clamp_last_surv_time=True,
+    )
+
+    assert int(batch.end_idx.item()) == 1
+    torch.testing.assert_close(batch.inter_times[0, :2], torch.tensor([1.0, 4.0]))
+
+    seq = batch.to_list()[0]
+    assert len(seq) == 1
+    torch.testing.assert_close(seq.inter_times, torch.tensor([1.0, 4.0]))
+    assert not bool((seq.inter_times[:-1] == 0).any().item())

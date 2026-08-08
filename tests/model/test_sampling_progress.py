@@ -41,6 +41,26 @@ class _ZeroInterTimeModel(RecurrentTPPSamplingMixin):
         return torch.zeros(2, 1, device=self.device)
 
 
+class _TinyPositiveInterTimeModel(_ZeroInterTimeModel):
+    def __init__(self):
+        self.calls = 0
+
+    def sample_next_inter_time(
+        self,
+        inter_time_dist,
+        t_last_event=None,
+        lower_bound=None,
+        max_inter_time=None,
+    ):
+        del inter_time_dist, t_last_event, lower_bound
+        self.calls += 1
+        if self.calls == 1:
+            return torch.tensor([[1.0]], device=self.device)
+        if self.calls == 2:
+            return torch.tensor([[1e-8]], device=self.device)
+        return torch.as_tensor(max_inter_time, device=self.device).reshape(1, 1)
+
+
 def test_sampling_terminates_when_inter_time_does_not_advance():
     model = _ZeroInterTimeModel()
 
@@ -52,3 +72,18 @@ def test_sampling_terminates_when_inter_time_does_not_advance():
 
     assert len(sampled) == 2
     assert all(len(sequence) == 0 for sequence in sampled)
+
+
+def test_sampling_keeps_tiny_positive_inter_time_as_event():
+    model = _TinyPositiveInterTimeModel()
+
+    sampled = model.sample(
+        batch_size=1,
+        duration=2.0,
+        return_sequences=True,
+    )
+
+    sequence = sampled[0]
+    assert len(sequence) == 2
+    assert torch.all(sequence.inter_times[:-1] > 0.0)
+    assert sequence.arrival_times[1] > sequence.arrival_times[0]

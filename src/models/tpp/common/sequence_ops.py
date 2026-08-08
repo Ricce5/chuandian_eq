@@ -48,7 +48,8 @@ def build_sample_batch(
     duration = float(t_end - t_start)
 
     unclipped_arrival_times = inter_times.cumsum(-1)
-    padding_mask = unclipped_arrival_times > duration - epsilon
+    zero_padding = (inter_times == 0.0).to(torch.int64).cummax(dim=-1).values.bool()
+    padding_mask = (unclipped_arrival_times > duration - epsilon) | zero_padding
     inter_times = torch.masked_fill(inter_times, padding_mask, 0.0)
     end_idx = (1 - padding_mask.long()).sum(-1)
 
