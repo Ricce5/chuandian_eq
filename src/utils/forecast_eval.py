@@ -29,6 +29,15 @@ DEFAULT_PLOT_COLORS: dict[str, str] = {
     "above": "#9467bd",
 }
 
+DEFAULT_SLIDING_PLOT_FIGSIZES: dict[str, tuple[float, float]] = {
+    "counts": (10.5, 4.4),
+    "error": (10.5, 3.8),
+    "coverage": (10.5, 3.2),
+    "count_scatter": (6.8, 6.2),
+    "mag_max": (10.5, 4.2),
+    "mag_max_scatter": (6.8, 6.2),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class SlidingWindowEvaluationRange:
@@ -1599,12 +1608,25 @@ def evaluate_sliding_window_forecast_plots(
     sliding_cache_filename: str | None = None,
     sampling_seed: int | None = None,
     plot_colors: Mapping[str, str] | None = None,
+    plot_figsizes: Mapping[str, tuple[float, float]] | None = None,
     save_plots: bool = True,
     plot_output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     colors = dict(DEFAULT_PLOT_COLORS)
     if plot_colors is not None:
         colors.update(plot_colors)
+    figsizes = dict(DEFAULT_SLIDING_PLOT_FIGSIZES)
+    if plot_figsizes is not None:
+        for name, figsize in plot_figsizes.items():
+            if name not in figsizes:
+                available = ", ".join(sorted(figsizes))
+                raise KeyError(f"Unknown plot_figsizes key {name!r}. Available keys: {available}")
+            if len(figsize) != 2:
+                raise ValueError(f"plot_figsizes[{name!r}] must be a (width, height) tuple.")
+            width, height = float(figsize[0]), float(figsize[1])
+            if width <= 0 or height <= 0:
+                raise ValueError(f"plot_figsizes[{name!r}] values must be positive.")
+            figsizes[name] = (width, height)
 
     _cache_background_sequence(model, bg_cache_seq)
     resolved_range = resolve_sliding_window_evaluation_range(
@@ -1813,7 +1835,7 @@ def evaluate_sliding_window_forecast_plots(
         counts_title = "Counts: true vs forecast (full range)"
         cap_note = ""
 
-    fig, ax = plt.subplots(figsize=(10.5, 4.4))
+    fig, ax = plt.subplots(figsize=figsizes["counts"])
     ax.plot(
         t_forecast_ts,
         counts_list,
@@ -1869,7 +1891,7 @@ def evaluate_sliding_window_forecast_plots(
         fontsize=9,
         bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
     )
-    ax.legend(frameon=False, ncol=2, loc="upper left")
+    ax.legend(frameon=False, ncol=2, loc="upper right")
     fig.tight_layout()
     save_pub_figure(fig, plot_output_dir / "forecast_counts_over_time.png")
     plt.show()
@@ -1896,7 +1918,7 @@ def evaluate_sliding_window_forecast_plots(
         err_title = "Forecast error over time (zoomed)"
         err_ylim = clip_lim
 
-    fig, ax = plt.subplots(figsize=(10.5, 3.8))
+    fig, ax = plt.subplots(figsize=figsizes["error"])
     ax.plot(
         t_forecast_ts,
         err_plot,
@@ -1945,7 +1967,7 @@ def evaluate_sliding_window_forecast_plots(
         fontsize=9,
         bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
     )
-    ax.legend(frameon=False, loc="upper left")
+    ax.legend(frameon=False, loc="upper right")
     fig.tight_layout()
     save_pub_figure(fig, plot_output_dir / "forecast_error_over_time.png")
     plt.show()
@@ -1953,7 +1975,7 @@ def evaluate_sliding_window_forecast_plots(
     # 3) Coverage over time
     covered_i = covered.astype(int)
     coverage_t_step, coverage_v_step = build_post_step(t_forecast_ts, covered_i, inferred_step_td)
-    fig, ax = plt.subplots(figsize=(10.5, 3.2))
+    fig, ax = plt.subplots(figsize=figsizes["coverage"])
     ax.step(
         coverage_t_step,
         coverage_v_step,
@@ -1978,7 +2000,7 @@ def evaluate_sliding_window_forecast_plots(
     ax.set_title("Coverage over time")
     style_axes(ax, xlabel=time_xlabel, ylabel="in PI")
     format_days_since_axis(ax, reference_ts=base_start_ts)
-    ax.legend(frameon=False, loc="lower left")
+    ax.legend(frameon=False, loc="upper right")
     fig.tight_layout()
     save_pub_figure(fig, plot_output_dir / "forecast_pi_coverage_over_time.png")
     plt.show()
@@ -2031,7 +2053,7 @@ def evaluate_sliding_window_forecast_plots(
         if ylim is not None:
             ax.set_ylim(ylim)
 
-    fig, ax = plt.subplots(figsize=(6.8, 6.2))
+    fig, ax = plt.subplots(figsize=figsizes["count_scatter"])
     if scatter_mode == "zoomed":
         zoom_low = scatter_min - max(0.03 * scatter_zoom_max, 0.5)
         zoom_high = scatter_zoom_max
@@ -2044,7 +2066,7 @@ def evaluate_sliding_window_forecast_plots(
     else:
         draw_scatter(ax, f"Observed vs Forecast Counts (full range) | Coverage: {coverage:.2%}")
     ax.set_aspect("equal", adjustable="box")
-    ax.legend(frameon=False, loc="upper left")
+    ax.legend(frameon=False, loc="upper right")
     fig.tight_layout()
     save_pub_figure(fig, plot_output_dir / "obs_vs_forecast_scatter.png")
     plt.show()
@@ -2059,7 +2081,7 @@ def evaluate_sliding_window_forecast_plots(
         pred_finite_mask = np.isfinite(mag_max_mean_arr)
         if np.any(obs_finite_mask) or np.any(pred_finite_mask):
             # Time series of max magnitude
-            fig, ax = plt.subplots(figsize=(10.5, 4.2))
+            fig, ax = plt.subplots(figsize=figsizes["mag_max"])
             if np.any(obs_finite_mask):
                 ax.plot(
                     t_forecast_ts[obs_finite_mask],
@@ -2121,14 +2143,14 @@ def evaluate_sliding_window_forecast_plots(
             )
             handles, labels = ax.get_legend_handles_labels()
             if handles:
-                ax.legend(frameon=False, loc="upper left")
+                ax.legend(frameon=False, loc="upper right")
             fig.tight_layout()
             save_pub_figure(fig, plot_output_dir / "forecast_mag_max_over_time.png")
             plt.show()
 
             # Scatter plot observed vs forecast max magnitude
             if np.any(paired_finite_mask):
-                fig, ax = plt.subplots(figsize=(6.8, 6.2))
+                fig, ax = plt.subplots(figsize=figsizes["mag_max_scatter"])
                 ax.scatter(
                     mag_max_arr[paired_finite_mask],
                     mag_max_mean_arr[paired_finite_mask],
@@ -2144,7 +2166,7 @@ def evaluate_sliding_window_forecast_plots(
                 style_axes(ax, xlabel="Observed max mag", ylabel="Forecast max mag mean")
                 ax.set_title(f"Observed vs Forecast Max Magnitude | MAE: {mag_max_mae_display:.2f}" if mag_max_mae_display is not None and np.isfinite(mag_max_mae_display) else "Observed vs Forecast Max Magnitude")
                 ax.set_aspect("equal", adjustable="box")
-                ax.legend(frameon=False, loc="upper left")
+                ax.legend(frameon=False, loc="upper right")
                 fig.tight_layout()
                 save_pub_figure(fig, plot_output_dir / "obs_vs_forecast_mag_max_scatter.png")
                 plt.show()
