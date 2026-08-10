@@ -203,3 +203,8 @@ python scripts/run_sliding_window_forecast_for_seeds.py \
     --eval-range test \
     --force-recompute \
     --no-load-cache
+
+  python scripts/run_sliding_window_forecast_for_seeds.py \
+    --jobs 3 \
+    --runs-dir experiments/etas_multi_ds_bg_split_0.7/runs \
+    --seeds 0 1 2 

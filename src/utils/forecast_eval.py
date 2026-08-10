@@ -30,7 +30,7 @@ DEFAULT_PLOT_COLORS: dict[str, str] = {
 }
 
 DEFAULT_SLIDING_PLOT_FIGSIZES: dict[str, tuple[float, float]] = {
-    "counts": (10.5, 4.4),
+    "counts": (12, 3.8),
     "error": (10.5, 3.8),
     "coverage": (10.5, 3.2),
     "count_scatter": (6.8, 6.2),
